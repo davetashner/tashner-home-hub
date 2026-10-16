@@ -132,4 +132,16 @@ test('the header clock keeps the time on one line with a crowded header', async 
 		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
 	);
 	expect(overflow).toBeLessThanOrEqual(0);
+	// Landscape has the width: the clock and the controls share one row instead of stacking.
+	const { width, height: viewHeight } = page.viewportSize()!;
+	if (width > viewHeight) {
+		const clock = (await time.locator('xpath=ancestor::a').boundingBox())!;
+		const sleep = (await page.getByRole('button', { name: 'Sleep' }).boundingBox())!;
+		expect(sleep.y).toBeGreaterThanOrEqual(clock.y);
+		expect(sleep.y).toBeLessThan(clock.y + clock.height);
+		// The tappable link hugs the clock text, so it cannot swallow the row and send stray taps home.
+		const date = (await page.getByTestId('header-clock-date').boundingBox())!;
+		const content = Math.max((await time.boundingBox())!.width, date.width);
+		expect(clock.width).toBeLessThanOrEqual(content + 1);
+	}
 });
