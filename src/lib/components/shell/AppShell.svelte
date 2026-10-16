@@ -73,7 +73,7 @@
 			<a
 				href={resolve('/(app)')}
 				data-sveltekit-preload-data="tap"
-				class="press-link block rounded-control max-sm:hidden"
+				class="press-link block min-w-0 rounded-control max-sm:hidden"
 			>
 				<Clock testidPrefix="header-clock" />
 			</a>

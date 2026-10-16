@@ -21,9 +21,13 @@
 	const clock = $derived(formatClock(now, zone ? { timeZone: zone } : {}));
 </script>
 
-<div class="flex flex-col {size === 'hero' ? 'items-center gap-4' : 'items-start gap-1'}">
+<div
+	class="flex flex-col {size === 'hero'
+		? 'items-center gap-4'
+		: 'max-w-full min-w-0 items-start gap-1'}"
+>
 	<p
-		class="leading-none font-extrabold tabular-nums {size === 'hero'
+		class="leading-none font-extrabold whitespace-nowrap tabular-nums {size === 'hero'
 			? 'text-display'
 			: 'text-headline'}"
 		data-testid="{testidPrefix}-time"
@@ -31,7 +35,7 @@
 		{clock.time}
 	</p>
 	<p
-		class="text-ink-muted {size === 'hero' ? 'text-title' : 'text-lead'}"
+		class="text-ink-muted {size === 'hero' ? 'text-title' : 'max-w-full truncate text-lead'}"
 		data-testid="{testidPrefix}-date"
 	>
 		{clock.date}

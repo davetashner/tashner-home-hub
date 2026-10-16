@@ -83,3 +83,22 @@ test('header clock and date are visible away from home', async ({ page }) => {
 	await expect(page.getByTestId('header-clock-time')).toBeVisible();
 	await expect(page.getByTestId('header-clock-date')).toBeVisible();
 });
+
+test('the header clock keeps the time on one line without horizontal overflow', async ({
+	page
+}) => {
+	await page.goto('/chores');
+	await page.waitForLoadState('networkidle');
+	if (page.viewportSize()!.width < 640) return; // the phone header hides the clock
+	const time = page.getByTestId('header-clock-time');
+	await expect(time).toBeVisible();
+	const { height, lineHeight } = await time.evaluate((el) => ({
+		height: el.getBoundingClientRect().height,
+		lineHeight: parseFloat(getComputedStyle(el).lineHeight)
+	}));
+	expect(height).toBeLessThan(lineHeight * 1.5);
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
+});
