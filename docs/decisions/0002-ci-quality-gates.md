@@ -1,6 +1,6 @@
 # ADR 0002 — CI Quality Gates for Unattended Builds
 
-- **Status:** Proposed (awaiting approval)
+- **Status:** Accepted (2026-10-16). Repo stays **public**; the self-hosted runner is restricted to trusted events.
 - **Date:** 2026-10-16
 - **Related:** [ADR 0001](0001-tech-stack.md), [requirements.md](../../requirements.md) §4, §9
 
@@ -26,6 +26,7 @@ Three principles:
 | Test integrity | Custom script | `.only` is present, or the count of `.skip`/`todo` tests goes up, or any test file is deleted, unless the PR has the `human-approved` label. |
 | DB migrations | drizzle-kit | Schema and migrations are out of sync, or migrating from an empty DB fails, or the previous release's DB fails to migrate. |
 | Security | `osv-scanner`, `gitleaks` | Any **critical or high** CVE in dependencies (user rule); any secret detected. |
+| Private data | `gitleaks` custom rules + `exiftool` + fixture check | Any committed image has EXIF GPS or camera-owner metadata; a fixture uses a non-synthetic name, email, or phone pattern; any file appears under a `data/`, `photos/`, or `.env*` path. The repo is public. |
 | Licenses | `license-checker` | A dependency's license isn't on the allow-list (MIT, Apache-2.0, BSD, ISC, …). |
 | Commit hygiene | DCO check, PR-body check | Missing `Signed-off-by`, or no `Closes hub-…` line in the PR body. |
 | Container | `docker buildx` (amd64) + smoke test | The image doesn't build, or the healthcheck fails within 30 s. |
@@ -43,7 +44,7 @@ All run in Playwright against a production build with **seeded fixture data and 
 | **Load performance** | Lighthouse CI (desktop, 4× CPU throttle) | Performance < **95**, LCP > 1.5 s, CLS > 0.02, TBT > 100 ms. |
 | **Offline** | Playwright with network blocked after warm-up | Any screen fails to render from cache, or a queued chore completion is lost after reconnect. |
 | **Critical flows (E2E)** | Playwright | Any failure in: complete chore → pending star → parent approves (phone context) → gold star on wall; reward redemption with PIN; sleep-now → wake; calendar view switching; photo frame start after idle. |
-| **Visual regression** | Playwright screenshots of every screen × **1080p / 1440p / 4K** × **day / night theme**, fonts bundled, animations frozen | Pixel diff over threshold vs. committed baselines. **Baseline updates need the `visual-approved` label from a human.** |
+| **Visual regression** | Playwright screenshots of every screen × **landscape 1080p / 1440p / 4K and portrait 1080×1920 / 1440×2560** × **day / night theme**, fonts bundled, animations frozen | Pixel diff over threshold vs. committed baselines, or any portrait layout with horizontal overflow or clipped controls. **Baseline updates need the `visual-approved` label from a human.** |
 | **Accessibility** | `@axe-core/playwright` on every screen | Any *serious* or *critical* violation; contrast below WCAG AA. |
 | **Kid-friendly touch** | Custom Playwright check: measures every interactive element | Any tap target < **60 px**, or < **96 px** on kid screens (chores, rewards). Hover-only interactions. |
 | **Readable from across the room** | Custom check on computed styles | Body text < 24 px at 1440p on wall screens; clock/date header below the size set in design tokens. |
