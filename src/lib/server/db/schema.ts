@@ -1,0 +1,232 @@
+/**
+ * Database schema (requirements §7).
+ *
+ * Conventions:
+ * - Timestamps are INTEGER Unix epoch milliseconds (UTC). Convert at the edges.
+ * - Calendar dates with no time (chore completion day) are TEXT `YYYY-MM-DD` in the
+ *   household's local time zone.
+ * - Booleans are INTEGER 0/1 (Drizzle `mode: 'boolean'`).
+ * - Credential columns hold an opaque encrypted blob as TEXT (encryption is hub-8lc.7).
+ * - Star balance is NEVER stored; it is computed from `star_transactions`.
+ */
+import { sql } from 'drizzle-orm';
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+
+const id = () => text('id').primaryKey();
+const createdAt = () =>
+	integer('created_at', { mode: 'number' })
+		.notNull()
+		.default(sql`(unixepoch('subsec') * 1000)`);
+const ms = (name: string) => integer(name, { mode: 'number' });
+
+export const ROLES = ['adult', 'child'] as const;
+export const PROVIDERS = ['google', 'icloud', 'ics'] as const;
+export const COMPLETION_STATUSES = ['pending', 'approved', 'rejected', 'undone'] as const;
+export const STAR_REASONS = ['chore', 'bonus', 'streak', 'redemption', 'adjustment'] as const;
+
+export const members = sqliteTable('members', {
+	id: id(),
+	name: text('name').notNull(),
+	role: text('role', { enum: ROLES }).notNull(),
+	color: text('color').notNull(),
+	avatar: text('avatar'),
+	pinHash: text('pin_hash'),
+	createdAt: createdAt()
+});
+
+export const calendarSources = sqliteTable('calendar_sources', {
+	id: id(),
+	provider: text('provider', { enum: PROVIDERS }).notNull(),
+	label: text('label').notNull(),
+	/** Opaque encrypted blob (hub-8lc.7). */
+	credentials: text('credentials'),
+	/** JSON: [{ externalId, name, memberId }] */
+	calendars: text('calendars').notNull().default('[]'),
+	lastSyncAt: ms('last_sync_at'),
+	createdAt: createdAt()
+});
+
+export const events = sqliteTable(
+	'events',
+	{
+		id: id(),
+		sourceId: text('source_id')
+			.notNull()
+			.references(() => calendarSources.id, { onDelete: 'cascade' }),
+		externalId: text('external_id').notNull(),
+		title: text('title').notNull(),
+		startsAt: ms('starts_at').notNull(),
+		endsAt: ms('ends_at').notNull(),
+		allDay: integer('all_day', { mode: 'boolean' }).notNull().default(false),
+		recurrence: text('recurrence'),
+		location: text('location'),
+		notes: text('notes'),
+		/** JSON array of member ids. */
+		memberIds: text('member_ids').notNull().default('[]')
+	},
+	(t) => [
+		uniqueIndex('events_source_external_idx').on(t.sourceId, t.externalId),
+		index('events_starts_at_idx').on(t.startsAt)
+	]
+);
+
+export const photoSources = sqliteTable('photo_sources', {
+	id: id(),
+	kind: text('kind').notNull(),
+	label: text('label').notNull(),
+	/** Opaque encrypted blob (hub-8lc.7). */
+	credentials: text('credentials'),
+	config: text('config').notNull().default('{}'),
+	createdAt: createdAt()
+});
+
+export const photos = sqliteTable(
+	'photos',
+	{
+		id: id(),
+		sourceId: text('source_id')
+			.notNull()
+			.references(() => photoSources.id, { onDelete: 'cascade' }),
+		album: text('album'),
+		filePath: text('file_path').notNull(),
+		width: integer('width'),
+		height: integer('height'),
+		takenAt: ms('taken_at'),
+		hidden: integer('hidden', { mode: 'boolean' }).notNull().default(false)
+	},
+	(t) => [uniqueIndex('photos_source_path_idx').on(t.sourceId, t.filePath)]
+);
+
+export const chores = sqliteTable('chores', {
+	id: id(),
+	title: text('title').notNull(),
+	icon: text('icon'),
+	/** JSON array of member ids. */
+	memberIds: text('member_ids').notNull().default('[]'),
+	stars: integer('stars').notNull().default(1),
+	/** RFC 5545 RRULE. */
+	schedule: text('schedule'),
+	timeOfDay: text('time_of_day'),
+	requiresApproval: integer('requires_approval', { mode: 'boolean' }).notNull().default(false),
+	archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
+	createdAt: createdAt()
+});
+
+export const choreCompletions = sqliteTable(
+	'chore_completions',
+	{
+		id: id(),
+		choreId: text('chore_id')
+			.notNull()
+			.references(() => chores.id, { onDelete: 'cascade' }),
+		memberId: text('member_id')
+			.notNull()
+			.references(() => members.id, { onDelete: 'cascade' }),
+		/** Local calendar day, YYYY-MM-DD. */
+		date: text('date').notNull(),
+		completedAt: ms('completed_at').notNull(),
+		status: text('status', { enum: COMPLETION_STATUSES }).notNull().default('pending'),
+		starsAwarded: integer('stars_awarded').notNull().default(0)
+	},
+	(t) => [index('chore_completions_member_date_idx').on(t.memberId, t.date)]
+);
+
+export const starTransactions = sqliteTable(
+	'star_transactions',
+	{
+		id: id(),
+		memberId: text('member_id')
+			.notNull()
+			.references(() => members.id, { onDelete: 'cascade' }),
+		delta: integer('delta').notNull(),
+		reason: text('reason', { enum: STAR_REASONS }).notNull(),
+		/** Completion id, redemption id, etc. */
+		refId: text('ref_id'),
+		note: text('note'),
+		/**
+		 * Only 'approved' rows count toward the balance. Chore stars awaiting approval
+		 * are 'pending'; rejected/undone rows are kept for audit.
+		 */
+		status: text('status', { enum: ['pending', 'approved', 'rejected'] as const })
+			.notNull()
+			.default('approved'),
+		createdAt: createdAt()
+	},
+	(t) => [index('star_transactions_member_idx').on(t.memberId)]
+);
+
+export const rewards = sqliteTable('rewards', {
+	id: id(),
+	title: text('title').notNull(),
+	image: text('image'),
+	cost: integer('cost').notNull(),
+	active: integer('active', { mode: 'boolean' }).notNull().default(true)
+});
+
+export const goals = sqliteTable('goals', {
+	id: id(),
+	memberId: text('member_id')
+		.notNull()
+		.references(() => members.id, { onDelete: 'cascade' }),
+	rewardId: text('reward_id')
+		.notNull()
+		.references(() => rewards.id, { onDelete: 'cascade' })
+});
+
+export const redemptions = sqliteTable('redemptions', {
+	id: id(),
+	rewardId: text('reward_id')
+		.notNull()
+		.references(() => rewards.id),
+	memberId: text('member_id')
+		.notNull()
+		.references(() => members.id, { onDelete: 'cascade' }),
+	approvedBy: text('approved_by').references(() => members.id, { onDelete: 'set null' }),
+	createdAt: createdAt()
+});
+
+export const lists = sqliteTable('lists', {
+	id: id(),
+	title: text('title').notNull(),
+	createdAt: createdAt()
+});
+
+export const listItems = sqliteTable('list_items', {
+	id: id(),
+	listId: text('list_id')
+		.notNull()
+		.references(() => lists.id, { onDelete: 'cascade' }),
+	text: text('text').notNull(),
+	done: integer('done', { mode: 'boolean' }).notNull().default(false),
+	position: integer('position').notNull().default(0)
+});
+
+export const mealPlanEntries = sqliteTable(
+	'meal_plan_entries',
+	{
+		id: id(),
+		/** Local calendar day, YYYY-MM-DD. */
+		date: text('date').notNull(),
+		meal: text('meal').notNull(),
+		title: text('title').notNull(),
+		notes: text('notes')
+	},
+	(t) => [index('meal_plan_date_idx').on(t.date)]
+);
+
+export const countdowns = sqliteTable('countdowns', {
+	id: id(),
+	title: text('title').notNull(),
+	/** Local calendar day, YYYY-MM-DD. */
+	targetDate: text('target_date').notNull(),
+	icon: text('icon')
+});
+
+export const settings = sqliteTable('settings', {
+	key: text('key').primaryKey(),
+	/** JSON-encoded value. */
+	value: text('value').notNull(),
+	updatedAt: ms('updated_at')
+		.notNull()
+		.default(sql`(unixepoch('subsec') * 1000)`)
+});

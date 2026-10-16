@@ -1,3 +1,8 @@
+# Native/install scripts pnpm may run (pnpm blocks them by default).
+allowBuilds:
+  better-sqlite3: true
+  esbuild: false
+
 # braces <=3.0.3 ReDoS/stack exhaustion (GHSA-vfj7-8cjw-p6xm), no patched release exists.
 # Reached only via the dev-only stylelint -> micromatch glob matching on patterns we author
 # (never untrusted input). Remove this once braces ships a fix. Protected audit exception.

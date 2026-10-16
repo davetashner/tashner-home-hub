@@ -40,5 +40,8 @@ test-results
 coverage/
 playwright-report/
 
+# Local compose data volume (never commit)
+/data/
+
 # Local kiosk settings (per-device)
 kiosk/kiosk.conf

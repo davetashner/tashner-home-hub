@@ -3,7 +3,10 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 RUN corepack enable
-COPY package.json pnpm-lock.yaml .npmrc ./
+# Toolchain for native modules (better-sqlite3 compiles from source when no prebuilt binary matches)
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+ && rm -rf /var/lib/apt/lists/*
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build && pnpm prune --prod
@@ -14,9 +17,17 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     DATA_DIR=/data
 ARG APP_VERSION=dev
+ARG VCS_REF=unknown
 ENV APP_VERSION=$APP_VERSION
+LABEL org.opencontainers.image.title="Tashner Home Hub" \
+      org.opencontainers.image.description="Self-hosted family touchscreen hub" \
+      org.opencontainers.image.source="https://github.com/davetashner/tashner-home-hub" \
+      org.opencontainers.image.licenses="UNLICENSED" \
+      org.opencontainers.image.version=$APP_VERSION \
+      org.opencontainers.image.revision=$VCS_REF
 WORKDIR /app
 COPY --from=build /app/build ./build
+COPY --from=build /app/drizzle ./drizzle
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
 RUN mkdir -p /data && chown node:node /data
