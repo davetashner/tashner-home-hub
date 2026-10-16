@@ -70,12 +70,12 @@ test('sleep button posts to the display endpoint', async ({ page }) => {
 	expect(response?.status()).toBe(202);
 });
 
-test('sleep endpoint answers 202', async ({ request }) => {
+test('sleep endpoint answers 202 with the power state', async ({ request }) => {
 	const response = await request.post('/api/display/sleep', {
 		data: {}
 	});
 	expect(response.status()).toBe(202);
-	expect(await response.json()).toEqual({ requested: 'sleep' });
+	expect(await response.json()).toMatchObject({ power: 'off' });
 });
 
 test('header clock and date are visible away from home', async ({ page }) => {
