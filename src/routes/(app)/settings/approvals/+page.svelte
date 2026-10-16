@@ -426,17 +426,28 @@
 			aria-modal="true"
 			aria-label="Not yet"
 			data-testid="reject-sheet"
-			class="sheet flex w-full max-w-2xl flex-col gap-6 rounded-t-sheet bg-surface-raised p-8 shadow-float sm:rounded-sheet"
+			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 shadow-float max-sm:p-5 sm:rounded-sheet"
 		>
 			<h2 class="text-title font-extrabold">Not yet: {rejecting.choreTitle}</h2>
 			<label class="flex flex-col gap-2">
 				<span class="text-caption text-ink-muted"
 					>A short note for {rejecting.memberName} (optional)</span
 				>
-				<input class={field} maxlength="100" bind:value={note} data-testid="reject-note" />
+				<input
+					class={field}
+					maxlength="100"
+					autocomplete="off"
+					enterkeyhint="send"
+					bind:value={note}
+					data-testid="reject-note"
+				/>
 			</label>
 			<div class="flex gap-4">
-				<Button class="flex-1" data-testid="reject-confirm" onclick={confirmReject}>
+				<Button
+					class="flex-1 whitespace-nowrap max-sm:px-4"
+					data-testid="reject-confirm"
+					onclick={confirmReject}
+				>
 					Send back
 				</Button>
 				<Button variant="secondary" class="flex-1" onclick={() => (rejecting = null)}>
@@ -454,7 +465,7 @@
 			aria-modal="true"
 			aria-label="Redeem reward"
 			data-testid="redeem-sheet"
-			class="sheet flex w-full max-w-2xl flex-col gap-6 rounded-t-sheet bg-surface-raised p-8 shadow-float sm:rounded-sheet"
+			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 shadow-float max-sm:p-5 sm:rounded-sheet"
 		>
 			<h2 class="text-title font-extrabold">
 				<span aria-hidden="true">{redeeming.goal.image ?? '🎁'}</span>
