@@ -1,10 +1,17 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import ChoreCard from '#lib/components/kid/ChoreCard.svelte';
 	import StarJar, { type Goal } from '#lib/components/kid/StarJar.svelte';
-	import { celebrate } from '#lib/components/kid/celebrate.js';
+	import AllDoneBanner from '#lib/components/kid/AllDoneBanner.svelte';
+	import {
+		celebrate,
+		celebrateAllDone,
+		celebrateApproval,
+		preloadCelebrations
+	} from '#lib/components/kid/celebrate.js';
+	import { allDoneKey, approvedTransitions, isAllDone } from '#lib/domain/celebrate-logic.js';
 	import EmptyState from '#lib/components/shell/EmptyState.svelte';
 	import type { MemberColor } from '#lib/domain/member-colors.js';
 	import {
@@ -35,6 +42,8 @@
 	let jar = $state<HTMLElement | null>(null);
 	let message = $state<string | null>(null);
 	let undoStarts = $state<Record<string, number>>({});
+	let allDone = $state(false);
+	let allDoneTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// Taps whose POST has not answered yet: choreId -> completion promise.
 	const inflight: Record<string, Promise<Completion | null>> = {};
@@ -90,6 +99,12 @@
 				)
 			);
 			if (busy()) return;
+			const approved = selectedId
+				? approvedTransitions(
+						boards[selectedId],
+						entries.find(([id]) => id === selectedId)?.[1] ?? []
+					)
+				: { count: 0, stars: 0 };
 			members = list;
 			boards = Object.fromEntries(entries);
 			const options = switcherMembers(list, boards);
@@ -99,6 +114,10 @@
 				selectedId = (options.find((m) => m.id === want) ?? options[0])?.id ?? null;
 			}
 			if (selectedId) await loadStars(selectedId);
+			if (approved.count > 0) {
+				await tick();
+				celebrateApproval(jar, approved.stars);
+			}
 		} catch {
 			if (!loaded) say('Hmm, I could not load your chores. Trying again soon!');
 		} finally {
@@ -107,6 +126,7 @@
 	}
 
 	onMount(() => {
+		preloadCelebrations();
 		void refresh();
 		const onVisible = () => document.visibilityState === 'visible' && void refresh();
 		document.addEventListener('visibilitychange', onVisible);
@@ -115,6 +135,7 @@
 			document.removeEventListener('visibilitychange', onVisible);
 			clearInterval(timer);
 			clearTimeout(messageTimer);
+			clearTimeout(allDoneTimer);
 		};
 	});
 
@@ -126,6 +147,25 @@
 		undoStarts = Object.fromEntries(Object.entries(undoStarts).filter(([k]) => k !== choreId));
 	}
 
+	/** Once per child per day: when the last chore is done, party (after the stars land). */
+	function maybeAllDone(memberId: string) {
+		if (!isAllDone(boards[memberId] ?? [])) return;
+		const key = allDoneKey(memberId);
+		const today = localDate(Date.now(), tz);
+		try {
+			if (localStorage.getItem(key) === today) return;
+			localStorage.setItem(key, today);
+		} catch {
+			// no storage: party anyway
+		}
+		clearTimeout(allDoneTimer);
+		allDoneTimer = setTimeout(() => {
+			allDone = true;
+			celebrateAllDone();
+			allDoneTimer = setTimeout(() => (allDone = false), 3000);
+		}, 900);
+	}
+
 	function done(chore: KidChore, card: HTMLElement) {
 		const memberId = selectedId;
 		if (!memberId) return;
@@ -133,6 +173,7 @@
 		stars.pending += chore.stars;
 		undoStarts[chore.id] = Date.now();
 		celebrate({ choreId: chore.id, memberId, stars: chore.stars, origin: card, jar });
+		maybeAllDone(memberId);
 		const request = api<{ completion: Completion }>(`/api/chores/${chore.id}/complete`, {
 			memberId,
 			date: localDate(Date.now(), tz)
@@ -243,6 +284,10 @@
 			<StarJar balance={stars.balance} pending={stars.pending} {goal} bind:jar />
 		</aside>
 	</div>
+{/if}
+
+{#if allDone}
+	<AllDoneBanner />
 {/if}
 
 {#if message}
