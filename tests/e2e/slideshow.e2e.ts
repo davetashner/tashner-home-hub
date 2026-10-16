@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { ensureHousehold } from './adult';
+import { ensureHousehold, signInAsAdult } from './adult';
+import { expectTappable } from './tap';
 import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
 
 // Page routes must see every request; a service worker would answer some from the real server.
@@ -124,4 +125,34 @@ test('an empty library explains how to add photos', async ({ page }) => {
 	await stubFrame(page, []);
 	await page.goto('/photos');
 	await expect(page.getByText('No photos to show yet')).toBeVisible();
+});
+
+test('grown-ups set the photo interval and transition', async ({ page }) => {
+	await page.route('**/api/settings/slideshow', (route) =>
+		route.request().method() === 'GET'
+			? route.fulfill({ json: { intervalSeconds: 30, transition: 'fade' } })
+			: route.fallback()
+	);
+	const saved: unknown[] = [];
+	await page.route('**/api/settings/slideshow', (route) => {
+		if (route.request().method() !== 'PUT') return route.fallback();
+		saved.push(route.request().postDataJSON());
+		return route.fulfill({ json: { intervalSeconds: 45, transition: 'kenburns' } });
+	});
+	await signInAsAdult(page, 'e2e-slideshow-adult');
+	await page.goto('/settings/screen');
+	await expect(page.getByTestId('interval')).toHaveText('30 seconds');
+
+	const more = page.getByRole('button', { name: 'Next photo: more' });
+	await expectTappable(more);
+	await expectTappable(page.getByRole('button', { name: 'Next photo: less' }));
+	await more.click();
+	await expect(page.getByTestId('interval')).toHaveText('45 seconds');
+
+	const zoom = page.getByRole('button', { name: 'Slow zoom' });
+	await expectTappable(zoom);
+	await zoom.click();
+	await expect(zoom).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByRole('button', { name: 'Fade' })).toHaveAttribute('aria-pressed', 'false');
+	await expect.poll(() => saved).toEqual([{ intervalSeconds: 45 }, { transition: 'kenburns' }]);
 });
