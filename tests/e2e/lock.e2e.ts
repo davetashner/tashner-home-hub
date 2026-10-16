@@ -43,3 +43,22 @@ test.describe('phone width', () => {
 		expect(overflow).toBeLessThanOrEqual(0);
 	});
 });
+
+test('Lock revokes a copied session cookie', async ({ page, browser, baseURL }) => {
+	await signInAsAdult(page, 'e2e-revoke-adult');
+	const stolen = (await page.context().cookies()).filter((c) => c.name === 'hub_session');
+	expect(stolen).toHaveLength(1);
+
+	const other = await browser.newContext({ baseURL });
+	await other.addCookies(stolen);
+	expect((await other.request.get('/api/backups')).status()).toBe(200);
+
+	await page.goto('/settings');
+	await page.waitForLoadState('networkidle');
+	const loggedOut = page.waitForResponse('**/api/auth/logout');
+	await page.getByRole('button', { name: 'Lock' }).click();
+	expect((await loggedOut).ok()).toBe(true);
+
+	expect((await other.request.get('/api/backups')).status()).toBe(401);
+	await other.close();
+});
