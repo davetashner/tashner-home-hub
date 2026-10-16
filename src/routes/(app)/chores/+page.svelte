@@ -5,13 +5,16 @@
 	import ChoreCard from '#lib/components/kid/ChoreCard.svelte';
 	import StarJar, { type Goal } from '#lib/components/kid/StarJar.svelte';
 	import AllDoneBanner from '#lib/components/kid/AllDoneBanner.svelte';
+	import EarnedBanner from '#lib/components/kid/EarnedBanner.svelte';
 	import {
 		celebrate,
 		celebrateAllDone,
 		celebrateApproval,
+		celebrateGoal,
 		preloadCelebrations
 	} from '#lib/components/kid/celebrate.js';
 	import { allDoneKey, approvedTransitions, isAllDone } from '#lib/domain/celebrate-logic.js';
+	import { earnedDecision, earnedKey } from '#lib/domain/goal-jar.js';
 	import EmptyState from '#lib/components/shell/EmptyState.svelte';
 	import type { MemberColor } from '#lib/domain/member-colors.js';
 	import {
@@ -44,6 +47,11 @@
 	let undoStarts = $state<Record<string, number>>({});
 	let allDone = $state(false);
 	let allDoneTimer: ReturnType<typeof setTimeout> | undefined;
+	let allDoneUntil = 0;
+	let earned = $state<Goal | null>(null);
+	let earnedTimer: ReturnType<typeof setTimeout> | undefined;
+	// Fallback when localStorage is unavailable, so the party still happens only once per load.
+	const earnedMemo: Record<string, string | null> = {};
 
 	// Taps whose POST has not answered yet: choreId -> completion promise.
 	const inflight: Record<string, Promise<Completion | null>> = {};
@@ -75,11 +83,50 @@
 	async function loadStars(id: string) {
 		const [s, g] = await Promise.all([
 			api<{ balance: number; pending: number }>(`/api/members/${id}/stars?limit=1`),
-			api<(Goal & { reward: Goal }) | null>(`/api/members/${id}/goal`)
+			api<{ reward: Goal } | null>(`/api/members/${id}/goal`)
 		]);
 		if (id !== selectedId) return;
 		stars = { balance: s.balance, pending: s.pending };
-		goal = g && { ...g, ...g.reward };
+		goal = g && {
+			id: g.reward.id,
+			title: g.reward.title,
+			image: g.reward.image,
+			cost: g.reward.cost
+		};
+		checkEarned(id);
+	}
+
+	/** "You earned it!" once per reaching the goal (REW-3), after any all-done party. */
+	function checkEarned(memberId: string) {
+		const key = earnedKey(memberId);
+		let stored = earnedMemo[key] ?? null;
+		try {
+			stored = localStorage.getItem(key);
+		} catch {
+			// no storage: use the in-memory memo
+		}
+		const reward = goal;
+		const decision = earnedDecision(
+			stored,
+			reward && { rewardId: reward.id, cost: reward.cost, balance: stars.balance }
+		);
+		earnedMemo[key] = decision.store;
+		try {
+			if (decision.store === null) localStorage.removeItem(key);
+			else localStorage.setItem(key, decision.store);
+		} catch {
+			// memo only
+		}
+		if (!decision.celebrate || !reward) return;
+		clearTimeout(earnedTimer);
+		earnedTimer = setTimeout(
+			() => {
+				earned = reward;
+				celebrateGoal(jar);
+				earnedTimer = setTimeout(() => (earned = null), 4500);
+			},
+			Math.max(0, allDoneUntil - Date.now()) + 300
+		);
 	}
 
 	async function refresh() {
@@ -136,6 +183,7 @@
 			clearInterval(timer);
 			clearTimeout(messageTimer);
 			clearTimeout(allDoneTimer);
+			clearTimeout(earnedTimer);
 		};
 	});
 
@@ -159,6 +207,7 @@
 			// no storage: party anyway
 		}
 		clearTimeout(allDoneTimer);
+		allDoneUntil = Date.now() + 900 + 3000;
 		allDoneTimer = setTimeout(() => {
 			allDone = true;
 			celebrateAllDone();
@@ -288,6 +337,10 @@
 
 {#if allDone}
 	<AllDoneBanner />
+{/if}
+
+{#if earned}
+	<EarnedBanner title={earned.title} image={earned.image} />
 {/if}
 
 {#if message}

@@ -9,6 +9,12 @@
 	import { groupByChild, relativeTime, type PendingItem } from '#lib/domain/approvals.js';
 	import type { MemberColor } from '#lib/domain/member-colors.js';
 
+	interface Goal {
+		title: string;
+		image: string | null;
+		cost: number;
+	}
+
 	interface Child {
 		id: string;
 		name: string;
@@ -20,6 +26,7 @@
 	let items = $state<PendingItem[]>([]);
 	let children = $state<Child[]>([]);
 	let balances = $state<Record<string, number>>({});
+	let goals = $state<Record<string, Goal | null>>({});
 	let loaded = $state(false);
 	let now = $state(Date.now());
 	let toast = $state('');
@@ -56,8 +63,12 @@
 	async function loadBalances() {
 		await Promise.all(
 			children.map(async (c) => {
-				const res = await fetch(`/api/members/${c.id}/stars`);
+				const [res, goal] = await Promise.all([
+					fetch(`/api/members/${c.id}/stars`),
+					fetch(`/api/members/${c.id}/goal`)
+				]);
 				if (res.ok) balances[c.id] = ((await res.json()) as { balance: number }).balance;
+				if (goal.ok) goals[c.id] = ((await goal.json()) as { reward: Goal } | null)?.reward ?? null;
 			})
 		);
 	}
@@ -177,6 +188,17 @@
 							{balances[child.id] ?? 0} ⭐
 						</span>
 					</div>
+
+					{@const goal = goals[child.id]}
+					{#if goal && (balances[child.id] ?? 0) >= goal.cost}
+						<p
+							data-testid="goal-reached-{child.id}"
+							class="rounded-control bg-star-soft p-4 text-lead font-bold"
+						>
+							<span aria-hidden="true">{goal.image ?? '🎁'}</span>
+							{child.name} earned {goal.title}! Ready to redeem ({goal.cost} ⭐).
+						</p>
+					{/if}
 
 					{#if group}
 						<ul class="flex flex-col gap-4">
