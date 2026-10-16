@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { swipe } from '#lib/actions/swipe.js';
@@ -24,6 +24,27 @@
 			headers: { 'content-type': 'application/json' },
 			body: '{}'
 		}).catch(() => {});
+	}
+
+	// Optimistic lock: hide the control and leave grown-up screens on the tap, then end the session.
+	let locking = $state(false);
+	const adult = $derived(page.data.adult === true && !locking);
+
+	async function lock() {
+		locking = true;
+		if (pathname.startsWith('/settings')) void goto(resolve('/(app)'));
+		try {
+			// JSON body: an empty-body POST trips SvelteKit's CSRF origin check.
+			await fetch('/api/auth/logout', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: '{}'
+			});
+		} catch {
+			// Offline: the wall session still times out on its own; the reload below shows the truth.
+		}
+		await invalidateAll();
+		locking = false;
 	}
 
 	function onswipe(direction: 'left' | 'right' | 'up' | 'down') {
@@ -59,6 +80,17 @@
 				<span class="text-lead"><Icon name="moon" /></span>
 				<span class="max-sm:sr-only">Sleep</span>
 			</Button>
+			{#if adult}
+				<Button
+					onclick={lock}
+					variant="secondary"
+					size="kid"
+					class="gap-3 rounded-chip max-sm:!min-h-tap max-sm:!min-w-tap max-sm:!px-0"
+				>
+					<span class="text-lead"><Icon name="lock" /></span>
+					<span class="max-sm:sr-only">Lock</span>
+				</Button>
+			{/if}
 			<a
 				href={resolve('/(app)/settings')}
 				aria-label="Settings"
