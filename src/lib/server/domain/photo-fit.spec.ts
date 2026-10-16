@@ -6,8 +6,7 @@ import {
 	orientedSize,
 	parseDimension,
 	parseExifTakenAt,
-	selectEvictions,
-	variantName
+	selectEvictions
 } from './photo-fit.js';
 
 const tiny = () => sharp({ create: { width: 8, height: 8, channels: 3, background: '#468' } });
