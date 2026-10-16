@@ -26,6 +26,10 @@ export interface BackupInfo {
 }
 
 let lastResult: BackupResult | undefined;
+let running: Promise<unknown> | undefined;
+
+/** Resolves once any in-flight backup has finished (it never rejects). */
+export const backupIdle = (): Promise<void> => (running ?? Promise.resolve()).then(() => undefined);
 
 export function backupDir(dataDir = process.env.DATA_DIR ?? './data'): string {
 	return join(dataDir, 'backups');
@@ -60,7 +64,20 @@ export function backupStatus(): {
  * Online backup via SQLite's backup API (safe with WAL), verified with
  * `integrity_check`, then retention applied. Never throws.
  */
-export async function runBackup(
+export function runBackup(
+	source: Database.Database = getDb().$client,
+	dir = backupDir(),
+	now = Date.now()
+): Promise<BackupResult> {
+	const p = doBackup(source, dir, now);
+	running = p;
+	void p.finally(() => {
+		if (running === p) running = undefined;
+	});
+	return p;
+}
+
+async function doBackup(
 	source: Database.Database = getDb().$client,
 	dir = backupDir(),
 	now = Date.now()

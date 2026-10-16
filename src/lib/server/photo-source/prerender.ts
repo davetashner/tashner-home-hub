@@ -39,3 +39,8 @@ export function enqueuePrerender(db: Db, ids: string[]): void {
 }
 
 export const prerenderIdle = (): Promise<void> => draining ?? Promise.resolve();
+
+/** Shutdown: forget queued photos; the render in progress finishes on its own. */
+export function dropPendingPrerenders(): void {
+	pending.length = 0;
+}
