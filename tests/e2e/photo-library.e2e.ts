@@ -36,6 +36,9 @@ test('add a folder, pick albums, scan, hide a photo', async ({ page }, info) => 
 	const scanNow = card.getByRole('button', { name: 'Scan now' });
 	await expectTappable(scanNow);
 	await scanNow.click();
+	// "scanned" is already on screen from the first scan: wait for this one to finish instead.
+	await expect(scanNow).toHaveText('Scan now');
+	await expect(scanNow).toBeEnabled();
 	await expect(card.getByTestId('scan-status')).toContainText('scanned');
 
 	await card.getByRole('checkbox').first().uncheck();
