@@ -84,11 +84,42 @@ test('header clock and date are visible away from home', async ({ page }) => {
 	await expect(page.getByTestId('header-clock-date')).toBeVisible();
 });
 
-test('the header clock keeps the time on one line without horizontal overflow', async ({
+test('the header clock keeps the time on one line with a crowded header', async ({
 	page
-}) => {
+}, info) => {
+	// Crowded header: adult session (Lock), a pending approval (badge), two kids (child switcher),
+	// and a long date with a two-digit hour.
+	await signInAsAdult(page, `adult-clk-${info.project.name.replace(/\W/g, '')}`);
+	const stamp = `${Date.now() % 1e9}`;
+	const ids: string[] = [];
+	for (const [name, color, avatar] of [
+		['Pip', 'member-3', '🐸'],
+		['Moss', 'member-5', '🦉']
+	]) {
+		const kid = await (
+			await page.request.post('/api/members', {
+				data: { name: `${name} ${stamp}`, role: 'child', color, avatar }
+			})
+		).json();
+		ids.push(kid.id);
+	}
+	const chore = await (
+		await page.request.post('/api/chores', {
+			data: {
+				title: 'Tidy toys',
+				icon: '🧸',
+				stars: 1,
+				memberIds: ids,
+				schedule: { type: 'daily' }
+			}
+		})
+	).json();
+	await page.request.post(`/api/chores/${chore.id}/complete`, { data: { memberId: ids[0] } });
+
+	await page.clock.setFixedTime(new Date('2026-09-23T10:06:00'));
 	await page.goto('/chores');
 	await page.waitForLoadState('networkidle');
+	await expect(page.getByTestId('approvals-badge')).toBeVisible();
 	if (page.viewportSize()!.width < 640) return; // the phone header hides the clock
 	const time = page.getByTestId('header-clock-time');
 	await expect(time).toBeVisible();

@@ -35,7 +35,7 @@
 		{clock.time}
 	</p>
 	<p
-		class="text-ink-muted {size === 'hero' ? 'text-title' : 'max-w-full truncate text-lead'}"
+		class="text-ink-muted {size === 'hero' ? 'text-title' : 'text-lead'}"
 		data-testid="{testidPrefix}-date"
 	>
 		{clock.date}
