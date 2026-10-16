@@ -18,6 +18,8 @@
 		type CalendarViewMode
 	} from '#lib/domain/calendar-view/period.js';
 	import { dateKeyOf, type DateKey } from '#lib/domain/calendar-view/zone.js';
+	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
+	import { page } from '$app/state';
 
 	interface Status {
 		sources: { sourceId: string; lastSyncAt: number | null; stale: boolean }[];
@@ -124,7 +126,7 @@
 	}
 
 	onMount(() => {
-		tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+		tz = resolveTimeZone(page.data.timeZone, runtimeZone());
 		now = Date.now();
 		anchor = dateKeyOf(now, tz);
 		try {

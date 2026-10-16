@@ -1,5 +1,8 @@
 import { error, json } from '@sveltejs/kit';
+import { getDb } from './db/index.js';
+import { localDateIn } from './domain/chores.js';
 import { LedgerError } from './domain/ledger.js';
+import { householdTimeZone } from './household.js';
 
 const STATUS = { not_found: 404, forbidden: 403, conflict: 409, invalid: 400 } as const;
 
@@ -35,9 +38,7 @@ export function dateStr(v: unknown): string {
 	error(400, 'date must be YYYY-MM-DD');
 }
 
-/** Local calendar day for `now` (server time zone is the household's). */
+/** The household's calendar day for `now` (never the server container's own zone). */
 export function localDate(now: number): string {
-	const d = new Date(now);
-	const p = (n: number) => String(n).padStart(2, '0');
-	return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+	return localDateIn(now, householdTimeZone(getDb()));
 }
