@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = 'http://127.0.0.1:4173';
+// E2E_PORT lets parallel worktrees run the suite side by side without testing each other's build.
+const port = Number(process.env.E2E_PORT ?? 4173);
+const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
 	testDir: 'tests/e2e',
@@ -13,9 +15,10 @@ export default defineConfig({
 	// `pnpm test:e2e` builds first.
 	webServer: {
 		command: 'node build',
-		env: { HOST: '127.0.0.1', PORT: '4173' },
+		env: { HOST: '127.0.0.1', PORT: String(port) },
 		url: `${baseURL}/healthz`,
-		reuseExistingServer: !process.env.CI,
+		// Never reuse: a server left on the port may be another checkout's build.
+		reuseExistingServer: false,
 		timeout: 60_000
 	},
 	use: { baseURL },
