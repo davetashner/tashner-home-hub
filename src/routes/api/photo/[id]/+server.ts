@@ -1,4 +1,5 @@
 import { error } from '@sveltejs/kit';
+import { createReadStream } from 'node:fs';
 import { Readable } from 'node:stream';
 import { getPhotoCache } from '#lib/server/photo-cache/cache.js';
 import {
@@ -47,7 +48,7 @@ export const GET: RequestHandler = async ({ params, url, request }) => {
 	};
 	if (request.headers.get('if-none-match') === etag)
 		return new Response(null, { status: 304, headers });
-	return new Response(Readable.toWeb(cache.stream(hit.path)) as ReadableStream, {
+	return new Response(Readable.toWeb(createReadStream(hit.path)) as ReadableStream, {
 		headers: { ...headers, 'Content-Length': String(hit.size) }
 	});
 };

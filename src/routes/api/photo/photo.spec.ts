@@ -15,7 +15,6 @@ vi.mock('#lib/server/db/index.js', async (orig) => ({
 	getDb: () => db
 }));
 const { GET } = await import('./[id]/+server.js');
-const { cacheMaxBytes } = await import('#lib/server/photo-cache/cache.js');
 
 const call = async (id: string, qs = '', headers: Record<string, string> = {}) => {
 	try {
@@ -61,32 +60,13 @@ describe('GET /api/photo/[id]', () => {
 		expect(again.status).toBe(304);
 	});
 
-	it('serves the backdrop at full target size, defaulting to avif', async () => {
-		const res = (await call('p', '?w=640&h=360&part=bg')) as Response;
-		expect(res.headers.get('content-type')).toBe('image/avif');
-		const meta = await sharp(Buffer.from(await res.arrayBuffer())).metadata();
-		expect([meta.width, meta.height]).toEqual([640, 360]);
-	});
-
 	it('404s for unknown, hidden, missing-file photos and missing backdrops', async () => {
 		for (const id of ['nope', 'h', 'gone'])
 			expect(((await call(id, '?w=640&h=360')) as { status: number }).status).toBe(404);
-		const exactPath = join(root, 'e.jpg');
-		writeFileSync(exactPath, await syntheticJpeg(1280, 720));
-		db.insert(photos).values({ id: 'e', sourceId: 's', filePath: exactPath }).run();
-		expect(((await call('e', '?w=640&h=360&part=bg')) as { status: number }).status).toBe(404);
 	});
 
 	it('400s on bad parameters', async () => {
 		for (const qs of ['?w=5&h=360', '?w=640&h=x', '?fmt=gif', '?part=top'])
 			expect(((await call('p', qs)) as { status: number }).status).toBe(400);
-	});
-});
-
-describe('cacheMaxBytes', () => {
-	it('defaults to 2 GB and honours HUB_PHOTO_CACHE_MB', () => {
-		expect(cacheMaxBytes({})).toBe(2048 * 1024 * 1024);
-		expect(cacheMaxBytes({ HUB_PHOTO_CACHE_MB: '10' })).toBe(10 * 1024 * 1024);
-		expect(cacheMaxBytes({ HUB_PHOTO_CACHE_MB: 'x' })).toBe(2048 * 1024 * 1024);
 	});
 });

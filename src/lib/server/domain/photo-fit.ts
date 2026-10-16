@@ -1,8 +1,3 @@
-/**
- * Pure math for the photo cache (PHO-6): fitting images to the display, EXIF
- * orientation, EXIF date parsing, variant naming, and LRU eviction selection.
- */
-
 export interface Size {
 	width: number;
 	height: number;
@@ -11,7 +6,6 @@ export interface Size {
 export const DEFAULT_TARGET: Size = { width: 2560, height: 1440 };
 export const MIN_DIMENSION = 64;
 export const MAX_DIMENSION = 4096;
-/** Output within this many pixels of the target on both axes needs no blurred backdrop. */
 export const FILL_TOLERANCE_PX = 2;
 
 export const FORMATS = ['avif', 'webp'] as const;
@@ -100,38 +94,26 @@ export function selectEvictions(entries: CacheEntry[], maxBytes: number): string
  * regardless of server zone. Returns undefined when absent or malformed.
  */
 export function parseExifTakenAt(exif: Uint8Array | undefined): number | undefined {
-	if (!exif || exif.length < 14) return undefined;
-	const buf = new DataView(exif.buffer, exif.byteOffset, exif.byteLength);
-	let base = 0;
-	if (String.fromCharCode(...exif.subarray(0, 4)) === 'Exif') base = 6;
-	if (exif.length < base + 8) return undefined;
-	const mark = String.fromCharCode(exif[base], exif[base + 1]);
-	if (mark !== 'II' && mark !== 'MM') return undefined;
-	const le = mark === 'II';
-	const u16 = (o: number) => (o + 2 <= exif.length ? buf.getUint16(o, le) : -1);
-	const u32 = (o: number) => (o + 4 <= exif.length ? buf.getUint32(o, le) : -1);
-
-	const findTag = (ifd: number, tag: number): number | undefined => {
-		if (ifd < 0 || base + ifd + 2 > exif.length) return undefined;
-		const count = u16(base + ifd);
-		for (let i = 0; i < count; i++) {
-			const entry = base + ifd + 2 + i * 12;
-			if (u16(entry) === tag) return entry;
-		}
+	if (!exif) return undefined;
+	try {
+		const view = new DataView(exif.buffer, exif.byteOffset, exif.byteLength);
+		const base = String.fromCharCode(...exif.subarray(0, 4)) === 'Exif' ? 6 : 0;
+		const le = exif[base] === 0x49; // 'II' little-endian, 'MM' big-endian
+		const u16 = (o: number) => view.getUint16(base + o, le);
+		const u32 = (o: number) => view.getUint32(base + o, le);
+		const findTag = (ifd: number, tag: number) => {
+			for (let i = 0, n = u16(ifd); i < n; i++)
+				if (u16(ifd + 2 + i * 12) === tag) return ifd + 2 + i * 12;
+			throw new RangeError('tag not found');
+		};
+		const entry = findTag(u32(findTag(u32(4), 0x8769) + 8), 0x9003);
+		const at = base + (u32(entry + 4) > 4 ? u32(entry + 8) : entry + 8);
+		const text = String.fromCharCode(...exif.subarray(at, at + 19));
+		const m = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(text);
+		if (!m) return undefined;
+		const [y, mo, d, h, mi, sec] = m.slice(1).map(Number);
+		return mo < 1 || mo > 12 || d < 1 || d > 31 ? undefined : Date.UTC(y, mo - 1, d, h, mi, sec);
+	} catch {
 		return undefined;
-	};
-
-	const ptr = findTag(u32(base + 4), 0x8769);
-	if (ptr === undefined) return undefined;
-	const dt = findTag(u32(ptr + 8), 0x9003);
-	if (dt === undefined) return undefined;
-	const len = u32(dt + 4);
-	const off = len > 4 ? base + u32(dt + 8) : dt + 8;
-	if (len < 19 || off < 0 || off + 19 > exif.length) return undefined;
-	const text = String.fromCharCode(...exif.subarray(off, off + 19));
-	const m = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(text);
-	if (!m) return undefined;
-	const [y, mo, d, h, mi, s] = m.slice(1).map(Number);
-	if (y < 1900 || mo < 1 || mo > 12 || d < 1 || d > 31) return undefined;
-	return Date.UTC(y, mo - 1, d, h, mi, s);
+	}
 }

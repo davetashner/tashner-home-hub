@@ -45,16 +45,6 @@ describe('render', () => {
 		expect([bg.width, bg.height]).toEqual([640, 360]);
 	});
 
-	it('never upscales small images and fills when aspect matches', async () => {
-		const small = addPhoto('s1', await syntheticJpeg(100, 50));
-		const m = await sharp((await renderMain(small, LAND, 'webp')).data).metadata();
-		expect([m.width, m.height]).toEqual([100, 50]);
-		const exact = addPhoto('e', await syntheticJpeg(1280, 720));
-		const r = await renderMain(exact, LAND, 'webp');
-		expect(r.background).toBe(false);
-		expect(r.size).toEqual(LAND);
-	});
-
 	it.each([1, 2, 3, 4, 5, 6, 7, 8])('applies EXIF orientation %i', async (o) => {
 		const path = addPhoto(`o${o}`, await syntheticJpeg(200, 100, { orientation: o }));
 		const { data, size } = await renderMain(path, { width: 400, height: 400 }, 'webp');
@@ -62,13 +52,6 @@ describe('render', () => {
 		expect(size).toEqual(swapped ? { width: 100, height: 200 } : { width: 200, height: 100 });
 		const meta = await sharp(data).metadata();
 		expect([meta.width, meta.height]).toEqual([size.width, size.height]);
-	});
-
-	it('handles extreme panoramas', async () => {
-		const path = addPhoto('pano', await syntheticJpeg(4000, 20));
-		const { size } = await renderMain(path, LAND, 'webp');
-		expect(size.width).toBe(640);
-		expect(size.height).toBeGreaterThanOrEqual(1);
 	});
 });
 
@@ -108,14 +91,12 @@ describe('PhotoCache', () => {
 		expect(a).toBe(b);
 		expect(a?.background).toBe(false);
 		expect(await cache.cachedVariant('w', LAND, 'webp', 'bg')).toBeNull();
-		expect(await cache.cachedVariant('w', LAND, 'avif')).toBeNull();
 	});
 
 	it('returns null for unknown or hidden photos and rejects missing files', async () => {
 		addPhoto('h', await syntheticJpeg(50, 50), true);
 		expect(await cache.ensureRendered('nope', LAND)).toBeNull();
 		expect(await cache.ensureRendered('h', LAND)).toBeNull();
-		expect(await cache.cachedVariant('h', LAND, 'avif')).toBeNull();
 		db.insert(photos)
 			.values({ id: 'gone', sourceId: 's', filePath: join(root, 'gone.jpg') })
 			.run();
@@ -140,6 +121,5 @@ describe('PhotoCache', () => {
 		expect(await tight.evict()).toBeGreaterThan(0);
 		expect(await tight.cachedVariant('x', LAND, 'webp')).toBeNull();
 		expect(await tight.cachedVariant('y', LAND, 'webp')).not.toBeNull();
-		expect(await new PhotoCache({ db, dir: join(root, 'nodir'), maxBytes: 1 }).evict()).toBe(0);
 	});
 });

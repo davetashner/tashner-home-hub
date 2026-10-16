@@ -11,29 +11,23 @@ import {
  * Encoder settings:
  * - AVIF q55 effort 4, 4:2:0: clean on a 24" panel at viewing distance and several times
  *   smaller than JPEG q85 (a 2560x1440 render is ~1 s on a laptop-class CPU).
- * - WebP q78 effort 4: fallback for clients without AVIF; same ballpark size, faster to encode.
- * - Backdrop is a heavily blurred, darkened, low-detail image, so quality can be very low.
- * Metadata is never copied (sharp strips EXIF/GPS by default); orientation is baked in.
+ * - WebP q78 effort 4: fallback for clients without AVIF; similar size, faster to encode.
+ * - Backdrop is blurred and low-detail, so quality can be very low.
+ * Metadata is never copied (sharp strips EXIF/GPS by default).
  */
 const QUALITY = {
 	avif: { main: 55, bg: 30 },
 	webp: { main: 78, bg: 45 }
 } as const;
 
-export const BACKDROP_BRIGHTNESS = 0.45;
+const BACKDROP_BRIGHTNESS = 0.45;
 const BACKDROP_BLUR_SIGMA = 6;
 const BACKDROP_DOWNSCALE = 8;
 
 export interface SourceInfo {
-	/** Display-oriented size (after EXIF rotation). */
 	width: number;
 	height: number;
 	takenAt?: number;
-}
-
-export interface RenderedImage {
-	main: Size;
-	background: boolean;
 }
 
 function encode(pipeline: Sharp, format: PhotoFormat, part: 'main' | 'bg'): Sharp {
@@ -54,7 +48,6 @@ export async function readSourceInfo(path: string): Promise<SourceInfo> {
 	};
 }
 
-/** Fitted main image: auto-rotated, never upscaled, EXIF stripped. */
 export async function renderMain(
 	path: string,
 	target: Size = DEFAULT_TARGET,
@@ -69,13 +62,11 @@ export async function renderMain(
 	return { data, size: plan.main, background: plan.background };
 }
 
-/** Full-target blurred, darkened cover of the photo, for the bars around a non-matching aspect. */
 export async function renderBackdrop(
 	path: string,
 	target: Size = DEFAULT_TARGET,
 	format: PhotoFormat = 'avif'
 ): Promise<Buffer> {
-	// Blur at 1/8 scale (cheap, and equivalent to a much larger blur at full size), then upscale.
 	const small = await sharp(path, { failOn: 'none' })
 		.autoOrient()
 		.resize(

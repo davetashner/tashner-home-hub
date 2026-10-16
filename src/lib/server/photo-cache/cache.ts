@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
 import {
+	access,
 	mkdir,
 	readdir,
 	readFile,
@@ -26,12 +26,9 @@ import { readSourceInfo, renderBackdrop, renderMain } from './render.js';
 
 export interface PhotoCacheOptions {
 	db: Db;
-	/** Directory holding rendered variants (created on demand). */
 	dir: string;
 	maxBytes: number;
-	/** Parallel renders; 1-2 keeps the server responsive. */
 	concurrency?: number;
-	/** Maps a photos row to a readable absolute path. */
 	resolvePath?: (photo: typeof schema.photos.$inferSelect) => string;
 }
 
@@ -40,6 +37,11 @@ export interface RenderedPhoto {
 	background: boolean;
 }
 
+const exists = (p: string) =>
+	access(p).then(
+		() => true,
+		() => false
+	);
 const defaultResolve = (photo: { filePath: string }) => photo.filePath;
 
 class Queue {
@@ -61,7 +63,6 @@ class Queue {
 export class PhotoCache {
 	private readonly queue: Queue;
 	private readonly inflight = new Map<string, Promise<RenderedPhoto | null>>();
-	/** path+mtime+size -> content hash, so repeat requests do not re-read the file. */
 	private readonly hashes = new Map<string, string>();
 
 	constructor(private readonly opts: PhotoCacheOptions) {
@@ -80,15 +81,13 @@ export class PhotoCache {
 	private async contentHash(path: string): Promise<string> {
 		const st = await stat(path);
 		const memo = `${path}:${st.mtimeMs}:${st.size}`;
-		let hash = this.hashes.get(memo);
-		if (!hash) {
-			hash = createHash('sha256')
-				.update(await readFile(path))
-				.digest('hex')
-				.slice(0, 24);
-			this.hashes.set(memo, hash);
-			if (this.hashes.size > 10_000) this.hashes.clear();
-		}
+		const known = this.hashes.get(memo);
+		if (known) return known;
+		const hash = createHash('sha256')
+			.update(await readFile(path))
+			.digest('hex')
+			.slice(0, 24);
+		this.hashes.set(memo, hash);
 		return hash;
 	}
 
@@ -96,17 +95,7 @@ export class PhotoCache {
 		return join(this.opts.dir, variantName(hash, target, part, format));
 	}
 
-	private async exists(path: string): Promise<boolean> {
-		return stat(path).then(
-			() => true,
-			() => false
-		);
-	}
-
-	/**
-	 * Renders (if missing) the requested formats for a photo and records its dimensions and
-	 * EXIF date. Returns null for unknown or hidden photos. Concurrent calls share one render.
-	 */
+	/** Renders missing variants, records size/EXIF date; null if unknown or hidden. */
 	ensureRendered(
 		photoId: string,
 		target: Size = DEFAULT_TARGET,
@@ -132,7 +121,6 @@ export class PhotoCache {
 		if (!photo) return null;
 		const path = (this.opts.resolvePath ?? defaultResolve)(photo);
 		const hash = await this.contentHash(path);
-
 		const info = await readSourceInfo(path);
 		if (photo.width !== info.width || photo.height !== info.height || photo.takenAt === null) {
 			this.opts.db
@@ -145,16 +133,15 @@ export class PhotoCache {
 				.where(eq(schema.photos.id, photoId))
 				.run();
 		}
-
 		await mkdir(this.opts.dir, { recursive: true });
 		const { background } = planRender(info, undefined, target);
 		for (const format of formats) {
 			const mainPath = this.file(hash, target, 'main', format);
-			if (!(await this.exists(mainPath))) {
+			if (!(await exists(mainPath))) {
 				await this.write(mainPath, (await renderMain(path, target, format)).data);
 			}
 			const bgPath = this.file(hash, target, 'bg', format);
-			if (background && !(await this.exists(bgPath))) {
+			if (background && !(await exists(bgPath))) {
 				await this.write(bgPath, await renderBackdrop(path, target, format));
 			}
 		}
@@ -168,13 +155,13 @@ export class PhotoCache {
 		await rename(tmp, path);
 	}
 
-	/** Path of an already-rendered variant (marks it recently used), or null if not cached. */
+	/** Cached variant (touched for LRU) or null. */
 	async cachedVariant(
 		photoId: string,
 		target: Size,
 		format: PhotoFormat,
 		part: PhotoPart = 'main'
-	): Promise<{ path: string; size: number; hash: string; mtimeMs: number } | null> {
+	): Promise<{ path: string; size: number; hash: string } | null> {
 		const photo = this.photo(photoId);
 		if (!photo) return null;
 		let hash: string;
@@ -188,10 +175,10 @@ export class PhotoCache {
 		if (!st) return null;
 		const now = new Date();
 		await utimes(path, now, now).catch(() => undefined); // LRU touch
-		return { path, size: st.size, hash, mtimeMs: now.getTime() };
+		return { path, size: st.size, hash };
 	}
 
-	/** Deletes least-recently-used variants until the cache fits `maxBytes`. Returns files removed. */
+	/** Deletes least-recently-used variants until under `maxBytes`; returns count removed. */
 	async evict(): Promise<number> {
 		const names = await readdir(this.opts.dir).catch(() => [] as string[]);
 		const entries = [];
@@ -203,10 +190,6 @@ export class PhotoCache {
 		const doomed = selectEvictions(entries, this.opts.maxBytes);
 		for (const name of doomed) await unlink(join(this.opts.dir, name)).catch(() => undefined);
 		return doomed.length;
-	}
-
-	stream(path: string) {
-		return createReadStream(path);
 	}
 }
 
