@@ -58,20 +58,54 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 <!-- END BEADS INTEGRATION -->
 
 
+## Repository Profile: Team-Maintainer (opted in)
+
+This repository **opts in to the team-maintainer profile**. Agents working a bead may commit, push their branch, open PRs, and close beads when their PR merges. Explicit user or orchestrator instructions still win.
+
+- **Only the lead session merges PRs** and republishes the beads export. Worker agents open PRs and stop.
+- Never push to `main` directly. Every change goes through a PR from a worktree branch:
+  `git worktree add .claude/worktrees/<branch> -b <branch> origin/main`
+- Sign off every commit (`git commit -s`). Include the bead ID in the subject: `feat: star ledger [hub-sps.2]`.
+- The PR body must contain one `Closes hub-xxx` line per bead completed.
+- One bead per PR. Keep diffs small (CI fails above ~800 changed lines, excluding lockfiles and baselines).
+
 ## Build & Test
 
-_Add your build and test commands here_
+Package manager: **pnpm**. Node: current LTS (see `.nvmrc`).
 
 ```bash
-# Example:
-# npm install
-# npm test
+pnpm install          # install dependencies
+pnpm dev              # dev server
+pnpm check            # svelte-check + tsc (strict)
+pnpm lint             # eslint + prettier --check
+pnpm test             # vitest (unit) with coverage thresholds
+pnpm test:e2e         # playwright
+pnpm gates            # everything CI runs in Tier 1, locally
+pnpm build            # production build
 ```
+
+Run `pnpm gates` before opening a PR. A red CI is never merged.
 
 ## Architecture Overview
 
-_Add a brief overview of your project architecture_
+- **Decisions:** `docs/decisions/` — ADR 0001 (tech stack) and ADR 0002 (CI quality gates) are binding. Read them before starting work.
+- **Requirements:** `requirements.md`. Requirement IDs (e.g. CHO-4, SLP-2) appear in bead descriptions.
+- **Stack:** SvelteKit 2 / Svelte 5 + TypeScript (strict), Tailwind CSS v4 with design tokens, Node LTS (`adapter-node`), SQLite + Drizzle, SSE for live updates, service worker + IndexedDB for offline.
+- **Topology:** one server container (Unraid now, Mac Studio from December 2026) → a Raspberry Pi 5 kiosk (Chromium) drives a 24" 4K touch display. A small Python display agent on the Pi handles screen power and touch-to-wake.
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+### Non-negotiable (CI enforces most of these — see ADR 0002)
+
+- **Public repo:** never commit secrets or private family data — no real names, photos, calendars, addresses, emails, phone numbers, or EXIF location data. Fixtures are synthetic. Real data lives only in the runtime data volume.
+- **Don't move the goalposts:** never loosen thresholds, delete or skip tests, update visual baselines, or edit `.github/`, `budgets.json`, lint configs, or ADRs to get CI green. Those changes need a human (`needs-human` / `visual-approved` labels). If a gate seems wrong, open a bead explaining why and stop.
+- **Responsiveness:** every tap updates the UI first (optimistic), then syncs. Never block a tap on the network.
+- **Animation:** animate only `transform`, `opacity`, and `filter`.
+- **Design tokens only:** no raw hex colors, arbitrary Tailwind values, or ad-hoc font sizes. Add a token if one is missing.
+- **Touch:** tap targets ≥ 60 px (≥ 96 px on kid screens). No hover-only interactions.
+- **Both orientations:** every screen must work in landscape and portrait (UI-8).
+- **Domain logic** (star ledger, chore scheduling, recurrence, sync merge) lives in plain TypeScript modules under `src/lib/server/domain/` or `src/lib/domain/` with ≥ 90% coverage. The star balance is always computed from the ledger.
+
+### Kill switch
+
+If the repository variable `AGENTS_PAUSED` is `true`, do not start new work. Report and stop.
