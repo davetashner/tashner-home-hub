@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 
@@ -64,7 +65,15 @@
 <section class="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8">
 	<header class="flex flex-wrap items-center justify-between gap-6">
 		<h1 class="text-headline font-extrabold">Rewards</h1>
-		<Button data-testid="add-reward" onclick={() => openForm()}>Add reward</Button>
+		<span class="flex flex-wrap gap-4">
+			<a
+				href={resolve('/(app)/settings/redemptions')}
+				data-testid="redemption-log-link"
+				class="flex min-h-tap items-center rounded-control px-6 text-body font-bold text-ink-muted transition-transform duration-75 active:scale-95"
+				>Redemption log</a
+			>
+			<Button data-testid="add-reward" onclick={() => openForm()}>Add reward</Button>
+		</span>
 	</header>
 
 	{#if editing !== null}
