@@ -65,7 +65,7 @@
 	class="grid h-full bg-surface portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape"
 >
 	<header
-		class="flex items-center justify-between gap-3 px-4 py-4 max-sm:justify-end max-sm:px-3 max-sm:py-2 sm:gap-8 sm:px-12 sm:py-8 portrait:sm:px-10 landscape:col-start-2 landscape:row-start-1"
+		class="flex items-center justify-between gap-3 px-4 py-4 max-sm:justify-end max-sm:px-3 max-sm:py-2 sm:flex-wrap sm:gap-8 sm:px-12 sm:py-8 portrait:sm:px-10 landscape:col-start-2 landscape:row-start-1"
 	>
 		{#if pathname === '/'}
 			<span class="max-sm:hidden"></span>
@@ -78,7 +78,7 @@
 				<Clock testidPrefix="header-clock" />
 			</a>
 		{/if}
-		<div class="flex items-center gap-2 sm:gap-4">
+		<div class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4">
 			<OfflineBadge />
 			<ApprovalsBadge />
 			<Button
