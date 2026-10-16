@@ -1,0 +1,11 @@
+[Unit]
+Description=Home Hub kiosk watchdog (every 30 s)
+
+[Timer]
+# Start counting when the timer is started from the labwc autostart; allow Chromium time to come up.
+OnActiveSec=90
+OnUnitActiveSec=30
+AccuracySec=5
+
+[Install]
+WantedBy=timers.target
