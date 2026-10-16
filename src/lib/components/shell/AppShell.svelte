@@ -11,6 +11,7 @@
 	import ApprovalsBadge from './ApprovalsBadge.svelte';
 	import Clock from './Clock.svelte';
 	import Icon from './Icon.svelte';
+	import IdleWatcher from './IdleWatcher.svelte';
 	import NavItem from './NavItem.svelte';
 
 	let { children }: { children: Snippet } = $props();
@@ -57,6 +58,8 @@
 		if (target) void goto(DESTINATION_URLS[target]);
 	}
 </script>
+
+<IdleWatcher />
 
 <div
 	class="grid h-full bg-surface portrait:grid-cols-[minmax(0,1fr)] portrait:grid-rows-[auto_1fr_auto] landscape:grid-cols-[auto_1fr] landscape:grid-rows-[auto_1fr]"
