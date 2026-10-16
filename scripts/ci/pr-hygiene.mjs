@@ -33,7 +33,14 @@ for (const line of git('diff', '--numstat', `${base}...HEAD`).split('\n').filter
 	if (EXCLUDED.some((re) => re.test(file)) || added === '-') continue;
 	changed += Number(added) + Number(removed);
 }
-if (changed > MAX_CHANGED_LINES && !prLabels().has('large-pr')) {
+// Bootstrap: the PR that introduces this gate can't be held to its size limit.
+let gateOnBase = true;
+try {
+	git('cat-file', '-e', `${base}:scripts/ci/pr-hygiene.mjs`);
+} catch {
+	gateOnBase = false;
+}
+if (gateOnBase && changed > MAX_CHANGED_LINES && !prLabels().has('large-pr')) {
 	problems.push(
 		`${changed} changed lines (limit ${MAX_CHANGED_LINES}); split the PR or ask a human for \`large-pr\``
 	);
