@@ -98,7 +98,7 @@ The main audience is a young child. Completing a chore should feel like an event
 | CHO-6 | P0 | **Undo** a completion for 10 seconds after tapping (accidental taps happen), and adults can undo any time later. |
 | CHO-7 | P0 | When all of today's chores are done, show a bigger "All done!" celebration. |
 | CHO-8 | P0 | Track history: who completed what, when, and stars earned. |
-| CHO-9 | P1 | Optional **parent approval** per chore: completion shows as "Waiting for grown-up ✓" until an adult approves with a PIN, then stars are awarded. |
+| CHO-9 | P0 | **Parent approval (on by default)**: tapping "I did it!" still plays the celebration, but the star appears as a *pending* (outlined/silver) star marked "Waiting for grown-up". An adult approves on the wall (PIN) or from the phone admin UI. Then the star turns gold and flies into the jar with a second, smaller celebration. Adults can reject with an optional note. Approval can be turned off per chore. |
 | CHO-10 | P1 | **Streaks**: count consecutive days with all chores done, with bonus stars at milestones (e.g. 3, 7, 30 days). Configurable. |
 | CHO-11 | P1 | Adults can give **bonus stars** ad hoc ("Great job sharing!") with an optional note, and remove stars (with a note). |
 | CHO-12 | P1 | Choose celebration sounds and themes; volume control and a mute schedule (no sounds during quiet hours). |
@@ -190,9 +190,10 @@ Rejected: all-in-one Pi (too much photo processing and sync work on the Pi, back
 
 ### Reference Hardware
 - Raspberry Pi 5 (4 GB or 8 GB), official 27 W power supply, active cooler, NVMe or high-endurance SD card.
-- 15.6"–24" capacitive multi-touch monitor (USB touch, HDMI video). It must support DPMS power-off and stay touch-responsive (USB-powered touch controller) while the panel is off, for touch to wake (SLP-3).
+- **Display: ViewSonic ID2456-4K** (24", 3840×2160 IPS, 10-point PCAP touch, MPP 2.0 stylus, kickstand). Video over HDMI from the Pi. Touch over a USB cable from the monitor's USB-B/USB-C upstream port to a Pi USB-A port. **VESA 75×75** wall mount (smaller than the common 100×100, so check the mount). No built-in speakers are listed; it has an audio-out jack.
+- **Display checks before building on it** (see beads): (1) when the Pi turns the HDMI output off, does the panel go to standby while the USB touch controller stays powered (touch to wake, SLP-3)? (2) Is Chromium on the Pi 5 smooth at native 4K (NFR-4), or should the Pi output 2560×1440 / 1920×1080? The UI must lay out correctly at any of these. (3) Does audio over HDMI → monitor audio-out → small powered speaker work for celebration sounds?
 - Low-profile wall mount with power and HDMI routed behind the screen (in-wall power kit).
-- Optional: PIR/mmWave sensor (SLP-6), small speaker if the monitor has no audio (CHO-4).
+- Small powered speaker on the monitor's audio-out jack (CHO-4). Optional: PIR/mmWave sensor (SLP-6).
 
 ## 6. Integration Notes and Risks
 
@@ -219,15 +220,15 @@ Rejected: all-in-one Pi (too much photo processing and sync work on the Pi, back
 
 | Phase | Scope |
 |---|---|
-| **MVP (v0.1)** | Kiosk setup on the Pi, family profiles, Google + iCloud + ICS calendars (read-only), Today/Week/Month views, photo frame from one Apple Photos source + local folder, chores with gold stars + celebrations + undo, one reward goal with redemption, scheduled sleep + Sleep-now button + touch to wake, admin web UI with PIN. |
-| **v0.2** | Event create/edit, parent approval, streaks, bonus stars, routines, weather, countdowns, night clock. |
+| **MVP (v0.1)** | Kiosk setup on the Pi, family profiles, Google + iCloud + ICS calendars (read-only), Today/Week/Month views, photo frame from a local folder (Apple Photos via the Mac mini helper after the migration), parent approval for chores, one child profile, chores with gold stars + celebrations + undo, one reward goal with redemption, scheduled sleep + Sleep-now button + touch to wake, admin web UI with PIN. |
+| **v0.2** | Event create/edit, streaks, bonus stars, routines, weather, countdowns, night clock. |
 | **v0.3** | Lists, meal planning, reward shop, remote access over VPN, data export, notifications. |
 | **Later** | Motion-sensor wake, Home Assistant integration, Outlook, badges, allowance ledger, themes. |
 
 ## 9. Acceptance Criteria (MVP)
 1. With the network unplugged, the display still shows today's events and photos, and chores can still be completed. When the network returns, completions sync.
 2. An event added on an iPhone (iCloud) and one added in Google Calendar on the web both appear on the display within 5 minutes.
-3. The child can complete a chore without help, sees and hears the celebration, and the star jar visibly fills.
+3. The child can complete a chore without help and sees and hears the celebration. A pending star appears; after a parent approves (on the wall or from a phone), it turns gold and the star jar visibly fills.
 4. Reaching the goal triggers the reward celebration. Redeeming requires the adult PIN and correctly reduces the balance.
 5. At the scheduled bedtime the monitor powers off (backlight off). Touching it wakes it, and it goes back to sleep after the timeout. "Sleep now" turns the monitor off within 2 seconds.
 6. After pulling the power and plugging it back in, the hub returns to the home screen within 2 minutes with no keyboard or mouse.
@@ -235,10 +236,10 @@ Rejected: all-in-one Pi (too much photo processing and sync work on the Pi, back
 
 ## 10. Open Questions
 1. ~~**Hosting**~~ — **Decided 2026-10-15:** Mac mini server (from early December), Unraid in the meantime, Pi kiosk on the wall. See §5.
-2. **Apple Photos**: with the Mac mini arriving, is option (0) the long-term plan? What do we use on Unraid until then: a local folder, a shared album, or `icloudpd`? Is Advanced Data Protection on for the Apple ID?
-3. **Screen**: size and orientation (landscape vs portrait)? This affects the layout of every view.
-4. **Children**: how many profiles, ages, and reading level? Should chores be mostly pictures?
-5. **Approval**: should chore stars be awarded right away (more fun) or after parent approval (more honest), by default?
+2. ~~**Apple Photos**~~ — **Decided 2026-10-15:** plain local folder on Unraid to start. On the Mac mini, a native `osxphotos` export of the iCloud-synced library into that folder.
+3. ~~**Screen**~~ — **Decided 2026-10-15:** ViewSonic ID2456-4K, 24" 4K touch (§5). Orientation is still open: assumed **landscape** unless told otherwise.
+4. ~~**Children**~~ — **Decided 2026-10-15:** one child profile for now (the data model still supports more). Chores use pictures plus short text.
+5. ~~**Approval**~~ — **Decided 2026-10-15:** stars need parent approval by default (CHO-9, now in the MVP).
 6. **Write-back**: do we need event creation from the wall screen in the MVP, or is the phone enough?
 7. **Remote access**: is Tailscale already in use on the home network (Unraid / Mac mini)?
-8. **Sound**: does the chosen monitor have speakers, or do we add a small USB/3.5 mm speaker?
+8. ~~**Sound**~~ — The ID2456-4K lists no speakers, so add a small powered speaker on its audio-out jack.
