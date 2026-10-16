@@ -71,7 +71,9 @@ export function parseTarget(w: string | null, h: string | null): Size | undefine
 
 /** Idempotent file name: same content + size + part + format always maps to the same file. */
 export function variantName(hash: string, target: Size, part: PhotoPart, format: PhotoFormat) {
-	return `${hash}-${target.width}x${target.height}-${part}.${format}`;
+	// Backdrops are rendered small since v2; a new part name leaves old full-size files to LRU eviction.
+	const name = part === 'bg' ? 'bg2' : part;
+	return `${hash}-${target.width}x${target.height}-${name}.${format}`;
 }
 
 export interface CacheEntry {
