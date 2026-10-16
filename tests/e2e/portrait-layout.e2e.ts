@@ -133,26 +133,25 @@ test('route discovery finds the home page and settings sub-pages', () => {
 	expect(routes).toContain('/settings/family');
 });
 
-// The two Playwright projects only differ in viewport, and this spec sets its own, so run once.
-test.describe('portrait layout has no horizontal overflow or clipped controls', () => {
-	test.beforeEach(async ({ page: _page }, testInfo) => {
-		test.skip(testInfo.project.name !== 'wall-portrait-1440p', 'portrait sizes run in one project');
-	});
+// The landscape project checks the 1080x1920 portrait size and the portrait project checks
+// 1440x2560, so both sizes are covered without duplicate work and without skipped tests.
+const viewportFor = (projectName: string) =>
+	projectName === 'wall-landscape-1440p' ? viewports[0] : viewports[1];
 
-	for (const viewport of viewports) {
-		for (const route of routes) {
-			test(`${route} at ${viewport.width}x${viewport.height}`, async ({ page }) => {
-				await page.setViewportSize(viewport);
-				await signInAsAdult(page, 'e2e-portrait-adult');
-				await page.goto(route);
-				await settle(page);
-				const landed = new URL(page.url()).pathname;
-				const problems = await findLayoutProblems(page, TOLERANCE);
-				expect(
-					problems,
-					`route ${route} (landed on ${landed}) at ${viewport.width}x${viewport.height}`
-				).toEqual([]);
-			});
-		}
+test.describe('portrait layout has no horizontal overflow or clipped controls', () => {
+	for (const route of routes) {
+		test(`${route}`, async ({ page }, testInfo) => {
+			const viewport = viewportFor(testInfo.project.name);
+			await page.setViewportSize(viewport);
+			await signInAsAdult(page, 'e2e-portrait-adult');
+			await page.goto(route);
+			await settle(page);
+			const landed = new URL(page.url()).pathname;
+			const problems = await findLayoutProblems(page, TOLERANCE);
+			expect(
+				problems,
+				`route ${route} (landed on ${landed}) at ${viewport.width}x${viewport.height}`
+			).toEqual([]);
+		});
 	}
 });
