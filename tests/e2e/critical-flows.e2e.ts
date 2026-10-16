@@ -18,7 +18,7 @@ const PHONE = { width: 390, height: 844 };
 /** A second device: a phone-sized browser context with its own cookies, so no session is shared with the wall. */
 async function openPhone(browser: Browser): Promise<Page> {
 	const context = await browser.newContext({
-		baseURL: 'http://127.0.0.1:4173',
+		baseURL: test.info().project.use.baseURL,
 		viewport: PHONE,
 		serviceWorkers: 'block'
 	});

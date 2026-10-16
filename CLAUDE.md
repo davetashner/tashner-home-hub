@@ -86,6 +86,8 @@ pnpm build            # production build
 
 Run `pnpm gates` before opening a PR. A red CI is never merged.
 
+**Parallel e2e:** each checkout can run `pnpm test:e2e` side by side: set `E2E_PORT` to a free port (e.g. `E2E_PORT=4231 pnpm test:e2e`). The default is 4173. Playwright never reuses a running server, so a stale one on your port fails fast instead of testing someone else's build.
+
 **Worktree quirk:** worktrees live inside the main checkout, and Vite looks up parent folders for a `tsconfig.json`. If `pnpm test` fails with "Tsconfig not found", the main checkout's dependencies are stale: the lead runs `pnpm install && pnpm exec svelte-kit sync` in the main checkout after each merge. Workers: report it instead of editing the main checkout.
 
 
