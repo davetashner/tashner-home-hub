@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { signInAsAdult } from './adult';
 
 interface Seed {
@@ -75,7 +76,7 @@ test('tap shows pending instantly, even while the network is slow; undo restores
 
 	const undo = teeth.getByTestId('undo');
 	await expect(undo).toBeVisible();
-	await expect(undo).toContainText('Oops, undo');
+	await expect(undo).toContainText('Undo');
 	await expect(teeth.getByTestId('undo-seconds')).toHaveText(/^(10|9)$/);
 	await expect.poll(async () => (await undo.boundingBox())!.height).toBeGreaterThanOrEqual(96);
 
@@ -105,3 +106,16 @@ test('a tap that fails reverts with a gentle message', async ({ page }, info) =>
 	await expect(fish).toHaveAttribute('data-status', 'none');
 	await expect(fish.getByTestId('did-it')).toBeVisible();
 });
+
+for (const theme of ['day', 'night']) {
+	test(`no serious accessibility problems (${theme})`, async ({ page }, info) => {
+		const s = await seed(page, `axe ${theme} ${info.project.name}`);
+		await page.goto(`/chores?member=${s.memberId}`);
+		await card(page, 'Feed the fish').getByTestId('did-it').click();
+		await expect(card(page, 'Feed the fish').getByTestId('waiting')).toBeVisible();
+		if (theme === 'night')
+			await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'night'));
+		const { violations } = await new AxeBuilder({ page }).analyze();
+		expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
+	});
+}

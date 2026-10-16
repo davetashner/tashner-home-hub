@@ -240,7 +240,7 @@
 			</div>
 		</div>
 
-		<aside class="shrink-0 portrait:order-first landscape:sticky landscape:top-0 landscape:w-2/5">
+		<aside class="shrink-0 portrait:order-first landscape:sticky landscape:top-0 landscape:w-1/3">
 			<StarJar balance={stars.balance} pending={stars.pending} {goal} bind:jar />
 		</aside>
 	</div>

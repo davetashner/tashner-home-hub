@@ -52,9 +52,9 @@
 		? 'bg-success-soft'
 		: 'bg-surface-raised'}"
 >
-	<div class="flex min-w-0 grow items-center gap-6">
+	<div class="flex min-w-0 grow items-center gap-6 landscape:basis-3/5">
 		<span
-			class="grid size-32 shrink-0 place-items-center rounded-chip bg-accent-soft text-display leading-none {doable
+			class="grid size-24 shrink-0 place-items-center rounded-chip bg-accent-soft text-display leading-none {doable
 				? ''
 				: 'opacity-70'}"
 			aria-hidden="true"
@@ -62,7 +62,7 @@
 			{chore.icon ?? '⭐'}
 		</span>
 		<div class="flex min-w-0 grow flex-col gap-3">
-			<h3 class="text-title leading-tight font-extrabold text-balance">{chore.title}</h3>
+			<h3 class="min-w-0 text-title leading-tight font-extrabold break-words">{chore.title}</h3>
 			<div
 				class="flex gap-1"
 				role="img"
@@ -75,7 +75,7 @@
 		</div>
 	</div>
 
-	<div class="flex flex-col gap-4 landscape:w-1/2 landscape:shrink-0">
+	<div class="flex flex-col gap-4 landscape:basis-2/5">
 		{#if doable}
 			{#if chore.status === 'rejected'}
 				<p class="page-enter text-lead font-bold text-ink-muted" data-testid="gentle-note">
@@ -92,11 +92,11 @@
 			</Button>
 		{:else if chore.status === 'pending'}
 			<div
-				class="page-enter flex min-h-32 items-center justify-center gap-4 rounded-card bg-star-soft px-8 text-center"
+				class="page-enter flex min-h-32 items-center justify-center gap-4 rounded-card bg-star-soft px-4 text-center"
 				data-testid="waiting"
 			>
-				<span class="text-lead" aria-hidden="true">⏳</span>
-				<p class="text-lead font-extrabold">Waiting for grown-up</p>
+				<span class="text-title" aria-hidden="true">⏳</span>
+				<p class="text-body leading-tight font-extrabold">Waiting for grown-up</p>
 			</div>
 			{#if showUndo && undoStartedAt !== null}
 				<button
@@ -110,7 +110,7 @@
 						style:animation-duration="{UNDO_WINDOW_MS}ms"
 						aria-hidden="true"
 					></span>
-					<span class="relative">Oops, undo</span>
+					<span class="relative whitespace-nowrap">↩ Undo</span>
 					<span class="relative tabular-nums" data-testid="undo-seconds">
 						{undoSecondsLeft(undoStartedAt, now)}
 					</span>
@@ -118,7 +118,7 @@
 			{/if}
 		{:else}
 			<div
-				class="page-enter flex min-h-32 items-center justify-center gap-4 rounded-card bg-star px-8 text-ink"
+				class="page-enter flex min-h-32 items-center justify-center gap-4 rounded-card bg-star px-8 text-on-star"
 				data-testid="done"
 			>
 				<span class="text-title leading-none" aria-hidden="true">✓</span>
