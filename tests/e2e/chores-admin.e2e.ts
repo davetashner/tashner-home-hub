@@ -4,8 +4,10 @@ import { signInAsAdult } from './adult';
 async function expectTappable(locator: Locator) {
 	const box = await locator.boundingBox();
 	expect(box).not.toBeNull();
-	expect(box!.width).toBeGreaterThanOrEqual(60);
-	expect(box!.height).toBeGreaterThanOrEqual(60);
+	// Round to 1/100 px: layout can report 59.99997 for an exact 60px box.
+	const round = (n: number) => Math.round(n * 100) / 100;
+	expect(round(box!.width)).toBeGreaterThanOrEqual(60);
+	expect(round(box!.height)).toBeGreaterThanOrEqual(60);
 }
 
 test('create, edit and archive a weekday chore', async ({ page }, info) => {
