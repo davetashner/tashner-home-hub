@@ -46,9 +46,9 @@
 		message = await onsave({ name, role, color, avatar: avatar || null });
 	}}
 >
-	<div class="flex items-center gap-6">
+	<div class="flex flex-wrap items-center gap-6">
 		<MemberAvatar {name} {color} avatar={avatar || null} size="lg" />
-		<label class="flex flex-1 flex-col gap-2 text-caption text-ink-muted">
+		<label class="flex min-w-48 flex-1 flex-col gap-2 text-caption text-ink-muted">
 			Name
 			<input
 				name="name"
@@ -61,7 +61,7 @@
 		</label>
 	</div>
 
-	<fieldset class="flex flex-wrap gap-3">
+	<fieldset class="flex min-w-0 flex-wrap gap-3">
 		<legend class="mb-2 text-caption text-ink-muted">Who is this?</legend>
 		{#each [['adult', 'Grown-up'], ['child', 'Kid']] as [value, label] (value)}
 			<label class="relative">
@@ -73,7 +73,7 @@
 		{/each}
 	</fieldset>
 
-	<fieldset class="flex flex-wrap gap-3">
+	<fieldset class="flex min-w-0 flex-wrap gap-3">
 		<legend class="mb-2 text-caption text-ink-muted">Color</legend>
 		{#each MEMBER_COLORS as value (value)}
 			<label class="relative">
@@ -90,7 +90,7 @@
 		{/each}
 	</fieldset>
 
-	<fieldset class="flex flex-wrap gap-3">
+	<fieldset class="flex min-w-0 flex-wrap gap-3">
 		<legend class="mb-2 text-caption text-ink-muted">Picture</legend>
 		<label class="relative">
 			<input type="radio" name="avatar" value="" bind:group={avatar} class="peer sr-only" />

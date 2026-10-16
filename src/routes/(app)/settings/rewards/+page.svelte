@@ -62,7 +62,7 @@
 
 <svelte:head><title>Rewards</title></svelte:head>
 
-<section class="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8">
+<section class="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8 max-sm:p-3">
 	<header class="flex flex-wrap items-center justify-between gap-6">
 		<h1 class="text-headline font-extrabold">Rewards</h1>
 		<span class="flex flex-wrap gap-4">
@@ -82,9 +82,13 @@
 				<div class="flex flex-wrap gap-6">
 					<label class="flex flex-col gap-2">
 						<span class="text-caption text-ink-muted">Emoji</span>
-						<input class="{field} w-40 text-center" bind:value={image} data-testid="reward-image" />
+						<input
+							class="{field} w-40 text-center max-sm:w-full"
+							bind:value={image}
+							data-testid="reward-image"
+						/>
 					</label>
-					<label class="flex min-w-64 flex-1 flex-col gap-2">
+					<label class="flex min-w-64 flex-1 flex-col gap-2 max-sm:min-w-0 max-sm:basis-full">
 						<span class="text-caption text-ink-muted">Name</span>
 						<input
 							class={field}
@@ -97,7 +101,7 @@
 					<label class="flex flex-col gap-2">
 						<span class="text-caption text-ink-muted">Stars</span>
 						<input
-							class="{field} w-48"
+							class="{field} w-48 max-sm:w-full"
 							type="number"
 							inputmode="numeric"
 							min="1"
@@ -124,7 +128,7 @@
 	<ul class="flex flex-col gap-4">
 		{#each rewards as r (r.id)}
 			<li data-testid="reward-row">
-				<Card class="flex flex-wrap items-center gap-6 !p-6">
+				<Card class="flex flex-wrap items-center gap-6 !p-6 max-sm:!p-4">
 					<span class="w-24 text-center text-headline" aria-hidden="true">{r.image ?? '🎁'}</span>
 					<span class="min-w-48 flex-1 text-lead font-bold">{r.title}</span>
 					<span class="text-lead font-extrabold">{r.cost} ⭐</span>

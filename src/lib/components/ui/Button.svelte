@@ -27,7 +27,7 @@
 		danger: 'bg-danger text-on-accent shadow-raised'
 	};
 	const sizes: Record<Size, string> = {
-		md: 'min-h-tap min-w-tap px-8 text-body',
+		md: 'min-h-tap min-w-tap px-8 text-body max-sm:px-4',
 		kid: 'min-h-tap-kid min-w-tap-kid px-12 text-title rounded-card'
 	};
 </script>

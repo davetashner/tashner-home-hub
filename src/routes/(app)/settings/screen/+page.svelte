@@ -94,7 +94,7 @@
 	<title>Screen · Settings · Home Hub</title>
 </svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3">
 	<h1 class="text-headline font-extrabold">Screen</h1>
 	{#each rows as row (row.key)}
 		<Card>
@@ -103,7 +103,7 @@
 					<h2 class="text-title font-bold">{row.title}</h2>
 					<p class="text-body text-ink-muted">{row.line}</p>
 				</div>
-				<div class="flex items-center gap-4">
+				<div class="flex items-center gap-4 max-sm:gap-2">
 					<Button
 						variant="secondary"
 						aria-label="{row.title}: less"
@@ -129,7 +129,7 @@
 					<h2 class="text-title font-bold">Next photo</h2>
 					<p class="text-body text-ink-muted">How long each photo stays on the frame.</p>
 				</div>
-				<div class="flex items-center gap-4">
+				<div class="flex items-center gap-4 max-sm:gap-2">
 					<Button
 						variant="secondary"
 						aria-label="Next photo: less"
@@ -153,7 +153,7 @@
 			</div>
 			<div class="flex flex-wrap items-center justify-between gap-6">
 				<h2 class="text-title font-bold">Transition</h2>
-				<div class="flex gap-4" role="group" aria-label="Transition">
+				<div class="flex flex-wrap gap-4" role="group" aria-label="Transition">
 					{#each transitions as t (t.value)}
 						<Button
 							variant={slideshow.transition === t.value ? 'primary' : 'secondary'}

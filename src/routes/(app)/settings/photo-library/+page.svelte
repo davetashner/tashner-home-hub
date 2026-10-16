@@ -105,7 +105,7 @@
 
 <svelte:head><title>Photo library</title></svelte:head>
 
-<section class="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+<section class="mx-auto flex max-w-4xl flex-col gap-6 p-6 max-sm:p-3">
 	<h1 class="text-headline font-extrabold">Photo library</h1>
 
 	{#if error}<p role="alert" class="text-body font-bold text-danger">{error}</p>{/if}
@@ -137,7 +137,7 @@
 			</label>
 			<p class="text-caption text-ink-muted">
 				The path inside the hub's container, for example the folder you bind-mounted read-only (<code
-					>/mnt/user/Photos:/media/photos-in:ro</code
+					class="break-all">/mnt/user/Photos:/media/photos-in:ro</code
 				>). It must be under HUB_PHOTO_ROOTS.
 			</p>
 			<Button type="submit" disabled={busy === 'add' || !root}>
@@ -156,7 +156,7 @@
 						{s.photoCount} photos{s.lastScan ? ` · scanned ${when(s.lastScan.at)}` : ''}
 					</p>
 				</div>
-				<div class="flex gap-3">
+				<div class="flex flex-wrap gap-3">
 					<Button disabled={busy === s.id} onclick={() => scan(s)}>
 						{busy === s.id ? 'Scanning…' : 'Scan now'}
 					</Button>
