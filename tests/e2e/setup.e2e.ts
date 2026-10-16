@@ -14,7 +14,8 @@ let server: ChildProcess | undefined;
 let dataDir = '';
 let baseURL = '';
 
-test.beforeAll(async (_fixtures, info) => {
+test.beforeAll(async () => {
+	const info = test.info();
 	const port = PORTS[info.project.name] ?? 4182;
 	baseURL = `http://127.0.0.1:${port}`;
 	dataDir = mkdtempSync(join(tmpdir(), 'hub-e2e-setup-'));
