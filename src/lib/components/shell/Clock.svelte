@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import { formatClock } from '#lib/domain/clock.js';
+	import { isTimeZone } from '#lib/domain/time-zone.js';
 
 	let {
 		testidPrefix = 'clock',
@@ -14,7 +16,9 @@
 		return () => clearInterval(timer);
 	});
 
-	const clock = $derived(formatClock(now));
+	// The household zone when the server sent one, so the wall shows home time whatever the kiosk thinks.
+	const zone = $derived(isTimeZone(page.data.timeZone) ? page.data.timeZone : undefined);
+	const clock = $derived(formatClock(now, zone ? { timeZone: zone } : {}));
 </script>
 
 <div class="flex flex-col {size === 'hero' ? 'items-center gap-4' : 'items-start gap-1'}">
