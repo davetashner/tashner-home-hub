@@ -17,7 +17,10 @@ const req = (method: string, body?: unknown) =>
 		body: body === undefined ? undefined : JSON.stringify(body)
 	});
 const call = (h: unknown, ev: Record<string, unknown>) =>
-	(h as (e: unknown) => Promise<Response> | Response)(ev);
+	(h as (e: unknown) => Promise<Response> | Response)({
+		locals: { adult: { id: 'adult', name: 'Test Adult' } },
+		...ev
+	});
 
 describe('rewards API', () => {
 	it('creates, lists, edits, archives', async () => {

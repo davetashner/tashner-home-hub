@@ -11,8 +11,9 @@ const one = await import('./[id]/+server.js');
 const archive = await import('./[id]/archive/+server.js');
 const memberChores = await import('../members/[id]/chores/+server.js');
 
+const adult = { adult: { id: 'adult', name: 'Test Adult' } };
 const call = async (h: unknown, ev: Record<string, unknown>) =>
-	(h as (e: unknown) => Promise<Response> | Response)(ev);
+	(h as (e: unknown) => Promise<Response> | Response)({ locals: adult, ...ev });
 const req = (method: string, body?: unknown) =>
 	new Request('http://example.com/x', {
 		method,

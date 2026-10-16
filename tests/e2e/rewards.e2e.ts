@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
+import { signInAsAdult } from './adult';
 
-test('add and edit a reward', async ({ page }) => {
+test('add and edit a reward', async ({ page }, info) => {
+	await signInAsAdult(page, `e2e-rewards-${info.project.name}`);
 	const name = `Ice cream trip ${Date.now()}`;
 	await page.goto('/settings/rewards');
 	await page.getByTestId('add-reward').click();

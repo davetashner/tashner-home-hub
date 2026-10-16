@@ -1,4 +1,5 @@
 import { expect, test, type Locator } from '@playwright/test';
+import { signInAsAdult } from './adult';
 
 async function expectTappable(locator: Locator) {
 	const box = await locator.boundingBox();
@@ -10,6 +11,7 @@ async function expectTappable(locator: Locator) {
 test('add and edit a family member with tappable controls', async ({ page }, info) => {
 	// Unique per project so the two orientations never collide on the shared database.
 	const name = `Test ${info.project.name}`;
+	await signInAsAdult(page, `e2e-family-${info.project.name}`);
 	await page.goto('/settings/family');
 
 	const add = page.getByRole('button', { name: 'Add person' });
