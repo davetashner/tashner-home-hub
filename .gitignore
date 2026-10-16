@@ -39,3 +39,6 @@ test-results
 # Test output
 coverage/
 playwright-report/
+
+# Local compose data volume (never commit)
+/data/
