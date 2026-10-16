@@ -34,6 +34,8 @@ export function seedCalendar(options: { fresh?: boolean } = {}): void {
 	member.run('e2e-cal-m1', 'Avery', 'member-1');
 	member.run('e2e-cal-m2', 'Blake', 'member-3');
 	member.run('e2e-cal-m3', 'Casey', 'member-5');
+	// One transaction: the other orientation's worker never sees the source half-deleted.
+	db.exec('BEGIN IMMEDIATE');
 	db.prepare('DELETE FROM calendar_sources WHERE id = ?').run(SOURCE);
 	db.prepare(
 		"INSERT INTO calendar_sources (id, provider, label, calendars, last_sync_at) VALUES (?, 'ics', 'Family', '[]', ?)"
@@ -70,5 +72,6 @@ export function seedCalendar(options: { fresh?: boolean } = {}): void {
 			JSON.stringify(ids)
 		);
 	});
+	db.exec('COMMIT');
 	db.close();
 }
