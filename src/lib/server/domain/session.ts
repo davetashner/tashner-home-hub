@@ -17,6 +17,8 @@ export interface SessionPayload {
 	exp: number;
 	/** Sliding lifetime, ms. */
 	ttl: number;
+	/** Member's session epoch at issue time; a session is void once the member's epoch moves on. Absent = 0. */
+	e: number;
 }
 
 /** Derives the cookie-signing key from the app keyring's master key (domain-separated). */
@@ -27,9 +29,14 @@ export function deriveSessionKey(master: Buffer): Buffer {
 const b64 = (b: Buffer | string) => Buffer.from(b).toString('base64url');
 const mac = (key: Buffer, body: string) => createHmac('sha256', key).update(body).digest();
 
-export function newSession(memberId: string, remember: boolean, now: number): SessionPayload {
+export function newSession(
+	memberId: string,
+	remember: boolean,
+	now: number,
+	epoch = 0
+): SessionPayload {
 	const ttl = remember ? PHONE_TTL_MS : WALL_IDLE_MS;
-	return { m: memberId, iat: now, exp: now + ttl, ttl };
+	return { m: memberId, iat: now, exp: now + ttl, ttl, e: epoch };
 }
 
 export function signSession(key: Buffer, payload: SessionPayload): string {
@@ -56,7 +63,9 @@ export function verifySession(key: Buffer, token: string, now: number): SessionP
 		) {
 			return null;
 		}
-		return p.exp > now ? { m: p.m, iat: p.iat, exp: p.exp, ttl: p.ttl } : null;
+		// Cookies minted before epochs existed carry no `e`; they count as epoch 0.
+		const e = typeof p.e === 'number' ? p.e : 0;
+		return p.exp > now ? { m: p.m, iat: p.iat, exp: p.exp, ttl: p.ttl, e } : null;
 	} catch {
 		return null;
 	}

@@ -40,7 +40,30 @@ function writeCookie(event: CookieEvent, payload: SessionPayload): void {
 
 /** Starts an adult session. `remember` = personal phone (30 days); otherwise shared wall screen (2 min idle). */
 export function issueSession(event: CookieEvent, memberId: string, remember: boolean): void {
-	writeCookie(event, newSession(memberId, remember, Date.now()));
+	writeCookie(event, newSession(memberId, remember, Date.now(), sessionEpoch(memberId)));
+}
+
+const epochKey = (memberId: string) => `session.epoch.${memberId}`;
+
+/** Per-member session epoch (settings row, JSON number; missing = 0). A primary-key lookup per request. */
+export function sessionEpoch(memberId: string): number {
+	const row = getDb()
+		.select({ value: schema.settings.value })
+		.from(schema.settings)
+		.where(eq(schema.settings.key, epochKey(memberId)))
+		.get();
+	const n = row ? Number(JSON.parse(row.value)) : 0;
+	return Number.isInteger(n) && n >= 0 ? n : 0;
+}
+
+/** Voids every session cookie issued so far to this member (all devices), including copied ones. */
+export function revokeSessions(memberId: string): void {
+	const value = JSON.stringify(sessionEpoch(memberId) + 1);
+	getDb()
+		.insert(schema.settings)
+		.values({ key: epochKey(memberId), value })
+		.onConflictDoUpdate({ target: schema.settings.key, set: { value, updatedAt: Date.now() } })
+		.run();
 }
 
 export function clearSession(event: Pick<RequestEvent, 'cookies'>): void {
@@ -60,7 +83,13 @@ export function resolveAdult(event: RequestEvent): App.Locals['adult'] {
 	const member = session
 		? getDb().select().from(schema.members).where(eq(schema.members.id, session.m)).get()
 		: undefined;
-	if (!session || !member || member.role !== 'adult' || !member.pinHash) {
+	if (
+		!session ||
+		!member ||
+		member.role !== 'adult' ||
+		!member.pinHash ||
+		session.e !== sessionEpoch(member.id)
+	) {
 		clearSession(event);
 		return null;
 	}
