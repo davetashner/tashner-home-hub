@@ -12,6 +12,7 @@ const approve = await import('./completions/[id]/approve/+server.js');
 const reject = await import('./completions/[id]/reject/+server.js');
 const undo = await import('./completions/[id]/undo/+server.js');
 const approvals = await import('./approvals/+server.js');
+const recent = await import('./completions/+server.js');
 const stars = await import('./members/[id]/stars/+server.js');
 const bonus = await import('./members/[id]/bonus/+server.js');
 
@@ -130,12 +131,35 @@ describe('star ledger API', () => {
 		expect(s.balance).toBe(5);
 	});
 
+	it('lists recent approved completions so an adult can undo one later', async () => {
+		const db = getDb();
+		db.insert(schema.members)
+			.values({ id: 'kid2', name: 'Test Child Two', role: 'child', color: 'blue' })
+			.run();
+		const chore = createChore(db, { title: 'Fish', stars: 3, requiresApproval: false });
+		const { completion } = await (
+			await call(complete.POST, { params: { id: chore.id }, request: post({ memberId: 'kid2' }) })
+		).json();
+		const mine = async (days: string) =>
+			(
+				(await (
+					await call(recent.GET, { url: new URL(`http://example.com/?days=${days}`) })
+				).json()) as { memberId: string; completionId: string }[]
+			).filter((r) => r.memberId === 'kid2');
+		for (const days of ['3', 'x', '999'])
+			expect(await mine(days)).toMatchObject([{ completionId: completion.id }]);
+		const u = await call(undo.POST, { params: { id: completion.id } });
+		expect((await u.json()).status).toBe('undone');
+		expect(await mine('7')).toEqual([]);
+	});
+
 	it('adult-only routes reject callers without an adult session', async () => {
 		const locals = { adult: null };
 		const params = { id: 'x' };
 		const request = post({ delta: 1, note: 'n' });
 		for (const [handler, ev] of [
 			[approvals.GET, {}],
+			[recent.GET, { url: new URL('http://example.com/') }],
 			[approve.POST, { params }],
 			[reject.POST, { params, request }],
 			[bonus.POST, { params, request }]

@@ -13,6 +13,7 @@ import {
 	history,
 	pendingApprovals,
 	pendingStars,
+	recentCompletions,
 	rejectCompletion,
 	undoCompletion
 } from './ledger.js';
@@ -149,6 +150,31 @@ describe('undoCompletion', () => {
 		const c = done(createChore(db, { title: 'D' }).id).completion;
 		undoCompletion(db, c.id, { now: T0, byAdult: true });
 		expect(code(() => undoCompletion(db, c.id, { now: T0, byAdult: true }))).toBe('conflict');
+	});
+});
+
+describe('recentCompletions', () => {
+	it('lists approved completions since a time, newest first, and drops undone ones', () => {
+		const bed = createChore(db, { title: 'Bed', stars: 2, requiresApproval: false });
+		const fish = createChore(db, { title: 'Fish', requiresApproval: false });
+		const dishes = createChore(db, { title: 'Dishes' });
+		done(bed.id, T0 - 10_000, '2026-01-04');
+		const recentBed = done(bed.id, T0 + 1).completion;
+		const f = done(fish.id, T0 + 2).completion;
+		done(dishes.id, T0 + 3); // pending: not listed
+		const list = recentCompletions(db, { since: T0 });
+		expect(list.map((r) => r.choreTitle)).toEqual(['Fish', 'Bed']);
+		expect(list[1]).toMatchObject({
+			completionId: recentBed.id,
+			memberName: `Test ${kid}`,
+			stars: 2
+		});
+		expect(recentCompletions(db, { since: 0, limit: 1 })).toHaveLength(1);
+		expect(recentCompletions(db, { since: 0, limit: 0 })).toHaveLength(1);
+
+		undoCompletion(db, f.id, { now: T0 + 999_999, byAdult: true });
+		expect(recentCompletions(db, { since: T0 }).map((r) => r.choreTitle)).toEqual(['Bed']);
+		expect(balances(db)[kid]).toBe(4);
 	});
 });
 

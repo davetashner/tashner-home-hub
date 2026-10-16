@@ -108,3 +108,39 @@ for (const theme of ['day', 'night']) {
 		expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
 	});
 }
+
+test('a chore without approval can be undone in its 10 seconds, taking the gold star back', async ({
+	page
+}, info) => {
+	await signInAsAdult(page, `adult-kc-noappr${info.project.name.replace(/\W/g, '')}`);
+	const member = await (
+		await page.request.post('/api/members', {
+			data: { name: `Nori ${Date.now() % 1e9}`, role: 'child', color: 'member-2', avatar: '🐢' }
+		})
+	).json();
+	await page.request.post('/api/chores', {
+		data: {
+			title: 'Water cress',
+			icon: '🌱',
+			stars: 1,
+			memberIds: [member.id],
+			schedule: { type: 'daily' },
+			requiresApproval: false
+		}
+	});
+	await page.context().clearCookies();
+	await page.goto(`/chores?member=${member.id}`);
+	const cress = card(page, 'Water cress');
+	const saved = page.waitForResponse((r) => r.url().includes('/complete'));
+	await cress.getByTestId('did-it').click();
+	expect((await saved).ok()).toBe(true);
+	await expect(cress).toHaveAttribute('data-status', 'approved');
+	await expect(page.getByTestId('jar-counts')).toContainText('1 gold star');
+	const undone = page.waitForResponse((r) => r.url().includes('/undo'));
+	await cress.getByTestId('undo').click();
+	await expect(cress.getByTestId('did-it')).toBeVisible();
+	await expect(page.getByTestId('jar-counts')).toContainText('0 gold stars');
+	expect((await undone).ok()).toBe(true);
+	await page.reload();
+	await expect(card(page, 'Water cress')).toHaveAttribute('data-status', 'undone');
+});

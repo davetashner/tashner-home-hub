@@ -125,3 +125,22 @@ test('works on a phone', async ({ page }, info) => {
 	await row.getByTestId('approve').click();
 	await expect(row).toHaveCount(0);
 });
+
+test('a grown-up can undo an approved chore any time later', async ({ page }, info) => {
+	const s = await seed(page, `undo ${info.project.name}`);
+	await unlockAndOpen(page, s);
+	const before = await balance(page, s);
+	await rowFor(page, s, 'Water plants').getByTestId('approve').click();
+	await expect(card(page, s).getByTestId(`balance-${s.memberId}`)).toHaveText(`${before + 2} ⭐`);
+	await page.reload(); // the list comes from the server, not just this page's memory
+	const done = card(page, s).getByTestId('done-row').filter({ hasText: 'Water plants' });
+	await expect(done).toBeVisible();
+	const undo = done.getByTestId('undo-done');
+	await expectTappable(undo);
+	await undo.click();
+	await expect(done).toHaveCount(0);
+	await expect(card(page, s).getByTestId(`balance-${s.memberId}`)).toHaveText(`${before} ⭐`);
+	await expect(page.getByTestId('toast')).toContainText('Undone');
+	expect(await balance(page, s)).toBe(before);
+	await expect(rowFor(page, s, 'Set table')).toBeVisible(); // pending ones are untouched
+});
