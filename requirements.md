@@ -152,6 +152,7 @@ The main audience is a young child. Completing a chore should feel like an event
 | UI-5 | P1 | Light and dark themes; dark theme turns on automatically in the evening. |
 | UI-6 | P1 | Return to the home screen after N minutes idle (before the photo frame starts). |
 | UI-7 | P2 | Seasonal/holiday themes. |
+| UI-8 | P0 | **Both orientations**: mounted in landscape, but every screen has a designed layout for portrait too (not just a squeezed landscape). Orientation is a setting; the kiosk rotates the display output and touch input to match. |
 
 ### 3.9 Administration and Remote Access
 | ID | Pri | Requirement |
@@ -169,7 +170,7 @@ The main audience is a young child. Completing a chore should feel like an event
 |---|---|---|
 | NFR-1 | P0 | **Cost**: no recurring fees. Only free tiers of Google/Apple and free open-source software. |
 | NFR-2 | P0 | **Privacy**: all family data (events cache, photos cache, chores, stars) is stored on our hardware. No telemetry or third-party analytics. |
-| NFR-3 | P0 | **Security**: LAN-only by default. Credentials (OAuth tokens, app-specific passwords) are encrypted at rest and never committed to git. Admin endpoints require authentication. |
+| NFR-3 | P0 | **Security**: the GitHub repo is **public**, so no secrets *or private family data* (real names, photos, calendars, addresses, location metadata) are ever committed; test fixtures are synthetic. LAN-only by default. Credentials (OAuth tokens, app-specific passwords) are encrypted at rest and never committed to git. Admin endpoints require authentication. |
 | NFR-4 | P0 | **Performance on Raspberry Pi 5**: screen changes < 300 ms, animations smooth (≥ 30 fps), photo transitions without stutter. |
 | NFR-5 | P0 | **Reliability**: runs unattended for months. Watchdog restarts the kiosk browser and server if they stop responding. Tolerates SD-card wear (prefer SSD/NVMe or a read-mostly OS image). |
 | NFR-6 | P0 | **Offline tolerance**: if the internet or home server is down, the display keeps showing cached calendar, photos, and chores. Chore completions are queued and synced later. |
@@ -237,7 +238,7 @@ Rejected: all-in-one Pi (too much photo processing and sync work on the Pi, back
 ## 10. Open Questions
 1. ~~**Hosting**~~ — **Decided 2026-10-15:** Mac Studio server (from early December), Unraid in the meantime, Pi kiosk on the wall. See §5.
 2. ~~**Apple Photos**~~ — **Decided 2026-10-15:** plain local folder on Unraid to start. On the Mac Studio, a native `osxphotos` export of the iCloud-synced library into that folder.
-3. ~~**Screen**~~ — **Decided 2026-10-15:** ViewSonic ID2456-4K, 24" 4K touch (§5). Orientation is still open: assumed **landscape** unless told otherwise.
+3. ~~**Screen**~~ — **Decided 2026-10-15:** ViewSonic ID2456-4K, 24" 4K touch (§5). **Landscape** mounting, with portrait fully supported (UI-8).
 4. ~~**Children**~~ — **Decided 2026-10-15:** one child profile for now (the data model still supports more). Chores use pictures plus short text.
 5. ~~**Approval**~~ — **Decided 2026-10-15:** stars need parent approval by default (CHO-9, now in the MVP).
 6. **Write-back**: do we need event creation from the wall screen in the MVP, or is the phone enough?
