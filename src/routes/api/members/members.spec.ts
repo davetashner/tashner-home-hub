@@ -10,14 +10,17 @@ vi.mock('#lib/server/db/index.js', async (orig) => ({
 const { GET, POST } = await import('./+server.js');
 const item = await import('./[id]/+server.js');
 
-const ev = (init: { body?: unknown; params?: Record<string, string>; url?: string } = {}) =>
+const ev = (
+	init: { body?: unknown; params?: Record<string, string>; url?: string; anon?: boolean } = {}
+) =>
 	({
 		request: new Request('http://x/api/members', {
 			method: 'POST',
 			body: init.body === undefined ? undefined : JSON.stringify(init.body)
 		}),
 		params: init.params ?? {},
-		url: new URL(init.url ?? 'http://x/api/members')
+		url: new URL(init.url ?? 'http://x/api/members'),
+		locals: { adult: init.anon ? null : { id: 'adult', name: 'Test Adult' } }
 	}) as never;
 
 async function status(f: () => Promise<Response> | Response | void) {
@@ -33,6 +36,10 @@ beforeEach(() => {
 });
 
 describe('members API', () => {
+	it('requires an adult session', async () => {
+		expect(await status(() => POST(ev({ anon: true, body: {} })))).toBe(401);
+	});
+
 	it('creates then lists', async () => {
 		const res = await POST(ev({ body: { name: 'Parent One', role: 'adult', color: 'member-1' } }));
 		expect(res.status).toBe(201);
