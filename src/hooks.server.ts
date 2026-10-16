@@ -3,6 +3,7 @@ import type { Handle } from '@sveltejs/kit/hooks';
 import { getDb } from '#lib/server/db/index.js';
 import { startBackupScheduler } from '#lib/server/backup.js';
 import { resolveAdult } from '#lib/server/auth.js';
+import { startPhotoScanner } from '#lib/server/photo-source/scheduler.js';
 import { startCalendarScheduler } from '#lib/server/calendar/scheduler.js';
 // Side-effect imports register the real calendar providers before the first scheduled sync.
 import '#lib/server/calendar/ics.js';
@@ -32,4 +33,5 @@ export function init(): void {
 	getDb();
 	startBackupScheduler();
 	startCalendarScheduler();
+	startPhotoScanner();
 }
