@@ -30,12 +30,20 @@ let draining: Promise<void> | undefined;
 export function enqueuePrerender(db: Db, ids: string[]): void {
 	pending.push(...ids);
 	draining ??= (async () => {
-		const cache = getPhotoCache();
-		for (let id = pending.shift(); id !== undefined; id = pending.shift()) {
-			for (const target of prerenderTargets(db))
-				await cache.ensureRendered(id, target, ['avif']).catch(() => null);
+		try {
+			const cache = getPhotoCache();
+			for (let id = pending.shift(); id !== undefined; id = pending.shift()) {
+				for (const target of prerenderTargets(db))
+					await cache.ensureRendered(id, target, ['avif']).catch(() => null);
+			}
+		} catch (e) {
+			// Fire-and-forget by design: nobody awaits this, so an unexpected failure must not escape.
+			pending.length = 0;
+			console.error('[prerender] failed:', e instanceof Error ? e.message : String(e));
+		} finally {
+			draining = undefined;
 		}
-	})().finally(() => (draining = undefined));
+	})();
 }
 
 export const prerenderIdle = (): Promise<void> => draining ?? Promise.resolve();

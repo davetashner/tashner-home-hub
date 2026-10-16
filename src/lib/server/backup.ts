@@ -71,9 +71,11 @@ export function runBackup(
 ): Promise<BackupResult> {
 	const p = doBackup(source, dir, now);
 	running = p;
-	void p.finally(() => {
+	const clear = () => {
 		if (running === p) running = undefined;
-	});
+	};
+	// Both arms: a rejection must not leave an unhandled derived promise behind.
+	void p.then(clear, clear);
 	return p;
 }
 

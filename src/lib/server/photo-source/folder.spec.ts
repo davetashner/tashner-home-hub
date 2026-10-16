@@ -108,7 +108,9 @@ describe('scanSource', () => {
 	});
 
 	it('shares one run between concurrent calls and rejects unknown sources', async () => {
-		expect(scanSource(db, 's')).toBe(scanSource(db, 's'));
+		const first = scanSource(db, 's');
+		expect(scanSource(db, 's')).toBe(first);
+		await first; // never leave a scan running past the test: afterAll deletes its folder
 		await expect(scanSource(db, 'missing')).rejects.toBeInstanceOf(PhotoSourceError);
 	});
 
