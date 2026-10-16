@@ -17,10 +17,12 @@ test('Lock ends the adult session and settings ask for the PIN again', async ({ 
 	const lock = page.getByRole('button', { name: 'Lock' });
 	await expectTappable(lock);
 
+	const loggedOut = page.waitForResponse('**/api/auth/logout');
 	await lock.click();
 	// Optimistic: the control disappears and grown-up screens are left on the tap.
 	await expect(lock).toHaveCount(0);
 	await expect(page).toHaveURL(/\/$/);
+	expect((await loggedOut).ok()).toBe(true);
 
 	await page.goto('/settings');
 	await expect(page).toHaveURL(/\/unlock\?next=%2Fsettings$/);

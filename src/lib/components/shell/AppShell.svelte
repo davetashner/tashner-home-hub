@@ -32,7 +32,9 @@
 
 	async function lock() {
 		locking = true;
-		if (pathname.startsWith('/settings')) void goto(resolve('/(app)'));
+		// Leave grown-up screens now; wait for that navigation before reloading data, or the
+		// reload would race it and land on /unlock instead of home.
+		const leaving = pathname.startsWith('/settings') ? goto(resolve('/(app)')) : Promise.resolve();
 		try {
 			// JSON body: an empty-body POST trips SvelteKit's CSRF origin check.
 			await fetch('/api/auth/logout', {
@@ -43,6 +45,7 @@
 		} catch {
 			// Offline: the wall session still times out on its own; the reload below shows the truth.
 		}
+		await leaving.catch(() => {});
 		await invalidateAll().finally(() => (locking = false));
 	}
 
