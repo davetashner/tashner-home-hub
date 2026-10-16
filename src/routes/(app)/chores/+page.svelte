@@ -1,27 +1,34 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { deliver, onWriteDropped, writeQueue } from '#lib/offline/client.js';
+	import { offline } from '#lib/offline/state.svelte.js';
 	import { page } from '$app/state';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import ChoreCard from '#lib/components/kid/ChoreCard.svelte';
 	import StarJar, { type Goal } from '#lib/components/kid/StarJar.svelte';
 	import AllDoneBanner from '#lib/components/kid/AllDoneBanner.svelte';
+	import EarnedBanner from '#lib/components/kid/EarnedBanner.svelte';
 	import {
 		celebrate,
 		celebrateAllDone,
 		celebrateApproval,
+		celebrateGoal,
 		preloadCelebrations
 	} from '#lib/components/kid/celebrate.js';
 	import { allDoneKey, approvedTransitions, isAllDone } from '#lib/domain/celebrate-logic.js';
+	import { earnedDecision, earnedKey } from '#lib/domain/goal-jar.js';
 	import EmptyState from '#lib/components/shell/EmptyState.svelte';
 	import type { MemberColor } from '#lib/domain/member-colors.js';
 	import {
 		GROUP_HEADINGS,
 		localDate,
 		setStatus,
+		UNDO_WINDOW_MS,
 		switcherMembers,
 		type KidChore,
 		type KidGroup
 	} from '#lib/domain/kid-chores.js';
+	import { overlayQueued } from '#lib/domain/write-queue.js';
 
 	interface Member {
 		id: string;
@@ -29,7 +36,7 @@
 		color: MemberColor;
 		avatar: string | null;
 	}
-	type Completion = { id: string; status: KidChore['status'] };
+	type Completion = { id: string | null; status: KidChore['status'] };
 
 	const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -44,6 +51,11 @@
 	let undoStarts = $state<Record<string, number>>({});
 	let allDone = $state(false);
 	let allDoneTimer: ReturnType<typeof setTimeout> | undefined;
+	let allDoneUntil = 0;
+	let earned = $state<Goal | null>(null);
+	let earnedTimer: ReturnType<typeof setTimeout> | undefined;
+	// Fallback when localStorage is unavailable, so the party still happens only once per load.
+	const earnedMemo: Record<string, string | null> = {};
 
 	// Taps whose POST has not answered yet: choreId -> completion promise.
 	const inflight: Record<string, Promise<Completion | null>> = {};
@@ -53,15 +65,8 @@
 	const selected = $derived(members.find((m) => m.id === selectedId) ?? null);
 	const groups = $derived(selectedId ? (boards[selectedId] ?? []) : []);
 
-	async function api<T>(url: string, body?: object): Promise<T> {
-		const res = await fetch(
-			url,
-			body && {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(body)
-			}
-		);
+	async function api<T>(url: string): Promise<T> {
+		const res = await fetch(url);
 		if (!res.ok) throw new Error(String(res.status));
 		return (await res.json()) as T;
 	}
@@ -73,13 +78,54 @@
 	}
 
 	async function loadStars(id: string) {
+		// Saved copies would undo the tap we are still holding for the server.
+		if (offline.queued > 0) return;
 		const [s, g] = await Promise.all([
 			api<{ balance: number; pending: number }>(`/api/members/${id}/stars?limit=1`),
-			api<(Goal & { reward: Goal }) | null>(`/api/members/${id}/goal`)
+			api<{ reward: Goal } | null>(`/api/members/${id}/goal`)
 		]);
 		if (id !== selectedId) return;
 		stars = { balance: s.balance, pending: s.pending };
-		goal = g && { ...g, ...g.reward };
+		goal = g && {
+			id: g.reward.id,
+			title: g.reward.title,
+			image: g.reward.image,
+			cost: g.reward.cost
+		};
+		checkEarned(id);
+	}
+
+	/** "You earned it!" once per reaching the goal (REW-3), after any all-done party. */
+	function checkEarned(memberId: string) {
+		const key = earnedKey(memberId);
+		let stored = earnedMemo[key] ?? null;
+		try {
+			stored = localStorage.getItem(key);
+		} catch {
+			// no storage: use the in-memory memo
+		}
+		const reward = goal;
+		const decision = earnedDecision(
+			stored,
+			reward && { rewardId: reward.id, cost: reward.cost, balance: stars.balance }
+		);
+		earnedMemo[key] = decision.store;
+		try {
+			if (decision.store === null) localStorage.removeItem(key);
+			else localStorage.setItem(key, decision.store);
+		} catch {
+			// memo only
+		}
+		if (!decision.celebrate || !reward) return;
+		clearTimeout(earnedTimer);
+		earnedTimer = setTimeout(
+			() => {
+				earned = reward;
+				celebrateGoal(jar);
+				earnedTimer = setTimeout(() => (earned = null), 4500);
+			},
+			Math.max(0, allDoneUntil - Date.now()) + 300
+		);
 	}
 
 	async function refresh() {
@@ -99,6 +145,7 @@
 				)
 			);
 			if (busy()) return;
+			const queued = await writeQueue.pending();
 			const approved = selectedId
 				? approvedTransitions(
 						boards[selectedId],
@@ -106,7 +153,9 @@
 					)
 				: { count: 0, stars: 0 };
 			members = list;
-			boards = Object.fromEntries(entries);
+			boards = Object.fromEntries(
+				entries.map(([id, g]) => [id, overlayQueued(g, id, queued)] as const)
+			);
 			const options = switcherMembers(list, boards);
 			if (!options.some((m) => m.id === selectedId)) {
 				// ?member=<id> picks a child until the avatar switcher lands (follow-up).
@@ -125,7 +174,16 @@
 		}
 	}
 
+	// Queued taps just reached the server: pick up the real state.
+	$effect(() => {
+		if (offline.synced > 0) void refresh();
+	});
+
 	onMount(() => {
+		onWriteDropped(() => {
+			say('Hmm, that one is already with the grown-ups.');
+			void refresh();
+		});
 		preloadCelebrations();
 		void refresh();
 		const onVisible = () => document.visibilityState === 'visible' && void refresh();
@@ -135,7 +193,9 @@
 			document.removeEventListener('visibilitychange', onVisible);
 			clearInterval(timer);
 			clearTimeout(messageTimer);
+			onWriteDropped(null);
 			clearTimeout(allDoneTimer);
+			clearTimeout(earnedTimer);
 		};
 	});
 
@@ -159,6 +219,7 @@
 			// no storage: party anyway
 		}
 		clearTimeout(allDoneTimer);
+		allDoneUntil = Date.now() + 900 + 3000;
 		allDoneTimer = setTimeout(() => {
 			allDone = true;
 			celebrateAllDone();
@@ -174,13 +235,25 @@
 		undoStarts[chore.id] = Date.now();
 		celebrate({ choreId: chore.id, memberId, stars: chore.stars, origin: card, jar });
 		maybeAllDone(memberId);
-		const request = api<{ completion: Completion }>(`/api/chores/${chore.id}/complete`, {
-			memberId,
-			date: localDate(Date.now(), tz)
+		const request = deliver<{ completion: Completion }>({
+			kind: 'complete',
+			url: `/api/chores/${chore.id}/complete`,
+			body: { memberId, date: localDate(Date.now(), tz) },
+			choreId: chore.id
 		})
-			.then(({ completion }) => {
-				patch(memberId, (g) => setStatus(g, chore.id, completion.status, completion.id));
-				return completion;
+			.then((r): Completion | null => {
+				if (r.sent) {
+					patch(memberId, (g) =>
+						setStatus(g, chore.id, r.data.completion.status, r.data.completion.id)
+					);
+					return r.data.completion;
+				}
+				if (r.queued) {
+					// Offline: the tap is saved on this device and goes out when we reconnect.
+					say('Saved! It will count as soon as we are back online.');
+					return { id: null, status: 'pending' };
+				}
+				throw new Error(String(r.status));
 			})
 			.catch(() => {
 				patch(memberId, (g) => setStatus(g, chore.id, 'none', null));
@@ -200,16 +273,29 @@
 		const memberId = selectedId;
 		if (!memberId) return;
 		const pendingRequest = inflight[chore.id];
+		const startedAt = undoStarts[chore.id] ?? Date.now();
+		// No-approval chores are already gold: take the star back out of the jar.
+		const bucket = chore.status === 'approved' ? 'balance' : 'pending';
 		patch(memberId, (g) => setStatus(g, chore.id, 'none', null));
-		stars.pending = Math.max(0, stars.pending - chore.stars);
+		stars[bucket] = Math.max(0, stars[bucket] - chore.stars);
 		dropUndo(chore.id);
 		const completion = pendingRequest ? await pendingRequest : { id: chore.completionId };
-		if (!completion?.id) return;
-		try {
-			await api(`/api/completions/${completion.id}/undo`, {});
-		} catch {
-			patch(memberId, (g) => setStatus(g, chore.id, 'pending', completion.id));
-			stars.pending += chore.stars;
+		if (!completion) return;
+		if (!completion.id) {
+			// The tap is still waiting in the queue: taking it back just means never sending it.
+			await writeQueue.cancelComplete(chore.id);
+			return;
+		}
+		const r = await deliver({
+			kind: 'undo',
+			url: `/api/completions/${completion.id}/undo`,
+			body: {},
+			choreId: chore.id,
+			expiresAt: startedAt + UNDO_WINDOW_MS
+		});
+		if (!r.sent && !r.queued) {
+			patch(memberId, (g) => setStatus(g, chore.id, chore.status, completion.id));
+			stars[bucket] += chore.stars;
 			say('Hmm, that one is already with the grown-ups.');
 		}
 		void loadStars(memberId).catch(() => {});
@@ -288,6 +374,10 @@
 
 {#if allDone}
 	<AllDoneBanner />
+{/if}
+
+{#if earned}
+	<EarnedBanner title={earned.title} image={earned.image} />
 {/if}
 
 {#if message}

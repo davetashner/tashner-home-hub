@@ -9,7 +9,7 @@
  *   `requiresApproval` require it (see {@link createChore}). The schema default is
  *   false and is frozen, so the default is applied here, in the creation code path.
  */
-import { and, desc, eq, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/index.js';
 import { choreCompletions, chores, members, starTransactions } from '../db/schema.js';
@@ -207,20 +207,44 @@ export interface PendingApproval {
 	completedAt: number;
 }
 
+const approvalFields = {
+	completionId: choreCompletions.id,
+	memberId: choreCompletions.memberId,
+	memberName: members.name,
+	choreId: choreCompletions.choreId,
+	choreTitle: chores.title,
+	choreIcon: chores.icon,
+	stars: choreCompletions.starsAwarded,
+	date: choreCompletions.date,
+	completedAt: choreCompletions.completedAt
+};
+
+/**
+ * Approved completions since `since` (ms), newest first, so a grown-up can undo any of them
+ * later (CHO-6). Undoing one marks its star transaction `rejected`, so the balance drops.
+ */
+export function recentCompletions(
+	db: Db,
+	opts: { since: number; limit?: number }
+): PendingApproval[] {
+	const limit = Math.min(Math.max(opts.limit ?? 100, 1), 200);
+	return db
+		.select(approvalFields)
+		.from(choreCompletions)
+		.innerJoin(members, eq(members.id, choreCompletions.memberId))
+		.innerJoin(chores, eq(chores.id, choreCompletions.choreId))
+		.where(
+			and(eq(choreCompletions.status, 'approved'), gte(choreCompletions.completedAt, opts.since))
+		)
+		.orderBy(desc(choreCompletions.completedAt), desc(choreCompletions.id))
+		.limit(limit)
+		.all();
+}
+
 /** Completions awaiting a grown-up, oldest first. */
 export function pendingApprovals(db: Db): PendingApproval[] {
 	return db
-		.select({
-			completionId: choreCompletions.id,
-			memberId: choreCompletions.memberId,
-			memberName: members.name,
-			choreId: choreCompletions.choreId,
-			choreTitle: chores.title,
-			choreIcon: chores.icon,
-			stars: choreCompletions.starsAwarded,
-			date: choreCompletions.date,
-			completedAt: choreCompletions.completedAt
-		})
+		.select(approvalFields)
 		.from(choreCompletions)
 		.innerJoin(members, eq(members.id, choreCompletions.memberId))
 		.innerJoin(chores, eq(chores.id, choreCompletions.choreId))

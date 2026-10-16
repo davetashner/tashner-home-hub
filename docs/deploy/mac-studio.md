@@ -29,6 +29,20 @@ TZ=America/Chicago
 
 OrbStack maps file ownership for bind mounts, so the defaults generally work; setting PUID/PGID to your own IDs is the safe choice.
 
+## 2b. Photo folder (optional)
+
+Set `HUB_PHOTO_DIR` in `.env` to the folder the photo frame should read. From December the native
+`osxphotos` helper exports your chosen Apple Photos albums into this same kind of folder (one
+subfolder per album). It is mounted read-only at `/media/photos-in`:
+
+```
+HUB_PHOTO_DIR=/Users/<you>/HubPhotos
+HUB_PHOTO_ROOTS=/media/photos-in
+```
+
+Then add `/media/photos-in` in **Settings > Photo library**. OrbStack must be allowed to read the folder
+(System Settings > Privacy & Security > Files and Folders).
+
 ## 3. Start
 
 ```sh
