@@ -8,7 +8,10 @@ declare global {
 			adult: { id: string; name: string } | null;
 		}
 		// interface PageData {}
-		// interface PageState {}
+		interface PageState {
+			/** Set when the idle timer opened the photo frame: show it fullscreen. */
+			frame?: boolean;
+		}
 		// interface Platform {}
 	}
 }
