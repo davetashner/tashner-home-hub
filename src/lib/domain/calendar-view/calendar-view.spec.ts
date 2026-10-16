@@ -160,6 +160,19 @@ describe('timed segments and lanes', () => {
 		expect(s.endMin - s.startMin).toBe(30);
 	});
 
+	it('lays out events that only overlap once their minimum height applies', () => {
+		const a = ev({ start: '2026-10-16T09:00', end: '2026-10-16T09:10' });
+		const b = ev({ start: '2026-10-16T09:20', end: '2026-10-16T09:30' });
+		const c = ev({ start: '2026-10-16T09:30', end: '2026-10-16T10:00' });
+		const segs = timedSegments([a, b, c], '2026-10-16', NY);
+		expect(segs.map((s) => s.endMin - s.startMin)).toEqual([30, 30, 30]);
+		expect(segs.map((s) => [s.lane, s.lanes])).toEqual([
+			[0, 2],
+			[1, 2],
+			[0, 2]
+		]);
+	});
+
 	it('places overlapping events side by side', () => {
 		const a = ev({ start: '2026-10-16T09:00', end: '2026-10-16T11:00' });
 		const b = ev({ start: '2026-10-16T10:00', end: '2026-10-16T12:00' });
