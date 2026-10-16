@@ -62,6 +62,7 @@
 		"@fontsource-variable/nunito": "^5.3.0",
 		"better-sqlite3": "^13.0.3",
 		"croner": "^10.0.1",
-		"drizzle-orm": "^0.45.4"
+		"drizzle-orm": "^0.45.4",
+		"rrule": "^2.8.1"
 	}
 }
