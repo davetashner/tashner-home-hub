@@ -66,16 +66,18 @@
 <svelte:head><title>Calendars · Home Hub</title></svelte:head>
 
 <section class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
-	<header class="flex flex-wrap items-center justify-between gap-4">
+	<header class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
 		<h1 class="text-headline font-extrabold">Calendars</h1>
 		{#if view.kind === 'list'}
-			<div class="flex gap-3">
+			<div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
 				{#if data.sources.length > 0}
-					<Button variant="secondary" onclick={syncNow} disabled={syncing}
+					<Button class="w-full sm:w-auto" variant="secondary" onclick={syncNow} disabled={syncing}
 						>{syncing ? 'Syncing…' : 'Sync now'}</Button
 					>
 				{/if}
-				<Button onclick={() => (view = { kind: 'add' })}>Add connection</Button>
+				<Button class="w-full sm:w-auto" onclick={() => (view = { kind: 'add' })}
+					>Add connection</Button
+				>
 			</div>
 		{/if}
 	</header>
@@ -94,16 +96,20 @@
 				)}
 				<li>
 					<Card>
-						<div class="flex flex-wrap items-center gap-6">
-							<span class="text-display leading-none" aria-hidden="true">{icons[s.provider]}</span>
-							<div class="min-w-0 flex-1">
-								<p class="truncate text-title font-extrabold">{s.label}</p>
+						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+							<span class="shrink-0 text-lead leading-none sm:text-display" aria-hidden="true"
+								>{icons[s.provider]}</span
+							>
+							<div class="min-w-0 sm:flex-1">
+								<p class="text-title font-extrabold wrap-break-word">{s.label}</p>
 								<p class="truncate text-caption text-ink-muted">
 									{PROVIDER_NAMES[s.provider]}{(s.account ?? s.host)
 										? ` · ${s.account ?? s.host}`
 										: ''}
 								</p>
-								<p class="mt-2 flex flex-wrap items-center gap-3 text-caption">
+								<p
+									class="mt-2 flex flex-col items-start gap-2 text-caption sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
+								>
 									<Badge tone={health.tone}>{health.chip}</Badge>
 									<span class="text-ink-muted">{health.text}</span>
 								</p>

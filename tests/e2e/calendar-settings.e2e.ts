@@ -58,6 +58,32 @@ async function shot(page: Page, info: TestInfo, name: string): Promise<void> {
 	await page.evaluate(() => delete document.documentElement.dataset.theme);
 }
 
+/** Every button sits fully inside the viewport, and a short label like "Family" is never clipped. */
+async function expectFitsPhone(page: Page, tag: string): Promise<void> {
+	withDb((db) => {
+		db.prepare('DELETE FROM calendar_sources WHERE id = ?').run(`${tag}-short`);
+		db.prepare(
+			"INSERT INTO calendar_sources (id, provider, label, calendars, last_sync_at) VALUES (?, 'ics', 'Family', '[]', ?)"
+		).run(`${tag}-short`, Date.now());
+	});
+	await page.reload();
+	const width = page.viewportSize()!.width;
+	await expect(page.getByRole('button', { name: 'Add connection' })).toBeVisible();
+	for (const button of await page.getByRole('button').all()) {
+		const box = await button.boundingBox();
+		if (!box) continue;
+		expect(box.x, await button.innerText()).toBeGreaterThanOrEqual(0);
+		expect(box.x + box.width, await button.innerText()).toBeLessThanOrEqual(width);
+	}
+	const labels = await page.getByTestId('source-list').getByText('Family', { exact: true }).all();
+	expect(labels.length).toBeGreaterThan(0);
+	for (const label of labels) {
+		expect(await label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+		const box = (await label.boundingBox())!;
+		expect(box.x + box.width).toBeLessThanOrEqual(width);
+	}
+}
+
 async function noSideScroll(page: Page): Promise<void> {
 	const overflow = await page.evaluate(
 		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
@@ -121,7 +147,12 @@ async function runFlow(page: Page, info: TestInfo): Promise<void> {
 		await expect(row.getByText('OK', { exact: true })).toBeVisible();
 		await expect(row.getByText(/Updated (just now|\d+ min ago)/)).toBeVisible();
 		await expect(row.getByText('127.0.0.1')).toBeVisible();
+		if (info.title.includes('phone')) await expectFitsPhone(page, tag);
 		await shot(page, info, 'list');
+		if (process.env.SHOTS && info.title.includes('phone')) {
+			await row.scrollIntoViewIfNeeded();
+			await page.screenshot({ path: `${process.env.SHOTS}/calsettings-phone-list-rows.png` });
+		}
 
 		// The mapping persisted: Edit shows Avery pressed.
 		await row.getByRole('button', { name: 'Edit' }).click();
@@ -144,6 +175,7 @@ async function runFlow(page: Page, info: TestInfo): Promise<void> {
 		await expect(page.getByRole('listitem').filter({ hasText: label })).toHaveCount(0);
 	} finally {
 		cleanup(label);
+		withDb((db) => db.prepare('DELETE FROM calendar_sources WHERE id = ?').run(`${tag}-short`));
 	}
 }
 
