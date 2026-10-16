@@ -1,6 +1,7 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { signInAsAdult } from './adult';
+import { expectTappable } from './tap';
 
 interface Seed {
 	name: string;
@@ -49,8 +50,6 @@ async function open(page: Page, s: Seed) {
 	await expect(page.getByRole('heading', { name: 'Brush teeth' })).toBeVisible();
 }
 
-// Chromium reports 95.9998 for 96px.
-const height = async (l: Locator) => Math.round((await l.boundingBox())!.height * 100) / 100;
 const card = (page: Page, title: string) =>
 	page.getByTestId('chore-card').filter({ has: page.getByRole('heading', { name: title }) });
 
@@ -66,14 +65,14 @@ test('tap shows pending instantly, even while the network is slow; undo restores
 	await expect(page.getByRole('heading', { name: /This morning/ })).toBeVisible();
 	const teeth = card(page, 'Brush teeth');
 	const button = teeth.getByTestId('did-it');
-	expect(await height(button)).toBeGreaterThanOrEqual(96);
+	await expectTappable(button, 96);
 	await expect(page.getByTestId('jar-counts')).toContainText('2 gold stars, 0 waiting');
 	await button.click();
 	await expect(teeth).toHaveAttribute('data-status', 'pending', { timeout: 500 });
 	await expect(page.getByTestId('jar-counts')).toContainText('2 gold stars, 1 waiting');
 	const undo = teeth.getByTestId('undo');
 	await expect(teeth.getByTestId('undo-seconds')).toHaveText(/^(10|9)$/);
-	await expect.poll(() => height(undo)).toBeGreaterThanOrEqual(96);
+	await expect(() => expectTappable(undo, 96)).toPass(); // settles after the pop-in
 	const undone = page.waitForResponse((r) => r.url().includes('/undo'));
 	await undo.click();
 	await expect(teeth.getByTestId('did-it')).toBeVisible();
