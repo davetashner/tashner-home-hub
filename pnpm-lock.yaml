@@ -226,9 +226,6 @@ importers:
       stylelint:
         specifier: ^17.16.0
         version: 17.16.0(supports-color@7.2.0)(typescript@6.0.3)
-      stylelint-high-performance-animation:
-        specifier: ^2.0.0
-        version: 2.0.0(stylelint@17.16.0(supports-color@7.2.0)(typescript@6.0.3))
       svelte:
         specifier: ^5.57.1
         version: 5.57.2(@typescript-eslint/types@8.71.2)
@@ -1809,11 +1806,6 @@ packages:
   strip-ansi@7.2.0:
     resolution: {integrity: sha512-yDPMNjp4WyfYBkHnjIRLfca1i6KMyGCtsVgoKe/z1+6vukgaENdgGBZt+ZmKPc4gavvEZ5OgHfHdrazhgNyG7w==}
     engines: {node: '>=12'}
-
-  stylelint-high-performance-animation@2.0.0:
-    resolution: {integrity: sha512-wzxxfxJFyL7UKc91427EHmi6gNRXB0cBdsyCfIuXZFRb6Xv1qw8elNbF61e/tJRoRcavAGsZICivVsHCD3Mhug==}
-    peerDependencies:
-      stylelint: ^17.0.0
 
   stylelint@17.16.0:
     resolution: {integrity: sha512-ejlWnbJ13x1GU32+zZXa6sYQJsKKkwSdv2B4rAdO3OWdEmvhSJKcXi5pOphQYSzyaj1kXpuGJr7pcMBNfDIuPw==}
@@ -3408,11 +3400,6 @@ snapshots:
   strip-ansi@7.2.0:
     dependencies:
       ansi-regex: 6.4.0
-
-  stylelint-high-performance-animation@2.0.0(stylelint@17.16.0(supports-color@7.2.0)(typescript@6.0.3)):
-    dependencies:
-      postcss-value-parser: 4.2.0
-      stylelint: 17.16.0(supports-color@7.2.0)(typescript@6.0.3)
 
   stylelint@17.16.0(supports-color@7.2.0)(typescript@6.0.3):
     dependencies:
