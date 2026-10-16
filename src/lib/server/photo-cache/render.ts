@@ -21,8 +21,13 @@ const QUALITY = {
 } as const;
 
 const BACKDROP_BRIGHTNESS = 0.45;
-const BACKDROP_BLUR_SIGMA = 6;
-const BACKDROP_DOWNSCALE = 8;
+const BACKDROP_BLUR_SIGMA = 3;
+/**
+ * The backdrop is rendered at 1/16 of the target (160x90 for 2560x1440) and the browser scales
+ * it up with `object-cover`. A blurred image loses nothing visible, and encoding it is ~100x
+ * cheaper than encoding it at screen size.
+ */
+const BACKDROP_DOWNSCALE = 16;
 
 export interface SourceInfo {
 	width: number;
@@ -67,7 +72,7 @@ export async function renderBackdrop(
 	target: Size = DEFAULT_TARGET,
 	format: PhotoFormat = 'avif'
 ): Promise<Buffer> {
-	const small = await sharp(path, { failOn: 'none' })
+	const pipeline = sharp(path, { failOn: 'none' })
 		.autoOrient()
 		.resize(
 			Math.max(1, Math.round(target.width / BACKDROP_DOWNSCALE)),
@@ -76,11 +81,6 @@ export async function renderBackdrop(
 		)
 		.blur(BACKDROP_BLUR_SIGMA)
 		.modulate({ brightness: BACKDROP_BRIGHTNESS })
-		.removeAlpha()
-		.raw()
-		.toBuffer({ resolveWithObject: true });
-	const pipeline = sharp(small.data, { raw: small.info }).resize(target.width, target.height, {
-		kernel: 'cubic'
-	});
+		.removeAlpha();
 	return encode(pipeline, format, 'bg').toBuffer();
 }
