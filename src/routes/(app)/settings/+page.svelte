@@ -46,6 +46,12 @@
 			emoji: '🎁',
 			title: 'Rewards',
 			line: 'What stars can be saved up for.'
+		},
+		{
+			href: resolve('/(app)/settings/photo-library'),
+			emoji: '🖼️',
+			title: 'Photo library',
+			line: 'Folders and albums for the photo frame.'
 		}
 	]);
 </script>
