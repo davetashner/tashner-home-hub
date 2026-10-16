@@ -38,7 +38,7 @@
 
 <svelte:head><title>Family</title></svelte:head>
 
-<main class="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+<section class="mx-auto flex max-w-4xl flex-col gap-6 p-6">
 	<header class="flex items-center justify-between gap-4">
 		<h1 class="text-headline font-extrabold">Family</h1>
 		{#if editing !== 'new'}
@@ -113,4 +113,4 @@
 			<li class="text-lead text-ink-muted">No one here yet. Add the first person.</li>
 		{/each}
 	</ul>
-</main>
+</section>
