@@ -217,7 +217,15 @@
 						{#if view === 'agenda'}
 							<AgendaView {events} {keys} {today} {tz} onselect={(e) => (selected = e)} />
 						{:else if view === 'week'}
-							<WeekView {events} {keys} {today} {tz} {now} onselect={(e) => (selected = e)} />
+							<WeekView
+								{events}
+								{keys}
+								{today}
+								{tz}
+								{now}
+								onselect={(e) => (selected = e)}
+								onday={openDay}
+							/>
 						{:else}
 							<MonthView
 								{events}
