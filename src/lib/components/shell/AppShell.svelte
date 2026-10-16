@@ -43,8 +43,7 @@
 		} catch {
 			// Offline: the wall session still times out on its own; the reload below shows the truth.
 		}
-		await invalidateAll();
-		locking = false;
+		await invalidateAll().finally(() => (locking = false));
 	}
 
 	function onswipe(direction: 'left' | 'right' | 'up' | 'down') {
