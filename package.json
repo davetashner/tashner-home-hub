@@ -63,6 +63,7 @@
 		"better-sqlite3": "^13.0.3",
 		"croner": "^10.0.1",
 		"drizzle-orm": "^0.45.4",
+		"ical.js": "^2.2.1",
 		"rrule": "^2.8.1"
 	}
 }
