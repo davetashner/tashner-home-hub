@@ -56,6 +56,17 @@ Edit `kiosk.conf` (`ORIENTATION`), re-run `sudo ./install.sh`, `sudo reboot`. Ma
 
 The 90/270 rows may be swapped relative to `wlr-randr`'s direction; if taps land mirrored, set `TOUCH_MATRIX` to the other one. If rotation works but the touch needs no matrix on your labwc version (mapToOutput alone may rotate), use `TOUCH_MATRIX="1 0 0 0 1 0"`.
 
+### Orientation endpoint (for the display agent)
+
+A grown-up picks the direction under Settings, Orientation. The hub stores it and serves it, read-only and cheap, for the display agent to poll:
+
+```
+GET {HUB_URL}/api/display/orientation
+-> { "rotation": "normal" | "90" | "180" | "270", "orientation": "landscape" | "portrait" }
+```
+
+`rotation` is a `wlr-randr --transform` value, so it maps straight onto the `ORIENTATION` table above (the same matrices apply). `orientation` is `portrait` for 90 and 270. Until someone changes it the answer is `normal`. The page layout follows the real screen shape by itself; the agent only has to rotate the output and touch input.
+
 ## Updating
 
 - Kiosk files: `git pull`, `sudo ./install.sh`, reboot. The script is idempotent.
