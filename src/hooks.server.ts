@@ -7,6 +7,7 @@ import { startCalendarScheduler } from '#lib/server/calendar/scheduler.js';
 // Side-effect imports register the real calendar providers before the first scheduled sync.
 import '#lib/server/calendar/ics.js';
 import '#lib/server/calendar/google.js';
+import '#lib/server/calendar/icloud.js';
 import { isRequestAllowed } from '#lib/server/domain/network.js';
 
 const allowPublic = process.env.HUB_ALLOW_PUBLIC === 'true';
