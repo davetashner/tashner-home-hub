@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Apply output mode and rotation with wlr-randr. Run from the labwc autostart.
+set -euo pipefail
+
+CONF="${HUB_KIOSK_CONF:-/etc/hub-kiosk/kiosk.conf}"
+# shellcheck source=/dev/null
+. "$CONF"
+
+case "$ORIENTATION" in
+  normal | 90 | 180 | 270) ;;
+  *) echo "hub-kiosk: bad ORIENTATION '$ORIENTATION'" >&2; exit 1 ;;
+esac
+
+# The output may not be ready the instant the session starts; retry briefly.
+for _ in $(seq 1 20); do
+  if wlr-randr --output "$OUTPUT" --mode "$RESOLUTION" --transform "$ORIENTATION"; then
+    exit 0
+  fi
+  sleep 1
+done
+echo "hub-kiosk: could not configure output $OUTPUT (see 'wlr-randr')" >&2
+exit 1

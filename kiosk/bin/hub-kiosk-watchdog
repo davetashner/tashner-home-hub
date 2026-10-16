@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# One watchdog pass, run every 30 s by hub-kiosk-watchdog.timer.
+#  1. Chromium's localhost DevTools endpoint must answer and list a page; three misses in a row
+#     restart hub-kiosk.service (covers hangs; crashes are handled by Restart=always).
+#  2. If the page is a Chromium error page (server was down at boot) and /healthz now answers,
+#     open the hub URL in a new tab and close the error tab. Never restarts Chromium for an
+#     unreachable server, so a server outage cannot cause a restart loop.
+set -uo pipefail
+
+CONF="${HUB_KIOSK_CONF:-/etc/hub-kiosk/kiosk.conf}"
+# shellcheck source=/dev/null
+. "$CONF"
+
+PORT="${DEBUG_PORT:-9222}"
+BASE="http://127.0.0.1:$PORT"
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/hub-kiosk"
+FAILS_FILE="$STATE_DIR/watchdog-fails"
+MAX_FAILS=3
+mkdir -p "$STATE_DIR"
+
+log() { echo "hub-kiosk-watchdog: $*"; }
+
+fails=$(cat "$FAILS_FILE" 2>/dev/null || echo 0)
+
+# Not running yet (e.g. restarting): nothing to judge.
+if ! systemctl --user is-active --quiet hub-kiosk.service; then
+  exit 0
+fi
+
+targets=$(curl -fsS --max-time 5 "$BASE/json/list" 2>/dev/null || true)
+if [ -z "$targets" ] || ! printf '%s' "$targets" | grep -q '"type": *"page"'; then
+  fails=$((fails + 1))
+  echo "$fails" >"$FAILS_FILE"
+  log "DevTools not responding ($fails/$MAX_FAILS)"
+  if [ "$fails" -ge "$MAX_FAILS" ]; then
+    log "restarting hub-kiosk.service"
+    echo 0 >"$FAILS_FILE"
+    systemctl --user restart hub-kiosk.service
+  fi
+  exit 0
+fi
+echo 0 >"$FAILS_FILE"
+
+# Error-page recovery. Entries are pretty-printed JSON; find the id of a page whose url is chrome-error://.
+err_id=$(printf '%s' "$targets" | tr -d '\n' | sed 's/},/}\n/g' |
+  grep '"type": *"page"' | grep '"url": *"chrome-error://' |
+  sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' | head -n 1)
+
+if [ -n "$err_id" ]; then
+  if curl -fsS --max-time 5 -o /dev/null "${HUB_HEALTH_URL:-$HUB_URL}"; then
+    log "server reachable again; reopening $HUB_URL"
+    curl -fsS --max-time 5 -X PUT "$BASE/json/new?$HUB_URL" >/dev/null &&
+      curl -fsS --max-time 5 "$BASE/json/close/$err_id" >/dev/null
+  else
+    log "server still unreachable; will retry"
+  fi
+fi
+exit 0

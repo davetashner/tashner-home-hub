@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Launch Chromium in kiosk mode. Run by the hub-kiosk.service user unit.
+set -euo pipefail
+
+CONF="${HUB_KIOSK_CONF:-/etc/hub-kiosk/kiosk.conf}"
+# shellcheck source=/dev/null
+. "$CONF"
+
+PROFILE_DIR="${HUB_PROFILE_DIR:-$HOME/.local/share/hub-kiosk/chromium-profile}"
+mkdir -p "$PROFILE_DIR"
+
+# After a power cut Chromium thinks it crashed; mark the last session clean so no restore bubble shows.
+PREFS="$PROFILE_DIR/Default/Preferences"
+if [ -f "$PREFS" ]; then
+  sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"Crashed"/"exit_type":"Normal"/' "$PREFS" || true
+fi
+
+CHROMIUM=""
+for c in chromium chromium-browser; do
+  if command -v "$c" >/dev/null 2>&1; then CHROMIUM="$c"; break; fi
+done
+[ -n "$CHROMIUM" ] || { echo "hub-kiosk: chromium not installed" >&2; exit 1; }
+
+# The URL is opened even if the server is down; the app's service worker serves its cache,
+# and hub-kiosk-watchdog reloads the page once the server is reachable again.
+exec "$CHROMIUM" \
+  --kiosk \
+  --ozone-platform=wayland \
+  --user-data-dir="$PROFILE_DIR" \
+  --noerrdialogs \
+  --disable-infobars \
+  --disable-session-crashed-bubble \
+  --hide-crash-restore-bubble \
+  --no-first-run \
+  --no-default-browser-check \
+  --password-store=basic \
+  --enable-gpu-rasterization \
+  --ignore-gpu-blocklist \
+  --touch-events=enabled \
+  --overscroll-history-navigation=0 \
+  --disable-pinch \
+  --disable-translate \
+  --disable-features=Translate,TranslateUI \
+  --check-for-update-interval=31536000 \
+  --autoplay-policy=no-user-gesture-required \
+  --remote-debugging-port="${DEBUG_PORT:-9222}" \
+  --remote-debugging-address=127.0.0.1 \
+  "$HUB_URL"
