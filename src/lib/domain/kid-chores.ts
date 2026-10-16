@@ -75,11 +75,19 @@ export function jarSlots(balance: number, pending: number, goalCost: number | nu
 	return { total, gold, pending: Math.min(p, total - gold) };
 }
 
+/** Members with at least one chore today: the avatar switcher shows when there are two or more. */
+export function kidsWithChores<T extends { id: string }>(
+	members: T[],
+	boards: Record<string, KidGroup[]>
+): T[] {
+	return members.filter((m) => (boards[m.id]?.length ?? 0) > 0);
+}
+
 /** Members worth showing: those with chores today; if nobody has any, everyone. */
 export function switcherMembers<T extends { id: string }>(
 	members: T[],
 	boards: Record<string, KidGroup[]>
 ): T[] {
-	const withChores = members.filter((m) => (boards[m.id]?.length ?? 0) > 0);
+	const withChores = kidsWithChores(members, boards);
 	return withChores.length > 0 ? withChores : members;
 }
