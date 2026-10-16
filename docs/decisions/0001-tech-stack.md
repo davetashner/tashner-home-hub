@@ -1,6 +1,6 @@
 # ADR 0001 — Tech Stack
 
-- **Status:** Proposed (awaiting approval)
+- **Status:** Accepted (2026-10-16)
 - **Date:** 2026-10-16
 - **Bead:** hub-8n8
 - **Context docs:** [requirements.md](../../requirements.md) §4 (NFRs), §5 (hosting)
