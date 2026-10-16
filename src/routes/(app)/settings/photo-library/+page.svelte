@@ -61,6 +61,10 @@
 		busy = undefined;
 		if (view) {
 			root = '';
+			// The answer already holds the scanned albums and counts: show the card now, and let an
+			// older refresh still in flight drop its list instead of hiding the new folder.
+			generation++;
+			sources = [...sources.filter((s) => s.id !== view.id), view];
 			await refresh();
 		}
 	}
