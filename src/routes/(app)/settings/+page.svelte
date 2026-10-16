@@ -46,6 +46,12 @@
 			emoji: '🎁',
 			title: 'Rewards',
 			line: 'What stars can be saved up for.'
+		},
+		{
+			href: resolve('/(app)/settings/screen'),
+			emoji: '🖼️',
+			title: 'Screen',
+			line: 'When to go back home and start the photo frame.'
 		}
 	]);
 </script>
