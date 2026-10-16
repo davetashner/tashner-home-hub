@@ -6,6 +6,7 @@
 	import { swipe } from '#lib/actions/swipe.js';
 	import Button from '#lib/components/ui/Button.svelte';
 	import { DESTINATIONS, isActive, swipeTarget } from '#lib/domain/nav.js';
+	import { DESTINATION_URLS } from './urls.js';
 	import Clock from './Clock.svelte';
 	import Icon from './Icon.svelte';
 	import NavItem from './NavItem.svelte';
@@ -26,7 +27,9 @@
 	function onswipe(direction: 'left' | 'right' | 'up' | 'down') {
 		if (direction !== 'left' && direction !== 'right') return;
 		const target = swipeTarget(pathname, direction);
-		if (target) void goto(resolve(`/(app)${target}`));
+		// URL already built with resolve() in urls.ts.
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		if (target) void goto(DESTINATION_URLS[target]);
 	}
 </script>
 

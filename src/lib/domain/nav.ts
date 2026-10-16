@@ -6,8 +6,6 @@ export interface Destination {
 	id: string;
 	label: string;
 	href: DestinationPath;
-	/** SvelteKit route id, for `resolve()`. */
-	route: `/(app)${DestinationPath}`;
 	icon: IconName;
 }
 
@@ -17,13 +15,12 @@ export const DESTINATIONS: readonly Destination[] = [
 		id: 'calendar',
 		label: 'Calendar',
 		href: '/calendar',
-		route: '/(app)/calendar',
 		icon: 'calendar'
 	},
-	{ id: 'chores', label: 'Chores', href: '/chores', route: '/(app)/chores', icon: 'chores' },
-	{ id: 'photos', label: 'Photos', href: '/photos', route: '/(app)/photos', icon: 'photos' },
-	{ id: 'lists', label: 'Lists', href: '/lists', route: '/(app)/lists', icon: 'lists' },
-	{ id: 'meals', label: 'Meals', href: '/meals', route: '/(app)/meals', icon: 'meals' }
+	{ id: 'chores', label: 'Chores', href: '/chores', icon: 'chores' },
+	{ id: 'photos', label: 'Photos', href: '/photos', icon: 'photos' },
+	{ id: 'lists', label: 'Lists', href: '/lists', icon: 'lists' },
+	{ id: 'meals', label: 'Meals', href: '/meals', icon: 'meals' }
 ];
 
 export function isActive(href: string, pathname: string): boolean {

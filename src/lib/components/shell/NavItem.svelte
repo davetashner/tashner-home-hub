@@ -1,13 +1,15 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
+	import { DESTINATION_URLS } from './urls.js';
 	import Icon from './Icon.svelte';
 	import type { Destination } from '#lib/domain/nav.js';
 
 	let { destination, active }: { destination: Destination; active: boolean } = $props();
 </script>
 
+<!-- URL already built with resolve() in urls.ts. -->
+<!-- eslint-disable svelte/no-navigation-without-resolve -->
 <a
-	href={resolve(destination.route)}
+	href={DESTINATION_URLS[destination.href]}
 	aria-current={active ? 'page' : undefined}
 	data-sveltekit-preload-data="tap"
 	class="nav-item flex min-h-tap flex-1 items-center justify-center gap-4 rounded-control px-6 py-4 text-lead font-extrabold portrait:flex-col portrait:gap-2 portrait:text-body landscape:flex-none landscape:justify-start landscape:py-5 {active
