@@ -152,9 +152,6 @@ test('phone shell: compact header, nav clear of content, long names truncate', a
 		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
 	);
 	expect(overflow).toBeLessThanOrEqual(0);
-	await page.screenshot({
-		path: '/private/tmp/claude-501/-Users-dave-Development-tashner-home-hub/2aadbbd6-8612-4d9b-ab25-661b1341fe47/scratchpad/phone-shot.png'
-	});
 });
 
 test('a grown-up can undo an approved chore any time later', async ({ page }, info) => {
