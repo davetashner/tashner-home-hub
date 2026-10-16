@@ -112,6 +112,13 @@
 	:root {
 		color-scheme: light;
 	}
+	/* Phones (admin setup, ADM-1): headings built for a wall display leave one word per line on 390px. */
+	@media (max-width: 40rem) {
+		:root {
+			--text-title: 1.75rem;
+			--text-headline: 2.25rem;
+		}
+	}
 	html,
 	body {
 		height: 100%;

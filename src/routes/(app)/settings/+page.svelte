@@ -90,7 +90,7 @@
 	<title>Settings · Home Hub</title>
 </svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3">
 	<h1 class="text-headline font-extrabold">Settings</h1>
 	<ReauthBanner sources={data.reauth} />
 	<ul class="flex flex-col gap-4">
@@ -99,10 +99,12 @@
 				<a
 					href={section.href}
 					data-sveltekit-preload-data="tap"
-					class="flex min-h-tap-kid items-center gap-6 rounded-card bg-surface-raised p-6 shadow-raised transition-transform duration-75 active:scale-95"
+					class="flex min-h-tap-kid items-center gap-6 rounded-card bg-surface-raised p-6 shadow-raised transition-transform duration-75 active:scale-95 max-sm:gap-4 max-sm:p-4"
 				>
-					<span class="text-display leading-none" aria-hidden="true">{section.emoji}</span>
-					<span class="flex flex-col gap-1">
+					<span class="text-display leading-none max-sm:text-headline" aria-hidden="true"
+						>{section.emoji}</span
+					>
+					<span class="flex min-w-0 flex-col gap-1">
 						<span class="text-title font-bold">{section.title}</span>
 						<span class="text-body text-ink-muted">{section.line}</span>
 					</span>

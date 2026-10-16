@@ -57,7 +57,7 @@
 	<title>Orientation · Settings · Home Hub</title>
 </svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3">
 	<h1 class="text-headline font-extrabold">Orientation</h1>
 	<p class="text-body text-ink-muted" data-testid="orientation-summary">
 		The wall screen is set up {orientationOf(rotation)}. The display agent on the wall screen turns

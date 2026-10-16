@@ -63,7 +63,7 @@
 	<title>Time zone · Settings · Home Hub</title>
 </svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3">
 	<h1 class="text-headline font-extrabold">Time zone</h1>
 	<Card>
 		<div class="flex flex-wrap items-center justify-between gap-6">

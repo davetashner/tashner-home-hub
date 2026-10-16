@@ -64,7 +64,7 @@
 	<title>Sound · Settings · Home Hub</title>
 </svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3">
 	<h1 class="text-headline font-extrabold">Sound</h1>
 	<Card>
 		<div class="flex flex-wrap items-center justify-between gap-6">
@@ -74,7 +74,7 @@
 					The chimes when a chore is done or a goal is reached.
 				</p>
 			</div>
-			<div class="flex gap-4" role="group" aria-label="Celebration sounds">
+			<div class="flex flex-wrap gap-4" role="group" aria-label="Celebration sounds">
 				{#each choices as c (c.label)}
 					<Button
 						variant={sound.muted === c.muted ? 'primary' : 'secondary'}
@@ -96,7 +96,7 @@
 			{#each times as t (t.key)}
 				<div class="flex flex-wrap items-center justify-between gap-6">
 					<h3 class="text-title font-bold">{t.title}</h3>
-					<div class="flex items-center gap-4">
+					<div class="flex items-center gap-4 max-sm:gap-2">
 						<Button
 							variant="secondary"
 							aria-label="{t.title}: earlier"

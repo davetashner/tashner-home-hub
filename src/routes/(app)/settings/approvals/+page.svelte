@@ -237,7 +237,7 @@
 
 <svelte:head><title>Approvals · Home Hub</title></svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 portrait:max-sm:p-4">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3">
 	<header class="flex flex-wrap items-center justify-between gap-6">
 		<h1 class="text-headline font-extrabold">Approvals</h1>
 		<a
@@ -255,7 +255,7 @@
 	<ul class="flex flex-col gap-8">
 		{#each rows as { child, group, done } (child.id)}
 			<li data-testid="child-card" data-member={child.id}>
-				<Card class="flex flex-col gap-6 portrait:max-sm:!p-4">
+				<Card class="flex flex-col gap-6 max-sm:!p-4">
 					<div class="flex items-center gap-4">
 						<MemberAvatar name={child.name} color={child.color} avatar={child.avatar} />
 						<h2 class="min-w-0 flex-1 truncate text-lead font-extrabold sm:text-title">
