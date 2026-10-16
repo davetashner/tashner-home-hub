@@ -78,7 +78,9 @@
 				<Clock testidPrefix="header-clock" />
 			</a>
 		{/if}
-		<div class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4">
+		<div
+			class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4 portrait:sm:gap-2"
+		>
 			<OfflineBadge />
 			<ApprovalsBadge />
 			<Button
