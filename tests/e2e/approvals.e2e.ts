@@ -9,11 +9,11 @@ interface Seed {
 }
 
 /** Synthetic child with three chores, all done and pending. Leaves the page signed out. */
-async function seed(page: Page, label: string): Promise<Seed> {
+async function seed(page: Page, label: string, suffix = ''): Promise<Seed> {
 	const adultId = `adult-ap-${label.replace(/\W/g, '')}`;
 	await signInAsAdult(page, adultId);
 	const request = page.request;
-	const name = `Pip ${Date.now() % 1e9}`;
+	const name = `Pip ${Date.now() % 1e9}${suffix}`;
 	const member = await (
 		await request.post('/api/members', {
 			data: { name, role: 'child', color: 'member-3', avatar: '🐸' }
@@ -124,6 +124,37 @@ test('works on a phone', async ({ page }, info) => {
 	expect(overflow).toBeLessThanOrEqual(0);
 	await row.getByTestId('approve').click();
 	await expect(row).toHaveCount(0);
+});
+
+test('phone shell: compact header, nav clear of content, long names truncate', async ({
+	page
+}, info) => {
+	const s = await seed(page, `shell ${info.project.name}`, ' Wigglesworth-Featherstone');
+	await page.setViewportSize({ width: 390, height: 844 });
+	await unlockAndOpen(page, s);
+
+	const header = page.locator('header').first();
+	expect((await header.boundingBox())!.height).toBeLessThanOrEqual(88);
+
+	const name = card(page, s).locator('h2');
+	await expect(name).toContainText('Featherstone');
+	expect(await name.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+	expect(await name.evaluate((el) => getComputedStyle(el).textOverflow)).toBe('ellipsis');
+
+	const main = page.locator('main');
+	await main.evaluate((el) => (el.scrollTop = el.scrollHeight));
+	const nav = (await page.getByRole('navigation', { name: 'Main' }).boundingBox())!;
+	const mainBox = (await main.boundingBox())!;
+	expect(mainBox.y + mainBox.height).toBeLessThanOrEqual(nav.y + 1);
+	const last = (await card(page, s).getByTestId('bonus-toggle').boundingBox())!;
+	expect(last.y + last.height).toBeLessThanOrEqual(nav.y);
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
+	await page.screenshot({
+		path: '/private/tmp/claude-501/-Users-dave-Development-tashner-home-hub/2aadbbd6-8612-4d9b-ab25-661b1341fe47/scratchpad/phone-shot.png'
+	});
 });
 
 test('a grown-up can undo an approved chore any time later', async ({ page }, info) => {

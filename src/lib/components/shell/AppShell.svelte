@@ -65,7 +65,7 @@
 	class="grid h-full bg-surface portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape"
 >
 	<header
-		class="flex items-center justify-between gap-3 px-4 py-4 max-sm:justify-end sm:gap-8 sm:px-12 sm:py-8 portrait:sm:px-10 landscape:col-start-2 landscape:row-start-1"
+		class="flex items-center justify-between gap-3 px-4 py-4 max-sm:justify-end max-sm:px-3 max-sm:py-2 sm:gap-8 sm:px-12 sm:py-8 portrait:sm:px-10 landscape:col-start-2 landscape:row-start-1"
 	>
 		{#if pathname === '/'}
 			<span class="max-sm:hidden"></span>
@@ -81,7 +81,11 @@
 		<div class="flex items-center gap-2 sm:gap-4">
 			<OfflineBadge />
 			<ApprovalsBadge />
-			<Button onclick={sleep} size="kid" class="gap-3 rounded-chip max-sm:!px-5">
+			<Button
+				onclick={sleep}
+				size="kid"
+				class="gap-3 rounded-chip max-sm:!min-h-tap max-sm:!min-w-tap max-sm:!px-4"
+			>
 				<span class="text-lead"><Icon name="moon" /></span>
 				<span class="max-sm:sr-only">Sleep</span>
 			</Button>
@@ -100,7 +104,7 @@
 				href={resolve('/(app)/settings')}
 				aria-label="Settings"
 				data-sveltekit-preload-data="tap"
-				class="press-link inline-flex size-tap-kid items-center justify-center rounded-chip border-2 border-line bg-surface-raised text-title text-ink shadow-raised"
+				class="press-link inline-flex size-tap-kid items-center justify-center rounded-chip border-2 border-line bg-surface-raised text-title text-ink shadow-raised max-sm:!size-tap"
 			>
 				<Icon name="settings" />
 			</a>
@@ -109,7 +113,7 @@
 
 	<nav
 		aria-label="Main"
-		class="flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:px-2 portrait:row-start-3 portrait:border-t-2 portrait:px-4 portrait:py-4 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:px-5 landscape:py-8"
+		class="flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:px-4 portrait:py-4 portrait:max-sm:p-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:px-5 landscape:py-8"
 	>
 		{#each DESTINATIONS as destination (destination.id)}
 			<NavItem {destination} active={isActive(destination.href, pathname)} />
