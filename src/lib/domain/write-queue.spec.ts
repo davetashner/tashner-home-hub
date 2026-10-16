@@ -163,6 +163,17 @@ describe('WriteQueue', () => {
 		expect(s.sent).toHaveLength(1);
 	});
 
+	it('runs a forced flush after an in-flight one instead of joining it (reconnect mid-send)', async () => {
+		const s = setup(['retry']);
+		await s.queue.enqueue(complete('c1'));
+		const offlineTry = s.queue.flush();
+		const reconnect = s.queue.flush(true);
+		expect(await offlineTry).toBe(0);
+		expect(await reconnect).toBe(1);
+		expect(s.sent).toHaveLength(2);
+		expect(s.stored()).toEqual([]);
+	});
+
 	it('reloads persisted writes after a restart', async () => {
 		const s = setup();
 		await s.queue.enqueue(complete('c1'));

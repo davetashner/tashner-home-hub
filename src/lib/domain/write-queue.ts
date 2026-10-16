@@ -111,6 +111,8 @@ export class WriteQueue {
 
 	/** Replays in order; stops at the first write that must wait (`force` ignores backoff, e.g. on reconnect). Resolves to how many were sent. */
 	flush(force = false): Promise<number> {
+		// A forced flush (reconnect) must not just join a run that may be failing offline: queue behind it.
+		if (this.#flushing && force) return this.#flushing.then(() => this.flush(true));
 		this.#flushing ??= this.#run(force).finally(() => (this.#flushing = null));
 		return this.#flushing;
 	}
