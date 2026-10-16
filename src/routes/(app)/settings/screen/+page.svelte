@@ -9,14 +9,61 @@
 		parseIdleSettings,
 		type IdleSettings
 	} from '#lib/domain/idle.js';
+	import {
+		DEFAULT_SLIDESHOW,
+		INTERVAL_STEPS,
+		intervalLabel,
+		parseSlideshowSettings,
+		stepInterval,
+		type SlideshowSettings,
+		type Transition
+	} from '#lib/domain/slideshow.js';
 
 	let settings = $state<IdleSettings>({ ...DEFAULT_IDLE });
+	let slideshow = $state<SlideshowSettings>({ ...DEFAULT_SLIDESHOW });
 	let message = $state('');
+	// Each save stamps a number, so a stale load can't undo a change made meanwhile.
+	let slideshowEdits = 0;
 
-	onMount(async () => {
-		const res = await fetch('/api/settings/idle').catch(() => null);
-		if (res?.ok) settings = parseIdleSettings(await res.json());
+	onMount(() => {
+		void fetch('/api/settings/idle')
+			.then(async (res) => {
+				if (res.ok) settings = parseIdleSettings(await res.json());
+			})
+			.catch(() => {});
+		const edits = slideshowEdits;
+		void fetch('/api/settings/slideshow')
+			.then(async (res) => {
+				const loaded = res.ok ? parseSlideshowSettings(await res.json()) : null;
+				if (loaded && edits === slideshowEdits) slideshow = loaded;
+			})
+			.catch(() => {});
 	});
+
+	function save(url: string, body: Record<string, unknown>) {
+		message = '';
+		void fetch(url, {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		})
+			.then((res) => {
+				if (!res.ok) message = 'Could not save. Try again.';
+			})
+			.catch(() => (message = 'Could not save. Try again.'));
+	}
+
+	function changeSlideshow(patch: Partial<SlideshowSettings>) {
+		// Optimistic: the screen updates before the save lands; the frame reads it when it starts.
+		slideshowEdits++;
+		slideshow = { ...slideshow, ...patch };
+		save('/api/settings/slideshow', patch);
+	}
+
+	const transitions: { value: Transition; label: string }[] = [
+		{ value: 'fade', label: 'Fade' },
+		{ value: 'kenburns', label: 'Slow zoom' }
+	];
 
 	const rows = [
 		{
@@ -36,17 +83,8 @@
 		if (next === settings[key]) return;
 		// Optimistic: the screen and the running timers update before the save lands.
 		settings = { ...settings, [key]: next };
-		message = '';
 		window.dispatchEvent(new CustomEvent(IDLE_SETTINGS_EVENT, { detail: settings }));
-		void fetch('/api/settings/idle', {
-			method: 'PUT',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ [key]: next })
-		})
-			.then((res) => {
-				if (!res.ok) message = 'Could not save. Try again.';
-			})
-			.catch(() => (message = 'Could not save. Try again.'));
+		save('/api/settings/idle', { [key]: next });
 	}
 
 	const label = (m: number) => (m === 0 ? 'Off' : m === 1 ? '1 minute' : `${m} minutes`);
@@ -84,6 +122,49 @@
 			</div>
 		</Card>
 	{/each}
+	<Card>
+		<div class="flex flex-col gap-6">
+			<div class="flex flex-wrap items-center justify-between gap-6">
+				<div class="flex flex-col gap-1">
+					<h2 class="text-title font-bold">Next photo</h2>
+					<p class="text-body text-ink-muted">How long each photo stays on the frame.</p>
+				</div>
+				<div class="flex items-center gap-4">
+					<Button
+						variant="secondary"
+						aria-label="Next photo: less"
+						disabled={slideshow.intervalSeconds === INTERVAL_STEPS[0]}
+						onclick={() =>
+							changeSlideshow({ intervalSeconds: stepInterval(slideshow.intervalSeconds, -1) })}
+						>−</Button
+					>
+					<output class="min-w-tap-kid text-center text-title font-bold" data-testid="interval">
+						{intervalLabel(slideshow.intervalSeconds)}
+					</output>
+					<Button
+						variant="secondary"
+						aria-label="Next photo: more"
+						disabled={slideshow.intervalSeconds === INTERVAL_STEPS[INTERVAL_STEPS.length - 1]}
+						onclick={() =>
+							changeSlideshow({ intervalSeconds: stepInterval(slideshow.intervalSeconds, 1) })}
+						>+</Button
+					>
+				</div>
+			</div>
+			<div class="flex flex-wrap items-center justify-between gap-6">
+				<h2 class="text-title font-bold">Transition</h2>
+				<div class="flex gap-4" role="group" aria-label="Transition">
+					{#each transitions as t (t.value)}
+						<Button
+							variant={slideshow.transition === t.value ? 'primary' : 'secondary'}
+							aria-pressed={slideshow.transition === t.value}
+							onclick={() => changeSlideshow({ transition: t.value })}>{t.label}</Button
+						>
+					{/each}
+				</div>
+			</div>
+		</div>
+	</Card>
 	<p class="text-body text-ink-muted">Any touch on the photo frame goes back to where you were.</p>
 	{#if message}<p role="alert" class="text-body text-danger">{message}</p>{/if}
 </section>
