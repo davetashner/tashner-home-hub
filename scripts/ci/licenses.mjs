@@ -16,7 +16,8 @@ const ALLOWED = new Set([
 	'Python-2.0',
 	'MPL-2.0',
 	'Unlicense',
-	'LGPL-3.0-or-later'
+	'LGPL-3.0-or-later',
+	'OFL-1.1'
 ]);
 
 const raw = execFileSync('pnpm', ['licenses', 'list', '--json'], {
