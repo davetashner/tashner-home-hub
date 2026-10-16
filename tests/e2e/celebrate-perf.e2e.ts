@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { choreCard, openKid, seedKid } from './kid';
+import { choreCard, openKid, seedKid, stubAudio } from './kid';
 
 /**
  * ADR 0002 (60 fps at 1440p). Headless Chromium paints in software, so the browser's own tap rendering
@@ -9,6 +9,7 @@ import { choreCard, openKid, seedKid } from './kid';
 test('celebration starts in the tapped frame and its scripting fits a frame, at 4x CPU throttle', async ({
 	page
 }, info) => {
+	await stubAudio(page); // deterministic: no quiet hours, and we can time the first note
 	const s = await seedKid(page, `perf ${info.project.name}`, ['Tidy toys']);
 	await openKid(page, s);
 	await page.waitForSelector('[data-testid="confetti"]', { state: 'attached' }); // idle warm-up done
@@ -36,6 +37,7 @@ test('celebration starts in the tapped frame and its scripting fits a frame, at 
 						w.__perf.pendingFrame = frame;
 					if (w.__perf.starFrame < 0 && document.querySelector('[data-testid="flying-star"]')) {
 						w.__perf.starFrame = frame;
+						w.__perf.starAt = performance.now();
 					}
 					if (frame < 30 && (w.__perf.pendingFrame < 0 || w.__perf.starFrame < 0))
 						requestAnimationFrame(tick);
@@ -52,10 +54,15 @@ test('celebration starts in the tapped frame and its scripting fits a frame, at 
 	);
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 	const long = perf.long as number[];
+	const soundMs =
+		(await page.evaluate(() => (window as never as { __firstNote?: number }).__firstNote ?? -1)) -
+		Number(perf.starAt);
 	console.warn(
-		`[perf ${info.project.name}] pending frame ${perf.pendingFrame}, flying-star frame ${perf.starFrame}, celebrate() scripting ${Number(perf.scripting).toFixed(1)} ms (audio ${Number(perf['celebrate:audio']).toFixed(1)}, flyers incl. layout ${Number(perf['celebrate:flyers']).toFixed(1)}), long tasks ${JSON.stringify(long.map((d) => Math.round(d)))}`
+		`[perf ${info.project.name}] pending frame ${perf.pendingFrame}, flying-star frame ${perf.starFrame}, celebrate() scripting ${Number(perf.scripting).toFixed(1)} ms (flyers incl. layout ${Number(perf['celebrate:flyers']).toFixed(1)}), sound ${soundMs.toFixed(0)} ms after the first frame, long tasks ${JSON.stringify(long.map((d) => Math.round(d)))}`
 	);
 	expect(perf.starFrame).toBeGreaterThan(0);
 	expect(perf.starFrame).toBeLessThanOrEqual(Number(perf.pendingFrame));
 	expect(Number(perf.scripting)).toBeLessThan(20);
+	expect(soundMs).toBeGreaterThan(0); // sound starts, within 100 ms of the first painted frame
+	expect(soundMs).toBeLessThan(100);
 });

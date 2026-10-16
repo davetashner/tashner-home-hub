@@ -46,7 +46,11 @@ export async function stubAudio(page: Page): Promise<() => Promise<number>> {
 		route.fulfill({ json: { muted: false, quietStart: '00:00', quietEnd: '00:00' } })
 	);
 	await page.addInitScript(() => {
-		const w = window as unknown as { __notes: number; AudioContext: unknown };
+		const w = window as unknown as {
+			__notes: number;
+			__firstNote?: number;
+			AudioContext: unknown;
+		};
 		w.__notes = 0;
 		const param = () => ({ value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} });
 		const node = (extra: object) => ({ connect: (n: unknown) => n, ...extra });
@@ -58,6 +62,7 @@ export async function stubAudio(page: Page): Promise<() => Promise<number>> {
 			createGain = () => node({ gain: param() });
 			createOscillator() {
 				w.__notes += 1;
+				w.__firstNote ??= performance.now();
 				return node({ frequency: param(), start() {}, stop() {} });
 			}
 		};

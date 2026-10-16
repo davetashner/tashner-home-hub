@@ -67,8 +67,13 @@ function play(notes: Note[]) {
 	if (!allowed()) return;
 	const c = context();
 	if (!c) return;
-	const t = c.currentTime + 0.01;
-	for (const [f, o, d, p, type] of notes) note(c, f, t + o, d, p, type ?? 'sine');
+	// Only the cheap, gesture-bound resume() runs on the tap; the notes are scheduled after the frame.
+	requestAnimationFrame(() =>
+		setTimeout(() => {
+			const t = c.currentTime + 0.01;
+			for (const [f, o, d, p, type] of notes) note(c, f, t + o, d, p, type ?? 'sine');
+		}, 0)
+	);
 }
 
 const [C5, E5, G5, C6, E6, G6] = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568];

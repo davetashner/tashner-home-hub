@@ -118,7 +118,6 @@ export function celebrate(detail: CelebrateDetail): void {
 	const { origin, jar, stars } = detail;
 	const t0 = performance.now();
 	playTap(stars);
-	const tAudio = performance.now();
 	const from = origin ? center(origin.getBoundingClientRect()) : null; // before Svelte re-renders
 	const motion = !reduced();
 	if (motion && from) {
@@ -132,7 +131,6 @@ export function celebrate(detail: CelebrateDetail): void {
 	}
 	// The pending slot is rendered in a microtask (after Svelte flushes); this runs right after it.
 	const syncMs = performance.now() - t0;
-	performance.measure('celebrate:audio', { start: t0, end: tAudio });
 	queueMicrotask(() => {
 		const t1 = performance.now();
 		const t2 = performance.now();
