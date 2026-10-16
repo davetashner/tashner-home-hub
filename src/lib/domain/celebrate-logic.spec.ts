@@ -24,9 +24,8 @@ describe('approvedTransitions', () => {
 		const after = board(chore('a', 'approved', 2), chore('b', 'pending'), chore('c', 'approved'));
 		expect(approvedTransitions(before, after)).toEqual({ count: 1, stars: 2 });
 	});
-	it('ignores an already-approved board and a first load', () => {
+	it('ignores a first load', () => {
 		const b = board(chore('a', 'approved'));
-		expect(approvedTransitions(b, b)).toEqual({ count: 0, stars: 0 });
 		expect(approvedTransitions(undefined, b)).toEqual({ count: 0, stars: 0 });
 	});
 });

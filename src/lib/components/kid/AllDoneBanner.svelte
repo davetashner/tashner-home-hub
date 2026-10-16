@@ -13,17 +13,13 @@
 
 <style>
 	.banner {
+		/* --duration-slow is 1ms under reduced motion: the banner just appears. */
 		animation: banner-in var(--duration-slow) var(--ease-spring) both;
 	}
 	@keyframes banner-in {
 		from {
 			opacity: 0;
 			transform: scale(0.6) translateY(2rem);
-		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.banner {
-			animation: none;
 		}
 	}
 </style>

@@ -11,24 +11,24 @@ test('celebration starts in the tapped frame and its scripting fits a frame, at 
 }, info) => {
 	const s = await seedKid(page, `perf ${info.project.name}`, ['Tidy toys']);
 	await openKid(page, s);
-	await page.waitForTimeout(1500); // let the confetti chunk preload when idle
+	await page.waitForSelector('[data-testid="confetti"]', { state: 'attached' }); // idle warm-up done
 	const cdp = await page.context().newCDPSession(page);
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
 	await page.evaluate(() => {
 		const w = window as unknown as { __perf: Record<string, number | number[]> };
-		w.__perf = { long: [], pendingFrame: -1, starFrame: -1, ms: -1, scripting: -1 };
+		w.__perf = { long: [], pendingFrame: -1, starFrame: -1, scripting: -1 };
 		new PerformanceObserver((list) => {
 			for (const e of list.getEntries()) (w.__perf.long as number[]).push(e.duration);
 		}).observe({ type: 'longtask' });
 		new PerformanceObserver((list) => {
 			for (const e of list.getEntries()) {
 				if (e.name === 'celebrate') w.__perf.scripting = e.duration;
+				if (e.name.startsWith('celebrate:')) w.__perf[e.name] = e.duration;
 			}
 		}).observe({ type: 'measure' });
 		document.addEventListener(
 			'click',
 			() => {
-				const t0 = performance.now();
 				let frame = 0;
 				const tick = () => {
 					frame += 1;
@@ -36,7 +36,6 @@ test('celebration starts in the tapped frame and its scripting fits a frame, at 
 						w.__perf.pendingFrame = frame;
 					if (w.__perf.starFrame < 0 && document.querySelector('[data-testid="flying-star"]')) {
 						w.__perf.starFrame = frame;
-						w.__perf.ms = performance.now() - t0;
 					}
 					if (frame < 30 && (w.__perf.pendingFrame < 0 || w.__perf.starFrame < 0))
 						requestAnimationFrame(tick);
@@ -54,9 +53,9 @@ test('celebration starts in the tapped frame and its scripting fits a frame, at 
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 	const long = perf.long as number[];
 	console.warn(
-		`[perf ${info.project.name}] pending frame ${perf.pendingFrame}, flying-star frame ${perf.starFrame} (${Number(perf.ms).toFixed(1)} ms after tap), celebrate() scripting ${Number(perf.scripting).toFixed(1)} ms, long tasks ${JSON.stringify(long.map((d) => Math.round(d)))}`
+		`[perf ${info.project.name}] pending frame ${perf.pendingFrame}, flying-star frame ${perf.starFrame}, celebrate() scripting ${Number(perf.scripting).toFixed(1)} ms (audio ${Number(perf['celebrate:audio']).toFixed(1)}, flyers incl. layout ${Number(perf['celebrate:flyers']).toFixed(1)}), long tasks ${JSON.stringify(long.map((d) => Math.round(d)))}`
 	);
 	expect(perf.starFrame).toBeGreaterThan(0);
 	expect(perf.starFrame).toBeLessThanOrEqual(Number(perf.pendingFrame));
-	expect(Number(perf.scripting)).toBeLessThan(50);
+	expect(Number(perf.scripting)).toBeLessThan(20);
 });

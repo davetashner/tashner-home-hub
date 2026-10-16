@@ -18,7 +18,12 @@ export async function loadSoundSettings(): Promise<void> {
 	}
 }
 
-function context(): AudioContext | null {
+/** Creates the context (suspended until a gesture); the first tap resumes it. */
+export function warmAudio(): void {
+	context(false);
+}
+
+function context(resume = true): AudioContext | null {
 	if (!ctx) {
 		const Ctor =
 			window.AudioContext ??
@@ -26,7 +31,7 @@ function context(): AudioContext | null {
 		if (!Ctor) return null;
 		ctx = new Ctor();
 	}
-	if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
+	if (resume && ctx.state === 'suspended') void ctx.resume().catch(() => {});
 	return ctx;
 }
 
@@ -56,9 +61,9 @@ function note(
 	osc.stop(at + dur + 0.05);
 }
 
-function play(
-	notes: [freq: number, offset: number, dur: number, peak: number, type?: OscillatorType][]
-) {
+type Note = [freq: number, offset: number, dur: number, peak: number, type?: OscillatorType];
+
+function play(notes: Note[]) {
 	if (!allowed()) return;
 	const c = context();
 	if (!c) return;
@@ -66,17 +71,14 @@ function play(
 	for (const [f, o, d, p, type] of notes) note(c, f, t + o, d, p, type ?? 'sine');
 }
 
-const C5 = 523.25,
-	E5 = 659.25,
-	G5 = 783.99,
-	C6 = 1046.5,
-	E6 = 1318.5,
-	G6 = 1568;
+const [C5, E5, G5, C6, E6, G6] = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568];
+/** Notes `step` seconds apart, each with the same length and loudness. */
+const run = (freqs: number[], step: number, dur: number, peak: number): Note[] =>
+	freqs.map((f, i) => [f, i * step, dur, peak, 'triangle']);
 
 /** Rising arpeggio, one extra note per star (up to five). */
 export function playTap(stars = 1) {
-	const run = [C5, E5, G5, C6, E6].slice(0, Math.min(5, Math.max(3, stars + 2)));
-	play(run.map((f, i) => [f, i * 0.07, 0.28, 0.16, 'triangle']));
+	play(run([C5, E5, G5, C6, E6].slice(0, Math.min(5, Math.max(3, stars + 2))), 0.07, 0.28, 0.16));
 }
 
 /** Bell-like ding: a fundamental plus an inharmonic partial. */
@@ -90,12 +92,7 @@ export function playDing() {
 
 export function playFanfare() {
 	play([
-		[C5, 0, 0.18, 0.16, 'triangle'],
-		[C5, 0.16, 0.18, 0.16, 'triangle'],
-		[E5, 0.32, 0.18, 0.16, 'triangle'],
-		[G5, 0.5, 0.3, 0.18, 'triangle'],
-		[E5, 0.78, 0.14, 0.14, 'triangle'],
-		[G5, 0.92, 0.14, 0.14, 'triangle'],
+		...run([C5, C5, E5, G5, E5, G5], 0.17, 0.2, 0.15),
 		[C6, 1.08, 0.7, 0.2, 'triangle'],
 		[E6, 1.08, 0.7, 0.1],
 		[G6, 1.08, 0.7, 0.08]

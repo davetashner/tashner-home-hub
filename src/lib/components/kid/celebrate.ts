@@ -1,9 +1,6 @@
-import { loadSoundSettings, playDing, playFanfare, playTap } from './sound.js';
+import { loadSoundSettings, warmAudio, playDing, playFanfare, playTap } from './sound.js';
 
-/**
- * Chore celebrations (hub-sps.4). Everything here animates transform/opacity only (Web Animations
- * API on tiny elements), starts in the same frame as the tap, and never awaits anything the tap needs.
- */
+/** Chore celebrations (hub-sps.4): transform/opacity only, started in the tap's frame. */
 export interface CelebrateDetail {
 	choreId: string;
 	memberId: string;
@@ -23,7 +20,6 @@ import type confettiFn from 'canvas-confetti';
 type Confetti = typeof confettiFn;
 let confettiLoad: Promise<Confetti> | null = null;
 let fire: ReturnType<Confetti['create']> | null = null;
-let palette: string[] | undefined;
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -31,41 +27,23 @@ const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matc
 export function preloadCelebrations(): void {
 	void loadSoundSettings();
 	const idle = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 500));
-	idle(() => void loadConfetti().catch(() => {}));
+	// Everything heavy happens here, off the tap: audio graph, confetti worker + canvas.
+	idle(() => {
+		warmAudio();
+		starSvg();
+		void loadConfetti()
+			.then((c) => {
+				ensureFire(c);
+			})
+			.catch(() => {});
+	});
 }
 
 function loadConfetti(): Promise<Confetti> {
 	return (confettiLoad ??= import('canvas-confetti').then((m) => m.default));
 }
 
-/** Design tokens as confetti colors (the library wants rgb, tokens are oklch). */
-function colors(): string[] | undefined {
-	if (palette) return palette;
-	try {
-		const style = getComputedStyle(document.documentElement);
-		const px = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
-		if (!px) return undefined;
-		palette = [
-			'--color-star',
-			'--color-accent',
-			'--color-success',
-			'--color-member-4',
-			'--color-member-6'
-		].map((name) => {
-			px.clearRect(0, 0, 1, 1);
-			px.fillStyle = style.getPropertyValue(name).trim();
-			px.fillRect(0, 0, 1, 1);
-			const [r, g, b] = px.getImageData(0, 0, 1, 1).data;
-			return `rgb(${r}, ${g}, ${b})`;
-		});
-	} catch {
-		palette = undefined;
-	}
-	return palette;
-}
-
-async function pop(options: Parameters<Confetti>[0]): Promise<void> {
-	const confetti = await loadConfetti();
+function ensureFire(confetti: Confetti) {
 	if (!fire) {
 		// One shared full-viewport canvas drawn by a worker: confetti never touches the main thread.
 		const canvas = document.createElement('canvas');
@@ -80,12 +58,20 @@ async function pop(options: Parameters<Confetti>[0]): Promise<void> {
 			disableForReducedMotion: true
 		});
 	}
-	void fire({ colors: colors(), ticks: 160, disableForReducedMotion: true, ...options });
+	return fire;
+}
+
+async function pop(options: Parameters<Confetti>[0]): Promise<void> {
+	const fire = ensureFire(await loadConfetti());
+	void fire({ ticks: 160, disableForReducedMotion: true, ...options });
 }
 
 const center = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
 
+let template: SVGSVGElement | undefined;
+
 function starSvg(): SVGSVGElement {
+	if (template) return template.cloneNode(true) as SVGSVGElement;
 	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 	svg.setAttribute('viewBox', '0 0 24 24');
 	svg.setAttribute('aria-hidden', 'true');
@@ -97,7 +83,8 @@ function starSvg(): SVGSVGElement {
 		'M12 2.8l2.9 6 6.6.9-4.8 4.6 1.2 6.6L12 17.7l-5.9 3.2 1.2-6.6L2.5 9.7l6.6-.9z'
 	);
 	svg.append(path);
-	return svg;
+	template = svg;
+	return svg.cloneNode(true) as SVGSVGElement;
 }
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
@@ -131,6 +118,7 @@ export function celebrate(detail: CelebrateDetail): void {
 	const { origin, jar, stars } = detail;
 	const t0 = performance.now();
 	playTap(stars);
+	const tAudio = performance.now();
 	const from = origin ? center(origin.getBoundingClientRect()) : null; // before Svelte re-renders
 	const motion = !reduced();
 	if (motion && from) {
@@ -144,8 +132,10 @@ export function celebrate(detail: CelebrateDetail): void {
 	}
 	// The pending slot is rendered in a microtask (after Svelte flushes); this runs right after it.
 	const syncMs = performance.now() - t0;
+	performance.measure('celebrate:audio', { start: t0, end: tAudio });
 	queueMicrotask(() => {
 		const t1 = performance.now();
+		const t2 = performance.now();
 		const targets = jar ? slots(jar, 'outline', stars) : [];
 		targets.forEach((slot, i) => {
 			if (!motion || !from) {
@@ -177,6 +167,7 @@ export function celebrate(detail: CelebrateDetail): void {
 				{ duration: total, easing: 'ease-out' }
 			);
 		});
+		performance.measure('celebrate:flyers', { start: t2 }); // includes the forced layout
 		// User Timing: our own scripting only (the Svelte flush between the two parts is not ours).
 		performance.measure('celebrate', { start: t0, duration: syncMs + (performance.now() - t1) });
 	});
