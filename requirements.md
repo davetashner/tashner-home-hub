@@ -173,17 +173,17 @@ The main audience is a young child. Completing a chore should feel like an event
 | NFR-4 | P0 | **Performance on Raspberry Pi 5**: screen changes < 300 ms, animations smooth (≥ 30 fps), photo transitions without stutter. |
 | NFR-5 | P0 | **Reliability**: runs unattended for months. Watchdog restarts the kiosk browser and server if they stop responding. Tolerates SD-card wear (prefer SSD/NVMe or a read-mostly OS image). |
 | NFR-6 | P0 | **Offline tolerance**: if the internet or home server is down, the display keeps showing cached calendar, photos, and chores. Chore completions are queued and synced later. |
-| NFR-7 | P0 | **Backups**: the database is backed up nightly (Unraid appdata backup now; Time Machine or a scheduled copy on the Mac mini), and at least 30 days of backups are kept. |
+| NFR-7 | P0 | **Backups**: the database is backed up nightly (Unraid appdata backup now; Time Machine or a scheduled copy on the Mac Studio), and at least 30 days of backups are kept. |
 | NFR-8 | P1 | **Maintainability**: deployed as Docker container(s) with a single compose file. Updates are a one-command pull/restart. |
 | NFR-9 | P1 | **Accessibility**: WCAG AA contrast; sound is never the only signal. |
 | NFR-10 | P1 | **Time zone / locale**: configurable time zone, 12/24-hour clock, week start day. |
-| NFR-11 | P0 | **Portable hosting**: the server runs from the same compose file on Unraid (linux/amd64) and on the Mac mini (Docker on macOS, arm64). Multi-arch images. All state lives in one data volume, so moving hosts means copying that volume and changing the Pi's server URL. |
+| NFR-11 | P0 | **Portable hosting**: the server runs from the same compose file on Unraid (linux/amd64) and on the Mac Studio (Docker on macOS, arm64). Multi-arch images. All state lives in one data volume, so moving hosts means copying that volume and changing the Pi's server URL. |
 
 ## 5. Hardware and Hosting
 
 ### Decision
-- **Server: Mac mini** (arriving early December 2026). Runs the app server, database, sync workers, and photo cache, in Docker plus a small native helper for Apple Photos (see §6).
-- **Interim server: Unraid**, in Docker, until the Mac mini arrives. Then move the data volume over (NFR-11).
+- **Server: Mac Studio** (arriving early December 2026). Runs the app server, database, sync workers, and photo cache, in Docker plus a small native helper for Apple Photos (see §6).
+- **Interim server: Unraid**, in Docker, until the Mac Studio arrives. Then move the data volume over (NFR-11).
 - **Wall display: Raspberry Pi 5** as a thin kiosk client (Chromium in kiosk mode). It also handles display power and touch, and caches data so the display keeps working if the server is down (NFR-6).
 
 Rejected: all-in-one Pi (too much photo processing and sync work on the Pi, backups harder) and a server driving the display directly (the server isn't near the wall).
@@ -201,7 +201,7 @@ Rejected: all-in-one Pi (too much photo processing and sync work on the Pi, back
 |---|---|---|
 | **Google Calendar** | Google Calendar API with OAuth 2.0 from our own Google Cloud project (free). | If the OAuth app stays in "Testing" status, refresh tokens expire after 7 days. **Set the app to "In production"** (unverified is fine for personal use) so tokens last. |
 | **Apple Calendar** | iCloud CalDAV (`caldav.icloud.com`) with an Apple ID **app-specific password**. Read and write. | App-specific passwords are revoked if the Apple ID password changes. Show a re-auth warning (ADM-3). |
-| **Apple Photos** | Apple has **no official iCloud Photos API**. Options in order of preference: **(0) Mac mini (preferred once it arrives):** sign the Mac mini into iCloud Photos and have a native helper (e.g. `osxphotos` on a launchd schedule) export chosen albums to a folder the app reads. This uses Apple's own sync, so no 2FA re-auth and it works with Advanced Data Protection. **(1)** Shared Album with a public website link: read the shared-stream feed (used by many open-source photo frames). **(2)** `icloudpd` (iCloud Photos Downloader) container on Unraid syncs chosen albums to a local folder. **(3)** Export albums from a Mac to an Unraid share (PHO-9). | (1) is unofficial and could break. Albums are capped at 5,000 items. (0) needs enough disk on the Mac mini for the iCloud library ("Optimize Mac Storage" keeps originals in the cloud; the export pulls only what's needed), and Docker on macOS can't read the Photos library directly, so the helper must run natively. (2) needs 2FA re-authentication about every 2 months and doesn't work with Advanced Data Protection on. Support the local-folder source as a fallback whatever we choose. |
+| **Apple Photos** | Apple has **no official iCloud Photos API**. Options in order of preference: **(0) Mac Studio (preferred once it arrives):** sign the Mac Studio into iCloud Photos and have a native helper (e.g. `osxphotos` on a launchd schedule) export chosen albums to a folder the app reads. This uses Apple's own sync, so no 2FA re-auth and it works with Advanced Data Protection. **(1)** Shared Album with a public website link: read the shared-stream feed (used by many open-source photo frames). **(2)** `icloudpd` (iCloud Photos Downloader) container on Unraid syncs chosen albums to a local folder. **(3)** Export albums from a Mac to an Unraid share (PHO-9). | (1) is unofficial and could break. Albums are capped at 5,000 items. (0) needs enough disk on the Mac Studio for the iCloud library ("Optimize Mac Storage" keeps originals in the cloud; the export pulls only what's needed), and Docker on macOS can't read the Photos library directly, so the helper must run natively. (2) needs 2FA re-authentication about every 2 months and doesn't work with Advanced Data Protection on. Support the local-folder source as a fallback whatever we choose. |
 | **Display power** | On Raspberry Pi OS (Wayland/labwc): `wlr-randr --output HDMI-A-1 --off/--on`. Fallback is HDMI-CEC (`cec-ctl`) for TV-style panels. A small agent on the Pi accepts sleep/wake commands from the app. | Some monitors go into deep standby and stop powering USB touch, which breaks touch to wake. Check the chosen monitor before buying. |
 | **Weather** | Open-Meteo (free, no API key). | None significant. |
 
@@ -220,7 +220,7 @@ Rejected: all-in-one Pi (too much photo processing and sync work on the Pi, back
 
 | Phase | Scope |
 |---|---|
-| **MVP (v0.1)** | Kiosk setup on the Pi, family profiles, Google + iCloud + ICS calendars (read-only), Today/Week/Month views, photo frame from a local folder (Apple Photos via the Mac mini helper after the migration), parent approval for chores, one child profile, chores with gold stars + celebrations + undo, one reward goal with redemption, scheduled sleep + Sleep-now button + touch to wake, admin web UI with PIN. |
+| **MVP (v0.1)** | Kiosk setup on the Pi, family profiles, Google + iCloud + ICS calendars (read-only), Today/Week/Month views, photo frame from a local folder (Apple Photos via the Mac Studio helper after the migration), parent approval for chores, one child profile, chores with gold stars + celebrations + undo, one reward goal with redemption, scheduled sleep + Sleep-now button + touch to wake, admin web UI with PIN. |
 | **v0.2** | Event create/edit, streaks, bonus stars, routines, weather, countdowns, night clock. |
 | **v0.3** | Lists, meal planning, reward shop, remote access over VPN, data export, notifications. |
 | **Later** | Motion-sensor wake, Home Assistant integration, Outlook, badges, allowance ledger, themes. |
@@ -235,11 +235,11 @@ Rejected: all-in-one Pi (too much photo processing and sync work on the Pi, back
 7. No subscription, payment method, or paid API key is needed anywhere in the setup.
 
 ## 10. Open Questions
-1. ~~**Hosting**~~ — **Decided 2026-10-15:** Mac mini server (from early December), Unraid in the meantime, Pi kiosk on the wall. See §5.
-2. ~~**Apple Photos**~~ — **Decided 2026-10-15:** plain local folder on Unraid to start. On the Mac mini, a native `osxphotos` export of the iCloud-synced library into that folder.
+1. ~~**Hosting**~~ — **Decided 2026-10-15:** Mac Studio server (from early December), Unraid in the meantime, Pi kiosk on the wall. See §5.
+2. ~~**Apple Photos**~~ — **Decided 2026-10-15:** plain local folder on Unraid to start. On the Mac Studio, a native `osxphotos` export of the iCloud-synced library into that folder.
 3. ~~**Screen**~~ — **Decided 2026-10-15:** ViewSonic ID2456-4K, 24" 4K touch (§5). Orientation is still open: assumed **landscape** unless told otherwise.
 4. ~~**Children**~~ — **Decided 2026-10-15:** one child profile for now (the data model still supports more). Chores use pictures plus short text.
 5. ~~**Approval**~~ — **Decided 2026-10-15:** stars need parent approval by default (CHO-9, now in the MVP).
 6. **Write-back**: do we need event creation from the wall screen in the MVP, or is the phone enough?
-7. **Remote access**: is Tailscale already in use on the home network (Unraid / Mac mini)?
+7. **Remote access**: is Tailscale already in use on the home network (Unraid / Mac Studio)?
 8. ~~**Sound**~~ — The ID2456-4K lists no speakers, so add a small powered speaker on its audio-out jack.
