@@ -4,8 +4,16 @@ export interface Size {
 }
 
 export const DEFAULT_TARGET: Size = { width: 2560, height: 1440 };
-export const MIN_DIMENSION = 64;
-export const MAX_DIMENSION = 4096;
+/** The only render sizes the API serves (landscape plus portrait swaps); 480x270 is for thumbnails. */
+export const ALLOWED_TARGETS: Size[] = [
+	[1920, 1080],
+	[2560, 1440],
+	[3840, 2160],
+	[480, 270]
+].flatMap(([width, height]) => [
+	{ width, height },
+	{ width: height, height: width }
+]);
 export const FILL_TOLERANCE_PX = 2;
 
 export const FORMATS = ['avif', 'webp'] as const;
@@ -55,12 +63,10 @@ export function planRender(
 	return { main, background: needsBackground(main, target) };
 }
 
-/** Clamps a requested dimension to a sane integer; returns undefined if not a number. */
-export function parseDimension(raw: string | null | undefined): number | undefined {
-	if (raw === null || raw === undefined || !/^\d{1,5}$/.test(raw)) return undefined;
-	const n = Number(raw);
-	if (n < MIN_DIMENSION || n > MAX_DIMENSION) return undefined;
-	return n;
+/** Parses ?w=&h= into an allowed target; both absent means the default. Undefined if not allowed. */
+export function parseTarget(w: string | null, h: string | null): Size | undefined {
+	if (w === null && h === null) return DEFAULT_TARGET;
+	return ALLOWED_TARGETS.find((t) => `${t.width}` === w && `${t.height}` === h);
 }
 
 /** Idempotent file name: same content + size + part + format always maps to the same file. */

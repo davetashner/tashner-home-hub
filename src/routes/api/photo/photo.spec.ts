@@ -45,24 +45,24 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 describe('GET /api/photo/[id]', () => {
 	it('renders on demand with immutable caching headers and an ETag', async () => {
-		const res = (await call('p', '?w=640&h=360&fmt=webp')) as Response;
+		const res = (await call('p', '?w=480&h=270&fmt=webp')) as Response;
 		expect(res.status).toBe(200);
 		expect(res.headers.get('content-type')).toBe('image/webp');
 		expect(res.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
 		const etag = res.headers.get('etag')!;
-		expect(etag).toMatch(/^"[0-9a-f]+-640x360-main-webp"$/);
+		expect(etag).toMatch(/^"[0-9a-f]+-480x270-main-webp"$/);
 		const body = Buffer.from(await res.arrayBuffer());
 		const meta = await sharp(body).metadata();
-		expect([meta.width, meta.height]).toEqual([270, 360]);
+		expect([meta.width, meta.height]).toEqual([203, 270]);
 		expect(meta.exif).toBeUndefined();
 
-		const again = (await call('p', '?w=640&h=360&fmt=webp', { 'if-none-match': etag })) as Response;
+		const again = (await call('p', '?w=480&h=270&fmt=webp', { 'if-none-match': etag })) as Response;
 		expect(again.status).toBe(304);
 	});
 
 	it('404s for unknown, hidden, missing-file photos and missing backdrops', async () => {
 		for (const id of ['nope', 'h', 'gone'])
-			expect(((await call(id, '?w=640&h=360')) as { status: number }).status).toBe(404);
+			expect(((await call(id, '?w=480&h=270')) as { status: number }).status).toBe(404);
 	});
 
 	it('400s on bad parameters', async () => {

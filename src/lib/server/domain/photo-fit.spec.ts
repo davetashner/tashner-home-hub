@@ -4,7 +4,7 @@ import {
 	fitWithin,
 	needsBackground,
 	orientedSize,
-	parseDimension,
+	parseTarget,
 	parseExifTakenAt,
 	selectEvictions
 } from './photo-fit.js';
@@ -63,13 +63,12 @@ describe('orientation', () => {
 	});
 });
 
-describe('parseDimension', () => {
-	it('accepts only sane integers', () => {
-		expect(parseDimension('2560')).toBe(2560);
-		expect(parseDimension(null)).toBeUndefined();
-		expect(parseDimension(undefined)).toBeUndefined();
-		expect(parseDimension('10')).toBeUndefined();
-		expect(parseDimension('9000')).toBeUndefined();
+describe('parseTarget', () => {
+	it('accepts only allowlisted sizes, including portrait swaps', () => {
+		expect(parseTarget(null, null)).toEqual(LAND);
+		expect(parseTarget('1440', '2560')).toEqual(PORT);
+		expect(parseTarget('270', '480')).toEqual({ width: 270, height: 480 });
+		expect(parseTarget('2561', '1440') ?? parseTarget('2560', null)).toBeUndefined();
 	});
 });
 
