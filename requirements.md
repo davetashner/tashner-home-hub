@@ -10,7 +10,7 @@ A self-hosted, wall-mounted touchscreen family hub: shared calendar, photo frame
 - **G3. A photo frame** showing family photos from Apple Photos when the calendar is idle.
 - **G4. Chores a child wants to do**: tapping "Done" is rewarding, earns gold stars, and stars build toward a bigger reward.
 - **G5. Respect the household at night**: scheduled sleep mode plus an on-screen button that turns the display off.
-- **G6. Self-hosted and private**: family data stays on our hardware (Raspberry Pi and/or Unraid server).
+- **G6. Self-hosted and private**: family data stays on our hardware (home server plus a Raspberry Pi on the wall).
 
 ### Non-Goals (v1)
 - Public internet exposure or multi-household accounts.
@@ -80,7 +80,7 @@ Priority key used below: **P0** = must have for v1, **P1** = should have, **P2**
 | PHO-6 | P0 | Cache photos locally so the slideshow works offline and doesn't re-download. Resize to display resolution. |
 | PHO-7 | P1 | Overlay a clock, date, weather, and next event on the photo frame (each can be turned off). |
 | PHO-8 | P1 | Hide a specific photo from the slideshow with a long-press (adult only). |
-| PHO-9 | P1 | Also support a local folder or SMB share on Unraid as a photo source. |
+| PHO-9 | P1 | Also support a local folder or SMB share on the home server as a photo source. |
 | PHO-10 | P2 | Play short videos / Live Photos muted. |
 | PHO-11 | P2 | "On this day" mode: favor photos from this date in past years. |
 | PHO-12 | P2 | Google Photos as a source (subject to Google's restricted Library API). |
@@ -172,22 +172,23 @@ The main audience is a young child. Completing a chore should feel like an event
 | NFR-3 | P0 | **Security**: LAN-only by default. Credentials (OAuth tokens, app-specific passwords) are encrypted at rest and never committed to git. Admin endpoints require authentication. |
 | NFR-4 | P0 | **Performance on Raspberry Pi 5**: screen changes < 300 ms, animations smooth (≥ 30 fps), photo transitions without stutter. |
 | NFR-5 | P0 | **Reliability**: runs unattended for months. Watchdog restarts the kiosk browser and server if they stop responding. Tolerates SD-card wear (prefer SSD/NVMe or a read-mostly OS image). |
-| NFR-6 | P0 | **Offline tolerance**: if the internet or Unraid server is down, the display keeps showing cached calendar, photos, and chores. Chore completions are queued and synced later. |
-| NFR-7 | P0 | **Backups**: the database is backed up nightly (Unraid appdata backup or equivalent), and at least 30 days of backups are kept. |
+| NFR-6 | P0 | **Offline tolerance**: if the internet or home server is down, the display keeps showing cached calendar, photos, and chores. Chore completions are queued and synced later. |
+| NFR-7 | P0 | **Backups**: the database is backed up nightly (Unraid appdata backup now; Time Machine or a scheduled copy on the Mac mini), and at least 30 days of backups are kept. |
 | NFR-8 | P1 | **Maintainability**: deployed as Docker container(s) with a single compose file. Updates are a one-command pull/restart. |
 | NFR-9 | P1 | **Accessibility**: WCAG AA contrast; sound is never the only signal. |
 | NFR-10 | P1 | **Time zone / locale**: configurable time zone, 12/24-hour clock, week start day. |
+| NFR-11 | P0 | **Portable hosting**: the server runs from the same compose file on Unraid (linux/amd64) and on the Mac mini (Docker on macOS, arm64). Multi-arch images. All state lives in one data volume, so moving hosts means copying that volume and changing the Pi's server URL. |
 
 ## 5. Hardware and Hosting
 
-### Options
-| Option | Description | Pros | Cons |
-|---|---|---|---|
-| A. All-in-one Pi | Pi 5 runs the server, database, and kiosk browser | Simple, self-contained, works if Unraid is down | Pi does the photo processing and sync; backups need setup |
-| **B. Split (recommended)** | Unraid runs the server, database, sync workers, and photo cache in Docker. The Pi is a thin kiosk client (Chromium in kiosk mode) that also handles display power and touch | Heavy work on Unraid; easy backups; easy to add a second display later; Pi stays simple | Display depends on Unraid (reduced by client-side caching, NFR-6) |
-| C. Unraid only | Unraid VM/container drives the display directly | No Pi | Unraid is usually not near the wall; cabling is impractical |
+### Decision
+- **Server: Mac mini** (arriving early December 2026). Runs the app server, database, sync workers, and photo cache, in Docker plus a small native helper for Apple Photos (see §6).
+- **Interim server: Unraid**, in Docker, until the Mac mini arrives. Then move the data volume over (NFR-11).
+- **Wall display: Raspberry Pi 5** as a thin kiosk client (Chromium in kiosk mode). It also handles display power and touch, and caches data so the display keeps working if the server is down (NFR-6).
 
-### Reference Hardware (Option B)
+Rejected: all-in-one Pi (too much photo processing and sync work on the Pi, backups harder) and a server driving the display directly (the server isn't near the wall).
+
+### Reference Hardware
 - Raspberry Pi 5 (4 GB or 8 GB), official 27 W power supply, active cooler, NVMe or high-endurance SD card.
 - 15.6"–24" capacitive multi-touch monitor (USB touch, HDMI video). It must support DPMS power-off and stay touch-responsive (USB-powered touch controller) while the panel is off, for touch to wake (SLP-3).
 - Low-profile wall mount with power and HDMI routed behind the screen (in-wall power kit).
@@ -199,7 +200,7 @@ The main audience is a young child. Completing a chore should feel like an event
 |---|---|---|
 | **Google Calendar** | Google Calendar API with OAuth 2.0 from our own Google Cloud project (free). | If the OAuth app stays in "Testing" status, refresh tokens expire after 7 days. **Set the app to "In production"** (unverified is fine for personal use) so tokens last. |
 | **Apple Calendar** | iCloud CalDAV (`caldav.icloud.com`) with an Apple ID **app-specific password**. Read and write. | App-specific passwords are revoked if the Apple ID password changes. Show a re-auth warning (ADM-3). |
-| **Apple Photos** | Apple has **no official iCloud Photos API**. Options in order of preference: **(1)** Shared Album with a public website link: read the shared-stream feed (used by many open-source photo frames). **(2)** `icloudpd` (iCloud Photos Downloader) container on Unraid syncs chosen albums to a local folder. **(3)** Export albums from a Mac to an Unraid share (PHO-9). | (1) is unofficial and could break. Albums are capped at 5,000 items. (2) needs 2FA re-authentication about every 2 months and doesn't work with Advanced Data Protection on. Support the local-folder source as a fallback whatever we choose. |
+| **Apple Photos** | Apple has **no official iCloud Photos API**. Options in order of preference: **(0) Mac mini (preferred once it arrives):** sign the Mac mini into iCloud Photos and have a native helper (e.g. `osxphotos` on a launchd schedule) export chosen albums to a folder the app reads. This uses Apple's own sync, so no 2FA re-auth and it works with Advanced Data Protection. **(1)** Shared Album with a public website link: read the shared-stream feed (used by many open-source photo frames). **(2)** `icloudpd` (iCloud Photos Downloader) container on Unraid syncs chosen albums to a local folder. **(3)** Export albums from a Mac to an Unraid share (PHO-9). | (1) is unofficial and could break. Albums are capped at 5,000 items. (0) needs enough disk on the Mac mini for the iCloud library ("Optimize Mac Storage" keeps originals in the cloud; the export pulls only what's needed), and Docker on macOS can't read the Photos library directly, so the helper must run natively. (2) needs 2FA re-authentication about every 2 months and doesn't work with Advanced Data Protection on. Support the local-folder source as a fallback whatever we choose. |
 | **Display power** | On Raspberry Pi OS (Wayland/labwc): `wlr-randr --output HDMI-A-1 --off/--on`. Fallback is HDMI-CEC (`cec-ctl`) for TV-style panels. A small agent on the Pi accepts sleep/wake commands from the app. | Some monitors go into deep standby and stop powering USB touch, which breaks touch to wake. Check the chosen monitor before buying. |
 | **Weather** | Open-Meteo (free, no API key). | None significant. |
 
@@ -233,11 +234,11 @@ The main audience is a young child. Completing a chore should feel like an event
 7. No subscription, payment method, or paid API key is needed anywhere in the setup.
 
 ## 10. Open Questions
-1. **Hosting**: Option A (all on Pi) or Option B (Unraid server + Pi kiosk)? Recommendation: B.
-2. **Apple Photos**: is a shared album with a public link acceptable, or do we prefer `icloudpd` syncing private albums? Is Advanced Data Protection on for the Apple ID?
+1. ~~**Hosting**~~ — **Decided 2026-10-15:** Mac mini server (from early December), Unraid in the meantime, Pi kiosk on the wall. See §5.
+2. **Apple Photos**: with the Mac mini arriving, is option (0) the long-term plan? What do we use on Unraid until then: a local folder, a shared album, or `icloudpd`? Is Advanced Data Protection on for the Apple ID?
 3. **Screen**: size and orientation (landscape vs portrait)? This affects the layout of every view.
 4. **Children**: how many profiles, ages, and reading level? Should chores be mostly pictures?
 5. **Approval**: should chore stars be awarded right away (more fun) or after parent approval (more honest), by default?
 6. **Write-back**: do we need event creation from the wall screen in the MVP, or is the phone enough?
-7. **Remote access**: is Tailscale already in use on the Unraid server?
+7. **Remote access**: is Tailscale already in use on the home network (Unraid / Mac mini)?
 8. **Sound**: does the chosen monitor have speakers, or do we add a small USB/3.5 mm speaker?
