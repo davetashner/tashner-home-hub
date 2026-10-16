@@ -19,3 +19,17 @@ export async function signInAsAdult(page: Page, id: string): Promise<void> {
 	});
 	if (!res.ok()) throw new Error(`adult sign-in failed: ${res.status()}`);
 }
+
+/**
+ * Makes sure the shared test server is past first-run setup (otherwise every app page redirects
+ * to /setup). Idempotent; the baseline adult is never deleted by other tests.
+ */
+export function ensureHousehold(): void {
+	mkdirSync('data', { recursive: true });
+	const db = new Database('data/hub.db');
+	db.pragma('busy_timeout = 5000');
+	db.prepare(
+		"INSERT OR IGNORE INTO members (id, name, role, color, pin_hash) VALUES ('e2e-baseline-adult', 'Baseline Adult', 'adult', 'member-1', ?)"
+	).run(hashPin(PIN));
+	db.close();
+}
