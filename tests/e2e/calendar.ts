@@ -2,6 +2,12 @@ import { mkdirSync } from 'node:fs';
 import Database from 'better-sqlite3';
 
 const SOURCE = 'e2e-cal-source';
+/**
+ * A selected calendar on the source. Sync deletes events whose calendar is not selected, so
+ * without it any "Sync now" in another worker wipes these rows; with it, the sync fails to
+ * fetch (no credentials) and leaves them.
+ */
+const CALENDAR = 'e2e-cal-family';
 
 function localKey(offsetDays: number): { y: number; m: number; d: number } {
 	const t = new Date();
@@ -38,8 +44,12 @@ export function seedCalendar(options: { fresh?: boolean } = {}): void {
 	db.exec('BEGIN IMMEDIATE');
 	db.prepare('DELETE FROM calendar_sources WHERE id = ?').run(SOURCE);
 	db.prepare(
-		"INSERT INTO calendar_sources (id, provider, label, calendars, last_sync_at) VALUES (?, 'ics', 'Family', '[]', ?)"
-	).run(SOURCE, options.fresh === false ? Date.now() - 42 * 60_000 : Date.now());
+		"INSERT INTO calendar_sources (id, provider, label, calendars, last_sync_at) VALUES (?, 'ics', 'Family', ?, ?)"
+	).run(
+		SOURCE,
+		JSON.stringify([{ externalId: CALENDAR, name: 'Family' }]),
+		options.fresh === false ? Date.now() - 42 * 60_000 : Date.now()
+	);
 	const event = db.prepare(
 		`INSERT INTO events (id, source_id, external_id, title, starts_at, ends_at, all_day, location, notes, member_ids)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -62,7 +72,7 @@ export function seedCalendar(options: { fresh?: boolean } = {}): void {
 		event.run(
 			`e2e-cal-ev${i}`,
 			SOURCE,
-			`ext${i}`,
+			`${CALENDAR}::ext${i}`,
 			title,
 			s,
 			e,
