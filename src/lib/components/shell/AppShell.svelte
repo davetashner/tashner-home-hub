@@ -70,13 +70,15 @@
 		{#if pathname === '/'}
 			<span class="max-sm:hidden"></span>
 		{:else}
-			<a
-				href={resolve('/(app)')}
-				data-sveltekit-preload-data="tap"
-				class="press-link block min-w-0 rounded-control max-sm:hidden landscape:flex-1 landscape:sm:min-w-min"
-			>
-				<Clock testidPrefix="header-clock" />
-			</a>
+			<div class="min-w-0 max-sm:hidden landscape:flex-1 landscape:sm:min-w-min">
+				<a
+					href={resolve('/(app)')}
+					data-sveltekit-preload-data="tap"
+					class="press-link block w-fit max-w-full min-w-0 rounded-control"
+				>
+					<Clock testidPrefix="header-clock" />
+				</a>
+			</div>
 		{/if}
 		<div
 			class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4 portrait:sm:gap-2 landscape:sm:gap-2"

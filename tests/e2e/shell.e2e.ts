@@ -139,5 +139,9 @@ test('the header clock keeps the time on one line with a crowded header', async 
 		const sleep = (await page.getByRole('button', { name: 'Sleep' }).boundingBox())!;
 		expect(sleep.y).toBeGreaterThanOrEqual(clock.y);
 		expect(sleep.y).toBeLessThan(clock.y + clock.height);
+		// The tappable link hugs the clock text, so it cannot swallow the row and send stray taps home.
+		const date = (await page.getByTestId('header-clock-date').boundingBox())!;
+		const content = Math.max((await time.boundingBox())!.width, date.width);
+		expect(clock.width).toBeLessThanOrEqual(content + 1);
 	}
 });
