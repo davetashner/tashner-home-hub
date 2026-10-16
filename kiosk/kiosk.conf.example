@@ -1,0 +1,23 @@
+# Tashner Home Hub kiosk settings. Copy to kiosk/kiosk.conf (untracked) and edit.
+# Plain KEY="value" shell syntax. Re-run `sudo ./install.sh` and reboot after changes.
+
+# URL of the hub server (placeholder; use your server's real LAN name or IP).
+HUB_URL="http://hub.local:3000"
+
+# Health endpoint used by the watchdog to decide whether the server is reachable.
+HUB_HEALTH_URL="http://hub.local:3000/healthz"
+
+# Display orientation: normal | 90 | 180 | 270 (also rotates touch input).
+ORIENTATION="normal"
+
+# Output name as shown by `wlr-randr` (HDMI-A-1 or HDMI-A-2 on a Pi 5).
+OUTPUT="HDMI-A-1"
+
+# Render resolution. 2560x1440 is the default; 3840x2160 only if the bench test is smooth.
+RESOLUTION="2560x1440"
+
+# Optional: override the touch calibration matrix (six numbers). Empty = use the built-in table.
+TOUCH_MATRIX=""
+
+# Remote debugging port, bound to localhost only. Used by the watchdog.
+DEBUG_PORT="9222"

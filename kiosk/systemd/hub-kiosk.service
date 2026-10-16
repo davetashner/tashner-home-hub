@@ -1,0 +1,15 @@
+[Unit]
+Description=Home Hub kiosk (Chromium)
+# WAYLAND_DISPLAY and XDG_RUNTIME_DIR are imported by the labwc autostart before this starts.
+
+[Service]
+Type=simple
+ExecStart=/usr/local/lib/hub-kiosk/hub-kiosk-launch
+# Restart whenever Chromium exits, with a pause so a persistent fault is a slow retry, not a spin.
+Restart=always
+RestartSec=5
+# Never give up restarting.
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=default.target

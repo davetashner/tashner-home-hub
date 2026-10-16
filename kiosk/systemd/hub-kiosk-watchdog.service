@@ -1,0 +1,6 @@
+[Unit]
+Description=Home Hub kiosk watchdog pass
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/hub-kiosk/hub-kiosk-watchdog

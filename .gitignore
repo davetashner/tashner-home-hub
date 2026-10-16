@@ -39,3 +39,6 @@ test-results
 # Test output
 coverage/
 playwright-report/
+
+# Local kiosk settings (per-device)
+kiosk/kiosk.conf
