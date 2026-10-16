@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDb, type Db } from '#lib/server/db/index.js';
-import { calendarSources, events, members } from '#lib/server/db/schema.js';
+import { calendarSources, members } from '#lib/server/db/schema.js';
 
 process.env.HUB_SECRET_KEY = randomBytes(32).toString('base64');
 process.env.HUB_GOOGLE_CLIENT_ID = 'test-client-id.apps.example';
