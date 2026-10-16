@@ -9,6 +9,7 @@ import { startCalendarScheduler } from '#lib/server/calendar/scheduler.js';
 import '#lib/server/calendar/ics.js';
 import '#lib/server/calendar/google.js';
 import '#lib/server/calendar/icloud.js';
+import { installShutdownHandlers, trackJob } from '#lib/server/shutdown.js';
 import { isRequestAllowed } from '#lib/server/domain/network.js';
 
 const allowPublic = process.env.HUB_ALLOW_PUBLIC === 'true';
@@ -31,7 +32,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 /** Opens the database and applies pending migrations once, at server startup. */
 export function init(): void {
 	getDb();
-	startBackupScheduler();
-	startCalendarScheduler();
-	startPhotoScanner();
+	installShutdownHandlers();
+	trackJob(startBackupScheduler());
+	trackJob(startCalendarScheduler());
+	trackJob(startPhotoScanner());
 }
