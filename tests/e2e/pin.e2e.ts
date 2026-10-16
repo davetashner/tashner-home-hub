@@ -43,7 +43,9 @@ async function enter(page: Page, pin: string) {
 }
 
 async function openPad(page: Page, name: string, next = '/') {
+	// A second adult keeps the member picker visible regardless of test ordering.
 	seedAdult(name);
+	seedAdult(`${name} Partner`);
 	await page.goto(`/unlock?next=${encodeURIComponent(next)}`);
 	await page.getByRole('button', { name, exact: true }).click();
 }

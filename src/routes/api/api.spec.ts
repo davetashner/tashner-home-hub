@@ -21,8 +21,12 @@ const post = (body?: unknown) =>
 		body: body === undefined ? undefined : JSON.stringify(body)
 	});
 // Handlers only use a subset of RequestEvent; cast for direct invocation.
+// Requests are made by an unlocked adult unless the event sets `locals` itself.
 const call = (h: unknown, ev: Record<string, unknown>) =>
-	(h as (e: unknown) => Promise<Response> | Response)(ev);
+	(h as (e: unknown) => Promise<Response> | Response)({
+		locals: { adult: { id: 'adult', name: 'Test Adult' } },
+		...ev
+	});
 
 describe('star ledger API', () => {
 	it('complete -> approvals -> approve -> stars', async () => {
@@ -124,5 +128,21 @@ describe('star ledger API', () => {
 			})
 		).json();
 		expect(s.balance).toBe(5);
+	});
+
+	it('adult-only routes reject callers without an adult session', async () => {
+		const locals = { adult: null };
+		const params = { id: 'x' };
+		const request = post({ delta: 1, note: 'n' });
+		for (const [handler, ev] of [
+			[approvals.GET, {}],
+			[approve.POST, { params }],
+			[reject.POST, { params, request }],
+			[bonus.POST, { params, request }]
+		] as const) {
+			await expect((async () => call(handler, { ...ev, locals }))()).rejects.toMatchObject({
+				status: 401
+			});
+		}
 	});
 });
