@@ -7,9 +7,11 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import { groupByChild, relativeTime, type PendingItem } from '#lib/domain/approvals.js';
+	import { redeemPreview, redeemedMessage } from '#lib/domain/redeem.js';
 	import type { MemberColor } from '#lib/domain/member-colors.js';
 
 	interface Goal {
+		id: string;
 		title: string;
 		image: string | null;
 		cost: number;
@@ -195,6 +197,33 @@
 		await loadBalances();
 	}
 
+	// Redeem the goal reward (REW-4). The page is behind the adult PIN; the API checks again.
+	let redeeming = $state<{ child: Child; goal: Goal } | null>(null);
+	const preview = $derived(
+		redeeming ? redeemPreview(balances[redeeming.child.id] ?? 0, redeeming.goal.cost) : null
+	);
+	/** Optimistic: the stars come off at once and come back if the server says no. */
+	async function confirmRedeem() {
+		if (!redeeming) return;
+		const { child, goal } = redeeming;
+		redeeming = null;
+		balances[child.id] = (balances[child.id] ?? 0) - goal.cost;
+		const res = await api('/api/redemptions', {
+			method: 'POST',
+			body: { memberId: child.id, rewardId: goal.id }
+		}).catch(() => null);
+		if (res?.ok) say(redeemedMessage(goal.title, child.name, goal.cost));
+		else {
+			balances[child.id] = (balances[child.id] ?? 0) + goal.cost;
+			say(
+				res?.status === 409
+					? `${child.name} doesn't have enough stars yet.`
+					: "That didn't go through. Please try again."
+			);
+		}
+		await loadBalances();
+	}
+
 	const field =
 		'min-h-tap w-full rounded-control border-2 border-line bg-surface px-6 text-body text-ink';
 </script>
@@ -202,7 +231,15 @@
 <svelte:head><title>Approvals · Home Hub</title></svelte:head>
 
 <section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 portrait:max-sm:p-4">
-	<h1 class="text-headline font-extrabold">Approvals</h1>
+	<header class="flex flex-wrap items-center justify-between gap-6">
+		<h1 class="text-headline font-extrabold">Approvals</h1>
+		<a
+			href={resolve('/(app)/settings/redemptions')}
+			data-testid="redemption-log-link"
+			class="flex min-h-tap items-center rounded-control px-6 text-body font-bold text-ink-muted transition-transform duration-75 active:scale-95"
+			>Redemption log</a
+		>
+	</header>
 
 	{#if loaded && items.length === 0}
 		<p class="text-title font-bold" data-testid="all-caught-up">All caught up! ✨</p>
@@ -224,13 +261,21 @@
 
 					{@const goal = goals[child.id]}
 					{#if goal && (balances[child.id] ?? 0) >= goal.cost}
-						<p
+						<div
 							data-testid="goal-reached-{child.id}"
-							class="rounded-control bg-star-soft p-4 text-lead font-bold"
+							class="flex flex-wrap items-center gap-4 rounded-control bg-star-soft p-4"
 						>
-							<span aria-hidden="true">{goal.image ?? '🎁'}</span>
-							{child.name} earned {goal.title}! Ready to redeem ({goal.cost} ⭐).
-						</p>
+							<p class="min-w-48 flex-1 text-lead font-bold">
+								<span aria-hidden="true">{goal.image ?? '🎁'}</span>
+								{child.name} earned {goal.title}! Ready to redeem ({goal.cost} ⭐).
+							</p>
+							<Button
+								class="w-full sm:w-auto"
+								data-testid="redeem"
+								aria-label="Redeem {goal.title} for {child.name}"
+								onclick={() => (redeeming = { child, goal })}>Redeem</Button
+							>
+						</div>
 					{/if}
 
 					{#if group}
@@ -388,6 +433,42 @@
 					Send back
 				</Button>
 				<Button variant="secondary" class="flex-1" onclick={() => (rejecting = null)}>
+					Cancel
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if redeeming && preview}
+	<div class="fixed inset-0 z-20 flex items-end justify-center bg-ink/50 sm:items-center">
+		<div
+			role="dialog"
+			aria-modal="true"
+			aria-label="Redeem reward"
+			data-testid="redeem-sheet"
+			class="sheet flex w-full max-w-2xl flex-col gap-6 rounded-t-sheet bg-surface-raised p-8 shadow-float sm:rounded-sheet"
+		>
+			<h2 class="text-title font-extrabold">
+				<span aria-hidden="true">{redeeming.goal.image ?? '🎁'}</span>
+				Redeem {redeeming.goal.title} for {redeeming.child.name}?
+			</h2>
+			<p class="text-lead" data-testid="redeem-summary">
+				{#if preview.ok}
+					Spends {redeeming.goal.cost} ⭐. {redeeming.child.name} will have {preview.after}
+					⭐ left.
+				{:else}
+					{redeeming.child.name} needs {preview.short} more ⭐.
+				{/if}
+			</p>
+			<div class="flex gap-4">
+				<Button
+					class="flex-1"
+					data-testid="redeem-confirm"
+					disabled={!preview.ok}
+					onclick={() => void confirmRedeem()}>Redeem</Button
+				>
+				<Button variant="secondary" class="flex-1" onclick={() => (redeeming = null)}>
 					Cancel
 				</Button>
 			</div>
