@@ -201,6 +201,7 @@ export interface PendingApproval {
 	memberName: string;
 	choreId: string;
 	choreTitle: string;
+	choreIcon: string | null;
 	stars: number;
 	date: string;
 	completedAt: number;
@@ -215,6 +216,7 @@ export function pendingApprovals(db: Db): PendingApproval[] {
 			memberName: members.name,
 			choreId: choreCompletions.choreId,
 			choreTitle: chores.title,
+			choreIcon: chores.icon,
 			stars: choreCompletions.starsAwarded,
 			date: choreCompletions.date,
 			completedAt: choreCompletions.completedAt

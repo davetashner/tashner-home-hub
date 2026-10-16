@@ -1,7 +1,24 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
+	import { badgeLabel } from '#lib/domain/approvals.js';
 
-	const sections = [
+	let pending = $state(0);
+	onMount(async () => {
+		const res = await fetch('/api/approvals/count').catch(() => null);
+		if (res?.ok) pending = ((await res.json()) as { pending: number }).pending;
+	});
+
+	const sections = $derived([
+		{
+			href: resolve('/(app)/settings/approvals'),
+			emoji: '✅',
+			title: 'Approvals',
+			line:
+				pending > 0
+					? `${badgeLabel(pending)} · tap to approve.`
+					: 'Nothing waiting. Check stars, give bonuses.'
+		},
 		{
 			href: resolve('/(app)/settings/family'),
 			emoji: '👨‍👩‍👧',
@@ -20,7 +37,7 @@
 			title: 'Rewards',
 			line: 'What stars can be saved up for.'
 		}
-	];
+	]);
 </script>
 
 <svelte:head>
