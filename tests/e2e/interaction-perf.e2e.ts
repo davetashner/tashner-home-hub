@@ -169,7 +169,7 @@ test('primary nav responds within 100 ms of our own work at 4x throttle', async 
 	const target = nav.getByRole('link', { name: 'Calendar' });
 	await arm(
 		page,
-		`() => document.querySelector('nav[aria-label="Main"] a[href="/calendar"]')?.getAttribute('aria-current') === 'page'`
+		`() => document.querySelector('nav[aria-label="Main"] a[href="/calendar"]')?.getAttribute('data-selected') === 'true'`
 	);
 	const cdp = await page.context().newCDPSession(page);
 	await settle(page);
@@ -179,9 +179,8 @@ test('primary nav responds within 100 ms of our own work at 4x throttle', async 
 	await expect(target).toHaveAttribute('aria-current', 'page');
 	const p = await read(page);
 	await throttle(cdp, 1);
-	// Known gap, see hub-ugl.4.9: the nav only marks the new tab once the route has
-	// loaded (3-4 frames, ~150 ms here), with no instant pressed/pending feedback. Gate the load time, not the frame.
-	checkTap('nav', info, p, { maxFrame: Infinity, maxResponseMs: 500 });
+	// The tapped item shows as selected (data-selected) in the tapped frame or the next, ahead of the route.
+	checkTap('nav', info, p, { maxResponseMs: 500 });
 });
 
 test('parent Approve responds within 100 ms of our own work at 4x throttle', async ({
