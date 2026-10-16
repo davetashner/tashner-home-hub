@@ -39,9 +39,13 @@
 		if (rows) thumbs[id] = offset ? [...(thumbs[id] ?? []), ...rows] : rows;
 	}
 
+	/** Bumped by every refresh and every optimistic change, so a slower, older answer never wins. */
+	let generation = 0;
+
 	async function refresh() {
+		const mine = ++generation;
 		const list: SourceView[] | null = await call('/api/photo-sources');
-		if (!list) return;
+		if (!list || mine !== generation) return;
 		sources = list;
 		await Promise.all(list.map((s) => loadThumbs(s.id)));
 	}
@@ -79,6 +83,7 @@
 			selected: a.name === name ? !a.selected : a.selected
 		}));
 		if (!next.some((a) => a.selected)) return;
+		generation++;
 		s.albums = next;
 		const all = next.every((a) => a.selected);
 		await call(`/api/photo-sources/${s.id}`, 'PATCH', {
