@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { getDb, type Db } from '../db/index.js';
 import { settings } from '../db/schema.js';
+import { defaultTimeZone } from '#lib/domain/time-zone.js';
+import { householdTimeZone } from '../household.js';
 import { parseIcs, IcsParseError } from '../domain/calendar/ics-parse.js';
 import { decryptSecret, encryptSecret, type Keyring } from '../domain/secrets.js';
 import { getKeyring } from '../keys.js';
@@ -122,12 +124,12 @@ export async function fetchIcs(rawUrl: string, opts: FetchOptions = {}): Promise
 	}
 }
 
-const householdZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
-
 interface CacheEntry {
 	etag?: string | undefined;
 	lastModified?: string | undefined;
 	name?: string | undefined;
+	/** Household zone the floating times were parsed in; a change forces a full refetch. */
+	zone?: string | undefined;
 	events: RemoteEvent[];
 }
 
@@ -176,9 +178,11 @@ export function openUrl(
 /** Fetches and parses a feed, using (and refreshing) the conditional-GET cache for `sourceId` if given. */
 async function load(
 	url: string,
-	cache: CacheEntry | null,
-	opts: FetchOptions
+	cached: CacheEntry | null,
+	opts: FetchOptions,
+	zone: string
 ): Promise<{ entry: CacheEntry; fresh: boolean }> {
+	const cache = cached?.zone === zone ? cached : null;
 	const res = await fetchIcs(url, {
 		...opts,
 		etag: cache?.etag,
@@ -188,7 +192,7 @@ async function load(
 	if (res.body === null) throw new IcsError('The calendar server returned no content');
 	let parsed;
 	try {
-		parsed = parseIcs(res.body, householdZone());
+		parsed = parseIcs(res.body, zone);
 	} catch (e) {
 		if (e instanceof IcsParseError) throw new IcsError(e.message);
 		throw e;
@@ -198,6 +202,7 @@ async function load(
 			etag: res.etag,
 			lastModified: res.lastModified,
 			name: parsed.name,
+			zone,
 			events: parsed.events
 		},
 		fresh: true
@@ -207,10 +212,11 @@ async function load(
 /** Validates a URL by fetching it once. Throws IcsError with a friendly reason. */
 export async function probeIcs(
 	rawUrl: string,
-	opts: FetchOptions = {}
+	opts: FetchOptions = {},
+	zone = defaultTimeZone(process.env.TZ)
 ): Promise<{ externalId: string; name?: string | undefined; events: RemoteEvent[] }> {
 	const url = normalizeUrl(rawUrl).href;
-	const { entry } = await load(url, null, opts);
+	const { entry } = await load(url, null, opts, zone);
 	return { externalId: calendarIdFor(url), name: entry.name, events: entry.events };
 }
 
@@ -233,7 +239,12 @@ export function createIcsProvider(
 		async fetchEvents(): Promise<RemoteEvent[]> {
 			const url = openUrl(keyring, source);
 			const cache = readCache(db, source.id);
-			const { entry, fresh } = await load(url, cache, deps.fetchOptions ?? {});
+			const { entry, fresh } = await load(
+				url,
+				cache,
+				deps.fetchOptions ?? {},
+				householdTimeZone(db)
+			);
 			if (fresh) writeCache(db, source.id, entry);
 			return entry.events;
 		}

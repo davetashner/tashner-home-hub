@@ -3,6 +3,8 @@
 	import { deliver, onWriteDropped, writeQueue } from '#lib/offline/client.js';
 	import { offline } from '#lib/offline/state.svelte.js';
 	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import ChoreCard from '#lib/components/kid/ChoreCard.svelte';
 	import StarJar, { type Goal } from '#lib/components/kid/StarJar.svelte';
@@ -24,11 +26,13 @@
 		localDate,
 		setStatus,
 		UNDO_WINDOW_MS,
+		kidsWithChores,
 		switcherMembers,
 		type KidChore,
 		type KidGroup
 	} from '#lib/domain/kid-chores.js';
 	import { overlayQueued } from '#lib/domain/write-queue.js';
+	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 
 	interface Member {
 		id: string;
@@ -38,14 +42,15 @@
 	}
 	type Completion = { id: string | null; status: KidChore['status'] };
 
-	const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const tz = $derived(resolveTimeZone(page.data.timeZone, runtimeZone()));
 
 	let loaded = $state(false);
 	let members = $state<Member[]>([]);
 	let boards = $state<Record<string, KidGroup[]>>({});
 	let selectedId = $state<string | null>(null);
-	let stars = $state({ balance: 0, pending: 0 });
-	let goal = $state<Goal | null>(null);
+	// Per child, so switching kids is instant and never mixes up their jars.
+	let starsBy = $state<Record<string, { balance: number; pending: number }>>({});
+	let goals = $state<Record<string, Goal | null>>({});
 	let jar = $state<HTMLElement | null>(null);
 	let message = $state<string | null>(null);
 	let undoStarts = $state<Record<string, number>>({});
@@ -57,13 +62,24 @@
 	// Fallback when localStorage is unavailable, so the party still happens only once per load.
 	const earnedMemo: Record<string, string | null> = {};
 
-	// Taps whose POST has not answered yet: choreId -> completion promise.
+	// Taps whose POST has not answered yet: memberId:choreId -> completion promise.
 	const inflight: Record<string, Promise<Completion | null>> = {};
 	const busy = () => Object.keys(inflight).length > 0;
 	let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const selected = $derived(members.find((m) => m.id === selectedId) ?? null);
 	const groups = $derived(selectedId ? (boards[selectedId] ?? []) : []);
+	const kids = $derived(kidsWithChores(members, boards));
+	const stars = $derived((selectedId && starsBy[selectedId]) || { balance: 0, pending: 0 });
+	const goal = $derived(selectedId ? (goals[selectedId] ?? null) : null);
+
+	/** A chore can belong to several kids: undo and in-flight taps are tracked per child. */
+	const tapKey = (memberId: string, choreId: string) => `${memberId}:${choreId}`;
+
+	function starsOf(memberId: string) {
+		if (!starsBy[memberId]) starsBy[memberId] = { balance: 0, pending: 0 };
+		return starsBy[memberId];
+	}
 
 	async function api<T>(url: string): Promise<T> {
 		const res = await fetch(url);
@@ -84,15 +100,14 @@
 			api<{ balance: number; pending: number }>(`/api/members/${id}/stars?limit=1`),
 			api<{ reward: Goal } | null>(`/api/members/${id}/goal`)
 		]);
-		if (id !== selectedId) return;
-		stars = { balance: s.balance, pending: s.pending };
-		goal = g && {
+		starsBy[id] = { balance: s.balance, pending: s.pending };
+		goals[id] = g && {
 			id: g.reward.id,
 			title: g.reward.title,
 			image: g.reward.image,
 			cost: g.reward.cost
 		};
-		checkEarned(id);
+		if (id === selectedId) checkEarned(id);
 	}
 
 	/** "You earned it!" once per reaching the goal (REW-3), after any all-done party. */
@@ -104,10 +119,11 @@
 		} catch {
 			// no storage: use the in-memory memo
 		}
-		const reward = goal;
+		const reward = goals[memberId] ?? null;
+		const balance = starsBy[memberId]?.balance ?? 0;
 		const decision = earnedDecision(
 			stored,
-			reward && { rewardId: reward.id, cost: reward.cost, balance: stars.balance }
+			reward && { rewardId: reward.id, cost: reward.cost, balance }
 		);
 		earnedMemo[key] = decision.store;
 		try {
@@ -158,11 +174,16 @@
 			);
 			const options = switcherMembers(list, boards);
 			if (!options.some((m) => m.id === selectedId)) {
-				// ?member=<id> picks a child until the avatar switcher lands (follow-up).
+				// ?member=<id> picks a child; the avatar switcher keeps it in sync.
 				const want = page.url.searchParams.get('member');
 				selectedId = (options.find((m) => m.id === want) ?? options[0])?.id ?? null;
 			}
 			if (selectedId) await loadStars(selectedId);
+			// Warm the other kids' jars so switching to them shows real stars straight away.
+			if (kids.length > 1)
+				void Promise.allSettled(
+					kids.filter((m) => m.id !== selectedId).map((m) => loadStars(m.id))
+				);
 			if (approved.count > 0) {
 				await tick();
 				celebrateApproval(jar, approved.stars);
@@ -199,12 +220,29 @@
 		};
 	});
 
+	/** Switch child instantly: every board is already loaded, only the jar refreshes behind. */
+	function choose(memberId: string) {
+		if (memberId === selectedId) return;
+		selectedId = memberId;
+		// The last child's parties belong to them: do not play them on this child's screen.
+		clearTimeout(allDoneTimer);
+		clearTimeout(earnedTimer);
+		allDone = false;
+		earned = null;
+		allDoneUntil = 0;
+		void replaceState(
+			resolve(`/(app)/chores?member=${encodeURIComponent(memberId)}`),
+			page.state
+		).catch(() => {});
+		void loadStars(memberId).catch(() => {});
+	}
+
 	function patch(memberId: string, fn: (g: KidGroup[]) => KidGroup[]) {
 		boards[memberId] = fn(boards[memberId] ?? []);
 	}
 
-	function dropUndo(choreId: string) {
-		undoStarts = Object.fromEntries(Object.entries(undoStarts).filter(([k]) => k !== choreId));
+	function dropUndo(key: string) {
+		undoStarts = Object.fromEntries(Object.entries(undoStarts).filter(([k]) => k !== key));
 	}
 
 	/** Once per child per day: when the last chore is done, party (after the stars land). */
@@ -230,9 +268,11 @@
 	function done(chore: KidChore, card: HTMLElement) {
 		const memberId = selectedId;
 		if (!memberId) return;
+		const key = tapKey(memberId, chore.id);
+		const jarStars = starsOf(memberId);
 		patch(memberId, (g) => setStatus(g, chore.id, 'pending', null));
-		stars.pending += chore.stars;
-		undoStarts[chore.id] = Date.now();
+		jarStars.pending += chore.stars;
+		undoStarts[key] = Date.now();
 		celebrate({ choreId: chore.id, memberId, stars: chore.stars, origin: card, jar });
 		maybeAllDone(memberId);
 		const request = deliver<{ completion: Completion }>({
@@ -257,28 +297,30 @@
 			})
 			.catch(() => {
 				patch(memberId, (g) => setStatus(g, chore.id, 'none', null));
-				stars.pending = Math.max(0, stars.pending - chore.stars);
-				dropUndo(chore.id);
+				jarStars.pending = Math.max(0, jarStars.pending - chore.stars);
+				dropUndo(key);
 				say('Oops, that did not save. Tap again when you are ready!');
 				return null;
 			})
 			.finally(() => {
-				delete inflight[chore.id];
+				delete inflight[key];
 				void loadStars(memberId).catch(() => {});
 			});
-		inflight[chore.id] = request;
+		inflight[key] = request;
 	}
 
 	async function undo(chore: KidChore) {
 		const memberId = selectedId;
 		if (!memberId) return;
-		const pendingRequest = inflight[chore.id];
-		const startedAt = undoStarts[chore.id] ?? Date.now();
+		const key = tapKey(memberId, chore.id);
+		const jarStars = starsOf(memberId);
+		const pendingRequest = inflight[key];
+		const startedAt = undoStarts[key] ?? Date.now();
 		// No-approval chores are already gold: take the star back out of the jar.
 		const bucket = chore.status === 'approved' ? 'balance' : 'pending';
 		patch(memberId, (g) => setStatus(g, chore.id, 'none', null));
-		stars[bucket] = Math.max(0, stars[bucket] - chore.stars);
-		dropUndo(chore.id);
+		jarStars[bucket] = Math.max(0, jarStars[bucket] - chore.stars);
+		dropUndo(key);
 		const completion = pendingRequest ? await pendingRequest : { id: chore.completionId };
 		if (!completion) return;
 		if (!completion.id) {
@@ -295,7 +337,7 @@
 		});
 		if (!r.sent && !r.queued) {
 			patch(memberId, (g) => setStatus(g, chore.id, chore.status, completion.id));
-			stars[bucket] += chore.stars;
+			jarStars[bucket] += chore.stars;
 			say('Hmm, that one is already with the grown-ups.');
 		}
 		void loadStars(memberId).catch(() => {});
@@ -330,6 +372,27 @@
 					/>
 					<p class="text-headline leading-none font-extrabold">Hi, {selected.name}!</p>
 				</div>
+				{#if kids.length > 1}
+					<nav aria-label="Whose chores?" data-testid="child-switcher" class="flex flex-wrap gap-6">
+						{#each kids as kid (kid.id)}
+							<button
+								type="button"
+								aria-label={kid.name}
+								aria-pressed={kid.id === selected.id}
+								onclick={() => choose(kid.id)}
+								class="flex min-h-tap-kid min-w-tap-kid flex-col items-center gap-2 rounded-card p-2 transition-transform duration-150 active:scale-95 {kid.id ===
+								selected.id
+									? 'bg-surface-raised shadow-raised ring-4 ring-ink'
+									: ''}"
+							>
+								<MemberAvatar name={kid.name} color={kid.color} avatar={kid.avatar} size="kid" />
+								<span class="max-w-40 truncate text-body font-bold" aria-hidden="true"
+									>{kid.name}</span
+								>
+							</button>
+						{/each}
+					</nav>
+				{/if}
 			</header>
 
 			<div class="flex grow flex-col gap-10 portrait:order-3">
@@ -351,12 +414,13 @@
 							</h2>
 							<div class="flex flex-col gap-6">
 								{#each group.chores as chore (chore.id)}
+									{@const key = tapKey(selected.id, chore.id)}
 									<ChoreCard
 										{chore}
-										undoStartedAt={undoStarts[chore.id] ?? null}
+										undoStartedAt={undoStarts[key] ?? null}
 										ondone={done}
 										onundo={undo}
-										onundoexpire={(c) => dropUndo(c.id)}
+										onundoexpire={() => dropUndo(key)}
 									/>
 								{/each}
 							</div>

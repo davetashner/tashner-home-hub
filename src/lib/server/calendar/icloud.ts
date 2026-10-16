@@ -1,4 +1,6 @@
 import { createDAVClient, fetchCalendarObjects, getBasicAuthHeaders } from 'tsdav';
+import { getDb } from '../db/index.js';
+import { householdTimeZone } from '../household.js';
 import { parseIcs } from '../domain/calendar/ics-parse.js';
 import { decryptSecret, encryptSecret, type Keyring } from '../domain/secrets.js';
 import { getKeyring } from '../keys.js';
@@ -144,8 +146,6 @@ export async function fetchIcloudEvents(
 	}
 }
 
-const householdZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
-
 export function createIcloudProvider(
 	source: CalendarSource,
 	deps: { keyring?: Keyring; options?: IcloudOptions } = {}
@@ -159,7 +159,7 @@ export function createIcloudProvider(
 				openCredentials(keyring, source),
 				calendarId,
 				window,
-				householdZone(),
+				householdTimeZone(getDb()),
 				options
 			)
 	};
