@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { badgeLabel, groupByChild, relativeTime, type PendingItem } from './approvals';
+import {
+	attentionLabel,
+	badgeLabel,
+	groupByChild,
+	relativeTime,
+	type PendingItem
+} from './approvals';
 
 const item = (id: string, memberId: string, stars: number): PendingItem => ({
 	completionId: id,
@@ -42,5 +48,13 @@ describe('badgeLabel', () => {
 	it('is empty at zero', () => {
 		expect(badgeLabel(0)).toBe('');
 		expect(badgeLabel(2)).toBe('2 ⭐ to check');
+	});
+});
+
+describe('attentionLabel', () => {
+	it('describes both kinds of work, singular and plural', () => {
+		expect(attentionLabel(0)).toBe('');
+		expect(attentionLabel(1)).toBe('1 thing needs a grown-up');
+		expect(attentionLabel(3)).toBe('3 things need a grown-up');
 	});
 });
