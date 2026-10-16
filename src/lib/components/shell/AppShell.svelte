@@ -7,6 +7,7 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import { DESTINATIONS, isActive, swipeTarget } from '#lib/domain/nav.js';
 	import { DESTINATION_URLS } from './urls.js';
+	import OfflineBadge from './OfflineBadge.svelte';
 	import ApprovalsBadge from './ApprovalsBadge.svelte';
 	import Clock from './Clock.svelte';
 	import Icon from './Icon.svelte';
@@ -52,6 +53,7 @@
 			</a>
 		{/if}
 		<div class="flex items-center gap-2 sm:gap-4">
+			<OfflineBadge />
 			<ApprovalsBadge />
 			<Button onclick={sleep} size="kid" class="gap-3 rounded-chip max-sm:!px-5">
 				<span class="text-lead"><Icon name="moon" /></span>
