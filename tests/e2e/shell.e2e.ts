@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { px } from './tap';
+import { ensureHousehold, signInAsAdult } from './adult';
+
+test.beforeAll(ensureHousehold);
 
 const destinations = ['Calendar', 'Chores', 'Photos', 'Lists', 'Meals'];
 
@@ -26,6 +29,7 @@ test('every destination is reachable by tap and marks itself active', async ({ p
 });
 
 test('settings gear opens settings', async ({ page }) => {
+	await signInAsAdult(page, 'e2e-shell-adult');
 	await page.goto('/chores');
 	await page.waitForLoadState('networkidle');
 	await page.getByRole('link', { name: 'Settings' }).click();
