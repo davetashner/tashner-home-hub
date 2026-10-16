@@ -1,14 +1,6 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { expectTappable } from './tap';
 import { signInAsAdult } from './adult';
-
-async function expectTappable(locator: Locator) {
-	const box = await locator.boundingBox();
-	expect(box).not.toBeNull();
-	// Round to 1/100 px: layout can report 59.99997 for an exact 60px box.
-	const round = (n: number) => Math.round(n * 100) / 100;
-	expect(round(box!.width)).toBeGreaterThanOrEqual(60);
-	expect(round(box!.height)).toBeGreaterThanOrEqual(60);
-}
 
 test('create, edit and archive a weekday chore', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-chores-${info.project.name}`);

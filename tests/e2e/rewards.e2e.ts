@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { px } from './tap';
 import { signInAsAdult } from './adult';
 
 test('add and edit a reward', async ({ page }, info) => {
@@ -21,5 +22,5 @@ test('add and edit a reward', async ({ page }, info) => {
 	await expect(row).toContainText('30 ⭐');
 
 	const box = await row.getByRole('button', { name: `Edit ${name}` }).boundingBox();
-	expect(box!.height).toBeGreaterThanOrEqual(60);
+	expect(px(box!.height)).toBeGreaterThanOrEqual(60);
 });

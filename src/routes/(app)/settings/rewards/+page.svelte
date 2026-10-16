@@ -61,7 +61,7 @@
 
 <svelte:head><title>Rewards</title></svelte:head>
 
-<main class="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8">
+<section class="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8">
 	<header class="flex flex-wrap items-center justify-between gap-6">
 		<h1 class="text-headline font-extrabold">Rewards</h1>
 		<Button data-testid="add-reward" onclick={() => openForm()}>Add reward</Button>
@@ -129,4 +129,4 @@
 			</li>
 		{/each}
 	</ul>
-</main>
+</section>

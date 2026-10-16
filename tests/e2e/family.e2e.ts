@@ -1,12 +1,6 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { expectTappable } from './tap';
 import { signInAsAdult } from './adult';
-
-async function expectTappable(locator: Locator) {
-	const box = await locator.boundingBox();
-	expect(box).not.toBeNull();
-	expect(box!.width).toBeGreaterThanOrEqual(60);
-	expect(box!.height).toBeGreaterThanOrEqual(60);
-}
 
 test('add and edit a family member with tappable controls', async ({ page }, info) => {
 	// Unique per project so the two orientations never collide on the shared database.

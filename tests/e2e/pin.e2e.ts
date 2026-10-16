@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { px } from './tap';
 import Database from 'better-sqlite3';
 import { hashPin } from '../../src/lib/server/domain/pin';
 
@@ -56,8 +57,8 @@ test('keys are at least 96px', async ({ page }, info) => {
 	expect(keys).toHaveLength(12);
 	for (const key of keys) {
 		const box = (await key.boundingBox())!;
-		expect(box.width).toBeGreaterThanOrEqual(96);
-		expect(box.height).toBeGreaterThanOrEqual(96);
+		expect(px(box.width)).toBeGreaterThanOrEqual(96);
+		expect(px(box.height)).toBeGreaterThanOrEqual(96);
 	}
 });
 

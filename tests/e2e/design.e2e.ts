@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { px } from './tap';
 
 test('every showcase button meets the touch target minimums', async ({ page }) => {
 	await page.goto('/dev/design');
@@ -13,8 +14,8 @@ test('every showcase button meets the touch target minimums', async ({ page }) =
 		const kid = (await button.innerText()).trim() === 'Tap for a star';
 		const min = kid ? 96 : 60;
 		const label = (await button.getAttribute('aria-label')) ?? (await button.innerText());
-		expect(box!.width, `${label} width`).toBeGreaterThanOrEqual(min);
-		expect(box!.height, `${label} height`).toBeGreaterThanOrEqual(min);
+		expect(px(box!.width), `${label} width`).toBeGreaterThanOrEqual(min);
+		expect(px(box!.height), `${label} height`).toBeGreaterThanOrEqual(min);
 	}
 });
 
@@ -22,7 +23,7 @@ test('kid-size buttons are at least 96px', async ({ page }) => {
 	await page.goto('/dev/design');
 	const kid = page.getByRole('button', { name: 'Tap for a star' });
 	const box = await kid.boundingBox();
-	expect(box!.height).toBeGreaterThanOrEqual(96);
+	expect(px(box!.height)).toBeGreaterThanOrEqual(96);
 });
 
 test('swipe pad reports the swipe direction', async ({ page }) => {

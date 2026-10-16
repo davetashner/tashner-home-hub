@@ -64,7 +64,7 @@
 
 <svelte:head><title>Chores</title></svelte:head>
 
-<main class="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+<section class="mx-auto flex max-w-4xl flex-col gap-6 p-6">
 	<header class="flex items-center justify-between gap-4">
 		<h1 class="text-headline font-extrabold">Chores</h1>
 		{#if editing !== 'new'}
@@ -143,4 +143,4 @@
 			<li class="text-body text-ink-muted">No chores yet. Add the first one.</li>
 		{/each}
 	</ul>
-</main>
+</section>
