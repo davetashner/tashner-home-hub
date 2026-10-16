@@ -29,7 +29,7 @@
 		href={resolve('/(app)/settings/approvals')}
 		data-testid="approvals-badge"
 		data-sveltekit-preload-data="tap"
-		class="press-link inline-flex min-h-tap-kid items-center rounded-chip bg-star px-4 text-caption font-extrabold whitespace-nowrap text-on-star shadow-raised sm:px-8 sm:text-body"
+		class="press-link inline-flex min-h-tap-kid items-center rounded-chip bg-star px-4 text-caption font-extrabold whitespace-nowrap text-on-star shadow-raised max-sm:!min-h-tap sm:px-8 sm:text-body"
 	>
 		<span class="max-sm:hidden">{label}</span>
 		<span class="sm:hidden" aria-label={label}>{pending} ⭐</span>

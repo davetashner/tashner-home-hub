@@ -251,10 +251,10 @@
 				<Card class="flex flex-col gap-6 portrait:max-sm:!p-4">
 					<div class="flex items-center gap-4">
 						<MemberAvatar name={child.name} color={child.color} avatar={child.avatar} />
-						<h2 class="min-w-0 flex-1 text-lead font-extrabold break-words sm:text-title">
+						<h2 class="min-w-0 flex-1 truncate text-lead font-extrabold sm:text-title">
 							{child.name}
 						</h2>
-						<span class="text-lead font-bold" data-testid="balance-{child.id}">
+						<span class="shrink-0 text-lead font-bold" data-testid="balance-{child.id}">
 							{balances[child.id] ?? 0} ⭐
 						</span>
 					</div>
@@ -289,8 +289,8 @@
 									<span class="text-title leading-none" aria-hidden="true">
 										{item.choreIcon ?? '⭐'}
 									</span>
-									<span class="flex min-w-40 flex-1 flex-col">
-										<span class="text-lead font-bold">{item.choreTitle}</span>
+									<span class="flex min-w-40 flex-1 flex-col max-sm:min-w-0">
+										<span class="text-lead font-bold break-words">{item.choreTitle}</span>
 										<span class="text-caption text-ink-muted">
 											{relativeTime(item.completedAt, now)} · {item.stars}
 											{item.stars === 1 ? 'star' : 'stars'}
@@ -298,14 +298,14 @@
 									</span>
 									<span class="flex w-full gap-4 sm:w-auto">
 										<Button
-											class="flex-1"
+											class="min-w-0 flex-1 max-sm:!px-2 max-sm:!text-caption"
 											data-testid="approve"
 											aria-label="Approve {item.choreTitle} for {child.name}"
 											onclick={() => approve([item])}>Approve</Button
 										>
 										<Button
 											variant="secondary"
-											class="flex-1"
+											class="min-w-0 flex-1 max-sm:!px-2 max-sm:!text-caption"
 											data-testid="reject"
 											aria-label="Not yet: {item.choreTitle} for {child.name}"
 											onclick={() => openReject(item)}>Not yet</Button
@@ -338,8 +338,8 @@
 										<span class="text-title leading-none" aria-hidden="true">
 											{item.choreIcon ?? '⭐'}
 										</span>
-										<span class="flex min-w-40 flex-1 flex-col">
-											<span class="text-lead font-bold">{item.choreTitle}</span>
+										<span class="flex min-w-40 flex-1 flex-col max-sm:min-w-0">
+											<span class="text-lead font-bold break-words">{item.choreTitle}</span>
 											<span class="text-caption text-ink-muted">
 												{relativeTime(item.completedAt, now)} · {item.stars}
 												{item.stars === 1 ? 'star' : 'stars'}
