@@ -53,6 +53,8 @@ async function openPad(page: Page, name: string, next = '/') {
 
 test('keys are at least 96px', async ({ page }, info) => {
 	await openPad(page, `Keys ${info.project.name}`);
+	// locator.all() does not wait: let the pad render before measuring it.
+	await expect(page.locator('[data-testid="pinpad"] button')).toHaveCount(12);
 	const keys = await page.locator('[data-testid="pinpad"] button').all();
 	expect(keys).toHaveLength(12);
 	for (const key of keys) {
