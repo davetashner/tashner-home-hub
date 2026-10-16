@@ -6,7 +6,12 @@
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
-	import { groupByChild, relativeTime, type PendingItem } from '#lib/domain/approvals.js';
+	import {
+		ATTENTION_CHANGED_EVENT,
+		groupByChild,
+		relativeTime,
+		type PendingItem
+	} from '#lib/domain/approvals.js';
 	import { redeemPreview, redeemedMessage } from '#lib/domain/redeem.js';
 	import type { MemberColor } from '#lib/domain/member-colors.js';
 
@@ -70,6 +75,8 @@
 	}
 
 	async function loadBalances() {
+		// Every change on this screen ends here: tell the header badge to recount.
+		window.dispatchEvent(new Event(ATTENTION_CHANGED_EVENT));
 		await Promise.all(
 			children.map(async (c) => {
 				const [res, goal] = await Promise.all([
