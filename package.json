@@ -15,7 +15,7 @@
 		"test": "vitest run --project server --coverage",
 		"test:component": "vitest run --project client",
 		"test:watch": "vitest",
-		"test:e2e": "playwright test",
+		"test:e2e": "pnpm build && playwright test",
 		"gates:repo": "node scripts/ci/private-data.mjs && node scripts/ci/licenses.mjs",
 		"gates": "pnpm check && pnpm lint && pnpm test && pnpm gates:repo && pnpm build"
 	},

@@ -9,11 +9,14 @@ export default defineConfig({
 	retries: 0,
 	timeout: 30_000,
 	reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+	// Runs the production server directly (one process, so shutdown is clean).
+	// `pnpm test:e2e` builds first.
 	webServer: {
-		command: 'pnpm build && pnpm preview --host 127.0.0.1 --port 4173 --strictPort',
+		command: 'node build',
+		env: { HOST: '127.0.0.1', PORT: '4173' },
 		url: `${baseURL}/healthz`,
 		reuseExistingServer: !process.env.CI,
-		timeout: 120_000
+		timeout: 60_000
 	},
 	use: { baseURL },
 	projects: [
