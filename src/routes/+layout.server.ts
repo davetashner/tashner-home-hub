@@ -1,5 +1,13 @@
 import { isAdult } from '#lib/server/auth.js';
+import { getDb } from '#lib/server/db/index.js';
+import { householdTimeZone } from '#lib/server/household.js';
 import type { LayoutServerLoad } from './$types';
 
-/** Whether an adult session is active, so the header can offer Lock (never the adult's identity). */
-export const load: LayoutServerLoad = (event) => ({ adult: isAdult(event) });
+/**
+ * Whether an adult session is active, so the header can offer Lock (never the adult's identity),
+ * and the household zone, which wins over the kiosk browser's own zone for "today" and the clock.
+ */
+export const load: LayoutServerLoad = (event) => ({
+	adult: isAdult(event),
+	timeZone: householdTimeZone(getDb())
+});

@@ -58,6 +58,12 @@
 			emoji: '⏱️',
 			title: 'Screen',
 			line: 'When to go back home and start the photo frame.'
+		},
+		{
+			href: resolve('/(app)/settings/time-zone'),
+			emoji: '🌍',
+			title: 'Time zone',
+			line: 'Where home is, so "today" and calendar times line up.'
 		}
 	]);
 </script>

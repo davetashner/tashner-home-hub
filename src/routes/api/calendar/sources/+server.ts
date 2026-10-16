@@ -9,6 +9,7 @@ import { getKeyring } from '#lib/server/keys.js';
 import { IcsError, normalizeUrl, probeIcs, sealUrl } from '#lib/server/calendar/ics.js';
 import { addIcloudSource } from '#lib/server/calendar/icloud-add.js';
 import { listSources } from '#lib/server/calendar/sources.js';
+import { householdTimeZone } from '#lib/server/household.js';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = (event) => {
@@ -32,7 +33,7 @@ export const POST: RequestHandler = async (event) => {
 	let url;
 	try {
 		url = normalizeUrl(body.url).href;
-		probe = await probeIcs(url);
+		probe = await probeIcs(url, {}, householdTimeZone(db));
 	} catch (e) {
 		if (e instanceof IcsError) error(400, e.message);
 		throw e;
