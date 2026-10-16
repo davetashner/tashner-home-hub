@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens (ADR 0001, ADR 0002 "design-system discipline").
+ * Tailwind's default palette is removed so every color comes from here.
+ * Add a token rather than using a raw value in a component.
+ */
+@theme {
+	--color-*: initial;
+
+	--color-surface: oklch(98.5% 0.006 85);
+	--color-surface-raised: oklch(100% 0 0);
+	--color-ink: oklch(24% 0.02 260);
+	--color-ink-muted: oklch(48% 0.02 260);
+	--color-accent: oklch(62% 0.17 255);
+	--color-star: oklch(82% 0.17 85);
+	--color-star-pending: oklch(80% 0.01 260);
+	--color-success: oklch(68% 0.15 150);
+	--color-danger: oklch(60% 0.2 25);
+
+	--font-sans: 'Nunito', ui-rounded, system-ui, sans-serif;
+
+	/* Wall-readable type scale (UI-3). Body text is >= 24px at 1440p. */
+	--text-body: 1.5rem;
+	--text-title: 2.25rem;
+	--text-display: 4.5rem;
+
+	--radius-card: 1.5rem;
+
+	/* Minimum tap targets (UI-1, UI-4). */
+	--spacing-tap: 60px;
+	--spacing-tap-kid: 96px;
+}
+
+@layer base {
+	:root {
+		color-scheme: light;
+	}
+	html,
+	body {
+		height: 100%;
+		background-color: var(--color-surface);
+		color: var(--color-ink);
+		font-family: var(--font-sans);
+		font-size: var(--text-body);
+		-webkit-tap-highlight-color: transparent;
+	}
+}

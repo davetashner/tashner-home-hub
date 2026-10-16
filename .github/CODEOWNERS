@@ -1,0 +1,10 @@
+# Quality-bar files (ADR 0002). Changes need the `human-approved` label from a human.
+/.github/                 @davetashner
+/scripts/ci/              @davetashner
+/budgets.json             @davetashner
+/tests/visual/baselines/  @davetashner
+/eslint.config.js         @davetashner
+/vite.config.ts           @davetashner
+/playwright.config.ts     @davetashner
+/tsconfig.json            @davetashner
+/docs/decisions/          @davetashner
