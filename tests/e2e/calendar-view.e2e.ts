@@ -56,6 +56,49 @@ test('week view shows timed and spanning events, and swipe changes the period', 
 	await expect(page.getByTestId('period-title')).toHaveText(before);
 });
 
+test('week view blocks and bars are tappable, unclipped, and open near now', async ({ page }) => {
+	await chooseView(page, 'Week');
+	const pane = page.getByTestId('calendar-pane');
+	await expect(pane.locator('.bar').first()).toBeVisible();
+	for (const bar of await pane.locator('.bar').all()) await expectTappable(bar);
+
+	// Scroll through the grid so every block is checked, not only those on screen.
+	const blocks = pane.locator('.block-ev');
+	expect(await blocks.count()).toBeGreaterThanOrEqual(2);
+	for (const block of await blocks.all()) {
+		await block.scrollIntoViewIfNeeded();
+		await expectTappable(block);
+		const title = block.locator('.title');
+		const clipped = await title.evaluate((el) => el.scrollWidth > el.clientWidth);
+		expect(clipped, 'title should not overflow sideways').toBe(false);
+	}
+	for (const bar of await pane.locator('.bar').all()) {
+		const clipped = await bar.locator('span').evaluate((el) => el.scrollWidth > el.clientWidth);
+		expect(clipped).toBe(false);
+	}
+
+	// Reopen: the grid should land on the current time, or the top when it is off the grid.
+	await page.reload();
+	await page.waitForLoadState('networkidle');
+	const box = (await pane.boundingBox())!;
+	const hour = new Date().getHours();
+	if (hour >= 8 && hour < 20) {
+		const line = (await pane.locator('.now').boundingBox())!;
+		expect(line.y).toBeGreaterThanOrEqual(box.y);
+		expect(line.y).toBeLessThanOrEqual(box.y + box.height);
+	}
+});
+
+test('tapping empty space in a week column opens that day in the agenda', async ({ page }) => {
+	await chooseView(page, 'Week');
+	const pane = page.getByTestId('calendar-pane');
+	const hit = pane.locator('.day-hit').nth(3);
+	await hit.click({ position: { x: 20, y: 5 }, force: true });
+	await expect(
+		page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Agenda' })
+	).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('month view lists events and a day tap opens that day in the agenda', async ({ page }) => {
 	await chooseView(page, 'Month');
 	const pane = page.getByTestId('calendar-pane');
