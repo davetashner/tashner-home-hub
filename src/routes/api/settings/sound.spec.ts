@@ -24,3 +24,35 @@ it('reads settings rows and ignores corrupt ones', async () => {
 		.run();
 	expect(await get()).toEqual({ muted: true, quietStart: '20:00', quietEnd: '06:00' });
 });
+
+const put = (body: unknown, adult = true) =>
+	(sound.PUT as unknown as (e: unknown) => Promise<Response>)({
+		locals: { adult: adult ? { id: 'adult', name: 'Test Adult' } : null },
+		cookies: { get: () => undefined },
+		request: new Request('http://example.com/x', { method: 'PUT', body: JSON.stringify(body) })
+	});
+
+it('lets a grown-up mute and change quiet hours', async () => {
+	expect(await (await put({ muted: false, quietStart: '21:30' })).json()).toEqual({
+		muted: false,
+		quietStart: '21:30',
+		quietEnd: '06:00'
+	});
+	expect(await (await put({ quietEnd: '06:45', muted: true })).json()).toEqual({
+		muted: true,
+		quietStart: '21:30',
+		quietEnd: '06:45'
+	});
+	expect(await get()).toEqual({ muted: true, quietStart: '21:30', quietEnd: '06:45' });
+});
+
+it('rejects bad values without writing anything', async () => {
+	await expect(put({ muted: 'no' })).rejects.toMatchObject({ status: 400 });
+	await expect(put({ muted: false, quietStart: '9:00' })).rejects.toMatchObject({ status: 400 });
+	await expect(put({ quietEnd: '24:00' })).rejects.toMatchObject({ status: 400 });
+	expect(await get()).toEqual({ muted: true, quietStart: '21:30', quietEnd: '06:45' });
+});
+
+it('needs an adult', async () => {
+	await expect(put({ muted: false }, false)).rejects.toMatchObject({ status: 401 });
+});

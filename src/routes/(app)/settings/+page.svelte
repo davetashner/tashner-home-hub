@@ -60,6 +60,12 @@
 			line: 'When to go back home and start the photo frame.'
 		},
 		{
+			href: resolve('/(app)/settings/sound'),
+			emoji: '🔔',
+			title: 'Sound',
+			line: 'Celebration sounds and quiet hours.'
+		},
+		{
 			href: resolve('/(app)/settings/time-zone'),
 			emoji: '🌍',
 			title: 'Time zone',
