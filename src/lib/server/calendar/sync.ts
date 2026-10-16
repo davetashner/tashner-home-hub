@@ -17,6 +17,8 @@ export interface SourceStatus {
 	lastAttemptAt: number;
 	lastSuccessAt: number | null;
 	lastError: string | null;
+	/** Set when the provider rejected the stored credentials; structured, not parsed from text. */
+	needsReauth?: boolean;
 }
 
 export interface SyncDeps {
@@ -45,6 +47,7 @@ function writeStatus(db: Db, sourceId: string, status: SourceStatus): void {
 interface CalendarMapping {
 	externalId: string;
 	memberId?: string | null;
+	name?: string;
 	/** Absent means selected; `false` means discovered but not shown (iCloud/Google pickers). */
 	selected?: boolean;
 }
@@ -68,6 +71,7 @@ export async function syncSource(
 		lastError: null
 	};
 	const errors: string[] = [];
+	let reauth = false;
 	try {
 		const w = syncWindow(now);
 		const mappings = parseCalendars(source.calendars);
@@ -87,7 +91,9 @@ export async function syncSource(
 				}
 				fetched.add(cal.externalId);
 			} catch (e) {
-				errors.push(`${cal.externalId}: ${e instanceof Error ? e.message : String(e)}`);
+				// Never put the calendar id/URL here: status is served without a session.
+				if ((e as { needsReauth?: boolean }).needsReauth === true) reauth = true;
+				errors.push(`${cal.name || 'Calendar'}: ${e instanceof Error ? e.message : String(e)}`);
 			}
 		}
 		const selected = new Set(mappings.map((m) => m.externalId));
@@ -102,6 +108,7 @@ export async function syncSource(
 			for (const id of diff.deleteIds) tx.delete(events).where(eq(events.id, id)).run();
 		});
 	} catch (e) {
+		if ((e as { needsReauth?: boolean }).needsReauth === true) reauth = true;
 		errors.push(e instanceof Error ? e.message : String(e));
 	}
 	if (errors.length === 0) {
@@ -112,6 +119,7 @@ export async function syncSource(
 			.run();
 	} else {
 		status.lastError = errors.join('; ').slice(0, 500);
+		if (reauth) status.needsReauth = true;
 	}
 	writeStatus(db, source.id, status);
 	return status;

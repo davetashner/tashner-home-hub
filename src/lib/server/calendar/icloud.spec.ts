@@ -1,8 +1,12 @@
 import { randomBytes } from 'node:crypto';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { openDb } from '../db/index.js';
+import { addIcloudSource } from './icloud-add.js';
 import { calendarSources } from '../db/schema.js';
 import { getKeyring } from '../keys.js';
 import {
@@ -20,6 +24,7 @@ import { listEvents } from './read.js';
 import { viewOf } from './sources.js';
 import { readStatuses, runSync } from './sync.js';
 
+process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'hub-icloud-'));
 process.env.HUB_SECRET_KEY = randomBytes(32).toString('base64');
 const keyring = getKeyring();
 
@@ -213,6 +218,10 @@ describe('end to end', () => {
 		const statuses = await runSync(db, { now: () => now + 1, provider: providerFor as never });
 		const status = statuses[id]!;
 		expect(status.lastError).toContain(REAUTH_MESSAGE);
+		expect(status.needsReauth).toBe(true);
+		const statusJson = JSON.stringify(readStatuses(db));
+		for (const bad of ['caldav', '/123/', '127.0.0.1', 'http', 'calendars/'])
+			expect(statusJson).not.toContain(bad);
 		const view = viewOf(db.select().from(calendarSources).get()!, readStatuses(db));
 		expect(view.needsReauth).toBe(true);
 		expect(view.account).toBe('j•••@example.com');
@@ -220,5 +229,32 @@ describe('end to end', () => {
 		expect(dump).not.toContain(PASS);
 		expect(dump).not.toContain(USER);
 		expect(view.calendars[1]!.selected).toBe(false);
+	});
+});
+
+describe('addIcloudSource', () => {
+	const post = (body: Record<string, unknown>) => addIcloudSource(body, opts());
+
+	it('stores the source with all calendars unselected and masks the account', async () => {
+		const res = await post({ label: 'Apple', appleId: USER, appPassword: PASS });
+		expect(res.status).toBe(201);
+		const text = await res.text();
+		const view = JSON.parse(text);
+		expect(view.account).toBe('j•••@example.com');
+		expect(view.calendars.map((c: { name: string }) => c.name)).toEqual(['Family', 'Work']);
+		expect(view.calendars.every((c: { selected: boolean }) => !c.selected)).toBe(true);
+		expect(text).not.toContain(PASS);
+		expect(text).not.toContain(USER);
+	});
+
+	it('answers 401 with the friendly message for a bad password', async () => {
+		const err = await post({ label: 'Apple', appleId: USER, appPassword: 'nope' }).catch((e) => e);
+		expect(err.status).toBe(401);
+		expect(err.body.message).toBe(REAUTH_MESSAGE);
+	});
+
+	it('validates input', async () => {
+		const err = await post({ label: 'Apple', appleId: USER }).catch((e) => e);
+		expect(err.status).toBe(400);
 	});
 });

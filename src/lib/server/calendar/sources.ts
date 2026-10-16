@@ -3,7 +3,7 @@ import type { Db } from '../db/index.js';
 import { calendarSources } from '../db/schema.js';
 import { readStatuses, type SourceStatus } from './sync.js';
 import { maskedHost, openUrl } from './ics.js';
-import { maskAppleId, openCredentials, REAUTH_MESSAGE } from './icloud.js';
+import { maskAppleId, openCredentials } from './icloud.js';
 import { getKeyring } from '../keys.js';
 import type { CalendarSource } from './provider.js';
 
@@ -49,7 +49,7 @@ export function viewOf(source: CalendarSource, statuses: Record<string, SourceSt
 		label: source.label,
 		host: hostOf(source),
 		account: accountOf(source),
-		needsReauth: statuses[source.id]?.lastError?.includes(REAUTH_MESSAGE) ?? false,
+		needsReauth: statuses[source.id]?.needsReauth === true,
 		calendars: (Array.isArray(cals) ? cals : []).map((c: Record<string, unknown>) => ({
 			externalId: String(c.externalId),
 			name: String(c.name ?? ''),
