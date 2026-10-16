@@ -7,6 +7,7 @@ import { readJson, str } from '#lib/server/api.js';
 import { requireAdult } from '#lib/server/auth.js';
 import { getKeyring } from '#lib/server/keys.js';
 import { IcsError, normalizeUrl, probeIcs, sealUrl } from '#lib/server/calendar/ics.js';
+import { addIcloudSource } from '#lib/server/calendar/icloud-add.js';
 import { listSources } from '#lib/server/calendar/sources.js';
 import type { RequestHandler } from './$types';
 
@@ -18,7 +19,8 @@ export const GET: RequestHandler = (event) => {
 export const POST: RequestHandler = async (event) => {
 	requireAdult(event);
 	const body = await readJson(event.request);
-	if (body.provider !== 'ics') error(400, 'Only provider "ics" can be added here for now');
+	if (body.provider === 'icloud') return addIcloudSource(body);
+	if (body.provider !== 'ics') error(400, 'Only providers "ics" and "icloud" can be added here');
 	const label = str(body.label, 'label');
 	const memberId = typeof body.memberId === 'string' && body.memberId ? body.memberId : null;
 	const db = getDb();

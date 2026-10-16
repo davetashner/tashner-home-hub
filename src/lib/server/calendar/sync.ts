@@ -45,11 +45,13 @@ function writeStatus(db: Db, sourceId: string, status: SourceStatus): void {
 interface CalendarMapping {
 	externalId: string;
 	memberId?: string | null;
+	/** Absent means selected; `false` means discovered but not shown (iCloud/Google pickers). */
+	selected?: boolean;
 }
 
 function parseCalendars(json: string): CalendarMapping[] {
 	const v: unknown = JSON.parse(json);
-	return Array.isArray(v) ? (v as CalendarMapping[]) : [];
+	return Array.isArray(v) ? (v as CalendarMapping[]).filter((c) => c.selected !== false) : [];
 }
 
 /** Syncs one source. Never throws: failures are recorded in the source's status. */
