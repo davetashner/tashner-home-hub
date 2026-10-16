@@ -73,12 +73,14 @@
 			<a
 				href={resolve('/(app)')}
 				data-sveltekit-preload-data="tap"
-				class="press-link block rounded-control max-sm:hidden"
+				class="press-link block min-w-0 rounded-control max-sm:hidden"
 			>
 				<Clock testidPrefix="header-clock" />
 			</a>
 		{/if}
-		<div class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4">
+		<div
+			class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4 portrait:sm:gap-2"
+		>
 			<OfflineBadge />
 			<ApprovalsBadge />
 			<Button
