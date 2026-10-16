@@ -11,9 +11,11 @@
 	import ApprovalsBadge from './ApprovalsBadge.svelte';
 	import Clock from './Clock.svelte';
 	import Icon from './Icon.svelte';
+	import LockButton from './LockButton.svelte';
+	import { toast } from './toast.svelte.js';
 	import NavItem from './NavItem.svelte';
 
-	let { children }: { children: Snippet } = $props();
+	let { children, signedIn = false }: { children: Snippet; signedIn?: boolean } = $props();
 
 	const pathname = $derived(page.url.pathname);
 
@@ -59,6 +61,7 @@
 				<span class="text-lead"><Icon name="moon" /></span>
 				<span class="max-sm:sr-only">Sleep</span>
 			</Button>
+			{#if signedIn}<LockButton />{/if}
 			<a
 				href={resolve('/(app)/settings')}
 				aria-label="Settings"
@@ -90,6 +93,16 @@
 		{/key}
 	</main>
 </div>
+
+{#if toast.message}
+	<div
+		role="status"
+		data-testid="toast"
+		class="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-chip bg-ink px-8 py-4 text-body font-bold text-surface shadow-raised"
+	>
+		{toast.message}
+	</div>
+{/if}
 
 <style>
 	.press-link {

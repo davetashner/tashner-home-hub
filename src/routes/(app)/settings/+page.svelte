@@ -2,6 +2,10 @@
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { badgeLabel } from '#lib/domain/approvals.js';
+	import LockButton from '#lib/components/shell/LockButton.svelte';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
 
 	let pending = $state(0);
 	onMount(async () => {
@@ -51,7 +55,17 @@
 </svelte:head>
 
 <section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
-	<h1 class="text-headline font-extrabold">Settings</h1>
+	<div class="flex flex-wrap items-center justify-between gap-4">
+		<div class="flex flex-col gap-1">
+			<h1 class="text-headline font-extrabold">Settings</h1>
+			{#if data.adult}
+				<p class="text-body text-ink-muted" data-testid="signed-in-as">
+					Signed in as {data.adult.name}
+				</p>
+			{/if}
+		</div>
+		<LockButton variant="row" />
+	</div>
 	<ul class="flex flex-col gap-4">
 		{#each sections as section (section.href)}
 			<li>

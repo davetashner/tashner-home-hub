@@ -2,7 +2,7 @@
 	import AppShell from '#lib/components/shell/AppShell.svelte';
 	import type { LayoutProps } from './$types';
 
-	let { children }: LayoutProps = $props();
+	let { children, data }: LayoutProps = $props();
 </script>
 
-<AppShell>{@render children()}</AppShell>
+<AppShell signedIn={data.adult !== null}>{@render children()}</AppShell>

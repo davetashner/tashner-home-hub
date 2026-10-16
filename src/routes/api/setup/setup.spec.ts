@@ -62,7 +62,7 @@ const good = { name: 'Sam', color: 'member-1', avatar: '🦊', pin: '4817' };
 describe('setup flow', () => {
 	it('redirects app pages to /setup and lets /setup render while needed', async () => {
 		expect(state.hubNeedsSetup()).toBe(true);
-		expect((await call(layoutLoad as Handler, {})).status).toBe(303);
+		expect((await call(layoutLoad as Handler, { locals: { adult: null } })).status).toBe(303);
 		expect((await call(pageLoad as Handler, {})).status).toBe(200);
 		const res = await call(get, {});
 		expect(await res.json()).toEqual({ needsSetup: true });
@@ -91,7 +91,7 @@ describe('setup flow', () => {
 
 	it('then app pages load, /setup redirects home, and settings need a session', async () => {
 		expect(state.hubNeedsSetup()).toBe(false);
-		expect((await call(layoutLoad as Handler, {})).status).toBe(200);
+		expect(await layoutLoad({ locals: { adult: null } } as never)).toEqual({ adult: null });
 		expect((await call(pageLoad as Handler, {})).status).toBe(303);
 		const url = new URL('http://hub.test/settings/family?x=1');
 		const denied = await call(settingsLoad as Handler, { locals: { adult: null }, url });
