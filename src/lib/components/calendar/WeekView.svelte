@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import {
 		dayNumber,
 		hourLabel,
@@ -21,19 +22,38 @@
 		tz: string;
 		now: number;
 		onselect: (event: CalEvent) => void;
+		onday: (key: DateKey) => void;
 	}
-	let { events, keys, today, tz, now, onselect }: Props = $props();
+	let { events, keys, today, tz, now, onselect, onday }: Props = $props();
 
 	const bars = $derived(spanBars(events, keys, tz));
 	const barLanes = $derived(bars.reduce((n, b) => Math.max(n, b.lane + 1), 0));
 	const columns = $derived(keys.map((k) => timedSegments(events, k, tz)));
-	const hours = $derived(visibleHours(columns.flat(), { from: 8, to: 20 }));
+	const hours = $derived(visibleHours(columns.flat(), { from: 7, to: 21 }));
 	const span = $derived((hours.to - hours.from) * 60);
 	const hourList = $derived(
 		Array.from({ length: hours.to - hours.from }, (_, i) => hours.from + i)
 	);
-	const pct = (min: number) => `${((min - hours.from * 60) / span) * 100}%`;
+	/** Offset from the top of the grid, in minutes of the day. Rows are a fixed px height (see CSS). */
+	const mins = (min: number) => `calc(${min - hours.from * 60} * var(--ppm))`;
 	const nowMin = $derived((now - zonedMs(today, 0, tz)) / 60_000);
+
+	let body: HTMLElement | undefined = $state();
+
+	// Open on what matters: an hour before now when this week holds today, otherwise
+	// the earliest timed event of the week. Runs once per mount (a new week remounts).
+	onMount(() => {
+		const scroller = body?.closest<HTMLElement>('.scroll');
+		if (!scroller || !body) return;
+		const starts = columns.flat().map((s) => s.startMin);
+		const target = keys.includes(today)
+			? Math.max(hours.from * 60, nowMin - 60)
+			: starts.length
+				? Math.min(...starts) - 30
+				: hours.from * 60;
+		const ppm = body.offsetHeight / span;
+		scroller.scrollTop = Math.max(0, (target - hours.from * 60) * ppm);
+	});
 </script>
 
 <div class="week" style="--hours: {hours.to - hours.from}">
@@ -55,6 +75,7 @@
 					<button
 						type="button"
 						class="bar press"
+						class:one={bar.startCol === bar.endCol}
 						class:cut-l={bar.continuesBefore}
 						class:cut-r={bar.continuesAfter}
 						style="grid-column: {bar.startCol + 2} / {bar.endCol + 3}; grid-row: {bar.lane +
@@ -62,17 +83,17 @@
 							?.color ?? 'ink-muted'})"
 						onclick={() => onselect(bar.event)}
 					>
-						<span class="truncate text-body font-extrabold">{bar.event.title}</span>
+						<span class="bar-title text-body leading-tight font-extrabold">{bar.event.title}</span>
 					</button>
 				{/each}
 			</div>
 		{/if}
 	</div>
 
-	<div class="body">
+	<div class="body" bind:this={body} data-testid="week-body">
 		<div class="lines" aria-hidden="true">
 			{#each hourList as h (h)}
-				<div class="line" style="top: {pct(h * 60)}">
+				<div class="line" style="top: {mins(h * 60)}">
 					<span class="gutter text-caption text-ink-muted">{hourLabel(h)}</span>
 				</div>
 			{/each}
@@ -81,19 +102,29 @@
 			<span></span>
 			{#each keys as key, i (key)}
 				<div class="col" class:today={key === today}>
+					<button
+						type="button"
+						class="day-hit"
+						aria-label="Open {weekdayShort(key)} {dayNumber(key)} agenda"
+						onclick={() => onday(key)}
+					></button>
 					{#each columns[i] as seg (seg.event.id)}
 						<button
 							type="button"
 							class="block-ev press"
-							style="top: {pct(seg.startMin)}; height: {(seg.endMin - seg.startMin) /
-								(span / 100)}%; left: {(seg.lane / seg.lanes) * 100}%; width: {100 /
-								seg.lanes}%; --stripe: {stripeColor(seg.event.members)}; --m: var(--color-{seg.event
-								.members[0]?.color ?? 'ink-muted'})"
+							style="top: {mins(
+								seg.startMin
+							)}; height: {`calc(${seg.endMin - seg.startMin} * var(--ppm))`}; left: {(seg.lane /
+								seg.lanes) *
+								100}%; width: {100 / seg.lanes}%; --stripe: {stripeColor(
+								seg.event.members
+							)}; --m: var(--color-{seg.event.members[0]?.color ?? 'ink-muted'})"
 							onclick={() => onselect(seg.event)}
 						>
-							{#if seg.endMin - seg.startMin <= 45}
-								<span class="block truncate text-caption leading-tight font-extrabold"
-									>{shortTime(seg.event.startsAt, tz)} {seg.event.title}</span
+							{#if seg.endMin - seg.startMin < 90}
+								<span class="title text-caption leading-tight font-extrabold"
+									><span class="text-ink-muted">{shortTime(seg.event.startsAt, tz)}</span>
+									{seg.event.title}</span
 								>
 							{:else}
 								<span class="block truncate text-caption font-extrabold text-ink-muted"
@@ -108,7 +139,7 @@
 						</button>
 					{/each}
 					{#if key === today && nowMin >= hours.from * 60 && nowMin <= hours.to * 60}
-						<div class="now" style="top: {pct(nowMin)}" aria-hidden="true"></div>
+						<div class="now" style="top: {mins(nowMin)}" aria-hidden="true"></div>
 					{/if}
 				</div>
 			{/each}
@@ -118,6 +149,8 @@
 
 <style>
 	.week {
+		/* 120px an hour: a 30-minute event is exactly the 60px tap minimum. */
+		--ppm: 2px;
 		display: flex;
 		min-height: 100%;
 		flex-direction: column;
@@ -156,7 +189,7 @@
 	}
 	.bar {
 		display: flex;
-		min-height: 3rem;
+		min-height: var(--spacing-tap);
 		align-items: center;
 		position: relative;
 		overflow: hidden;
@@ -173,6 +206,20 @@
 		background: var(--stripe);
 		content: '';
 	}
+	.bar-title {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		overflow: hidden;
+		overflow-wrap: break-word;
+	}
+	.bar.one {
+		padding: 0 0.375rem 0 1.125rem;
+	}
+	.bar.one .bar-title {
+		font-size: var(--text-caption);
+	}
 	.bar.cut-l {
 		border-top-left-radius: 0;
 		border-bottom-left-radius: 0;
@@ -183,8 +230,8 @@
 	}
 	.body {
 		position: relative;
-		min-height: calc(var(--hours) * 2.25rem);
-		flex: 1;
+		height: calc(var(--hours) * 60 * var(--ppm));
+		flex: none;
 		margin-top: 0.75rem;
 	}
 	.lines,
@@ -206,19 +253,29 @@
 		line-height: 1.2;
 	}
 	.col {
+		container-type: inline-size;
 		position: relative;
 		border-left: 2px solid var(--color-line);
 	}
 	.col.today {
 		background: color-mix(in oklch, var(--color-accent) 7%, transparent);
 	}
+	.day-hit {
+		position: absolute;
+		inset: 0;
+		border: 0;
+		background: transparent;
+	}
 	.block-ev {
 		position: absolute;
+		display: flex;
+		min-height: var(--spacing-tap);
+		flex-direction: column;
+		justify-content: center;
 		overflow: hidden;
-		padding: 0.375rem 0.625rem;
+		padding: 0.25rem 0.375rem 0.25rem 1rem;
 		border: 0;
 		border-radius: var(--radius-control);
-		padding-left: 1.25rem;
 		background:
 			var(--stripe) left / 0.375rem 100% no-repeat,
 			color-mix(in oklab, var(--m) 30%, var(--color-surface-raised));
@@ -226,11 +283,17 @@
 		text-align: left;
 		outline: 2px solid var(--color-surface);
 	}
+	@container (max-width: 15rem) {
+		.block-ev .title {
+			font-size: var(--text-caption);
+		}
+	}
 	.block-ev .title {
+		overflow-wrap: break-word;
 		display: -webkit-box;
 		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 3;
-		line-clamp: 3;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
 		overflow: hidden;
 	}
 	.now {
