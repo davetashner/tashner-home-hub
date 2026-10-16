@@ -62,7 +62,7 @@
 <IdleWatcher />
 
 <div
-	class="grid h-full bg-surface portrait:grid-cols-[minmax(0,1fr)] portrait:grid-rows-[auto_1fr_auto] landscape:grid-cols-[auto_1fr] landscape:grid-rows-[auto_1fr]"
+	class="grid h-full bg-surface portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape"
 >
 	<header
 		class="flex items-center justify-between gap-3 px-4 py-4 max-sm:justify-end sm:gap-8 sm:px-12 sm:py-8 portrait:sm:px-10 landscape:col-start-2 landscape:row-start-1"
@@ -116,8 +116,11 @@
 		{/each}
 	</nav>
 
+	<!-- The page scrolls here; tabindex lets keyboard users scroll it even when it has no focusable content (axe scrollable-region-focusable). -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<main
 		use:swipe={{ onswipe }}
+		tabindex="0"
 		class="min-h-0 touch-pan-y overflow-y-auto portrait:row-start-2 landscape:col-start-2 landscape:row-start-2"
 	>
 		{#key pathname}

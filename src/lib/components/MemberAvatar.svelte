@@ -32,7 +32,7 @@
 
 <span
 	role="img"
-	aria-label={name}
+	aria-label={name.trim() || 'New member'}
 	class="inline-flex shrink-0 items-center justify-center rounded-chip font-extrabold text-on-accent {colors[
 		color
 	]} {sizes[size]}"
