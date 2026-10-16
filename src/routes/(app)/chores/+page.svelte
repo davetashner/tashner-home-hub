@@ -225,8 +225,10 @@
 		if (!memberId) return;
 		const pendingRequest = inflight[chore.id];
 		const startedAt = undoStarts[chore.id] ?? Date.now();
+		// No-approval chores are already gold: take the star back out of the jar.
+		const bucket = chore.status === 'approved' ? 'balance' : 'pending';
 		patch(memberId, (g) => setStatus(g, chore.id, 'none', null));
-		stars.pending = Math.max(0, stars.pending - chore.stars);
+		stars[bucket] = Math.max(0, stars[bucket] - chore.stars);
 		dropUndo(chore.id);
 		const completion = pendingRequest ? await pendingRequest : { id: chore.completionId };
 		if (!completion) return;
@@ -243,8 +245,8 @@
 			expiresAt: startedAt + UNDO_WINDOW_MS
 		});
 		if (!r.sent && !r.queued) {
-			patch(memberId, (g) => setStatus(g, chore.id, 'pending', completion.id));
-			stars.pending += chore.stars;
+			patch(memberId, (g) => setStatus(g, chore.id, chore.status, completion.id));
+			stars[bucket] += chore.stars;
 			say('Hmm, that one is already with the grown-ups.');
 		}
 		void loadStars(memberId).catch(() => {});
