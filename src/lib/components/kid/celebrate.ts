@@ -188,9 +188,8 @@ export function celebrateApproval(jar: HTMLElement | null, stars: number): void 
 	}
 }
 
-/** The big one: every chore today is done. Full-screen confetti plus a fanfare. */
-export function celebrateAllDone(): void {
-	playFanfare();
+/** Bursts from the bottom corners, the middle, and the top: the big parties. */
+function bigConfetti(): void {
 	if (reduced()) return;
 	const bursts = [
 		{ at: 0, x: 0.2, y: 0.9 },
@@ -211,4 +210,27 @@ export function celebrateAllDone(): void {
 			at
 		);
 	}
+}
+
+/** The big one: every chore today is done. Full-screen confetti plus a fanfare. */
+export function celebrateAllDone(): void {
+	playFanfare();
+	bigConfetti();
+}
+
+/** The goal is reached (REW-3): the fanfare, the big confetti, and every gold star in the jar pops. */
+export function celebrateGoal(jar: HTMLElement | null): void {
+	playFanfare();
+	bigConfetti();
+	if (!jar || reduced()) return;
+	jar.querySelectorAll<SVGElement>('[data-star="gold"]').forEach((star, i) =>
+		star.animate(
+			[
+				{ transform: 'scale(1)', filter: 'brightness(1)' },
+				{ transform: 'scale(1.5)', filter: 'brightness(1.4)', offset: 0.4 },
+				{ transform: 'scale(1)', filter: 'brightness(1)' }
+			],
+			{ duration: 700, delay: i * 40, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }
+		)
+	);
 }

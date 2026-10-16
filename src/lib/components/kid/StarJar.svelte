@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { jarSlots } from '#lib/domain/kid-chores.js';
+	import { jarCaption, jarFill } from '#lib/domain/goal-jar.js';
 	import StarIcon from './StarIcon.svelte';
 
 	export interface Goal {
+		/** The reward's id. */
+		id: string;
 		title: string;
 		image: string | null;
 		cost: number;
-		remaining: number;
-		percent: number;
 	}
 
 	let {
@@ -22,6 +23,7 @@
 		jar?: HTMLElement | null;
 	} = $props();
 
+	const fill = $derived(goal ? jarFill(balance, pending, goal.cost) : null);
 	const slots = $derived(jarSlots(balance, pending, goal?.cost ?? null));
 	const cells = $derived(
 		Array.from({ length: slots.total }, (_, i) =>
@@ -57,21 +59,35 @@
 		{slots.gold} gold stars, {slots.pending} waiting for a grown-up
 	</span>
 
-	{#if goal}
-		<div data-testid="jar-goal" class="flex items-center gap-5">
-			<span class="grid size-24 shrink-0 place-items-center rounded-chip bg-star-soft text-display">
-				<span class="text-title">{goal.image ?? '🎁'}</span>
-			</span>
-			<div class="flex min-w-0 grow flex-col gap-3">
-				<p class="text-lead leading-tight font-extrabold">{goal.title}</p>
-				<div class="h-6 overflow-hidden rounded-chip bg-line" aria-hidden="true">
+	{#if goal && fill}
+		<div data-testid="jar-goal" data-reached={fill.reached} class="flex items-center gap-6">
+			<div class="relative h-48 w-36 shrink-0" aria-hidden="true">
+				<div class="absolute inset-x-6 top-0 h-6 rounded-control bg-line"></div>
+				<div
+					class="absolute inset-x-0 top-4 bottom-0 overflow-hidden rounded-card rounded-t-sheet border-4 border-line bg-surface-raised"
+				>
 					<div
-						class="meter h-full origin-left rounded-chip bg-star"
-						style:transform="scaleX({goal.percent / 100})"
+						data-testid="goal-fill-pending"
+						class="fill absolute inset-0 origin-bottom bg-star-pending"
+						style:transform="scaleY({fill.pending})"
 					></div>
+					<div
+						data-testid="goal-fill"
+						class="fill absolute inset-0 origin-bottom bg-star"
+						style:transform="scaleY({fill.gold})"
+					></div>
+					<span class="absolute inset-0 grid place-items-center text-title">
+						{goal.image ?? '🎁'}
+					</span>
 				</div>
+			</div>
+			<div class="flex min-w-0 grow flex-col gap-2">
+				<p class="text-lead leading-tight font-extrabold">{goal.title}</p>
+				<p data-testid="goal-caption" class="text-lead font-extrabold">
+					{jarCaption(balance, goal.cost)}
+				</p>
 				<p class="text-caption font-bold text-ink-muted">
-					{goal.remaining === 0 ? 'You did it!' : `${goal.remaining} more to go`}
+					{fill.reached ? 'You earned it! Ask a grown-up.' : `${fill.remaining} more to go`}
 				</p>
 			</div>
 		</div>
@@ -79,7 +95,7 @@
 </section>
 
 <style>
-	.meter {
+	.fill {
 		transition: transform var(--duration-slow) var(--ease-out-soft);
 	}
 </style>
