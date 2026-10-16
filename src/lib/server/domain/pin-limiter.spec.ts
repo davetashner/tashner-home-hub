@@ -29,10 +29,4 @@ describe('PinLimiter', () => {
 		expect(l.remainingMs('a', 0)).toBe(0);
 		expect(l.recordFailure('a', 0)).toBe(0);
 	});
-	it('prunes stale entries once the table is large', () => {
-		const l = new PinLimiter();
-		for (let i = 0; i < 1000; i++) l.recordFailure(`k${i}`, 0);
-		l.recordFailure('late', MAX_LOCK_MS * 2);
-		expect(l.remainingMs('k1', MAX_LOCK_MS * 2)).toBe(0);
-	});
 });

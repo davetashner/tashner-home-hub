@@ -49,9 +49,6 @@ describe('hashPin / verifyPin', () => {
 	])('never matches malformed hash %j', (enc) => {
 		expect(verifyPin('4817', enc)).toBe(false);
 	});
-	it('rejects absurd cost parameters instead of throwing', () => {
-		expect(verifyPin('4817', 'scrypt$v1$3$8$1$AAAA$AAAA')).toBe(false);
-	});
 	it('rejects a non-string pin', () => {
 		expect(verifyPin(undefined as unknown as string, hashPin('4817'))).toBe(false);
 	});

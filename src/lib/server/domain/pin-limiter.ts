@@ -35,19 +35,10 @@ export class PinLimiter {
 		const lock = lockoutMs(e.failures);
 		e.lockedUntil = lock > 0 ? now + lock : e.lockedUntil;
 		this.entries.set(key, e);
-		this.prune(now);
 		return lock;
 	}
 
 	recordSuccess(key: string): void {
 		this.entries.delete(key);
-	}
-
-	/** Drops idle entries (unlocked and untouched for the maximum lock) to bound memory. */
-	private prune(now: number): void {
-		if (this.entries.size < 1000) return;
-		for (const [k, e] of this.entries) {
-			if (e.lockedUntil + MAX_LOCK_MS < now) this.entries.delete(k);
-		}
 	}
 }
