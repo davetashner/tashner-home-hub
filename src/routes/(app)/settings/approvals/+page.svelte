@@ -18,6 +18,8 @@
 	}
 
 	let items = $state<PendingItem[]>([]);
+	/** Approved completions from the last week; adults can undo any of them (CHO-6). */
+	let recent = $state<PendingItem[]>([]);
 	let children = $state<Child[]>([]);
 	let balances = $state<Record<string, number>>({});
 	let loaded = $state(false);
@@ -26,10 +28,15 @@
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const groups = $derived(groupByChild(items));
+	const recentGroups = $derived(groupByChild(recent));
 	// Children with something waiting come first.
 	const rows = $derived(
 		children
-			.map((child) => ({ child, group: groups.find((g) => g.memberId === child.id) }))
+			.map((child) => ({
+				child,
+				group: groups.find((g) => g.memberId === child.id),
+				done: recentGroups.find((g) => g.memberId === child.id)
+			}))
 			.sort((a, b) => Number(!!b.group) - Number(!!a.group))
 	);
 
@@ -63,8 +70,13 @@
 	}
 
 	async function load() {
-		const [approvals, members] = await Promise.all([api('/api/approvals'), fetch('/api/members')]);
+		const [approvals, members, done] = await Promise.all([
+			api('/api/approvals'),
+			fetch('/api/members'),
+			fetch('/api/completions?days=7')
+		]);
 		if (approvals.ok) items = await approvals.json();
+		if (done.ok) recent = await done.json();
 		if (members.ok)
 			children = ((await members.json()) as Child[]).filter((m) => m.role === 'child');
 		await loadBalances();
@@ -84,7 +96,8 @@
 	/** Removes rows at once, puts them back (gently) if the server says no. */
 	async function resolveItems(
 		taken: PendingItem[],
-		call: (item: PendingItem) => Promise<Response>
+		call: (item: PendingItem) => Promise<Response>,
+		approved = false
 	): Promise<void> {
 		const ids = new Set(taken.map((t) => t.completionId));
 		items = items.filter((i) => !ids.has(i.completionId));
@@ -100,14 +113,34 @@
 		if (failed.length) {
 			items = [...items, ...failed].sort((a, b) => a.completedAt - b.completedAt);
 			say("That didn't go through. Please try again.");
+		} else if (approved) {
+			recent = [...taken, ...recent].sort((a, b) => b.completedAt - a.completedAt);
 		}
 		await loadBalances();
 	}
 
 	function approve(taken: PendingItem[]) {
-		void resolveItems(taken, (t) =>
-			api(`/api/completions/${t.completionId}/approve`, { method: 'POST' })
+		void resolveItems(
+			taken,
+			(t) => api(`/api/completions/${t.completionId}/approve`, { method: 'POST' }),
+			true
 		);
+	}
+
+	/** Takes an approved chore's stars back. Optimistic: the row and stars go at once. */
+	async function undoDone(item: PendingItem) {
+		recent = recent.filter((r) => r.completionId !== item.completionId);
+		balances[item.memberId] = (balances[item.memberId] ?? 0) - item.stars;
+		const ok = await api(`/api/completions/${item.completionId}/undo`, { method: 'POST' }).then(
+			(r) => r.ok,
+			() => false
+		);
+		if (ok) say(`Undone: ${item.choreTitle} (−${item.stars} ⭐)`);
+		else {
+			recent = [...recent, item].sort((a, b) => b.completedAt - a.completedAt);
+			say("That didn't go through. Please try again.");
+		}
+		await loadBalances();
 	}
 
 	// Reject sheet
@@ -165,7 +198,7 @@
 	{/if}
 
 	<ul class="flex flex-col gap-8">
-		{#each rows as { child, group } (child.id)}
+		{#each rows as { child, group, done } (child.id)}
 			<li data-testid="child-card" data-member={child.id}>
 				<Card class="flex flex-col gap-6 portrait:max-sm:!p-4">
 					<div class="flex items-center gap-4">
@@ -223,6 +256,39 @@
 								Approve all {group.items.length} ({group.stars} ⭐)
 							</Button>
 						{/if}
+					{/if}
+
+					{#if done}
+						<div class="flex flex-col gap-4" data-testid="recent-done">
+							<h3 class="text-caption font-bold text-ink-muted">Done this week</h3>
+							<ul class="flex flex-col gap-4">
+								{#each done.items as item (item.completionId)}
+									<li
+										out:fly|global={{ x: -120, duration: 240, opacity: 0 }}
+										data-testid="done-row"
+										class="flex flex-wrap items-center gap-x-6 gap-y-4 rounded-control bg-surface-sunken p-4"
+									>
+										<span class="text-title leading-none" aria-hidden="true">
+											{item.choreIcon ?? '⭐'}
+										</span>
+										<span class="flex min-w-40 flex-1 flex-col">
+											<span class="text-lead font-bold">{item.choreTitle}</span>
+											<span class="text-caption text-ink-muted">
+												{relativeTime(item.completedAt, now)} · {item.stars}
+												{item.stars === 1 ? 'star' : 'stars'}
+											</span>
+										</span>
+										<Button
+											variant="secondary"
+											class="w-full sm:w-auto"
+											data-testid="undo-done"
+											aria-label="Undo {item.choreTitle} for {child.name}"
+											onclick={() => void undoDone(item)}>Undo</Button
+										>
+									</li>
+								{/each}
+							</ul>
+						</div>
 					{/if}
 
 					<div class="flex flex-col gap-4">

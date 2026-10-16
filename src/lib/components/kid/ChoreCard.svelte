@@ -37,7 +37,9 @@
 
 	const doable = $derived(isDoable(chore.status));
 	const showUndo = $derived(
-		undoStartedAt !== null && chore.status === 'pending' && undoSecondsLeft(undoStartedAt, now) > 0
+		undoStartedAt !== null &&
+			(chore.status === 'pending' || chore.status === 'approved') &&
+			undoSecondsLeft(undoStartedAt, now) > 0
 	);
 	const stars = $derived(Math.min(5, Math.max(1, chore.stars)));
 </script>
@@ -97,24 +99,7 @@
 				<span class="text-title" aria-hidden="true">⏳</span>
 				<p class="text-body leading-tight font-extrabold">Waiting for grown-up</p>
 			</div>
-			{#if showUndo && undoStartedAt !== null}
-				<button
-					type="button"
-					data-testid="undo"
-					class="undo page-enter relative inline-flex min-h-tap-kid w-full items-center justify-center gap-4 overflow-hidden rounded-chip border-4 border-line bg-surface px-8 text-lead font-extrabold text-ink"
-					onclick={() => onundo(chore)}
-				>
-					<span
-						class="countdown absolute inset-0 origin-left bg-accent-soft"
-						style:animation-duration="{UNDO_WINDOW_MS}ms"
-						aria-hidden="true"
-					></span>
-					<span class="relative whitespace-nowrap">↩ Undo</span>
-					<span class="relative tabular-nums" data-testid="undo-seconds">
-						{undoSecondsLeft(undoStartedAt, now)}
-					</span>
-				</button>
-			{/if}
+			{@render undoButton()}
 		{:else}
 			<div
 				class="page-enter flex min-h-32 items-center justify-center gap-4 rounded-card bg-star px-8 text-on-star"
@@ -123,9 +108,31 @@
 				<span class="text-title leading-none" aria-hidden="true">✓</span>
 				<p class="text-title leading-none font-extrabold">Done!</p>
 			</div>
+			{@render undoButton()}
 		{/if}
 	</div>
 </article>
+
+{#snippet undoButton()}
+	{#if showUndo && undoStartedAt !== null}
+		<button
+			type="button"
+			data-testid="undo"
+			class="undo page-enter relative inline-flex min-h-tap-kid w-full items-center justify-center gap-4 overflow-hidden rounded-chip border-4 border-line bg-surface px-8 text-lead font-extrabold text-ink"
+			onclick={() => onundo(chore)}
+		>
+			<span
+				class="countdown absolute inset-0 origin-left bg-accent-soft"
+				style:animation-duration="{UNDO_WINDOW_MS}ms"
+				aria-hidden="true"
+			></span>
+			<span class="relative whitespace-nowrap">↩ Undo</span>
+			<span class="relative tabular-nums" data-testid="undo-seconds">
+				{undoSecondsLeft(undoStartedAt, now)}
+			</span>
+		</button>
+	{/if}
+{/snippet}
 
 <style>
 	@keyframes drain {
