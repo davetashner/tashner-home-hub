@@ -131,6 +131,12 @@
 				Folder path
 				<input
 					bind:value={root}
+					type="text"
+					inputmode="url"
+					autocomplete="off"
+					autocapitalize="off"
+					autocorrect="off"
+					spellcheck="false"
 					placeholder="/media/photos-in"
 					class="min-h-tap rounded-control border-2 border-line bg-surface px-4 text-body"
 				/>
