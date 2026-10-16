@@ -4,13 +4,17 @@
 	import { swipe } from '#lib/actions/swipe.js';
 	import AgendaView from '#lib/components/calendar/AgendaView.svelte';
 	import EventSheet from '#lib/components/calendar/EventSheet.svelte';
+	import MonthView from '#lib/components/calendar/MonthView.svelte';
+	import WeekView from '#lib/components/calendar/WeekView.svelte';
 	import Badge from '#lib/components/ui/Badge.svelte';
 	import { ago, periodTitle } from '#lib/domain/calendar-view/format.js';
 	import type { CalEvent } from '#lib/domain/calendar-view/layout.js';
 	import {
 		fetchRange,
+		isViewMode,
 		periodKeys,
 		shiftAnchor,
+		VIEW_MODES,
 		type CalendarViewMode
 	} from '#lib/domain/calendar-view/period.js';
 	import { dateKeyOf, type DateKey } from '#lib/domain/calendar-view/zone.js';
@@ -20,15 +24,23 @@
 		stale: boolean;
 	}
 
+	const VIEW_KEY = 'hub.calendar.view';
+	const LABELS: Record<CalendarViewMode, string> = {
+		agenda: 'Agenda',
+		week: 'Week',
+		month: 'Month'
+	};
+
 	let mounted = $state(false);
 	let tz = $state('UTC');
 	let now = $state(Date.now());
-	const view: CalendarViewMode = 'agenda';
+	let view = $state<CalendarViewMode>('agenda');
 	let anchor = $state<DateKey>('1970-01-01');
 	let direction = $state<'next' | 'prev' | 'none'>('none');
 	let cache = $state<Record<string, CalEvent[]>>({});
 	let status = $state<Status | null>(null);
 	let selected = $state<CalEvent | null>(null);
+	let portrait = $state(false);
 
 	const today = $derived(dateKeyOf(now, tz));
 	const keys = $derived(periodKeys(view, anchor));
@@ -74,6 +86,21 @@
 	const step = (dir: 1 | -1) => go(shiftAnchor(view, anchor, dir), dir === 1 ? 'next' : 'prev');
 	const toToday = () => go(today, 'none');
 
+	function setView(next: CalendarViewMode) {
+		direction = 'none';
+		view = next;
+		try {
+			localStorage.setItem(VIEW_KEY, next);
+		} catch {
+			// Private mode or blocked storage: the preference just does not stick.
+		}
+	}
+
+	function openDay(key: DateKey) {
+		view = 'agenda';
+		go(key, 'none');
+	}
+
 	// Load the visible period, then quietly warm the neighbours so swiping is instant.
 	$effect(() => {
 		if (!mounted) return;
@@ -100,6 +127,16 @@
 		tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 		now = Date.now();
 		anchor = dateKeyOf(now, tz);
+		try {
+			const saved = localStorage.getItem(VIEW_KEY);
+			if (isViewMode(saved)) view = saved;
+		} catch {
+			// Storage unavailable: use the default view.
+		}
+		const media = matchMedia('(orientation: portrait)');
+		const onOrientation = () => (portrait = media.matches);
+		onOrientation();
+		media.addEventListener('change', onOrientation);
 		mounted = true;
 		void loadStatus();
 		const timer = setInterval(() => {
@@ -109,6 +146,7 @@
 		}, 60_000);
 		return () => {
 			clearInterval(timer);
+			media.removeEventListener('change', onOrientation);
 		};
 	});
 </script>
@@ -146,6 +184,16 @@
 				{/if}
 			</div>
 			<div class="flex flex-wrap items-center gap-4">
+				<div role="group" aria-label="View" class="seg">
+					{#each VIEW_MODES as mode (mode)}
+						<button
+							type="button"
+							class="seg-btn"
+							aria-pressed={view === mode}
+							onclick={() => setView(mode)}>{LABELS[mode]}</button
+						>
+					{/each}
+				</div>
 				<div class="flex items-center gap-2">
 					<button type="button" class="nav-btn" aria-label="Previous" onclick={() => step(-1)}>
 						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
@@ -166,7 +214,21 @@
 			{#if mounted}
 				{#key `${view}:${anchor}`}
 					<div class="pane scroll {direction}" data-testid="calendar-pane">
-						<AgendaView {events} {keys} {today} {tz} onselect={(e) => (selected = e)} />
+						{#if view === 'agenda'}
+							<AgendaView {events} {keys} {today} {tz} onselect={(e) => (selected = e)} />
+						{:else if view === 'week'}
+							<WeekView {events} {keys} {today} {tz} {now} onselect={(e) => (selected = e)} />
+						{:else}
+							<MonthView
+								{events}
+								{keys}
+								{anchor}
+								{today}
+								{tz}
+								lines={portrait ? 8 : 3}
+								onday={openDay}
+							/>
+						{/if}
 					</div>
 				{/key}
 			{/if}
@@ -222,6 +284,27 @@
 			animation: none !important;
 		}
 	}
+	.seg {
+		display: inline-flex;
+		gap: 0.25rem;
+		padding: 0.25rem;
+		border-radius: var(--radius-chip);
+		background: var(--color-surface-sunken);
+	}
+	.seg-btn {
+		min-width: 5rem;
+		min-height: var(--spacing-tap);
+		padding: 0 1.75rem;
+		border-radius: var(--radius-chip);
+		color: var(--color-ink-muted);
+		font-weight: 800;
+		cursor: pointer;
+	}
+	.seg-btn[aria-pressed='true'] {
+		background: var(--color-accent);
+		color: var(--color-on-accent);
+		box-shadow: var(--shadow-raised);
+	}
 	.nav-btn {
 		display: inline-flex;
 		min-width: var(--spacing-tap);
@@ -252,6 +335,7 @@
 	.today-btn {
 		padding: 0 2rem;
 	}
+	.seg-btn:focus-visible,
 	.nav-btn:focus-visible {
 		outline: 4px solid var(--color-accent);
 		outline-offset: 4px;
