@@ -4,6 +4,7 @@ import {
 	jarSlots,
 	localDate,
 	setStatus,
+	kidsWithChores,
 	switcherMembers,
 	undoSecondsLeft,
 	type KidGroup
@@ -55,5 +56,14 @@ describe('kid chores view logic', () => {
 		const members = [{ id: 'm1' }, { id: 'm2' }];
 		expect(switcherMembers(members, { m1: groups(), m2: [] })).toEqual([{ id: 'm1' }]);
 		expect(switcherMembers(members, { m1: [], m2: [] })).toEqual(members);
+	});
+
+	it('lists only the kids with chores today, so the switcher hides for fewer than two', () => {
+		const members = [{ id: 'm1' }, { id: 'm2' }, { id: 'm3' }];
+		expect(kidsWithChores(members, { m1: groups(), m2: [], m3: groups() })).toEqual([
+			{ id: 'm1' },
+			{ id: 'm3' }
+		]);
+		expect(kidsWithChores(members, { m2: [] })).toEqual([]);
 	});
 });
