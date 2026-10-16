@@ -60,6 +60,12 @@
 			line: 'When to go back home and start the photo frame.'
 		},
 		{
+			href: resolve('/(app)/settings/sleep-schedule'),
+			emoji: '🌙',
+			title: 'Sleep schedule',
+			line: 'When the wall display goes dark at night and wakes up.'
+		},
+		{
 			href: resolve('/(app)/settings/orientation'),
 			emoji: '🔄',
 			title: 'Orientation',
