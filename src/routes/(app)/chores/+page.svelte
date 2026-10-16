@@ -32,6 +32,7 @@
 		type KidGroup
 	} from '#lib/domain/kid-chores.js';
 	import { overlayQueued } from '#lib/domain/write-queue.js';
+	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 
 	interface Member {
 		id: string;
@@ -41,7 +42,7 @@
 	}
 	type Completion = { id: string | null; status: KidChore['status'] };
 
-	const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const tz = $derived(resolveTimeZone(page.data.timeZone, runtimeZone()));
 
 	let loaded = $state(false);
 	let members = $state<Member[]>([]);

@@ -12,6 +12,7 @@ import rrulePkg from 'rrule';
 import type { RRule } from 'rrule';
 import type { Db } from '../db/index.js';
 import { choreCompletions, chores, members } from '../db/schema.js';
+import { householdTimeZone } from '../household.js';
 import { LedgerError, createChore as insertChore } from './ledger.js';
 
 export const TIMES_OF_DAY = ['morning', 'afternoon', 'evening', 'anytime'] as const;
@@ -93,8 +94,6 @@ export function localDateIn(now: number, timeZone: string): string {
 		throw invalid('Unknown time zone');
 	}
 }
-
-const systemZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 function validTitle(value: unknown): string {
 	const title = typeof value === 'string' ? value.trim() : '';
@@ -223,12 +222,13 @@ function toView(row: Row, today: string): ChoreView {
 	};
 }
 
-const todayOf = (clock: Clock) =>
-	localDateIn(clock.now ?? Date.now(), clock.timeZone ?? systemZone());
+/** Today in the clock's zone, else the household's (the server's own zone is never assumed). */
+const todayOf = (db: Db, clock: Clock) =>
+	localDateIn(clock.now ?? Date.now(), clock.timeZone ?? householdTimeZone(db));
 
 /** Creates a chore. Approval is required unless `requiresApproval: false` (owner default). */
 export function createChore(db: Db, input: ChoreInput, clock: Clock = {}): ChoreView {
-	const today = todayOf(clock);
+	const today = todayOf(db, clock);
 	const row = insertChore(db, {
 		title: validTitle(input.title),
 		icon: validIcon(input.icon),
@@ -247,7 +247,7 @@ export function updateChore(
 	patch: Partial<ChoreInput>,
 	clock: Clock = {}
 ): ChoreView {
-	const today = todayOf(clock);
+	const today = todayOf(db, clock);
 	const current = db.select().from(chores).where(eq(chores.id, id)).get();
 	if (!current) throw new LedgerError('not_found', 'Chore not found');
 	const set: Partial<Row> = {};
@@ -274,11 +274,11 @@ export function updateChore(
 export function archiveChore(db: Db, id: string, clock: Clock = {}): ChoreView {
 	const row = db.update(chores).set({ archived: true }).where(eq(chores.id, id)).returning().get();
 	if (!row) throw new LedgerError('not_found', 'Chore not found');
-	return toView(row, todayOf(clock));
+	return toView(row, todayOf(db, clock));
 }
 
 export function listChores(db: Db, opts: { includeArchived?: boolean } & Clock = {}): ChoreView[] {
-	const today = todayOf(opts);
+	const today = todayOf(db, opts);
 	const rows = opts.includeArchived
 		? db.select().from(chores).all()
 		: db.select().from(chores).where(eq(chores.archived, false)).all();
@@ -302,7 +302,7 @@ export function choresForDay(
 	db: Db,
 	memberId: string,
 	date: string,
-	timeZone: string = systemZone()
+	timeZone: string = householdTimeZone(db)
 ): TimeGroup[] {
 	validDate(date);
 	localDateIn(0, timeZone); // validates the zone
