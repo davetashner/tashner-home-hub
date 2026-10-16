@@ -78,7 +78,7 @@ export async function syncSource(
 		const provider = await (deps.provider ?? createProvider)(source);
 		const planned: Planned[] = [];
 		const fetched = new Set<string>();
-		for (const cal of mappings) {
+		for (const [i, cal] of mappings.entries()) {
 			try {
 				const raw = await provider.fetchEvents(cal.externalId, w);
 				const memberIds = JSON.stringify(cal.memberId ? [cal.memberId] : []);
@@ -93,7 +93,9 @@ export async function syncSource(
 			} catch (e) {
 				// Never put the calendar id/URL here: status is served without a session.
 				if ((e as { needsReauth?: boolean }).needsReauth === true) reauth = true;
-				errors.push(`${cal.name || 'Calendar'}: ${e instanceof Error ? e.message : String(e)}`);
+				errors.push(
+					`${cal.name || `Calendar ${i + 1}`}: ${e instanceof Error ? e.message : String(e)}`
+				);
 			}
 		}
 		const selected = new Set(mappings.map((m) => m.externalId));
