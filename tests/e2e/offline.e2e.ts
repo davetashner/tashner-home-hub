@@ -50,7 +50,7 @@ const card = (page: Page) =>
 		.getByTestId('chore-card')
 		.filter({ has: page.getByRole('heading', { name: 'Water plants' }) });
 
-test('screens render from saved copies offline and the badge clears on recovery', async ({
+test('screens render from saved copies offline and a queued tap is delivered once', async ({
 	page,
 	context
 }, info) => {
@@ -79,7 +79,20 @@ test('screens render from saved copies offline and the badge clears on recovery'
 	await page.goto(chores);
 	await expect(card(page)).toBeVisible();
 	await expect(page.getByTestId('offline-badge')).toBeVisible();
+	await card(page).getByTestId('did-it').click();
+	await expect(card(page)).toHaveAttribute('data-status', 'pending');
+	await expect(page.getByTestId('jar-counts')).toContainText('3 waiting');
 
 	await context.setOffline(false);
 	await expect(page.getByTestId('offline-badge')).toHaveCount(0);
+	await signInAsAdult(page, s.adult);
+	await expect
+		.poll(async () => {
+			const res = await page.request.get(`/api/members/${s.memberId}/stars?limit=1`);
+			return ((await res.json()) as { pending: number }).pending;
+		})
+		.toBe(3); // delivered, and exactly once (not 6)
+	await page.waitForTimeout(500);
+	const again = await page.request.get(`/api/members/${s.memberId}/stars?limit=1`);
+	expect(((await again.json()) as { pending: number }).pending).toBe(3);
 });
