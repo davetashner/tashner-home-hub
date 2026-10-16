@@ -14,6 +14,8 @@ const memberChores = await import('../members/[id]/chores/+server.js');
 const adult = { adult: { id: 'adult', name: 'Test Adult' } };
 const call = async (h: unknown, ev: Record<string, unknown>) =>
 	(h as (e: unknown) => Promise<Response> | Response)({ locals: adult, ...ev });
+const anon = async (h: unknown, ev: Record<string, unknown>) =>
+	(h as (e: unknown) => Promise<Response> | Response)({ locals: {}, ...ev });
 const req = (method: string, body?: unknown) =>
 	new Request('http://example.com/x', {
 		method,
@@ -21,6 +23,18 @@ const req = (method: string, body?: unknown) =>
 	});
 
 describe('chores API', () => {
+	it('requires an adult session to create, edit or archive', async () => {
+		await expect(
+			anon(list.POST, { request: req('POST', { title: 'X', memberIds: [] }) })
+		).rejects.toMatchObject({ status: 401 });
+		await expect(
+			anon(one.PATCH, { params: { id: 'x' }, request: req('PATCH', { stars: 2 }) })
+		).rejects.toMatchObject({ status: 401 });
+		await expect(anon(archive.POST, { params: { id: 'x' } })).rejects.toMatchObject({
+			status: 401
+		});
+	});
+
 	it('create -> list -> patch -> day view -> archive', async () => {
 		getDb()
 			.insert(schema.members)
