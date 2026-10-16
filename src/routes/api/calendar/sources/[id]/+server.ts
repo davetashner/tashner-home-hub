@@ -5,6 +5,13 @@ import { calendarSources, members } from '#lib/server/db/schema.js';
 import { readJson, str } from '#lib/server/api.js';
 import { requireAdult } from '#lib/server/auth.js';
 import { clearIcsCache } from '#lib/server/calendar/ics.js';
+import {
+	IcloudError,
+	openCredentials,
+	probeIcloud,
+	sealCredentials
+} from '#lib/server/calendar/icloud.js';
+import { getKeyring } from '#lib/server/keys.js';
 import { getSource, viewOf } from '#lib/server/calendar/sources.js';
 import { readStatuses } from '#lib/server/calendar/sync.js';
 import type { RequestHandler } from './$types';
@@ -23,8 +30,25 @@ export const PATCH: RequestHandler = async (event) => {
 	const source = getSource(db, event.params.id);
 	if (!source) error(404, 'Calendar source not found');
 	const body = await readJson(event.request);
-	const set: { label?: string; calendars?: string } = {};
+	const set: { label?: string; calendars?: string; credentials?: string } = {};
 	if (body.label !== undefined) set.label = str(body.label, 'label');
+	if (body.appPassword !== undefined) {
+		// Re-auth for iCloud: a new app-specific password (Apple ID kept unless sent too).
+		if (source.provider !== 'icloud') error(400, 'Only iCloud sources take a new password');
+		const appPassword = str(body.appPassword, 'appPassword').trim();
+		let appleId: string;
+		try {
+			appleId =
+				typeof body.appleId === 'string' && body.appleId.trim()
+					? body.appleId.trim()
+					: openCredentials(getKeyring(), source).appleId;
+			await probeIcloud({ appleId, appPassword });
+		} catch (e) {
+			if (e instanceof IcloudError) error(e.needsReauth ? 401 : 400, e.message);
+			throw e;
+		}
+		set.credentials = sealCredentials(getKeyring(), source.id, { appleId, appPassword });
+	}
 
 	const memberOk = (m: unknown): string | null => {
 		if (m === null || m === '') return null;

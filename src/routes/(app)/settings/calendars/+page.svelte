@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import Badge from '#lib/components/ui/Badge.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import AddConnection from '#lib/components/calendar-settings/AddConnection.svelte';
 	import CalendarPicker from '#lib/components/calendar-settings/CalendarPicker.svelte';
+	import ReauthBanner from '#lib/components/calendar-settings/ReauthBanner.svelte';
 	import { api } from '#lib/components/calendar-settings/api.js';
 	import type { Source } from '#lib/components/calendar-settings/types.js';
 	import { PROVIDER_NAMES, classifyHealth, relativeTime } from '#lib/domain/calendar-health.js';
@@ -13,7 +15,7 @@
 
 	let { data }: PageProps = $props();
 
-	type View = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; id: string };
+	type View = { kind: 'list' } | { kind: 'add' } | { kind: 'edit' | 'reconnect'; id: string };
 	let view = $state<View>({ kind: 'list' });
 	let removing = $state<string | null>(null);
 	let syncing = $state(false);
@@ -22,8 +24,11 @@
 
 	const icons = { google: '📅', icloud: '☁️', ics: '🔗' } as const;
 	const find = (id: string) => data.sources.find((s) => s.id === id);
+	const needing = $derived(data.sources.filter((s) => s.needsReauth));
 
 	onMount(() => {
+		const want = page.url.searchParams.get('reconnect');
+		if (want) view = { kind: 'reconnect', id: want };
 		const tick = setInterval(() => (now = Date.now()), 30_000);
 		return () => clearInterval(tick);
 	});
@@ -45,8 +50,14 @@
 		await invalidateAll();
 	}
 
-	/** After a connection is added: refresh, then pick which calendars to show. */
+	/** After a connection is added or reconnected: refresh, then pick calendars (new) or return. */
 	async function connected(source: Source) {
+		if (view.kind === 'reconnect') {
+			await api('/api/calendar/sync', 'POST');
+			await invalidateAll();
+			view = { kind: 'list' };
+			return;
+		}
 		await invalidateAll();
 		view = { kind: 'edit', id: source.id };
 	}
@@ -55,11 +66,11 @@
 		await invalidateAll();
 		view = { kind: 'list' };
 	};
-	const target = $derived(view.kind === 'edit' ? find(view.id) : null);
+	const target = $derived(view.kind === 'edit' || view.kind === 'reconnect' ? find(view.id) : null);
 
 	// A connection that vanished (deleted elsewhere) sends us back to the list.
 	$effect(() => {
-		if (view.kind === 'edit' && !target) view = { kind: 'list' };
+		if ((view.kind === 'edit' || view.kind === 'reconnect') && !target) view = { kind: 'list' };
 	});
 </script>
 
@@ -83,6 +94,7 @@
 	</header>
 
 	{#if view.kind === 'list'}
+		<ReauthBanner sources={needing} onreconnect={(id) => (view = { kind: 'reconnect', id })} />
 		{#if message}<p role="alert" class="text-body font-bold text-danger">{message}</p>{/if}
 		<ul class="flex flex-col gap-4" data-testid="source-list">
 			{#each data.sources as s (s.id)}
@@ -125,6 +137,10 @@
 							</div>
 						{:else}
 							<div class="mt-6 flex flex-wrap gap-3">
+								{#if s.needsReauth}
+									<Button onclick={() => (view = { kind: 'reconnect', id: s.id })}>Reconnect</Button
+									>
+								{/if}
 								<Button variant="secondary" onclick={() => (view = { kind: 'edit', id: s.id })}
 									>Edit</Button
 								>
@@ -148,6 +164,8 @@
 		</p>
 	{:else if view.kind === 'add'}
 		<AddConnection ondone={connected} oncancel={backToList} />
+	{:else if view.kind === 'reconnect' && target}
+		<AddConnection reconnect={target} ondone={connected} oncancel={backToList} />
 	{:else if view.kind === 'edit' && target}
 		<Card elevation="float">
 			{#key target.id}

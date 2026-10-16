@@ -16,6 +16,8 @@ END:VEVENT
 END:VCALENDAR
 `;
 
+const STATUS_KEY = 'calendar.sync.status';
+
 function withDb<T>(f: (db: Database.Database) => T): T {
 	const db = new Database('data/hub.db');
 	db.pragma('busy_timeout = 5000');
@@ -26,18 +28,54 @@ function withDb<T>(f: (db: Database.Database) => T): T {
 	}
 }
 
-function seed(id: string): void {
+function seed(id: string, memberIds: string[]): { googleId: string } {
+	const googleId = `${id}-google`;
 	withDb((db) => {
 		const m = db.prepare(
 			"INSERT OR REPLACE INTO members (id, name, role, color) VALUES (?, ?, 'child', ?)"
 		);
-		m.run(`${id}-m1`, `Avery ${id}`, 'member-1');
-		m.run(`${id}-m2`, `Blake ${id}`, 'member-3');
+		m.run(memberIds[0], `Avery ${id}`, 'member-1');
+		m.run(memberIds[1], `Blake ${id}`, 'member-3');
+		db.prepare('DELETE FROM calendar_sources WHERE id = ?').run(googleId);
+		db.prepare(
+			"INSERT INTO calendar_sources (id, provider, label, calendars, last_sync_at) VALUES (?, 'google', ?, ?, ?)"
+		).run(
+			googleId,
+			`Mom's Google ${id}`,
+			JSON.stringify([
+				{ externalId: 'primary', name: 'Mom (primary)', memberId: null },
+				{ externalId: 'birthdays', name: 'Birthdays', memberId: null, selected: false }
+			]),
+			Date.now() - 3 * 60_000
+		);
+	});
+	return { googleId };
+}
+
+function setReauth(sourceId: string, needsReauth: boolean): void {
+	withDb((db) => {
+		const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(STATUS_KEY) as
+			{ value: string } | undefined;
+		const all: Record<string, unknown> = row ? JSON.parse(row.value) : {};
+		if (needsReauth)
+			all[sourceId] = {
+				lastAttemptAt: Date.now(),
+				lastSuccessAt: Date.now() - 3 * 60_000,
+				lastError: 'Google rejected the saved sign-in',
+				needsReauth: true
+			};
+		else delete all[sourceId];
+		db.prepare(
+			'INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+		).run(STATUS_KEY, JSON.stringify(all), Date.now());
 	});
 }
 
-function cleanup(label: string): void {
-	withDb((db) => db.prepare('DELETE FROM calendar_sources WHERE label = ?').run(label));
+function cleanup(ids: string[]): void {
+	withDb((db) => {
+		for (const id of ids) db.prepare('DELETE FROM calendar_sources WHERE id = ?').run(id);
+	});
+	for (const id of ids) setReauth(id, false);
 }
 
 async function shot(page: Page, info: TestInfo, name: string): Promise<void> {
@@ -109,7 +147,8 @@ test.afterAll(() => {
 async function runFlow(page: Page, info: TestInfo): Promise<void> {
 	const tag = `e2e-cs-${info.project.name}-${info.title.includes('phone') ? 'p' : 'w'}`;
 	const label = `School ${tag}`;
-	seed(tag);
+	const googleLabel = `Mom's Google ${tag}`;
+	const { googleId } = seed(tag, [`${tag}-m1`, `${tag}-m2`]);
 	await signInAsAdult(page, `${tag}-adult`);
 	// A real sync touches every source in the shared test database (other specs seed their own),
 	// so it is stubbed here; the source's health is seeded as if a sync had just succeeded.
@@ -124,6 +163,9 @@ async function runFlow(page: Page, info: TestInfo): Promise<void> {
 		const add = page.getByRole('button', { name: 'Add connection' });
 		await expectTappable(add);
 		await add.click();
+		for (const name of ['Google', 'iCloud', 'Subscription link'])
+			await expectTappable(page.getByRole('button', { name })); // choice buttons contain the title
+		await page.getByRole('button', { name: /Subscription link/ }).click();
 		await page.getByLabel('Name this calendar').fill(label);
 		await page.getByLabel('Calendar link').fill(feedUrl);
 		await shot(page, info, 'add-link');
@@ -167,19 +209,63 @@ async function runFlow(page: Page, info: TestInfo): Promise<void> {
 		await expect(page.getByRole('button', { name: 'Sync now' })).toBeEnabled();
 		await expect(row.getByText('OK', { exact: true })).toBeVisible();
 
-		// Remove the ICS connection through the confirm step.
+		// A connection that needs reconnecting: calm banner on both pages.
+		setReauth(googleId, true);
+		await page.goto('/settings');
+		const banner = page.getByTestId('reauth-banner');
+		await expect(banner).toContainText(`${googleLabel} calendar needs reconnecting`);
+		const reconnect = banner.locator(`a[href$="reconnect=${googleId}"]`);
+		await shot(page, info, 'settings-banner');
+		await expectTappable(reconnect);
+		await reconnect.click();
+
+		// The link lands straight in the Google reconnect step.
+		await expect(page.getByRole('heading', { name: `Reconnect ${googleLabel}` })).toBeVisible();
+		let started = 0;
+		let finishBody: Record<string, unknown> = {};
+		await page.route('**/api/calendar/google/start', async (route) => {
+			started++;
+			await route.fulfill({
+				json: { url: new URL('/healthz', page.url()).href, state: 'state-1' }
+			});
+		});
+		await page.route('**/api/calendar/google/finish', async (route) => {
+			finishBody = route.request().postDataJSON();
+			setReauth(googleId, false);
+			await route.fulfill({
+				status: 201,
+				json: { id: googleId, provider: 'google', label: googleLabel, calendars: [] }
+			});
+		});
+		await page.getByRole('button', { name: 'Connect' }).click();
+		await expect(
+			page.getByRole('heading', { name: 'Paste the address you landed on' })
+		).toBeVisible();
+		expect(started).toBe(1);
+		const paste = page.getByLabel('Address you landed on');
+		await expectTappable(paste);
+		await expect(page.getByText('This site can’t be reached')).toHaveCount(0);
+		await shot(page, info, 'google-paste');
+		await paste.fill('http://127.0.0.1:9004/?state=state-1&code=4/0AbCdEfGhIjKlMn&scope=x');
+		await page.getByRole('button', { name: 'Finish' }).click();
+		await expect(page.getByTestId('source-list')).toBeVisible();
+		expect(finishBody).toMatchObject({ state: 'state-1', sourceId: googleId });
+		await expect(page.getByTestId('reauth-banner').getByText(googleLabel)).toHaveCount(0);
 		if (info.title.includes('phone')) await noSideScroll(page);
+
+		// Remove the ICS connection through the confirm step.
 		await row.getByRole('button', { name: 'Delete' }).click();
 		await expect(row.getByText(`Remove ${label}?`)).toBeVisible();
 		await row.getByRole('button', { name: 'Yes, remove' }).click();
 		await expect(page.getByRole('listitem').filter({ hasText: label })).toHaveCount(0);
 	} finally {
-		cleanup(label);
 		withDb((db) => db.prepare('DELETE FROM calendar_sources WHERE id = ?').run(`${tag}-short`));
+		cleanup([googleId]);
+		withDb((db) => db.prepare('DELETE FROM calendar_sources WHERE label = ?').run(label));
 	}
 }
 
-test('add a link, map it, and see its health', async ({ page }, info) => {
+test('add a link, map it, see health, and reconnect Google', async ({ page }, info) => {
 	await runFlow(page, info);
 });
 
@@ -188,4 +274,36 @@ test.describe('phone', () => {
 	test('phone: the same guided flow fits with no sideways scrolling', async ({ page }, info) => {
 		await runFlow(page, info);
 	});
+});
+
+test('iCloud: shows how to get the password and a friendly rejection inline', async ({
+	page
+}, info) => {
+	const tag = `e2e-cs-${info.project.name}-icloud`;
+	await signInAsAdult(page, `${tag}-adult`);
+	await page.route('**/api/calendar/sources', async (route) => {
+		if (route.request().method() !== 'POST') return route.fallback();
+		expect(route.request().postDataJSON()).toMatchObject({
+			provider: 'icloud',
+			appleId: 'jane@example.com'
+		});
+		await route.fulfill({
+			status: 401,
+			json: { message: 'Apple rejected the app-specific password. Make a new one.' }
+		});
+	});
+	await page.goto('/settings/calendars');
+	await page.getByRole('button', { name: 'Add connection' }).click();
+	await page.getByRole('button', { name: /iCloud/ }).click();
+	await page.getByText('How do I get this?').click();
+	await expect(page.getByText('App-Specific Passwords').first()).toBeVisible();
+	await page.getByLabel('Name this calendar').fill('Dad iCloud');
+	await page.getByLabel('Apple ID').fill('jane@example.com');
+	await page.getByLabel('App-specific password').fill('abcd-efgh-ijkl-mnop');
+	await shot(page, info, 'icloud');
+	await page.getByRole('button', { name: 'Connect' }).click();
+	await expect(page.getByTestId('add-connection').getByRole('alert')).toContainText(
+		'Apple rejected the app-specific password'
+	);
+	await expect(page.getByLabel('Apple ID')).toHaveValue('jane@example.com');
 });
