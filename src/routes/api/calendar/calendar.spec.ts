@@ -43,7 +43,9 @@ describe('calendar API', () => {
 
 	it('POST sync runs and reports per-source results', async () => {
 		db.insert(calendarSources).values({ id: 's', provider: 'ics', label: 'L' }).run();
-		const body = await (await sync.POST({} as never)).json();
+		expect(await statusOf(() => sync.POST({ locals: { adult: null } } as never))).toBe(401);
+		const adult = { locals: { adult: { id: 'a', name: 'A' } } } as never;
+		const body = await (await sync.POST(adult)).json();
 		expect(body.s.lastError).toMatch(/not implemented/);
 	});
 
