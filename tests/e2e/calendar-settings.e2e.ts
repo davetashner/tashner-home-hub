@@ -302,6 +302,8 @@ test('iCloud: shows how to get the password and a friendly rejection inline', as
 	await page.getByLabel('App-specific password').fill('abcd-efgh-ijkl-mnop');
 	await shot(page, info, 'icloud');
 	await page.getByRole('button', { name: 'Connect' }).click();
-	await expect(page.getByRole('alert')).toContainText('Apple rejected the app-specific password');
+	await expect(page.getByTestId('add-connection').getByRole('alert')).toContainText(
+		'Apple rejected the app-specific password'
+	);
 	await expect(page.getByLabel('Apple ID')).toHaveValue('jane@example.com');
 });
