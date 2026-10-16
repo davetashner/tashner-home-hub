@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { px } from './tap';
 
 const destinations = ['Calendar', 'Chores', 'Photos', 'Lists', 'Meals'];
 
@@ -40,8 +41,8 @@ test('shell controls meet the 60px touch minimum', async ({ page }) => {
 		const box = (await controls.nth(i).boundingBox())!;
 		const label =
 			(await controls.nth(i).innerText()) || (await controls.nth(i).getAttribute('aria-label'));
-		expect(box.width, `${label} width`).toBeGreaterThanOrEqual(60);
-		expect(box.height, `${label} height`).toBeGreaterThanOrEqual(60);
+		expect(px(box.width), `${label} width`).toBeGreaterThanOrEqual(60);
+		expect(px(box.height), `${label} height`).toBeGreaterThanOrEqual(60);
 	}
 });
 
