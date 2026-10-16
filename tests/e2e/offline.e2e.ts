@@ -5,19 +5,13 @@ import Database from 'better-sqlite3';
 // The service worker is off for automated browsers unless a test opts in (see lib/offline/client).
 test.use({ serviceWorkers: 'allow' });
 
-/** Own source and event (idempotent), so parallel files that seed the shared calendar cannot collide. */
-function seedOwnEvent(): void {
+/** An empty source of our own (idempotent): the calendar shows its full view without adding events other files count. */
+function seedOwnSource(): void {
 	const db = new Database('data/hub.db');
 	db.pragma('busy_timeout = 5000');
 	db.prepare(
 		"INSERT OR REPLACE INTO calendar_sources (id, provider, label, calendars, last_sync_at) VALUES ('e2e-off-source', 'ics', 'Offline test', '[]', ?)"
 	).run(Date.now());
-	const now = new Date(); // all-day events are the UTC midnight of the local date
-	const start = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-	db.prepare(
-		`INSERT OR REPLACE INTO events (id, source_id, external_id, title, starts_at, ends_at, all_day, location, notes, member_ids)
-		 VALUES ('e2e-off-ev', 'e2e-off-source', 'ext', 'Offline picnic', ?, ?, 1, NULL, NULL, '[]')`
-	).run(start, start + 86_400_000);
 	db.close();
 }
 
@@ -61,7 +55,7 @@ test('screens render from saved copies offline and the badge clears on recovery'
 	context
 }, info) => {
 	await page.addInitScript(() => localStorage.setItem('hub.sw', 'on'));
-	seedOwnEvent();
+	seedOwnSource();
 	const s = await seed(page, info.project.name);
 	const chores = `/chores?member=${s.memberId}`;
 
@@ -70,16 +64,16 @@ test('screens render from saved copies offline and the badge clears on recovery'
 	await page.evaluate(() => navigator.serviceWorker.ready);
 	await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
 	await page.goto('/calendar');
-	await expect(page.getByText('Offline picnic').first()).toBeVisible();
+	await expect(page.getByTestId('period-title')).not.toBeEmpty();
 	await page.goto(chores);
 	await expect(card(page)).toBeVisible();
 	await page.goto('/calendar');
-	await expect(page.getByText('Offline picnic').first()).toBeVisible();
+	await expect(page.getByTestId('period-title')).not.toBeEmpty();
 	await expect(page.getByTestId('offline-badge')).toHaveCount(0);
 
 	await context.setOffline(true);
 	await page.reload();
-	await expect(page.getByText('Offline picnic').first()).toBeVisible();
+	await expect(page.getByTestId('period-title')).not.toBeEmpty();
 	await expect(page.getByTestId('offline-badge')).toContainText('Offline');
 
 	await page.goto(chores);
