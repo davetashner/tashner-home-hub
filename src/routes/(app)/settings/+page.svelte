@@ -52,6 +52,12 @@
 			emoji: '🖼️',
 			title: 'Photo library',
 			line: 'Folders and albums for the photo frame.'
+		},
+		{
+			href: resolve('/(app)/settings/screen'),
+			emoji: '⏱️',
+			title: 'Screen',
+			line: 'When to go back home and start the photo frame.'
 		}
 	]);
 </script>
