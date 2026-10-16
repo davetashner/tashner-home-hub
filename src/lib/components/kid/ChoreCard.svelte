@@ -126,7 +126,22 @@
 				style:animation-duration="{UNDO_WINDOW_MS}ms"
 				aria-hidden="true"
 			></span>
-			<span class="relative whitespace-nowrap">↩ Undo</span>
+			<span class="relative inline-flex items-center gap-2 whitespace-nowrap">
+				<!-- An icon, not the "↩" glyph: that character is not in the UI font, and the first-ever
+				     system-font fallback lookup cost the first tap ~60 ms of layout at 4x CPU throttle. -->
+				<svg
+					viewBox="0 0 24 24"
+					aria-hidden="true"
+					class="size-8 shrink-0 fill-none stroke-current"
+					stroke-width="3"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M9 14L4 9l5-5" />
+					<path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+				</svg>
+				Undo
+			</span>
 			<span class="relative tabular-nums" data-testid="undo-seconds">
 				{undoSecondsLeft(undoStartedAt, now)}
 			</span>
