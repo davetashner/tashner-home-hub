@@ -47,6 +47,21 @@ docker compose up -d
 
 If the image is not published yet, clone the repo instead and run `docker compose up -d --build`.
 
+## 3c. Photo frame folder
+
+The idle screen shows photos from a plain folder. Mount your photo share read-only by setting
+`HUB_PHOTO_DIR` in `.env` (the compose file maps it to `/media/photos-in:ro`):
+
+```
+HUB_PHOTO_DIR=/mnt/user/Photos
+HUB_PHOTO_ROOTS=/media/photos-in
+```
+
+Top-level subfolders become albums. Then open **Settings > Photo library**, add `/media/photos-in`,
+choose albums, and tap **Scan now**. The hub rescans every 15 minutes, never writes to the share,
+and ignores symlinks, hidden files, sidecars, and videos. Paths outside `HUB_PHOTO_ROOTS` are refused.
+Make sure the container user (`PUID`/`PGID`, 99:100 on Unraid) can read the share.
+
 ## 4. Verify
 
 ```sh
