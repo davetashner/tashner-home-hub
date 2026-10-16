@@ -47,3 +47,7 @@ Use the Mac's LAN name or a reserved IP (for example `http://hub.local:3000` or 
 ```sh
 docker compose pull && docker compose up -d
 ```
+
+## Backups
+
+The hub backs itself up nightly into `backups/` under the data folder. Make sure Time Machine includes the data folder as a second layer. See [backup-restore.md](backup-restore.md) for retention and how to restore.

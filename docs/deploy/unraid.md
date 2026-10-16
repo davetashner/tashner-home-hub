@@ -69,3 +69,7 @@ Pin a release with `HUB_TAG=<version>` in `.env` to avoid surprise upgrades.
 - `EACCES` / "permission denied" on `/data`: the data folder is not owned by `PUID:PGID`. Re-run the `chown` above.
 - Port taken: change `HUB_PORT`.
 - Logs: `docker compose logs -f hub` (rotated at 3 x 10 MB).
+
+## Backups
+
+The hub backs itself up nightly into `backups/` under the data folder. Also include the hub appdata folder in Unraid's appdata backup. See [backup-restore.md](backup-restore.md) for retention and how to restore.
