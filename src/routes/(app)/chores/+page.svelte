@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { deliver, onWriteDropped, writeQueue } from '#lib/offline/client.js';
+	import { offline } from '#lib/offline/state.svelte.js';
 	import { page } from '$app/state';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import ChoreCard from '#lib/components/kid/ChoreCard.svelte';
@@ -18,10 +20,12 @@
 		GROUP_HEADINGS,
 		localDate,
 		setStatus,
+		UNDO_WINDOW_MS,
 		switcherMembers,
 		type KidChore,
 		type KidGroup
 	} from '#lib/domain/kid-chores.js';
+	import { overlayQueued } from '#lib/domain/write-queue.js';
 
 	interface Member {
 		id: string;
@@ -29,7 +33,7 @@
 		color: MemberColor;
 		avatar: string | null;
 	}
-	type Completion = { id: string; status: KidChore['status'] };
+	type Completion = { id: string | null; status: KidChore['status'] };
 
 	const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -53,15 +57,8 @@
 	const selected = $derived(members.find((m) => m.id === selectedId) ?? null);
 	const groups = $derived(selectedId ? (boards[selectedId] ?? []) : []);
 
-	async function api<T>(url: string, body?: object): Promise<T> {
-		const res = await fetch(
-			url,
-			body && {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(body)
-			}
-		);
+	async function api<T>(url: string): Promise<T> {
+		const res = await fetch(url);
 		if (!res.ok) throw new Error(String(res.status));
 		return (await res.json()) as T;
 	}
@@ -73,6 +70,8 @@
 	}
 
 	async function loadStars(id: string) {
+		// Saved copies would undo the tap we are still holding for the server.
+		if (offline.queued > 0) return;
 		const [s, g] = await Promise.all([
 			api<{ balance: number; pending: number }>(`/api/members/${id}/stars?limit=1`),
 			api<(Goal & { reward: Goal }) | null>(`/api/members/${id}/goal`)
@@ -99,6 +98,7 @@
 				)
 			);
 			if (busy()) return;
+			const queued = await writeQueue.pending();
 			const approved = selectedId
 				? approvedTransitions(
 						boards[selectedId],
@@ -106,7 +106,9 @@
 					)
 				: { count: 0, stars: 0 };
 			members = list;
-			boards = Object.fromEntries(entries);
+			boards = Object.fromEntries(
+				entries.map(([id, g]) => [id, overlayQueued(g, id, queued)] as const)
+			);
 			const options = switcherMembers(list, boards);
 			if (!options.some((m) => m.id === selectedId)) {
 				// ?member=<id> picks a child until the avatar switcher lands (follow-up).
@@ -125,7 +127,16 @@
 		}
 	}
 
+	// Queued taps just reached the server: pick up the real state.
+	$effect(() => {
+		if (offline.synced > 0) void refresh();
+	});
+
 	onMount(() => {
+		onWriteDropped(() => {
+			say('Hmm, that one is already with the grown-ups.');
+			void refresh();
+		});
 		preloadCelebrations();
 		void refresh();
 		const onVisible = () => document.visibilityState === 'visible' && void refresh();
@@ -135,6 +146,7 @@
 			document.removeEventListener('visibilitychange', onVisible);
 			clearInterval(timer);
 			clearTimeout(messageTimer);
+			onWriteDropped(null);
 			clearTimeout(allDoneTimer);
 		};
 	});
@@ -174,13 +186,25 @@
 		undoStarts[chore.id] = Date.now();
 		celebrate({ choreId: chore.id, memberId, stars: chore.stars, origin: card, jar });
 		maybeAllDone(memberId);
-		const request = api<{ completion: Completion }>(`/api/chores/${chore.id}/complete`, {
-			memberId,
-			date: localDate(Date.now(), tz)
+		const request = deliver<{ completion: Completion }>({
+			kind: 'complete',
+			url: `/api/chores/${chore.id}/complete`,
+			body: { memberId, date: localDate(Date.now(), tz) },
+			choreId: chore.id
 		})
-			.then(({ completion }) => {
-				patch(memberId, (g) => setStatus(g, chore.id, completion.status, completion.id));
-				return completion;
+			.then((r): Completion | null => {
+				if (r.sent) {
+					patch(memberId, (g) =>
+						setStatus(g, chore.id, r.data.completion.status, r.data.completion.id)
+					);
+					return r.data.completion;
+				}
+				if (r.queued) {
+					// Offline: the tap is saved on this device and goes out when we reconnect.
+					say('Saved! It will count as soon as we are back online.');
+					return { id: null, status: 'pending' };
+				}
+				throw new Error(String(r.status));
 			})
 			.catch(() => {
 				patch(memberId, (g) => setStatus(g, chore.id, 'none', null));
@@ -200,14 +224,25 @@
 		const memberId = selectedId;
 		if (!memberId) return;
 		const pendingRequest = inflight[chore.id];
+		const startedAt = undoStarts[chore.id] ?? Date.now();
 		patch(memberId, (g) => setStatus(g, chore.id, 'none', null));
 		stars.pending = Math.max(0, stars.pending - chore.stars);
 		dropUndo(chore.id);
 		const completion = pendingRequest ? await pendingRequest : { id: chore.completionId };
-		if (!completion?.id) return;
-		try {
-			await api(`/api/completions/${completion.id}/undo`, {});
-		} catch {
+		if (!completion) return;
+		if (!completion.id) {
+			// The tap is still waiting in the queue: taking it back just means never sending it.
+			await writeQueue.cancelComplete(chore.id);
+			return;
+		}
+		const r = await deliver({
+			kind: 'undo',
+			url: `/api/completions/${completion.id}/undo`,
+			body: {},
+			choreId: chore.id,
+			expiresAt: startedAt + UNDO_WINDOW_MS
+		});
+		if (!r.sent && !r.queued) {
 			patch(memberId, (g) => setStatus(g, chore.id, 'pending', completion.id));
 			stars.pending += chore.stars;
 			say('Hmm, that one is already with the grown-ups.');
