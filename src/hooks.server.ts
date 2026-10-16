@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
 import { getDb } from '#lib/server/db/index.js';
+import { startBackupScheduler } from '#lib/server/backup.js';
 import { isRequestAllowed } from '#lib/server/domain/network.js';
 
 const allowPublic = process.env.HUB_ALLOW_PUBLIC === 'true';
@@ -22,4 +23,5 @@ export const handle: Handle = async ({ event, resolve }) => {
 /** Opens the database and applies pending migrations once, at server startup. */
 export function init(): void {
 	getDb();
+	startBackupScheduler();
 }
