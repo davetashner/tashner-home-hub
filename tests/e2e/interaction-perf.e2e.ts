@@ -153,10 +153,9 @@ test('"I did it!" responds within 100 ms of our own work at 4x throttle', async 
 	const warm = await read(page);
 	await throttle(cdp, 1);
 	checkTap('I did it (warm)', info, warm);
-	// Known gap, see hub-ugl.4.8: the cold first tap costs ~80-120 ms of handler time
-	// at 4x (observed 77-270 ms), over the 100 ms INP budget and too noisy to gate. Until that is fixed it is
-	// logged, and only the response frame is gated.
-	checkTap('I did it (cold)', info, cold, { budgetMs: Infinity });
+	// The cold first tap used to cost 85-140 ms (hub-ugl.4.8): the "↩" glyph in the Undo button forced a
+	// first-ever system-font fallback lookup inside the tap's layout. It is an SVG now; ~12-27 ms at 4x.
+	checkTap('I did it (cold)', info, cold);
 });
 
 test('primary nav responds within 100 ms of our own work at 4x throttle', async ({
