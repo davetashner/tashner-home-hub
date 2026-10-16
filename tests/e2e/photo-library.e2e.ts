@@ -28,7 +28,13 @@ test('add a folder, pick albums, scan, hide a photo', async ({ page }, info) => 
 	await expect(page.getByRole('alert')).toContainText('outside the allowed');
 
 	await page.getByLabel('Folder path').fill(root);
+	// Wait on the add itself, so a slow or failed request is reported as that, not as a missing card.
+	const added = page.waitForResponse(
+		(r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/photo-sources',
+		{ timeout: 5_000 }
+	);
 	await add.click();
+	expect((await added).status()).toBe(201);
 	const card = page.getByTestId(`source-Lib ${name}`);
 	await expect(card.getByTestId('scan-status')).toContainText('2 photos');
 	await expect(card.getByText('Trip')).toBeVisible();
