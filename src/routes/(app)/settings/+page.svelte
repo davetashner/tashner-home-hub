@@ -2,6 +2,10 @@
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { badgeLabel } from '#lib/domain/approvals.js';
+	import ReauthBanner from '#lib/components/calendar-settings/ReauthBanner.svelte';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
 
 	let pending = $state(0);
 	onMount(async () => {
@@ -26,6 +30,12 @@
 			line: 'Who lives here, their colors and avatars.'
 		},
 		{
+			href: resolve('/(app)/settings/calendars'),
+			emoji: '📅',
+			title: 'Calendars',
+			line: 'Connect Google, iCloud or a link, and check they are working.'
+		},
+		{
 			href: resolve('/(app)/settings/chores'),
 			emoji: '🧹',
 			title: 'Chores',
@@ -46,6 +56,7 @@
 
 <section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
 	<h1 class="text-headline font-extrabold">Settings</h1>
+	<ReauthBanner sources={data.reauth} />
 	<ul class="flex flex-col gap-4">
 		{#each sections as section (section.href)}
 			<li>

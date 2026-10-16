@@ -10,7 +10,7 @@ import {
 	utimes,
 	writeFile
 } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
+import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { getDb, schema, type Db } from '../db/index.js';
 import {
@@ -22,6 +22,7 @@ import {
 	type PhotoPart,
 	type Size
 } from '../domain/photo-fit.js';
+import { resolvePhotoPath } from '../photo-source/paths.js';
 import { readSourceInfo, renderBackdrop, renderMain } from './render.js';
 
 export interface PhotoCacheOptions {
@@ -202,12 +203,13 @@ let instance: PhotoCache | undefined;
 
 /** App-wide cache at `${DATA_DIR}/photo-cache`. */
 export function getPhotoCache(): PhotoCache {
+	const db = getDb();
 	instance ??= new PhotoCache({
-		db: getDb(),
+		db,
 		dir: join(process.env.DATA_DIR ?? './data', 'photo-cache'),
 		maxBytes: cacheMaxBytes(),
 		concurrency: 1,
-		resolvePath: (p) => (isAbsolute(p.filePath) ? p.filePath : join(process.cwd(), p.filePath))
+		resolvePath: (p) => resolvePhotoPath(db, p)
 	});
 	return instance;
 }
