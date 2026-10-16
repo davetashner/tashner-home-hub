@@ -16,6 +16,12 @@ export function openDb(file: string, migrationsFolder = MIGRATIONS_DIR): Db {
 	sqlite.pragma('journal_mode = WAL');
 	sqlite.pragma('foreign_keys = ON');
 	const db = drizzle(sqlite, { schema });
+	// Write transactions read, then write. A deferred BEGIN fails at once (SQLITE_BUSY_SNAPSHOT,
+	// which busy_timeout cannot wait out) if another connection commits in between, so take
+	// the write lock up front unless a caller asks otherwise.
+	const transaction = db.transaction.bind(db);
+	db.transaction = ((fn, config) =>
+		transaction(fn, { behavior: 'immediate', ...config })) as typeof db.transaction;
 	migrate(db, { migrationsFolder });
 	return db;
 }

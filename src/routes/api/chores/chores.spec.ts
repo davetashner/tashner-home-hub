@@ -9,6 +9,7 @@ const { getDb, schema } = await import('#lib/server/db/index.js');
 const list = await import('./+server.js');
 const one = await import('./[id]/+server.js');
 const archive = await import('./[id]/archive/+server.js');
+const completeRoute = await import('./[id]/complete/+server.js');
 const memberChores = await import('../members/[id]/chores/+server.js');
 
 const adult = { adult: { id: 'adult', name: 'Test Adult' } };
@@ -94,5 +95,31 @@ describe('chores API', () => {
 		await expect(call(archive.POST, { params: { id: 'nope' } })).rejects.toMatchObject({
 			status: 404
 		});
+	});
+
+	it('replaying a queued completion (same Idempotency-Key) awards stars once', async () => {
+		const chore = await (
+			await call(list.POST, {
+				request: req('POST', { title: 'Offline job', memberIds: ['kid'], stars: 2 })
+			})
+		).json();
+		const replay = () =>
+			anon(completeRoute.POST, {
+				params: { id: chore.id },
+				request: new Request('http://example.com/x', {
+					method: 'POST',
+					headers: { 'idempotency-key': 'k-1' },
+					body: JSON.stringify({ memberId: 'kid', date: '2026-01-05' })
+				})
+			});
+		const first = await (await replay()).json();
+		const second = await (await replay()).json();
+		expect(second.completion.id).toBe(first.completion.id);
+		const rows = getDb()
+			.select()
+			.from(schema.starTransactions)
+			.all()
+			.filter((t) => t.refId === first.completion.id);
+		expect(rows).toHaveLength(1);
 	});
 });

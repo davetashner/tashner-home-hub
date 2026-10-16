@@ -154,6 +154,15 @@ describe('POST /api/auth/logout', () => {
 		expect((await call(logout, e)).status).toBe(200);
 		expect(e.cookies.jar.size).toBe(0);
 	});
+
+	it('leaves later requests without an adult, and is safe with no session', async () => {
+		const cookies = new FakeCookies();
+		auth.issueSession(ev({}, { cookies }) as never, 'a1', true);
+		expect(auth.resolveAdult(ev({}, { cookies }) as never)).not.toBeNull();
+		expect((await call(logout, ev({}, { cookies }))).status).toBe(200);
+		expect(auth.resolveAdult(ev({}, { cookies }) as never)).toBeNull();
+		expect((await call(logout, ev({}))).status).toBe(200);
+	});
 });
 
 describe('POST /api/members/[id]/pin', () => {

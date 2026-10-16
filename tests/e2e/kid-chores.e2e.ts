@@ -82,12 +82,12 @@ test('tap shows pending instantly, even while the network is slow; undo restores
 	await expect(card(page, 'Brush teeth')).toHaveAttribute('data-status', 'undone');
 });
 
-test('a tap that fails reverts with a gentle message', async ({ page }, info) => {
+test('a tap the server refuses reverts with a gentle message', async ({ page }, info) => {
 	const s = await seed(page, `fail ${info.project.name}`);
 	await open(page, s);
 	await page.route('**/api/chores/*/complete', async (route) => {
 		await new Promise((r) => setTimeout(r, 800));
-		await route.abort();
+		await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
 	});
 	const fish = card(page, 'Feed the fish');
 	await fish.getByTestId('did-it').click();
