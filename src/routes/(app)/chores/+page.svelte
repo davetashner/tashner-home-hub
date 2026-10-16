@@ -24,7 +24,6 @@
 	}
 	type Completion = { id: string; status: KidChore['status'] };
 
-	const REFRESH_MS = 60_000;
 	const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 	let loaded = $state(false);
@@ -111,7 +110,7 @@
 		void refresh();
 		const onVisible = () => document.visibilityState === 'visible' && void refresh();
 		document.addEventListener('visibilitychange', onVisible);
-		const timer = setInterval(() => void refresh(), REFRESH_MS);
+		const timer = setInterval(() => void refresh(), 60_000);
 		return () => {
 			document.removeEventListener('visibilitychange', onVisible);
 			clearInterval(timer);

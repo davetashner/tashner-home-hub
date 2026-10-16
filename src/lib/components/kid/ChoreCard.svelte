@@ -16,7 +16,6 @@
 		onundoexpire
 	}: {
 		chore: KidChore;
-		/** When the tap happened, while the "Oops, undo" pill is still open. */
 		undoStartedAt?: number | null;
 		ondone: (chore: KidChore, card: HTMLElement) => void;
 		onundo: (chore: KidChore) => void;

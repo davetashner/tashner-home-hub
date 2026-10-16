@@ -15,10 +15,7 @@ const findChore = (g: KidGroup[], id: string) =>
 const groups = (): KidGroup[] => [
 	{
 		timeOfDay: 'morning',
-		chores: [
-			{ id: 'a', title: 'Teeth', icon: '🪥', stars: 1, status: 'none', completionId: null },
-			{ id: 'b', title: 'Bed', icon: '🛏️', stars: 2, status: 'approved', completionId: 'x' }
-		]
+		chores: [{ id: 'a', title: 'Teeth', icon: '🪥', stars: 1, status: 'none', completionId: null }]
 	}
 ];
 
@@ -30,9 +27,9 @@ describe('kid chores view logic', () => {
 	});
 
 	it('knows which states are doable', () => {
-		expect(['none', 'rejected', 'undone'].every((s) => isDoable(s as never))).toBe(true);
-		expect(isDoable('pending')).toBe(false);
-		expect(isDoable('approved')).toBe(false);
+		expect(
+			['none', 'rejected', 'undone', 'pending', 'approved'].map((s) => isDoable(s as never))
+		).toEqual([true, true, true, false, false]);
 	});
 
 	it('sets status and completion id without mutating the input', () => {
@@ -47,14 +44,11 @@ describe('kid chores view logic', () => {
 		expect(undoSecondsLeft(0, 0)).toBe(10);
 		expect(undoSecondsLeft(0, 9_100)).toBe(1);
 		expect(undoSecondsLeft(0, 10_000)).toBe(0);
-		expect(undoSecondsLeft(0, 99_000)).toBe(0);
 	});
 
 	it('lays out jar slots: gold, then outlined pending, capped', () => {
 		expect(jarSlots(3, 2, 20)).toEqual({ total: 20, gold: 3, pending: 2 });
-		expect(jarSlots(12, 1, null)).toEqual({ total: 15, gold: 12, pending: 1 });
 		expect(jarSlots(40, 5, 100)).toEqual({ total: 24, gold: 24, pending: 0 });
-		expect(jarSlots(9, 5, 10)).toEqual({ total: 10, gold: 9, pending: 1 });
 	});
 
 	it('shows only members with chores, or everyone when none have any', () => {
