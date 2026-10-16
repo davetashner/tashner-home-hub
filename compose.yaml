@@ -13,6 +13,11 @@ services:
       - '${HUB_PORT:-3000}:3000'
     volumes:
       - ${HUB_DATA_DIR:-./data}:/data
+      # Photo frame source (read-only). Point the host side at your photo folder/share, e.g.
+      # Unraid: /mnt/user/Photos   Mac Studio: /Users/<you>/HubPhotos (osxphotos export target).
+      # Then add /media/photos-in in Settings > Photo library. Override the allowed container
+      # paths with HUB_PHOTO_ROOTS (comma-separated) in .env.
+      - ${HUB_PHOTO_DIR:-./photo-library}:/media/photos-in:ro
     env_file:
       - path: .env
         required: false

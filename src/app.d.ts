@@ -3,7 +3,10 @@
 declare global {
 	namespace App {
 		// interface Error {}
-		// interface Locals {}
+		interface Locals {
+			/** The adult unlocked by a valid PIN session, or null. */
+			adult: { id: string; name: string } | null;
+		}
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}

@@ -1,6 +1,14 @@
 import { error } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
 import { getDb } from '#lib/server/db/index.js';
+import { startBackupScheduler } from '#lib/server/backup.js';
+import { resolveAdult } from '#lib/server/auth.js';
+import { startPhotoScanner } from '#lib/server/photo-source/scheduler.js';
+import { startCalendarScheduler } from '#lib/server/calendar/scheduler.js';
+// Side-effect imports register the real calendar providers before the first scheduled sync.
+import '#lib/server/calendar/ics.js';
+import '#lib/server/calendar/google.js';
+import '#lib/server/calendar/icloud.js';
 import { isRequestAllowed } from '#lib/server/domain/network.js';
 
 const allowPublic = process.env.HUB_ALLOW_PUBLIC === 'true';
@@ -16,10 +24,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (!isRequestAllowed(clientAddress, { allowPublic })) {
 		error(403, 'Forbidden: this hub only accepts connections from the local network');
 	}
+	event.locals.adult = resolveAdult(event);
 	return resolve(event);
 };
 
 /** Opens the database and applies pending migrations once, at server startup. */
 export function init(): void {
 	getDb();
+	startBackupScheduler();
+	startCalendarScheduler();
+	startPhotoScanner();
 }

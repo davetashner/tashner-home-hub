@@ -86,6 +86,9 @@ pnpm build            # production build
 
 Run `pnpm gates` before opening a PR. A red CI is never merged.
 
+**Worktree quirk:** worktrees live inside the main checkout, and Vite looks up parent folders for a `tsconfig.json`. If `pnpm test` fails with "Tsconfig not found", the main checkout's dependencies are stale: the lead runs `pnpm install && pnpm exec svelte-kit sync` in the main checkout after each merge. Workers: report it instead of editing the main checkout.
+
+
 ## Architecture Overview
 
 - **Decisions:** `docs/decisions/` — ADR 0001 (tech stack) and ADR 0002 (CI quality gates) are binding. Read them before starting work.
@@ -98,7 +101,7 @@ Run `pnpm gates` before opening a PR. A red CI is never merged.
 ### Non-negotiable (CI enforces most of these — see ADR 0002)
 
 - **Public repo:** never commit secrets or private family data — no real names, photos, calendars, addresses, emails, phone numbers, or EXIF location data. Fixtures are synthetic. Real data lives only in the runtime data volume.
-- **Don't move the goalposts:** never loosen thresholds, delete or skip tests, update visual baselines, or edit `.github/`, `budgets.json`, lint configs, or ADRs to get CI green. Those changes need a human (`needs-human` / `visual-approved` labels). If a gate seems wrong, open a bead explaining why and stop.
+- **Don't move the goalposts:** never loosen thresholds, delete or skip tests, update visual baselines, or edit protected files to get CI green. Protected: `.github/`, `scripts/ci/`, `budgets.json`, lint/format/test/build configs, `pnpm-workspace.yaml`, `.npmrc`, the `scripts` section of `package.json`, and `docs/decisions/` (full list: `scripts/ci/protected-paths.mjs`). Those changes need a human (`needs-human` / `visual-approved` labels). If a gate seems wrong, open a bead explaining why and stop.
 - **Responsiveness:** every tap updates the UI first (optimistic), then syncs. Never block a tap on the network.
 - **Animation:** animate only `transform`, `opacity`, and `filter`.
 - **Design tokens only:** no raw hex colors, arbitrary Tailwind values, or ad-hoc font sizes. Add a token if one is missing.
@@ -112,6 +115,8 @@ Run `pnpm gates` before opening a PR. A red CI is never merged.
 - Server-only code lives in `src/lib/server/`. The container serves `/healthz`; keep it cheap.
 - Colors, type sizes, radii, and tap sizes come from the `@theme` tokens in `src/routes/layout.css`. Tailwind's default palette is disabled on purpose.
 - E2E tests live in `tests/e2e/*.e2e.ts` and run in landscape and portrait wall viewports.
+- **Mutations use JSON `fetch` to `src/routes/api/**`, never SvelteKit form actions.** adapter-node 6 has no runtime `ORIGIN` setting and assumes `https`, so form POSTs over the plain-http LAN fail SvelteKit's CSRF check. JSON requests are safe here: browsers block cross-origin JSON POSTs (no CORS headers are ever sent), access is LAN-only, and session cookies are `SameSite=Strict`. Never disable `csrf.checkOrigin`.
+- Adult-only API routes call `requireAdult(event)` from `src/lib/server/auth.ts`; create chores through `createChore` so approval defaults to on.
 
 ### PR labels (humans only)
 
