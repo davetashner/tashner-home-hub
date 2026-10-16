@@ -67,6 +67,23 @@ GET {HUB_URL}/api/display/orientation
 
 `rotation` is a `wlr-randr --transform` value, so it maps straight onto the `ORIENTATION` table above (the same matrices apply). `orientation` is `portrait` for 90 and 270. Until someone changes it the answer is `normal`. The page layout follows the real screen shape by itself; the agent only has to rotate the output and touch input.
 
+### Display power (sleep schedule)
+
+The hub decides when the screen should be on. The agent only polls and obeys (SLP-1..3). All three endpoints are unauthenticated (LAN only) and answer `cache-control: no-store`:
+
+```
+GET  {HUB_URL}/api/display/power
+-> { "power": "on" | "off", "reason": "schedule" | "sleep-now" | "wake" | "disabled", "until"?: ISO time }
+
+POST {HUB_URL}/api/display/wake    (touch while the screen is off; same body as above)
+POST {HUB_URL}/api/display/sleep   (the nav "Sleep" button; same body, status 202)
+```
+
+- Poll `GET /api/display/power` every few seconds and switch the monitor to `power`. `until` is when the hub expects the next change (informational; keep polling).
+- When the screen is off and is touched, call `POST /api/display/wake`, then switch on at once and keep polling. At night the hub puts the screen back to sleep after the re-sleep timeout (default 2 min, `reason: "wake"` while it is on); a touch while on does not need a call, but calling again restarts the timeout. In the day a wake changes nothing.
+- "Sleep now" keeps the screen off until the next scheduled wake-up (or a touch). With the schedule switched off it lasts until a touch.
+- Schedule: Settings, Sleep schedule (default 21:30 off, 06:30 on). A night counts as a weekend night when the morning it ends on is a Saturday or Sunday (so Friday and Saturday bedtimes use the weekend times). Times are in the household time zone.
+
 ## Updating
 
 - Kiosk files: `git pull`, `sudo ./install.sh`, reboot. The script is idempotent.
