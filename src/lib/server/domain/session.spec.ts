@@ -26,6 +26,12 @@ describe('sessions', () => {
 		const p = newSession('m1', false, 1000);
 		expect(verifySession(key, signSession(key, p), 2000)).toEqual(p);
 	});
+	it('carries the epoch, and reads cookies from before epochs existed as epoch 0', () => {
+		expect(verifySession(key, signSession(key, newSession('m1', false, 1000, 4)), 2000)?.e).toBe(4);
+		const legacy: Partial<ReturnType<typeof newSession>> = newSession('m1', false, 1000);
+		delete legacy.e;
+		expect(verifySession(key, signSession(key, legacy as never), 2000)?.e).toBe(0);
+	});
 	it('rejects expired tokens', () => {
 		const p = newSession('m1', false, 1000);
 		expect(verifySession(key, signSession(key, p), p.exp)).toBeNull();
