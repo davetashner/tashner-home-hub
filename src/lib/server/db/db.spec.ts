@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { eq, is } from 'drizzle-orm';
 import { getTableConfig, SQLiteTable } from 'drizzle-orm/sqlite-core';
@@ -81,6 +82,55 @@ describe('migrations', () => {
 			expect(db.$client.pragma('journal_mode', { simple: true })).toBe('wal');
 			expect(db.$client.pragma('foreign_keys', { simple: true })).toBe(1);
 			db.$client.close();
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('write transactions', () => {
+	/** Reads in `db`'s transaction, lets another connection commit, then writes. */
+	function readOtherCommitsWrite(file: string, behavior?: 'deferred') {
+		const db = openDb(file);
+		const other = new Database(file, { timeout: 0 });
+		let otherError: string | undefined;
+		try {
+			db.transaction((tx) => {
+				tx.select().from(members).all();
+				try {
+					other
+						.prepare(
+							"INSERT INTO members (id, name, role, color) VALUES ('o', 'O', 'child', 'blue')"
+						)
+						.run();
+				} catch (e) {
+					otherError = (e as { code?: string }).code;
+				}
+				seedMember(tx as unknown as Db, 'm-tx');
+			}, behavior && { behavior });
+			return { otherError };
+		} finally {
+			other.close();
+			db.$client.close();
+		}
+	}
+
+	it('take the write lock up front, so a concurrent commit cannot fail them', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'hub-db-'));
+		try {
+			// The other writer waits (here: fails fast) instead of breaking this transaction.
+			expect(readOtherCommitsWrite(join(dir, 'hub.db')).otherError).toBe('SQLITE_BUSY');
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it('would fail with a stale snapshot when deferred (why immediate is the default)', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'hub-db-'));
+		try {
+			expect(() => readOtherCommitsWrite(join(dir, 'hub.db'), 'deferred')).toThrow(
+				/database is locked|SQLITE_BUSY/
+			);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
