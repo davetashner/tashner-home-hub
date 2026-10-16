@@ -23,7 +23,7 @@
 
 | Layer | Choice | Why |
 |---|---|---|
-| UI framework | **Svelte 5 + SvelteKit 2** | Compiles to small, direct DOM updates with no virtual DOM. The smallest bundles and least runtime overhead of the mainstream frameworks, which matters most on the Pi. Built-in transitions, springs, and tweens make the polished animations (star flying into the jar, slide transitions) easy to write. |
+| UI framework | **Svelte 5 + SvelteKit 3** | Compiles to small, direct DOM updates with no virtual DOM. The smallest bundles and least runtime overhead of the mainstream frameworks, which matters most on the Pi. Built-in transitions, springs, and tweens make the polished animations (star flying into the jar, slide transitions) easy to write. |
 | Styling | **Tailwind CSS v4** + CSS custom-property design tokens | Fast to iterate, no runtime cost, easy theming (day/night, seasonal later). |
 | Animation | CSS transforms/opacity + Svelte motion; **canvas-confetti** for confetti; optional **dotLottie** (WASM) for 1–2 hand-made celebration animations | Animate only `transform`/`opacity` so the Pi's GPU composites without relayout. |
 | Fonts/icons | Self-hosted variable font (e.g. Nunito or Inter), **Lucide** icons + emoji for chores | No network fetches; friendly look that reads well across a room. |

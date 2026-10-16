@@ -90,7 +90,7 @@ Run `pnpm gates` before opening a PR. A red CI is never merged.
 
 - **Decisions:** `docs/decisions/` — ADR 0001 (tech stack) and ADR 0002 (CI quality gates) are binding. Read them before starting work.
 - **Requirements:** `requirements.md`. Requirement IDs (e.g. CHO-4, SLP-2) appear in bead descriptions.
-- **Stack:** SvelteKit 2 / Svelte 5 + TypeScript (strict), Tailwind CSS v4 with design tokens, Node LTS (`adapter-node`), SQLite + Drizzle, SSE for live updates, service worker + IndexedDB for offline.
+- **Stack:** SvelteKit 3 / Svelte 5 + TypeScript (strict), Tailwind CSS v4 with design tokens, Node LTS (`adapter-node`), SQLite + Drizzle, SSE for live updates, service worker + IndexedDB for offline.
 - **Topology:** one server container (Unraid now, Mac Studio from December 2026) → a Raspberry Pi 5 kiosk (Chromium) drives a 24" 4K touch display. A small Python display agent on the Pi handles screen power and touch-to-wake.
 
 ## Conventions & Patterns
@@ -105,6 +105,24 @@ Run `pnpm gates` before opening a PR. A red CI is never merged.
 - **Touch:** tap targets ≥ 60 px (≥ 96 px on kid screens). No hover-only interactions.
 - **Both orientations:** every screen must work in landscape and portrait (UI-8).
 - **Domain logic** (star ledger, chore scheduling, recurrence, sync merge) lives in plain TypeScript modules under `src/lib/server/domain/` or `src/lib/domain/` with ≥ 90% coverage. The star balance is always computed from the ledger.
+
+### Code conventions
+
+- Import app modules through the `#lib` alias **with a `.js` extension**: `import { formatClock } from '#lib/domain/clock.js';`
+- Server-only code lives in `src/lib/server/`. The container serves `/healthz`; keep it cheap.
+- Colors, type sizes, radii, and tap sizes come from the `@theme` tokens in `src/routes/layout.css`. Tailwind's default palette is disabled on purpose.
+- E2E tests live in `tests/e2e/*.e2e.ts` and run in landscape and portrait wall viewports.
+
+### PR labels (humans only)
+
+| Label | Meaning |
+|---|---|
+| `human-approved` | A human reviewed changes to protected files or test removals (`scripts/ci/protected-paths.mjs`). |
+| `visual-approved` | A human approved visual baseline changes. |
+| `large-pr` | A human allowed a PR over the size limit. |
+| `needs-human` | Blocks auto-merge; a human must look. Agents should add this when unsure. |
+
+Agents must **never** add `human-approved`, `visual-approved`, or `large-pr`.
 
 ### Kill switch
 

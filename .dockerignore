@@ -1,0 +1,14 @@
+node_modules
+build
+.svelte-kit
+coverage
+playwright-report
+test-results
+.git
+.beads
+.claude
+.agents
+.codex
+.env
+.env.*
+!.env.example
