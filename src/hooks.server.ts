@@ -3,6 +3,7 @@ import type { Handle } from '@sveltejs/kit/hooks';
 import { getDb } from '#lib/server/db/index.js';
 import { startBackupScheduler } from '#lib/server/backup.js';
 import { resolveAdult } from '#lib/server/auth.js';
+import { startCalendarScheduler } from '#lib/server/calendar/scheduler.js';
 import { isRequestAllowed } from '#lib/server/domain/network.js';
 
 const allowPublic = process.env.HUB_ALLOW_PUBLIC === 'true';
@@ -26,4 +27,5 @@ export const handle: Handle = async ({ event, resolve }) => {
 export function init(): void {
 	getDb();
 	startBackupScheduler();
+	startCalendarScheduler();
 }
