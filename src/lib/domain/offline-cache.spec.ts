@@ -17,6 +17,8 @@ describe('routeKind', () => {
 
 	it('keeps photos separate', () => {
 		expect(kind('/api/photo/abc')).toBe('photo');
+		expect(kind('/api/photo/slideshow?seed=x')).toBe('api');
+		expect(kind('/api/settings/slideshow')).toBe('api');
 	});
 
 	it('never caches adult or unknown API routes', () => {

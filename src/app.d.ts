@@ -11,7 +11,10 @@ declare global {
 			/** Household IANA zone from the root layout; the source of truth for "today". */
 			timeZone?: string;
 		}
-		// interface PageState {}
+		interface PageState {
+			/** Set when the idle timer opened the photo frame: show it fullscreen. */
+			frame?: boolean;
+		}
 		// interface Platform {}
 	}
 }

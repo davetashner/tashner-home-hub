@@ -1,5 +1,10 @@
 <script lang="ts">
-	import EmptyState from '#lib/components/shell/EmptyState.svelte';
+	import { page } from '$app/state';
+	import Slideshow from '#lib/components/frame/Slideshow.svelte';
 </script>
 
-<EmptyState icon="photos" title="Photos" line="Your family photo frame will live here." />
+<svelte:head>
+	<title>Photos · Home Hub</title>
+</svelte:head>
+
+<Slideshow fullscreen={page.state.frame === true} />
