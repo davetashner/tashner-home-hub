@@ -165,6 +165,51 @@ describe('POST /api/auth/logout', () => {
 	});
 });
 
+describe('session revocation', () => {
+	const unlock = async (addr: string) => {
+		const e = ev({ memberId: 'a1', pin: '4817', remember: true }, { addr });
+		await call(login, e);
+		return e.cookies.get(auth.SESSION_COOKIE)!;
+	};
+	const withToken = (token: string) => {
+		const cookies = new FakeCookies();
+		cookies.set(auth.SESSION_COOKIE, token, {});
+		return ev({}, { cookies });
+	};
+
+	it('logout voids a copied cookie but a fresh unlock works', async () => {
+		const token = await unlock('10.0.6.1');
+		const copy = token;
+		const mine = withToken(token);
+		expect(auth.resolveAdult(mine as never)).not.toBeNull();
+		await call(logout, mine);
+		expect(auth.resolveAdult(withToken(copy) as never)).toBeNull();
+		const fresh = await unlock('10.0.6.2');
+		expect(auth.resolveAdult(withToken(fresh) as never)).toEqual({
+			id: 'a1',
+			name: 'Test Adult'
+		});
+	});
+
+	it('logout without a valid session does not revoke anyone', async () => {
+		const token = await unlock('10.0.6.3');
+		await call(logout, ev({}));
+		expect(auth.resolveAdult(withToken(token) as never)).not.toBeNull();
+	});
+
+	it("changing a PIN voids that member's existing sessions only", async () => {
+		const token = await unlock('10.0.6.4');
+		const e = ev({ pin: '6203' }, { params: { id: 'a2' } });
+		e.locals.adult = { id: 'a1', name: 'Test Adult' };
+		await call(setPin, e);
+		expect(auth.resolveAdult(withToken(token) as never)).not.toBeNull();
+		const e2 = ev({ pin: '6204' }, { params: { id: 'a1' } });
+		e2.locals.adult = { id: 'a1', name: 'Test Adult' };
+		await call(setPin, e2);
+		expect(auth.resolveAdult(withToken(token) as never)).toBeNull();
+	});
+});
+
 describe('POST /api/members/[id]/pin', () => {
 	it('requires an adult session once any PIN exists', async () => {
 		const res = await call(setPin, ev({ pin: '7391' }, { params: { id: 'a2' } }));

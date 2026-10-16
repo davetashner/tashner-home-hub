@@ -8,14 +8,24 @@ import {
 /** Synthesized with the Web Audio API: no audio files, no licensing. */
 let ctx: AudioContext | null = null;
 let settings: SoundSettings = DEFAULT_SOUND;
+// Bumped by every change, so a load that started before it can't bring back older settings.
+let version = 0;
 
 export async function loadSoundSettings(): Promise<void> {
+	const started = version;
 	try {
 		const res = await fetch('/api/settings/sound');
-		if (res.ok) settings = parseSoundSettings(await res.json());
+		const loaded = res.ok ? parseSoundSettings(await res.json()) : null;
+		if (loaded && started === version) settings = loaded;
 	} catch {
 		// keep the last known settings
 	}
+}
+
+/** The settings page applies a change here before its save lands, so the next tap obeys it. */
+export function applySoundSettings(next: SoundSettings): void {
+	version++;
+	settings = next;
 }
 
 /** Creates the context (suspended until a gesture); the first tap resumes it. */

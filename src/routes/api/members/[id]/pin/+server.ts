@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { eq, isNotNull } from 'drizzle-orm';
 import { getDb, schema } from '#lib/server/db/index.js';
-import { currentAdult } from '#lib/server/auth.js';
+import { currentAdult, revokeSessions } from '#lib/server/auth.js';
 import { hashPin, validatePin } from '#lib/server/domain/pin.js';
 import type { RequestHandler } from './$types';
 
@@ -32,5 +32,7 @@ export const POST: RequestHandler = async (event) => {
 		.set({ pinHash: hashPin(body!.pin as string) })
 		.where(eq(schema.members.id, member.id))
 		.run();
+	// A changed PIN must also end any session obtained with the old one.
+	revokeSessions(member.id);
 	return json({ ok: true });
 };
