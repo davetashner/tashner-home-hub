@@ -8,7 +8,10 @@ const API_READS = [
 	/^\/api\/members$/,
 	/^\/api\/members\/[^/]+\/(chores|stars|goal)$/,
 	/^\/api\/calendar\/(events|status)$/,
-	/^\/api\/approvals\/count$/
+	/^\/api\/approvals\/count$/,
+	// The slideshow's list and settings: fresh when online (new photos show up), kept for offline.
+	/^\/api\/photo\/slideshow$/,
+	/^\/api\/settings\/slideshow$/
 ];
 const PHOTO = /^\/api\/photo\/[^/]+$/;
 /** Screens a child can open; settings, setup and unlock are adult flows and stay uncached. */
@@ -20,8 +23,8 @@ export type RouteKind = 'api' | 'photo' | 'page' | 'other';
 export function routeKind(method: string, url: URL, isNavigation: boolean): RouteKind {
 	if (method !== 'GET') return 'other';
 	const path = url.pathname;
-	if (PHOTO.test(path)) return 'photo';
 	if (API_READS.some((re) => re.test(path))) return 'api';
+	if (PHOTO.test(path)) return 'photo';
 	if ((isNavigation && SCREEN.test(path)) || SCREEN_DATA.test(path)) return 'page';
 	return 'other';
 }

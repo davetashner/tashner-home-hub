@@ -40,6 +40,9 @@
 	--color-member-5: oklch(58% 0.17 265);
 	--color-member-6: oklch(60% 0.18 330);
 
+	/* Photo frame matte behind photos, the same in both themes. */
+	--color-frame: oklch(0% 0 0);
+
 	--font-sans: 'Nunito Variable', ui-rounded, system-ui, sans-serif;
 
 	/*
@@ -78,6 +81,7 @@
 	--duration-quick: 140ms;
 	--duration-base: 240ms;
 	--duration-slow: 480ms;
+	--duration-crossfade: 1500ms;
 }
 
 /* Night theme (UI-5): same roles, dim warm palette that is gentle in a dark room. */
@@ -128,6 +132,7 @@
 		:root {
 			--duration-base: 1ms;
 			--duration-slow: 1ms;
+			--duration-crossfade: 1ms;
 		}
 	}
 }
@@ -146,4 +151,15 @@
 	.page-enter {
 		animation: none;
 	}
+}
+
+/* App shell grid: header/content/nav in portrait, side nav + header/content in landscape. */
+@utility grid-rows-shell-portrait {
+	grid-template-rows: auto 1fr auto;
+}
+@utility grid-cols-shell-landscape {
+	grid-template-columns: auto 1fr;
+}
+@utility grid-rows-shell-landscape {
+	grid-template-rows: auto 1fr;
 }

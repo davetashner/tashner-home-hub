@@ -14,5 +14,12 @@ export const PROTECTED = [
 	/^tsconfig\.json$/,
 	/^lighthouserc/,
 	/^\.size-limit/,
-	/^docs\/decisions\//
+	/^docs\/decisions\//,
+	/^pnpm-workspace\.yaml$/,
+	/^\.npmrc$/
 ];
+
+// package.json is not protected as a whole (dependencies change often), but its
+// `scripts` are: CI runs `pnpm test`, `pnpm lint`, etc., so weakening a script
+// weakens a gate.
+export const PROTECTED_PACKAGE_FIELDS = ['scripts'];

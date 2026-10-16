@@ -2,6 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { expectTappable } from './tap';
 
+// Page routes must see every request; a service worker would answer some from the real server.
+test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
 
 const MIN = 60_000;
@@ -18,6 +20,8 @@ async function idleSettings(page: Page, homeMinutes: number, frameMinutes: numbe
 
 test('idle returns home, then starts the photo frame; a touch goes back home', async ({ page }) => {
 	await idleSettings(page, 2, 5);
+	// An empty library keeps the nav visible under the frame (slideshow.e2e.ts covers the fullscreen frame).
+	await page.route('**/api/photo/slideshow?**', (route) => route.fulfill({ json: [] }));
 	await page.clock.install();
 	await page.goto('/meals');
 	await page.waitForLoadState('networkidle');

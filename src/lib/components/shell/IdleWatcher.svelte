@@ -42,7 +42,7 @@
 				previous = page.url.pathname + page.url.search;
 				// URL already built with resolve() in urls.ts.
 				// eslint-disable-next-line svelte/no-navigation-without-resolve
-				void goto(DESTINATION_URLS['/photos']);
+				void goto(DESTINATION_URLS['/photos'], { state: { frame: true } });
 			},
 			endFrame: () => {
 				// `previous` is a same-origin app path captured from page.url.
