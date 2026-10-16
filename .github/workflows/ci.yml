@@ -73,6 +73,8 @@ jobs:
         run: pnpm check
       - name: Lint and format
         run: pnpm lint
+      - name: Animation hygiene and design-system discipline
+        run: pnpm lint:css
       - name: Unit tests with coverage thresholds
         run: pnpm test
       - name: Dependency vulnerabilities (high and critical)
@@ -81,6 +83,8 @@ jobs:
         run: node scripts/ci/licenses.mjs
       - name: Build
         run: pnpm build
+      - name: Bundle budget (budgets.json)
+        run: pnpm budget
 
   e2e:
     name: e2e
@@ -95,7 +99,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - name: End-to-end (landscape + portrait)
+      - name: End-to-end incl. accessibility (landscape + portrait)
         run: pnpm test:e2e
       - uses: actions/upload-artifact@v7
         if: failure()

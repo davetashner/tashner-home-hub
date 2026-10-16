@@ -147,3 +147,14 @@
 		animation: none;
 	}
 }
+
+/* App shell grid: header/content/nav in portrait, side nav + header/content in landscape. */
+@utility grid-rows-shell-portrait {
+	grid-template-rows: auto 1fr auto;
+}
+@utility grid-cols-shell-landscape {
+	grid-template-columns: auto 1fr;
+}
+@utility grid-rows-shell-landscape {
+	grid-template-rows: auto 1fr;
+}

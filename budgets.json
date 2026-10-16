@@ -1,0 +1,6 @@
+{
+	"$comment": "ADR 0002 Tier 2 bundle budget. Protected file: only a human changes these. Sizes are gzip KB (1 KB = 1000 bytes).",
+	"initialJsGzKB": 150,
+	"cssGzKB": 30,
+	"routeChunkGzKB": 50
+}
