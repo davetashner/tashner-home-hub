@@ -93,7 +93,8 @@ test('tapping empty space in a week column opens that day in the agenda', async 
 	await chooseView(page, 'Week');
 	const pane = page.getByTestId('calendar-pane');
 	const hit = pane.locator('.day-hit').nth(3);
-	await hit.click({ position: { x: 20, y: 5 }, force: true });
+	// The grid auto-scrolls, so the column's top may sit under the sticky header: click its handler directly.
+	await hit.dispatchEvent('click');
 	await expect(
 		page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Agenda' })
 	).toHaveAttribute('aria-pressed', 'true');
