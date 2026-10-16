@@ -26,7 +26,7 @@ All state lives in the data folder (the `/data` bind mount): database, uploads, 
 5. **Check the data** by opening the hub in a browser and confirming your calendar, lists and photos are present.
 6. **Repoint the Pi kiosk.** SSH to the Pi and change the URL Chromium loads (placeholder shown):
    ```sh
-   ssh pi@kiosk.local
+   ssh -l <pi-user> kiosk.local
    # edit the kiosk autostart/service file, replace the old URL
    #   http://192.168.1.10:3000  ->  http://192.168.1.20:3000
    sudo reboot
