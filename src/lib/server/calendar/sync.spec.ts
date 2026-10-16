@@ -82,7 +82,7 @@ describe('syncSource', () => {
 		p.failing.add('y');
 		p.calendars.x = [];
 		const status = await syncSource(db, src, { now: () => NOW + 1000, provider: () => p });
-		expect(status.lastError).toContain('y: fetch failed');
+		expect(status.lastError).toContain('fetch failed for y');
 		expect(status.lastSuccessAt).toBe(NOW);
 		expect(rows().map((r) => r.title)).toEqual(['b']);
 		expect(db.select().from(calendarSources).get()!.lastSyncAt).toBe(NOW);

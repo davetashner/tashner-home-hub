@@ -17,6 +17,8 @@ export interface SourceStatus {
 	lastAttemptAt: number;
 	lastSuccessAt: number | null;
 	lastError: string | null;
+	/** Set when the provider rejected the stored credentials; structured, not parsed from text. */
+	needsReauth?: boolean;
 }
 
 export interface SyncDeps {
@@ -45,11 +47,14 @@ function writeStatus(db: Db, sourceId: string, status: SourceStatus): void {
 interface CalendarMapping {
 	externalId: string;
 	memberId?: string | null;
+	name?: string;
+	/** Absent means selected; `false` means discovered but not shown (iCloud/Google pickers). */
+	selected?: boolean;
 }
 
 function parseCalendars(json: string): CalendarMapping[] {
 	const v: unknown = JSON.parse(json);
-	return Array.isArray(v) ? (v as CalendarMapping[]) : [];
+	return Array.isArray(v) ? (v as CalendarMapping[]).filter((c) => c.selected !== false) : [];
 }
 
 /** Syncs one source. Never throws: failures are recorded in the source's status. */
@@ -66,13 +71,14 @@ export async function syncSource(
 		lastError: null
 	};
 	const errors: string[] = [];
+	let reauth = false;
 	try {
 		const w = syncWindow(now);
 		const mappings = parseCalendars(source.calendars);
 		const provider = await (deps.provider ?? createProvider)(source);
 		const planned: Planned[] = [];
 		const fetched = new Set<string>();
-		for (const cal of mappings) {
+		for (const [i, cal] of mappings.entries()) {
 			try {
 				const raw = await provider.fetchEvents(cal.externalId, w);
 				const memberIds = JSON.stringify(cal.memberId ? [cal.memberId] : []);
@@ -85,7 +91,11 @@ export async function syncSource(
 				}
 				fetched.add(cal.externalId);
 			} catch (e) {
-				errors.push(`${cal.externalId}: ${e instanceof Error ? e.message : String(e)}`);
+				// Never put the calendar id/URL here: status is served without a session.
+				if ((e as { needsReauth?: boolean }).needsReauth === true) reauth = true;
+				errors.push(
+					`${cal.name || `Calendar ${i + 1}`}: ${e instanceof Error ? e.message : String(e)}`
+				);
 			}
 		}
 		const selected = new Set(mappings.map((m) => m.externalId));
@@ -100,6 +110,7 @@ export async function syncSource(
 			for (const id of diff.deleteIds) tx.delete(events).where(eq(events.id, id)).run();
 		});
 	} catch (e) {
+		if ((e as { needsReauth?: boolean }).needsReauth === true) reauth = true;
 		errors.push(e instanceof Error ? e.message : String(e));
 	}
 	if (errors.length === 0) {
@@ -110,6 +121,7 @@ export async function syncSource(
 			.run();
 	} else {
 		status.lastError = errors.join('; ').slice(0, 500);
+		if (reauth) status.needsReauth = true;
 	}
 	writeStatus(db, source.id, status);
 	return status;

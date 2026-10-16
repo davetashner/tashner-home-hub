@@ -13,6 +13,7 @@ interface Mapping {
 	externalId: string;
 	name: string;
 	memberId?: string | null;
+	selected?: boolean;
 }
 
 /** Updates the label and/or which member each calendar belongs to. Works for every provider. */
@@ -31,21 +32,23 @@ export const PATCH: RequestHandler = async (event) => {
 			error(400, 'Unknown member');
 		return m;
 	};
+	const patchCal = (c: Mapping, w: { memberId?: unknown; selected?: unknown }): Mapping => ({
+		...c,
+		...(w.memberId !== undefined ? { memberId: memberOk(w.memberId) } : {}),
+		...(typeof w.selected === 'boolean' ? { selected: w.selected } : {})
+	});
 	const cals = JSON.parse(source.calendars) as Mapping[];
 	if (body.memberId !== undefined) {
 		const m = memberOk(body.memberId);
 		set.calendars = JSON.stringify(cals.map((c) => ({ ...c, memberId: m })));
 	} else if (Array.isArray(body.calendars)) {
 		const wanted = new Map(
-			(body.calendars as { externalId?: unknown; memberId?: unknown }[]).map((c) => [
-				c.externalId,
-				c.memberId
-			])
+			(body.calendars as { externalId?: unknown; memberId?: unknown; selected?: unknown }[]).map(
+				(c) => [c.externalId, c]
+			)
 		);
 		set.calendars = JSON.stringify(
-			cals.map((c) =>
-				wanted.has(c.externalId) ? { ...c, memberId: memberOk(wanted.get(c.externalId)) } : c
-			)
+			cals.map((c) => (wanted.has(c.externalId) ? patchCal(c, wanted.get(c.externalId)!) : c))
 		);
 	}
 	if (Object.keys(set).length === 0) error(400, 'Nothing to update');
