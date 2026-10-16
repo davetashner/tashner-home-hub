@@ -8,3 +8,6 @@
 /playwright.config.ts     @davetashner
 /tsconfig.json            @davetashner
 /docs/decisions/          @davetashner
+/pnpm-workspace.yaml      @davetashner
+/.npmrc                   @davetashner
+/package.json             @davetashner
