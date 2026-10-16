@@ -117,6 +117,9 @@
 		:root {
 			--text-title: 1.75rem;
 			--text-headline: 2.25rem;
+			--text-lead: 1.5rem;
+			--text-body: 1.25rem;
+			--text-caption: 1rem;
 		}
 	}
 	html,
@@ -152,7 +155,9 @@
 	}
 }
 .page-enter {
-	animation: page-enter var(--duration-base) var(--ease-out-soft) both;
+	/* Not "both": a filled transform animation makes this wrapper the containing block of every
+	   position:fixed sheet inside the page, so on a scrolled phone page the sheet lands off-screen. */
+	animation: page-enter var(--duration-base) var(--ease-out-soft) backwards;
 }
 @media (prefers-reduced-motion: reduce) {
 	.page-enter {
