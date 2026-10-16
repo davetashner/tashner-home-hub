@@ -12,12 +12,12 @@
 	href={DESTINATION_URLS[destination.href]}
 	aria-current={active ? 'page' : undefined}
 	data-sveltekit-preload-data="tap"
-	class="nav-item flex min-h-tap flex-1 items-center justify-center gap-4 rounded-control px-6 py-4 text-lead font-extrabold portrait:flex-col portrait:gap-2 portrait:text-body landscape:flex-none landscape:justify-start landscape:py-5 {active
+	class="nav-item flex min-h-tap min-w-0 flex-1 items-center justify-center gap-4 rounded-control px-6 py-4 text-lead font-extrabold max-sm:px-1 max-sm:text-caption portrait:flex-col portrait:gap-2 portrait:text-body landscape:flex-none landscape:justify-start landscape:py-5 {active
 		? 'bg-accent-soft text-accent'
 		: 'text-ink-muted'}"
 >
 	<span class="text-title"><Icon name={destination.icon} /></span>
-	<span>{destination.label}</span>
+	<span class="max-sm:sr-only">{destination.label}</span>
 </a>
 
 <style>
