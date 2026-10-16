@@ -7,6 +7,7 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import { DESTINATIONS, isActive, swipeTarget } from '#lib/domain/nav.js';
 	import { DESTINATION_URLS } from './urls.js';
+	import ApprovalsBadge from './ApprovalsBadge.svelte';
 	import Clock from './Clock.svelte';
 	import Icon from './Icon.svelte';
 	import NavItem from './NavItem.svelte';
@@ -34,26 +35,27 @@
 </script>
 
 <div
-	class="grid h-full bg-surface portrait:grid-rows-[auto_1fr_auto] landscape:grid-cols-[auto_1fr] landscape:grid-rows-[auto_1fr]"
+	class="grid h-full bg-surface portrait:grid-cols-[minmax(0,1fr)] portrait:grid-rows-[auto_1fr_auto] landscape:grid-cols-[auto_1fr] landscape:grid-rows-[auto_1fr]"
 >
 	<header
-		class="flex items-center justify-between gap-8 px-12 py-8 portrait:px-10 landscape:col-start-2 landscape:row-start-1"
+		class="flex items-center justify-between gap-3 px-4 py-4 max-sm:justify-end sm:gap-8 sm:px-12 sm:py-8 portrait:sm:px-10 landscape:col-start-2 landscape:row-start-1"
 	>
 		{#if pathname === '/'}
-			<span></span>
+			<span class="max-sm:hidden"></span>
 		{:else}
 			<a
 				href={resolve('/(app)')}
 				data-sveltekit-preload-data="tap"
-				class="press-link block rounded-control"
+				class="press-link block rounded-control max-sm:hidden"
 			>
 				<Clock testidPrefix="header-clock" />
 			</a>
 		{/if}
-		<div class="flex items-center gap-4">
-			<Button onclick={sleep} size="kid" class="gap-3 rounded-chip">
+		<div class="flex items-center gap-2 sm:gap-4">
+			<ApprovalsBadge />
+			<Button onclick={sleep} size="kid" class="gap-3 rounded-chip max-sm:!px-5">
 				<span class="text-lead"><Icon name="moon" /></span>
-				Sleep
+				<span class="max-sm:sr-only">Sleep</span>
 			</Button>
 			<a
 				href={resolve('/(app)/settings')}
@@ -68,7 +70,7 @@
 
 	<nav
 		aria-label="Main"
-		class="flex gap-2 border-line bg-surface-sunken p-4 portrait:row-start-3 portrait:border-t-2 portrait:px-4 portrait:py-4 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:px-5 landscape:py-8"
+		class="flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:px-2 portrait:row-start-3 portrait:border-t-2 portrait:px-4 portrait:py-4 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:px-5 landscape:py-8"
 	>
 		{#each DESTINATIONS as destination (destination.id)}
 			<NavItem {destination} active={isActive(destination.href, pathname)} />
