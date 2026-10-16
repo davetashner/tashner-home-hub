@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isStorable, keysToEvict, routeKind } from './offline-cache';
+import { isStorable, keysToEvict, pickFallback, routeKind, swEnabled } from './offline-cache';
 
 const kind = (path: string, method = 'GET', nav = false) =>
 	routeKind(method, new URL(path, 'http://hub.local'), nav);
@@ -64,5 +64,34 @@ describe('keysToEvict', () => {
 	it('evicts the oldest beyond the cap', () => {
 		expect(keysToEvict([1, 2, 3, 4], 2)).toEqual([1, 2]);
 		expect(keysToEvict([1, 2], 2)).toEqual([]);
+	});
+});
+
+describe('swEnabled', () => {
+	const headless = 'Mozilla/5.0 HeadlessChrome/120.0';
+	const headed = 'Mozilla/5.0 Chrome/120.0';
+	it('is off only for headless automation by default', () => {
+		expect(swEnabled(headless, null)).toBe(false);
+		expect(swEnabled(headed, null)).toBe(true);
+	});
+	it('lets hub.sw force either way', () => {
+		expect(swEnabled(headless, 'on')).toBe(true);
+		expect(swEnabled(headed, 'off')).toBe(false);
+		expect(swEnabled(headed, 'other')).toBe(true);
+	});
+});
+
+describe('pickFallback', () => {
+	const keys = [
+		'http://h/api/calendar/events?start=1&end=2',
+		'http://h/api/members/a/chores?date=2026-01-01',
+		'http://h/api/calendar/events?start=3&end=4'
+	];
+	it('picks the newest copy with the same path', () => {
+		expect(pickFallback(keys, 'http://h/api/calendar/events?start=9&end=10')).toBe(keys[2]);
+		expect(pickFallback(keys, 'http://h/api/members/a/chores?date=2026-01-02')).toBe(keys[1]);
+	});
+	it('returns null when the path was never saved', () => {
+		expect(pickFallback(keys, 'http://h/api/members/b/chores?date=x')).toBeNull();
 	});
 });

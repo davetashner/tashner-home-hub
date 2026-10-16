@@ -39,3 +39,21 @@ export function isStorable(res: {
 export function keysToEvict<T>(keys: readonly T[], max: number): T[] {
 	return keys.length > max ? keys.slice(0, keys.length - max) : [];
 }
+
+/**
+ * Whether the worker should handle requests. Only headless automation (CI) turns it off by
+ * default; the headed kiosk Chromium stays on even with a debugging port. `hub.sw` overrides:
+ * 'on' forces on, 'off' forces off.
+ */
+export function swEnabled(userAgent: string, override: string | null): boolean {
+	if (override === 'on') return true;
+	if (override === 'off') return false;
+	return !/HeadlessChrome/.test(userAgent);
+}
+
+/** No exact match (the date or range moved on): the newest saved copy of the same path, if any. */
+export function pickFallback(keys: readonly string[], target: string): string | null {
+	const path = new URL(target).pathname;
+	const same = keys.filter((k) => new URL(k).pathname === path);
+	return same.length ? same[same.length - 1] : null;
+}

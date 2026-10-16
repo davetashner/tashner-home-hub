@@ -7,6 +7,7 @@ import {
 	API_TIMEOUT_MS,
 	isStorable,
 	keysToEvict,
+	pickFallback,
 	PHOTO_CACHE_MAX,
 	routeKind
 } from './lib/domain/offline-cache';
@@ -111,6 +112,17 @@ function saved(hit: Response): Response {
 	return new Response(hit.body, { status: hit.status, statusText: hit.statusText, headers });
 }
 
+/** After midnight the date/range query no longer matches: fall back to the newest copy of the path. */
+async function newestSamePath(cache: Cache, request: Request): Promise<Response | undefined> {
+	if (request.mode === 'navigate') return undefined;
+	const keys = await cache.keys();
+	const key = pickFallback(
+		keys.map((k) => k.url),
+		request.url
+	);
+	return key ? cache.match(key) : undefined;
+}
+
 /** Network first with a short timeout; the last good response is the fallback. */
 async function networkFirst(request: Request, timeoutMs: number | null): Promise<Response> {
 	const cache = await caches.open(RUNTIME);
@@ -126,7 +138,7 @@ async function networkFirst(request: Request, timeoutMs: number | null): Promise
 	} catch (err) {
 		failure = err;
 	}
-	const hit = await cache.match(request);
+	const hit = (await cache.match(request)) ?? (await newestSamePath(cache, request));
 	if (hit) {
 		mark(true);
 		return saved(hit);

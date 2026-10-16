@@ -1,3 +1,4 @@
+import { swEnabled } from '#lib/domain/offline-cache.js';
 import { isOffline, offline } from './state.svelte.js';
 
 /** Wires connectivity events and the service worker; returns a teardown. */
@@ -28,14 +29,14 @@ export function startOffline(): () => void {
 
 	const container = navigator.serviceWorker;
 	container?.addEventListener('message', onMessage);
-	// Automated browsers (e2e) run without the worker unless a test opts in with localStorage.
-	let optIn = false;
+	// Headless automation (CI) runs without the worker; localStorage 'hub.sw' = on/off overrides.
+	let override: string | null = null;
 	try {
-		optIn = localStorage.getItem('hub.sw') === 'on';
+		override = localStorage.getItem('hub.sw');
 	} catch {
-		// Storage blocked: treat as not opted in.
+		// Storage blocked: no override.
 	}
-	const enabled = !navigator.webdriver || optIn;
+	const enabled = swEnabled(navigator.userAgent, override);
 	void container?.ready.then((reg) => {
 		reg.active?.postMessage({ type: 'hub-sw-enable', enabled });
 		reg.active?.postMessage({ type: 'hub-cache-state?' });
