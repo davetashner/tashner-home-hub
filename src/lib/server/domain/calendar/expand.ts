@@ -69,13 +69,17 @@ function wallOccurrences(master: RemoteEvent, w: Window): number[] {
 	const dtstart = allDay
 		? parseDate((master.start as { date: string }).date)
 		: parseWall((master.start as { dateTime: string }).dateTime);
-	const opts: Partial<Options> = RRule.parseString(master.rrule!);
-	if (opts.until && !allDay) opts.until = new Date(toWall(opts.until.getTime(), tz));
-	const rule = new RRule({ ...opts, dtstart: new Date(dtstart) });
-	// Pad the window by a day each side: zone offsets shift wall time by < 1 day.
-	const set = new Set(
-		rule.between(new Date(w.start - DAY), new Date(w.end + DAY), true).map(Number)
-	);
+	const set = new Set<number>();
+	if (master.rrule) {
+		const opts: Partial<Options> = RRule.parseString(master.rrule);
+		if (opts.until && !allDay) opts.until = new Date(toWall(opts.until.getTime(), tz));
+		const rule = new RRule({ ...opts, dtstart: new Date(dtstart) });
+		// Pad the window by a day each side: zone offsets shift wall time by < 1 day.
+		for (const t of rule.between(new Date(w.start - DAY), new Date(w.end + DAY), true))
+			set.add(t.getTime());
+	} else {
+		set.add(dtstart); // RDATE-only: the start itself is the first occurrence
+	}
 	for (const r of master.rdates ?? [])
 		set.add(isAllDay(r) ? parseDate(r.date) : parseWall(r.dateTime));
 	const ex = new Set(
