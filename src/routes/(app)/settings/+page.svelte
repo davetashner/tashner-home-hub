@@ -26,6 +26,12 @@
 			line: 'Who lives here, their colors and avatars.'
 		},
 		{
+			href: resolve('/(app)/settings/calendars'),
+			emoji: '📅',
+			title: 'Calendars',
+			line: 'Connect Google, iCloud or a link, and check they are working.'
+		},
+		{
 			href: resolve('/(app)/settings/chores'),
 			emoji: '🧹',
 			title: 'Chores',
