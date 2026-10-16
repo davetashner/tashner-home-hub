@@ -21,7 +21,7 @@ test('add a folder, pick albums, scan, hide a photo', async ({ page }, info) => 
 	await page.goto('/settings/photo-library');
 
 	await page.getByLabel('Name').fill(`Lib ${name}`);
-	await page.getByLabel('Folder path').fill("/etc");
+	await page.getByLabel('Folder path').fill('/etc');
 	const add = page.getByRole('button', { name: 'Add folder' });
 	await expectTappable(add);
 	await add.click();

@@ -34,7 +34,7 @@
 
 	async function loadThumbs(id: string, offset = 0) {
 		const rows: Thumb[] | null = await call(
-			`/api/photo-sources/${id}/photos?limit=24&offset=${offset}`
+			`/api/photo-sources/${id}/images?limit=24&offset=${offset}`
 		);
 		if (rows) thumbs[id] = offset ? [...(thumbs[id] ?? []), ...rows] : rows;
 	}

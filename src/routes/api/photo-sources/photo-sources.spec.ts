@@ -21,7 +21,7 @@ vi.mock('#lib/server/photo-source/prerender.js', async (orig) => ({
 const list = await import('./+server.js');
 const one = await import('./[id]/+server.js');
 const scan = await import('./[id]/scan/+server.js');
-const photosList = await import('./[id]/photos/+server.js');
+const imagesList = await import('./[id]/images/+server.js');
 const slide = await import('../photo/slideshow/+server.js');
 const hide = await import('../photo/[id]/hide/+server.js');
 
@@ -68,7 +68,7 @@ describe('photo-sources API', () => {
 		expect((await run(one.PATCH, p)).status).toBe(401);
 		expect((await run(one.DELETE, p)).status).toBe(401);
 		expect((await run(scan.POST, p)).status).toBe(401);
-		expect((await run(photosList.GET, p)).status).toBe(401);
+		expect((await run(imagesList.GET, p)).status).toBe(401);
 		expect((await run(hide.POST, p)).status).toBe(401);
 	});
 
@@ -112,7 +112,7 @@ describe('photo-sources API', () => {
 		expect(Object.keys(show.body[0]).sort()).toEqual(['album', 'h', 'id', 'takenAt', 'w']);
 		expect((await run(slide.GET, { adult: false, qs: '?limit=1' })).body).toHaveLength(1);
 
-		const grid = await run(photosList.GET, { params: { id }, qs: '?limit=2' });
+		const grid = await run(imagesList.GET, { params: { id }, qs: '?limit=2' });
 		expect(grid.body).toHaveLength(2);
 		const target = show.body[0].id;
 		expect((await run(hide.POST, { params: { id: target } })).body.hidden).toBe(true);
