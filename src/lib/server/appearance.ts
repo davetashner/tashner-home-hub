@@ -6,7 +6,7 @@ import {
 	resolveAppearance,
 	type Appearance
 } from '#lib/domain/appearance.js';
-import type { GeoPoint } from '#lib/domain/sun.js';
+import type { GeoPoint } from '#lib/domain/wave-background.js';
 import type { SleepSchedule } from '#lib/domain/display-power.js';
 import { readSleepSchedule } from '#lib/server/display.js';
 import { householdTimeZone } from '#lib/server/household.js';

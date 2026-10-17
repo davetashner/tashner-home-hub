@@ -16,7 +16,7 @@ import {
 	type SleepSchedule,
 	type Ymd
 } from './display-power.js';
-import { sunTimes, type GeoPoint } from './sun.js';
+import { sunTimes, type GeoPoint } from './wave-background.js';
 
 export const APPEARANCE_KEY = 'display.appearance';
 

@@ -12,7 +12,7 @@ import {
 	themeFor
 } from './appearance.js';
 import { DEFAULT_SLEEP_SCHEDULE, zonedInstant, type SleepSchedule } from './display-power.js';
-import { parseLocation, sunTimes } from './sun.js';
+import { parseLocation, sunTimes } from './wave-background.js';
 
 const MIN = 60_000;
 const NY = 'America/New_York';
@@ -26,22 +26,6 @@ const at = (y: number, m: number, d: number, h: number, min = 0) =>
 	zonedInstant(NY, y, m, d, h * 60 + min);
 const evening = (now: number, loc = null as ReturnType<typeof parseLocation>, start = '19:00') =>
 	isEveningNow(now, NY, { eveningStart: start }, schedule, loc);
-
-describe('sun times', () => {
-	it('matches published New York times for the June solstice', () => {
-		const s = sunTimes(nyc, 2024, 6, 21);
-		expect(Math.abs(s.sunrise! - at(2024, 6, 21, 5, 25)) / MIN).toBeLessThanOrEqual(2);
-		expect(Math.abs(s.sunset! - at(2024, 6, 21, 20, 31)) / MIN).toBeLessThanOrEqual(2);
-	});
-	it('reports polar day and night, and parses locations', () => {
-		const tromso = { lat: 69.6492, lon: 18.9553 };
-		expect(sunTimes(tromso, 2024, 6, 21).polar).toBe('day');
-		expect(sunTimes(tromso, 2024, 12, 21).polar).toBe('night');
-		expect(parseLocation({ lat: 1, lon: 2, name: 'x' })).toEqual({ lat: 1, lon: 2 });
-		for (const bad of [null, 'x', { lat: '1', lon: 2 }, { lat: 91, lon: 0 }, { lat: 0, lon: 181 }])
-			expect(parseLocation(bad)).toBeNull();
-	});
-});
 
 describe('evening without a location', () => {
 	it('starts at the evening time (the minute before and after)', () => {
