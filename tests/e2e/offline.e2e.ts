@@ -96,3 +96,32 @@ test('screens render from saved copies offline and a queued tap is delivered onc
 	const again = await page.request.get(`/api/members/${s.memberId}/stars?limit=1`);
 	expect(((await again.json()) as { pending: number }).pending).toBe(3);
 });
+
+test('one child whose chores will not load does not blank the other kids', async ({
+	page
+}, info) => {
+	const s = await seed(page, `${info.project.name}-partial`);
+	await signInAsAdult(page, s.adult);
+	const other = await (
+		await page.request.post('/api/members', {
+			data: { name: `Flaky ${Date.now() % 1e9}`, role: 'child', color: 'member-4', avatar: '🦊' }
+		})
+	).json();
+	await page.request.post('/api/chores', {
+		data: {
+			title: 'Feed fish',
+			icon: '🐟',
+			stars: 1,
+			timeOfDay: 'morning',
+			memberIds: [other.id],
+			schedule: { type: 'daily' }
+		}
+	});
+	await page.context().clearCookies();
+	await page.route(`**/api/members/${other.id}/chores?*`, (route) => route.abort());
+
+	await page.goto(`/chores?member=${s.memberId}`);
+	await expect(card(page)).toBeVisible();
+	await expect(page.getByText('No one is here yet')).toHaveCount(0);
+	await expect(page.getByTestId('partial-note')).toBeVisible();
+});

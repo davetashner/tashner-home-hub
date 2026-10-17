@@ -14,10 +14,18 @@
 	import IdleWatcher from './IdleWatcher.svelte';
 	import NavItem from './NavItem.svelte';
 	import NightClock from './NightClock.svelte';
+	import WaveBackground from './WaveBackground.svelte';
+	import { wave } from './wave-state.svelte.js';
+	import { parseWaveChoice } from '#lib/domain/wave-background.js';
 
 	let { children }: { children: Snippet } = $props();
 
 	const pathname = $derived(page.url.pathname);
+
+	// The saved background choice comes with the page data; the settings page edits it optimistically.
+	$effect(() => {
+		wave.choice = parseWaveChoice(page.data.waveBackground);
+	});
 
 	function sleep() {
 		// Optimistic: never block the tap on the network (SLP-2).
@@ -65,11 +73,14 @@
 	<NightClock />
 {/if}
 
+<WaveBackground />
+
 <div
-	class="grid h-full bg-surface portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape"
+	class:bg-surface={wave.choice === 'off'}
+	class="grid h-full portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape"
 >
 	<header
-		class="flex items-center justify-between gap-3 pt-safe-4 pr-safe-4 pb-4 pl-safe-4 max-sm:justify-end max-sm:pt-safe-2 max-sm:pr-safe-3 max-sm:pb-2 max-sm:pl-safe-3 sm:flex-wrap sm:gap-8 sm:pt-safe-8 sm:pr-safe-12 sm:pb-8 sm:pl-safe-12 portrait:sm:pr-safe-10 portrait:sm:pl-safe-10 landscape:col-start-2 landscape:row-start-1 landscape:pl-4 landscape:sm:gap-4 landscape:sm:pr-safe-8 landscape:sm:pl-8 short:flex-nowrap short:gap-2 short:pt-safe-2 short:pr-safe-2 short:pb-2 short:pl-2 tablet:flex-nowrap tablet:gap-4 tablet:pt-safe-2 tablet:pb-2 portrait:tablet:pr-safe-6 portrait:tablet:pl-safe-6 landscape:tablet:gap-4 landscape:tablet:pr-safe-6 landscape:tablet:pl-6"
+		class="flex items-center justify-between gap-3 pt-safe-4 pr-safe-4 pb-4 pl-safe-4 max-sm:justify-end max-sm:pt-safe-2 max-sm:pr-safe-3 max-sm:pb-2 max-sm:pl-safe-3 sm:flex-wrap sm:gap-8 sm:pt-safe-8 sm:pr-safe-12 sm:pb-8 sm:pl-safe-12 portrait:sm:pr-safe-10 portrait:sm:pl-safe-10 landscape:col-start-2 landscape:row-start-1 landscape:pl-4 landscape:sm:gap-4 landscape:sm:pr-safe-8 landscape:sm:pl-8 short:flex-nowrap short:gap-1 short:pt-safe-2 short:pr-safe-2 short:pb-2 short:pl-2 tablet:flex-nowrap tablet:gap-4 tablet:pt-safe-2 tablet:pb-2 portrait:tablet:pr-safe-6 portrait:tablet:pl-safe-6 landscape:tablet:gap-4 landscape:tablet:pr-safe-6 landscape:tablet:pl-6"
 	>
 		{#if pathname === '/'}
 			<span class="max-sm:hidden"></span>
@@ -87,14 +98,14 @@
 			</div>
 		{/if}
 		<div
-			class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4 portrait:sm:gap-2 landscape:sm:gap-2 short:flex-nowrap short:gap-1 tablet:flex-nowrap tablet:gap-3 portrait:tablet:gap-3 landscape:tablet:gap-3"
+			class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4 portrait:sm:gap-2 landscape:sm:gap-2 short:flex-nowrap short:gap-0.5 tablet:flex-nowrap tablet:gap-3 portrait:tablet:gap-3 landscape:tablet:gap-3"
 		>
 			<OfflineBadge />
 			<ApprovalsBadge />
 			<Button
 				onclick={sleep}
 				size="kid"
-				class="gap-3 rounded-chip max-sm:!min-h-tap max-sm:!min-w-tap max-sm:!px-4 short:!min-h-tap short:!min-w-tap short:!px-4 tablet:!text-body tablet:max-xl:!px-0 tablet:max-md:!min-h-tap tablet:max-md:!min-w-tap tablet:md:!min-h-tap-tablet tablet:md:!min-w-tap-tablet tablet:xl:!px-6"
+				class="gap-3 rounded-chip max-sm:!min-h-tap max-sm:!min-w-tap max-sm:!px-4 short:!min-h-tap short:!min-w-tap short:!px-0 tablet:!text-body tablet:max-xl:!px-0 tablet:max-md:!min-h-tap tablet:max-md:!min-w-tap tablet:md:!min-h-tap-tablet tablet:md:!min-w-tap-tablet tablet:xl:!px-6"
 			>
 				<span class="text-lead"><Icon name="moon" /></span>
 				<span class="max-sm:sr-only short:sr-only tablet:max-xl:sr-only">Sleep</span>

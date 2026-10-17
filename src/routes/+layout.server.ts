@@ -2,6 +2,7 @@ import { isAdult } from '#lib/server/auth.js';
 import { displayRole } from '#lib/server/display-role.js';
 import { getDb } from '#lib/server/db/index.js';
 import { householdTimeZone } from '#lib/server/household.js';
+import { readWaveBackground } from '#lib/server/wave-background.js';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -11,5 +12,6 @@ import type { LayoutServerLoad } from './$types';
 export const load: LayoutServerLoad = (event) => ({
 	adult: isAdult(event),
 	displayRole: displayRole(event),
-	timeZone: householdTimeZone(getDb())
+	timeZone: householdTimeZone(getDb()),
+	waveBackground: readWaveBackground()
 });
