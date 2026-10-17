@@ -41,9 +41,17 @@ function seedNamedAdult(id: string, name: string): void {
 const card = (page: Page, s: KidSeed) =>
 	page.locator(`[data-testid="child-card"][data-member="${s.memberId}"]`);
 
-/** The wall refreshes on a 60 s poll (and when the tab becomes visible again); there is no push channel. */
-async function wallRefresh(wall: Page) {
-	await wall.clock.fastForward(MIN);
+/**
+ * The wall refreshes on a 60 s poll (and when the tab becomes visible again); there is no push
+ * channel. The chores page skips a poll while a tap's POST is still in flight (`busy()`), and the
+ * fake clock fires the interval only once per fast-forward, so a single fast-forward can be lost.
+ * Fast-forward again until `settled` holds: a poll is idempotent.
+ */
+async function wallRefresh(wall: Page, settled: () => Promise<void>) {
+	await expect(async () => {
+		await wall.clock.fastForward(MIN);
+		await settled();
+	}).toPass();
 }
 
 /**
@@ -116,8 +124,11 @@ test('chore to gold star: kid taps, parent approves on a phone, the wall shows t
 		await expect(card(phone, s).getByTestId(`balance-${s.memberId}`)).toHaveText('3 ⭐');
 
 		// The wall picks the approval up on its next refresh.
-		await wallRefresh(wall);
-		await expect(wall.getByTestId('jar-counts')).toContainText('3 gold stars, 0 waiting');
+		await wallRefresh(wall, () =>
+			expect(wall.getByTestId('jar-counts')).toContainText('3 gold stars, 0 waiting', {
+				timeout: 2000
+			})
+		);
 		await expect(teeth).toHaveAttribute('data-status', 'approved');
 	} finally {
 		await phone.context().close();
@@ -163,8 +174,9 @@ test('reward redemption: earn the last star, then a parent redeems with the PIN'
 		await expect(card(phone, s).getByTestId(`balance-${s.memberId}`)).toHaveText('3 ⭐');
 
 		// The wall now shows the goal reached.
-		await wallRefresh(wall);
-		await expect(wall.getByTestId('goal-caption')).toHaveText('3 of 3 stars');
+		await wallRefresh(wall, () =>
+			expect(wall.getByTestId('goal-caption')).toHaveText('3 of 3 stars', { timeout: 2000 })
+		);
 		await expect(wall.getByTestId('jar-goal')).toHaveAttribute('data-reached', 'true');
 
 		await card(phone, s).getByTestId('redeem').click();
@@ -184,8 +196,9 @@ test('reward redemption: earn the last star, then a parent redeems with the PIN'
 		await expect(logged).toContainText('−3 ⭐');
 		await expect(logged).toContainText(`by ${parent}`);
 
-		await wallRefresh(wall);
-		await expect(wall.getByTestId('jar-counts')).toContainText('0 gold stars');
+		await wallRefresh(wall, () =>
+			expect(wall.getByTestId('jar-counts')).toContainText('0 gold stars', { timeout: 2000 })
+		);
 	} finally {
 		await phone.context().close();
 	}

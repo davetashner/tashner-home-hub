@@ -31,14 +31,34 @@ const good = {
 	}
 };
 
+describe('describeWeather icons', () => {
+	it('uses SVG icon names, never emoji, for every WMO code and both day states', () => {
+		const names = /^[a-z]+$/;
+		const codes = [0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67];
+		codes.push(71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99, 1234);
+		for (const code of codes) {
+			for (const isDay of [true, false]) {
+				expect(describeWeather(code, isDay).icon).toMatch(names);
+			}
+		}
+	});
+	it('picks distinct icons per group', () => {
+		expect(describeWeather(45).icon).toBe('fog');
+		expect(describeWeather(53).icon).toBe('drizzle');
+		expect(describeWeather(65).icon).toBe('rain');
+		expect(describeWeather(73).icon).toBe('snow');
+		expect(describeWeather(2).icon).toBe('partly');
+	});
+});
+
 describe('describeWeather', () => {
 	it('maps known codes', () => {
 		expect(describeWeather(0).label).toBe('Clear');
-		expect(describeWeather(95).icon).toBe('⛈️');
+		expect(describeWeather(95).icon).toBe('thunder');
 	});
 	it('uses a moon for clear nights and clouds for mostly-clear nights', () => {
-		expect(describeWeather(0, false).icon).toBe('🌙');
-		expect(describeWeather(1, false).icon).toBe('☁️');
+		expect(describeWeather(0, false).icon).toBe('moon');
+		expect(describeWeather(1, false).icon).toBe('cloud');
 		expect(describeWeather(3, false).label).toBe('Overcast');
 	});
 	it('degrades on unknown codes', () => {

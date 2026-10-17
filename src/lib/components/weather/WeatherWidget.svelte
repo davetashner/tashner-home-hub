@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import WeatherIcon from './WeatherIcon.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import {
 		dayLabel,
@@ -50,7 +51,7 @@
 			<div class="flex flex-wrap items-center gap-8 portrait:gap-4 short:gap-3">
 				<div class="flex items-center gap-4 short:gap-2">
 					<span class="text-display leading-none short:text-headline" aria-hidden="true"
-						>{cur.icon}</span
+						><WeatherIcon name={cur.icon} /></span
 					>
 					<div class="flex flex-col">
 						<span
@@ -75,7 +76,9 @@
 								: ''} flex"
 						>
 							<span class="text-caption text-ink-muted">{dayLabel(day.date, i)}</span>
-							<span class="text-title leading-none" aria-hidden="true">{d.icon}</span>
+							<span class="text-title leading-none" aria-hidden="true"
+								><WeatherIcon name={d.icon} /></span
+							>
 							<span class="text-caption break-words short:sr-only">{d.label}</span>
 							<span class="text-caption font-bold tabular-nums">{day.high}°</span>
 							<span class="text-caption text-ink-muted tabular-nums">{day.low}°</span>

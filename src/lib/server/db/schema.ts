@@ -22,7 +22,16 @@ const ms = (name: string) => integer(name, { mode: 'number' });
 export const ROLES = ['adult', 'child'] as const;
 export const PROVIDERS = ['google', 'icloud', 'ics'] as const;
 export const COMPLETION_STATUSES = ['pending', 'approved', 'rejected', 'undone'] as const;
-export const STAR_REASONS = ['chore', 'bonus', 'streak', 'redemption', 'adjustment'] as const;
+/** Star Jobs earn stars; habits are everyday checks that earn none on their own (hub-esf). */
+export const CHORE_KINDS = ['star_job', 'habit'] as const;
+export const STAR_REASONS = [
+	'chore',
+	'bonus',
+	'streak',
+	'redemption',
+	'adjustment',
+	'habits_day'
+] as const;
 
 export const members = sqliteTable('members', {
 	id: id(),
@@ -100,6 +109,7 @@ export const photos = sqliteTable(
 export const chores = sqliteTable('chores', {
 	id: id(),
 	title: text('title').notNull(),
+	kind: text('kind', { enum: CHORE_KINDS }).notNull().default('star_job'),
 	icon: text('icon'),
 	/** JSON array of member ids. */
 	memberIds: text('member_ids').notNull().default('[]'),
