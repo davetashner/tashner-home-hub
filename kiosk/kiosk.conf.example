@@ -2,6 +2,7 @@
 # Plain KEY="value" shell syntax. Re-run `sudo ./install.sh` and reboot after changes.
 
 # URL of the hub server (placeholder; use your server's real LAN name or IP).
+# Leave off any query: hub-kiosk-launch adds ?display=wall so this browser is a wall display.
 HUB_URL="http://hub.local:3000"
 
 # Health endpoint used by the watchdog to decide whether the server is reachable.

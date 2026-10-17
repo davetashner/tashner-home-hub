@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
 import { getDb } from '#lib/server/db/index.js';
 import { startBackupScheduler } from '#lib/server/backup.js';
@@ -10,6 +10,8 @@ import '#lib/server/calendar/ics.js';
 import '#lib/server/calendar/google.js';
 import '#lib/server/calendar/icloud.js';
 import { installShutdownHandlers, trackJob } from '#lib/server/shutdown.js';
+import { readDisplayParam } from '#lib/domain/display-role.js';
+import { setDisplayRole } from '#lib/server/display-role.js';
 import { isRequestAllowed } from '#lib/server/domain/network.js';
 
 const allowPublic = process.env.HUB_ALLOW_PUBLIC === 'true';
@@ -24,6 +26,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 	if (!isRequestAllowed(clientAddress, { allowPublic })) {
 		error(403, 'Forbidden: this hub only accepts connections from the local network');
+	}
+	// `?display=wall` (the Pi kiosk's launch URL) sets this device's role, then drops the query.
+	const display = readDisplayParam(event.url);
+	if (display && event.request.method === 'GET') {
+		setDisplayRole(event, display.role);
+		redirect(303, display.location);
 	}
 	event.locals.adult = resolveAdult(event);
 	return resolve(event);

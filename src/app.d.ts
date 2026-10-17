@@ -10,6 +10,8 @@ declare global {
 		interface PageData {
 			/** Household IANA zone from the root layout; the source of truth for "today". */
 			timeZone?: string;
+			/** This device's role from its cookie (DEV-1); only a wall display gets kiosk behaviour. */
+			displayRole?: 'wall' | 'personal';
 		}
 		interface PageState {
 			/** Set when the idle timer opened the photo frame: show it fullscreen. */

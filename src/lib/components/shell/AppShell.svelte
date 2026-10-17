@@ -59,7 +59,9 @@
 	}
 </script>
 
-<IdleWatcher />
+{#if page.data.displayRole === 'wall'}
+	<IdleWatcher />
+{/if}
 
 <div
 	class="grid h-full bg-surface portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape"

@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import { hashPin } from '../../src/lib/server/domain/pin';
 import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
 import { PIN, ensureHousehold, signInAsAdult } from './adult';
+import { asWallDisplay } from './display';
 import { seedCalendar } from './calendar';
 import { choreCard, seedKid, type KidSeed } from './kid';
 
@@ -191,6 +192,7 @@ test('calendar: agenda, week and month each show the seeded events', async ({ pa
 test('photo frame: idle goes home, then the frame shows a photo; a touch leaves it', async ({
 	page
 }, info) => {
+	await asWallDisplay(page.context()); // idle behaviour is for wall displays (DEV-1)
 	// This page gets its own synthetic photo and idle timers, so other tests never leak in.
 	const photo = { id: `critical-${info.project.name}`, w: 640, h: 360 };
 	const jpeg = await syntheticJpeg(photo.w, photo.h);
