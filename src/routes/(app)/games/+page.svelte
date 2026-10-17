@@ -38,7 +38,8 @@
 		try {
 			const res = await fetch('/api/games');
 			if (res.ok) {
-				games = parseGames(await res.json());
+				// This origin, not the server's: the hub may be opened at another address than the one the game was added from.
+				games = parseGames(await res.json(), location.origin);
 				try {
 					localStorage.setItem(CACHE_KEY, JSON.stringify(games));
 				} catch {
@@ -47,7 +48,7 @@
 			}
 		} catch {
 			try {
-				games = parseGames(JSON.parse(localStorage.getItem(CACHE_KEY) ?? '[]'));
+				games = parseGames(JSON.parse(localStorage.getItem(CACHE_KEY) ?? '[]'), location.origin);
 			} catch {
 				// Nothing cached: show the empty state.
 			}
