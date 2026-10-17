@@ -21,6 +21,8 @@ test('the wave layer sits behind the home screen and never takes a tap', async (
 	await expect(bg).toHaveCSS('pointer-events', 'none');
 	await expect(bg).toHaveCSS('z-index', '-1');
 	await expect(drawn(bg)).toHaveCount(0);
+	// A body background would paint over the layer (hub-hq2).
+	await expect(page.locator('body')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 });
 
 test('reduced motion still shows the background', async ({ page }) => {

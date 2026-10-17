@@ -86,6 +86,8 @@
 	/* PIN pad on a phone: the columns size the keys; only their height and the pad's reach are set. */
 	--spacing-key-phone: clamp(var(--spacing-tap), 9dvh, 4.75rem);
 	--spacing-pad-phone: 20rem;
+	/* Meals: the narrowest day column that still fits BREAKFAST at caption size. */
+	--spacing-meals-day: 9rem;
 
 	--shadow-raised: 0 1px 2px oklch(30% 0.05 55 / 0.08), 0 6px 18px oklch(30% 0.05 55 / 0.08);
 	--shadow-float: 0 2px 4px oklch(30% 0.05 55 / 0.08), 0 18px 48px oklch(30% 0.05 55 / 0.16);
@@ -196,6 +198,10 @@
 		line-height: 1.4;
 		-webkit-tap-highlight-color: transparent;
 		-webkit-font-smoothing: antialiased;
+	}
+	/* The wave layer (z-index: -1) paints above the root's background but below body's: keep body clear. */
+	body {
+		background-color: transparent;
 	}
 	/* iOS Safari zooms the page when a focused field computes below 16px. */
 	input,
