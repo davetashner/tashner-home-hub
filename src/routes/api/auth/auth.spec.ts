@@ -87,6 +87,27 @@ describe('POST /api/auth/pin', () => {
 		expect(auth.resolveAdult(next as never)).toEqual({ id: 'a1', name: 'Test Adult' });
 	});
 
+	it('never marks the cookie Secure on the plain-http LAN, though adapter-node claims https', async () => {
+		// Production: adapter-node defaults event.url to https; only the socket knows the truth.
+		const plain = { socket: {}, headers: {} };
+		const e = {
+			...ev({ memberId: 'a1', pin: '4817' }, { addr: '10.0.1.3' }),
+			url: new URL('https://192.168.0.4:3000/api/auth/pin'),
+			platform: { req: plain }
+		};
+		expect((await call(login, e)).status).toBe(200);
+		expect(e.cookies.jar.get(auth.SESSION_COOKIE)!.opts.secure).toBe(false);
+	});
+
+	it('marks the cookie Secure behind TLS: an encrypted socket or an https proxy', () => {
+		const url = new URL('https://hub.test/x');
+		const tls = { socket: { encrypted: true }, headers: {} };
+		const proxied = { socket: {}, headers: { 'x-forwarded-proto': 'https' } };
+		expect(auth.overHttps({ url, platform: { req: tls } } as never)).toBe(true);
+		expect(auth.overHttps({ url, platform: { req: proxied } } as never)).toBe(true);
+		expect(auth.overHttps({ url: new URL('http://hub.test/x') } as never)).toBe(false);
+	});
+
 	it('remember=true gives a 30 day cookie', async () => {
 		const e = ev({ memberId: 'a1', pin: '4817', remember: true }, { addr: '10.0.1.2' });
 		await call(login, e);
