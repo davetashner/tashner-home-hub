@@ -110,6 +110,9 @@ export function deleteRoutine(db: Db, id: string) {
 	return { deleted: true };
 }
 
+/** The member a routine belongs to. */
+export const routineMember = (db: Db, id: string) => get(db, id).memberId;
+
 /** Marks step `step` (0-based) done for `date`. Never goes backwards; returns the steps finished. */
 export function completeRoutineStep(db: Db, id: string, date: string, step: unknown) {
 	get(db, id);
