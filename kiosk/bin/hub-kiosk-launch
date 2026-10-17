@@ -28,6 +28,10 @@ WALL_URL="${HUB_URL}${SEP}display=wall"
 
 # The URL is opened even if the server is down; the app's service worker serves its cache,
 # and hub-kiosk-watchdog reloads the page once the server is reachable again.
+#
+# Never add --enable-automation, --headless or --test-type. They set navigator.webdriver, which
+# the app reads as "under test": the wave background stays a still gradient and the evening
+# theme and dimming are pinned off. install.sh refuses to install a launcher that has them.
 exec "$CHROMIUM" \
   --kiosk \
   --ozone-platform=wayland \

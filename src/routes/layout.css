@@ -40,6 +40,9 @@
 	--color-member-5: oklch(58% 0.17 265);
 	--color-member-6: oklch(60% 0.18 330);
 
+	/* Evening dimming (SLP-5): a black overlay whose opacity is 1 minus the brightness. */
+	--color-dim-overlay: oklch(0% 0 0);
+
 	/* Photo frame matte behind photos, the same in both themes. */
 	--color-frame: oklch(0% 0 0);
 	/* Overlay text and the soft scrim that keeps it legible over any photo (PHO-7). */
@@ -80,6 +83,9 @@
 	/* Tablet tier (iPad): proportionate controls and a slim rail. */
 	--spacing-tap-tablet: 72px;
 	--spacing-rail-tablet: 7.5rem;
+	/* PIN pad on a phone: the columns size the keys; only their height and the pad's reach are set. */
+	--spacing-key-phone: clamp(var(--spacing-tap), 9dvh, 4.75rem);
+	--spacing-pad-phone: 20rem;
 
 	--shadow-raised: 0 1px 2px oklch(30% 0.05 55 / 0.08), 0 6px 18px oklch(30% 0.05 55 / 0.08);
 	--shadow-float: 0 2px 4px oklch(30% 0.05 55 / 0.08), 0 18px 48px oklch(30% 0.05 55 / 0.16);
