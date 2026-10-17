@@ -78,6 +78,12 @@
 			line: 'Celebration sounds and quiet hours.'
 		},
 		{
+			href: resolve('/(app)/settings/backup'),
+			emoji: '💾',
+			title: 'Backup',
+			line: 'Export or restore all hub data.'
+		},
+		{
 			href: resolve('/(app)/settings/time-zone'),
 			emoji: '🌍',
 			title: 'Time zone',
