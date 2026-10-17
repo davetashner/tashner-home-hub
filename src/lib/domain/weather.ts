@@ -36,9 +36,13 @@ export interface WeatherSnapshot {
 	fetchedAt: number;
 }
 
+/** Names of the inline SVG weather icons (see WeatherIcon.svelte). No emoji: the kiosk has no emoji font. */
+export type WeatherIconName =
+	'sun' | 'moon' | 'partly' | 'cloud' | 'fog' | 'drizzle' | 'rain' | 'snow' | 'thunder' | 'unknown';
+
 export interface WeatherCondition {
 	label: string;
-	icon: string;
+	icon: WeatherIconName;
 }
 
 /** Refresh when older than this. */
@@ -47,42 +51,42 @@ export const WEATHER_TTL_MS = 20 * 60 * 1000;
 export const WEATHER_STALE_MS = 3 * 60 * 60 * 1000;
 
 const CONDITIONS: Record<number, WeatherCondition> = {
-	0: { label: 'Clear', icon: '☀️' },
-	1: { label: 'Mostly clear', icon: '🌤️' },
-	2: { label: 'Partly cloudy', icon: '⛅' },
-	3: { label: 'Overcast', icon: '☁️' },
-	45: { label: 'Fog', icon: '🌫️' },
-	48: { label: 'Freezing fog', icon: '🌫️' },
-	51: { label: 'Light drizzle', icon: '🌦️' },
-	53: { label: 'Drizzle', icon: '🌦️' },
-	55: { label: 'Heavy drizzle', icon: '🌧️' },
-	56: { label: 'Freezing drizzle', icon: '🌧️' },
-	57: { label: 'Freezing drizzle', icon: '🌧️' },
-	61: { label: 'Light rain', icon: '🌦️' },
-	63: { label: 'Rain', icon: '🌧️' },
-	65: { label: 'Heavy rain', icon: '🌧️' },
-	66: { label: 'Freezing rain', icon: '🌧️' },
-	67: { label: 'Freezing rain', icon: '🌧️' },
-	71: { label: 'Light snow', icon: '🌨️' },
-	73: { label: 'Snow', icon: '❄️' },
-	75: { label: 'Heavy snow', icon: '❄️' },
-	77: { label: 'Snow grains', icon: '🌨️' },
-	80: { label: 'Light showers', icon: '🌦️' },
-	81: { label: 'Showers', icon: '🌧️' },
-	82: { label: 'Heavy showers', icon: '🌧️' },
-	85: { label: 'Snow showers', icon: '🌨️' },
-	86: { label: 'Heavy snow showers', icon: '❄️' },
-	95: { label: 'Thunderstorm', icon: '⛈️' },
-	96: { label: 'Thunderstorm, hail', icon: '⛈️' },
-	99: { label: 'Thunderstorm, hail', icon: '⛈️' }
+	0: { label: 'Clear', icon: 'sun' },
+	1: { label: 'Mostly clear', icon: 'partly' },
+	2: { label: 'Partly cloudy', icon: 'partly' },
+	3: { label: 'Overcast', icon: 'cloud' },
+	45: { label: 'Fog', icon: 'fog' },
+	48: { label: 'Freezing fog', icon: 'fog' },
+	51: { label: 'Light drizzle', icon: 'drizzle' },
+	53: { label: 'Drizzle', icon: 'drizzle' },
+	55: { label: 'Heavy drizzle', icon: 'rain' },
+	56: { label: 'Freezing drizzle', icon: 'rain' },
+	57: { label: 'Freezing drizzle', icon: 'rain' },
+	61: { label: 'Light rain', icon: 'drizzle' },
+	63: { label: 'Rain', icon: 'rain' },
+	65: { label: 'Heavy rain', icon: 'rain' },
+	66: { label: 'Freezing rain', icon: 'rain' },
+	67: { label: 'Freezing rain', icon: 'rain' },
+	71: { label: 'Light snow', icon: 'snow' },
+	73: { label: 'Snow', icon: 'snow' },
+	75: { label: 'Heavy snow', icon: 'snow' },
+	77: { label: 'Snow grains', icon: 'snow' },
+	80: { label: 'Light showers', icon: 'drizzle' },
+	81: { label: 'Showers', icon: 'rain' },
+	82: { label: 'Heavy showers', icon: 'rain' },
+	85: { label: 'Snow showers', icon: 'snow' },
+	86: { label: 'Heavy snow showers', icon: 'snow' },
+	95: { label: 'Thunderstorm', icon: 'thunder' },
+	96: { label: 'Thunderstorm, hail', icon: 'thunder' },
+	99: { label: 'Thunderstorm, hail', icon: 'thunder' }
 };
 
-/** Maps a WMO weather code to a label and icon. Clear nights get a moon. Unknown codes degrade. */
+/** Maps a WMO weather code to a label and an icon name. Clear nights get a moon. Unknown codes degrade. */
 export function describeWeather(code: number, isDay = true): WeatherCondition {
 	const found = CONDITIONS[code];
-	if (!found) return { label: 'Unknown', icon: '🌡️' };
-	if (!isDay && code === 0) return { label: 'Clear', icon: '🌙' };
-	if (!isDay && (code === 1 || code === 2)) return { label: found.label, icon: '☁️' };
+	if (!found) return { label: 'Unknown', icon: 'unknown' };
+	if (!isDay && code === 0) return { label: 'Clear', icon: 'moon' };
+	if (!isDay && (code === 1 || code === 2)) return { label: found.label, icon: 'cloud' };
 	return found;
 }
 
