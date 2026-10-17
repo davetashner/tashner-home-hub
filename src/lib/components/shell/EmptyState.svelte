@@ -11,7 +11,7 @@
 
 <section class="flex h-full flex-col items-center justify-center gap-8 p-8 text-center">
 	<div
-		class="grid size-tap-kid place-items-center rounded-chip bg-accent-soft text-accent portrait:size-64 landscape:size-48"
+		class="grid size-tap-kid place-items-center rounded-chip bg-accent-soft text-accent portrait:size-64 landscape:size-48 portrait:tablet:size-40 landscape:tablet:size-32"
 	>
 		<span class="text-display"><Icon name={icon} /></span>
 	</div>

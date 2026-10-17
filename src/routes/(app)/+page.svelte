@@ -15,14 +15,14 @@
 	<title>Home Hub</title>
 </svelte:head>
 
-<div class="flex h-full flex-col justify-center gap-16 p-12">
+<div class="flex min-h-full flex-col justify-center gap-16 p-12 tablet:gap-8 tablet:p-6">
 	<Clock testidPrefix="clock" size="hero" />
 	<WeatherWidget />
-	<div class="grid grid-cols-3 gap-8 portrait:grid-cols-1">
+	<div class="grid grid-cols-3 gap-8 portrait:grid-cols-1 tablet:gap-4">
 		{#each tiles as tile (tile.title)}
-			<Card>
+			<Card class="tablet:p-5">
 				<h2 class="text-lead font-extrabold">{tile.title}</h2>
-				<p class="mt-2 text-body text-ink-muted">{tile.line}</p>
+				<p class="mt-2 text-body text-ink-muted tablet:text-caption">{tile.line}</p>
 			</Card>
 		{/each}
 	</div>
