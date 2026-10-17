@@ -36,6 +36,7 @@
 		type KidChore,
 		type KidGroup
 	} from '#lib/domain/kid-chores.js';
+	import { childrenOf, planLoad, type MemberResult } from '#lib/domain/chore-load.js';
 	import { overlayQueued } from '#lib/domain/write-queue.js';
 	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 
@@ -44,12 +45,17 @@
 		name: string;
 		color: MemberColor;
 		avatar: string | null;
+		role?: string;
 	}
 	type Completion = { id: string | null; status: KidChore['status'] };
 
 	const tz = $derived(resolveTimeZone(page.data.timeZone, runtimeZone()));
 
 	let loaded = $state(false);
+	// Children exist but we could not show any (server down, nothing saved yet).
+	let unreachable = $state(false);
+	// Some kids' chores could not be refreshed: we show what we have and keep trying.
+	let partial = $state(false);
 	let members = $state<Member[]>([]);
 	let boards = $state<Record<string, KidGroup[]>>({});
 	let selectedId = $state<string | null>(null);
@@ -206,30 +212,33 @@
 		try {
 			const list = await api<Member[]>('/api/members');
 			const date = localDate(Date.now(), tz);
-			const entries = await Promise.all(
-				list.map(
-					async (m) =>
-						[
-							m.id,
-							await api<KidGroup[]>(
-								`/api/members/${m.id}/chores?date=${date}&tz=${encodeURIComponent(tz)}`
-							)
-						] as const
-				)
+			const results = await Promise.all(
+				childrenOf(list).map(async (m): Promise<MemberResult<KidGroup>> => {
+					try {
+						const groups = await api<KidGroup[]>(
+							`/api/members/${m.id}/chores?date=${date}&tz=${encodeURIComponent(tz)}`
+						);
+						return { id: m.id, groups };
+					} catch {
+						return { id: m.id, failed: true };
+					}
+				})
 			);
 			if (busy()) return;
 			const queued = await writeQueue.pending();
-			const approved = selectedId
-				? approvedTransitions(
-						boards[selectedId],
-						entries.find(([id]) => id === selectedId)?.[1] ?? []
-					)
-				: { count: 0, stars: 0 };
-			members = list;
+			const plan = planLoad(list, results, boards);
+			const fresh = results.find((r) => r.id === selectedId);
+			const approved =
+				selectedId && fresh && 'groups' in fresh
+					? approvedTransitions(boards[selectedId], fresh.groups)
+					: { count: 0, stars: 0 };
+			unreachable = plan.unreachable;
+			partial = plan.failed.length > 0;
+			members = plan.members;
 			boards = Object.fromEntries(
-				entries.map(([id, g]) => [id, overlayQueued(g, id, queued)] as const)
+				plan.members.map((m) => [m.id, overlayQueued(plan.boards[m.id], m.id, queued)] as const)
 			);
-			const options = switcherMembers(list, boards);
+			const options = switcherMembers(plan.members, boards);
 			if (!options.some((m) => m.id === selectedId)) {
 				// ?member=<id> picks a child; the avatar switcher keeps it in sync.
 				const want = page.url.searchParams.get('member');
@@ -413,6 +422,12 @@
 
 {#if !loaded}
 	<div class="h-full" aria-busy="true"></div>
+{:else if unreachable}
+	<EmptyState
+		icon="chores"
+		title="Chores"
+		line="Hmm, we cannot reach the hub right now. Your chores will show up as soon as we can."
+	/>
 {:else if members.length === 0}
 	<EmptyState
 		icon="chores"
@@ -441,6 +456,11 @@
 					<p class="min-w-0 text-headline leading-tight font-extrabold break-words">
 						Hi, {selected.name}!
 					</p>
+					{#if partial}
+						<p data-testid="partial-note" role="status" class="text-body text-ink-muted">
+							Some chores could not refresh. Trying again soon.
+						</p>
+					{/if}
 				</div>
 				{#if streak && streak.days > 0}
 					<StreakBadge days={streak.days} nextDays={streak.next?.days ?? null} />
