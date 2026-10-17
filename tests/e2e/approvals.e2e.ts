@@ -87,7 +87,9 @@ test('not yet with a note sends it back without stars', async ({ page }, info) =
 	await expect(rowFor(page, s, 'Water plants')).toBeVisible();
 });
 
-test('approve all, then bonus stars', async ({ page }, info) => {
+test('approve all, then a link opens Settings > Stars with the child preselected', async ({
+	page
+}, info) => {
 	const s = await seed(page, `all ${info.project.name}`);
 	await unlockAndOpen(page, s);
 	const before = await balance(page, s);
@@ -95,11 +97,13 @@ test('approve all, then bonus stars', async ({ page }, info) => {
 	await expect(card(page, s).getByTestId('approval-row')).toHaveCount(0);
 	await expect(card(page, s).getByTestId(`balance-${s.memberId}`)).toHaveText(`${before + 6} ⭐`);
 
-	await card(page, s).getByTestId('bonus-toggle').click();
-	await card(page, s).getByRole('button', { name: 'One more star' }).click();
-	await expect(card(page, s).getByTestId('bonus-amount')).toHaveText('2');
-	await card(page, s).getByTestId('bonus-give').click();
-	await expect(card(page, s).getByTestId(`balance-${s.memberId}`)).toHaveText(`${before + 8} ⭐`);
+	const link = card(page, s).getByTestId('stars-link');
+	await expectTappable(link);
+	await link.click();
+	await expect(page).toHaveURL(/\/settings\/stars\?member=/);
+	await expect(
+		page.locator(`[data-testid="stars-member"][data-member="${s.memberId}"]`)
+	).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('a failed approve puts the row back with a toast', async ({ page }, info) => {
@@ -146,7 +150,7 @@ test('phone shell: compact header, nav clear of content, long names truncate', a
 	const nav = (await page.getByRole('navigation', { name: 'Main' }).boundingBox())!;
 	const mainBox = (await main.boundingBox())!;
 	expect(mainBox.y + mainBox.height).toBeLessThanOrEqual(nav.y + 1);
-	const last = (await card(page, s).getByTestId('bonus-toggle').boundingBox())!;
+	const last = (await card(page, s).getByTestId('stars-link').boundingBox())!;
 	expect(last.y + last.height).toBeLessThanOrEqual(nav.y);
 	const overflow = await page.evaluate(
 		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
