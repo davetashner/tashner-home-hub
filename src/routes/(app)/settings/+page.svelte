@@ -108,7 +108,7 @@
 	<title>Settings · Home Hub</title>
 </svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3 short:gap-4 short:p-3">
 	<h1 class="text-headline font-extrabold">Settings</h1>
 	<ReauthBanner sources={data.reauth} />
 	<ul class="flex flex-col gap-4">

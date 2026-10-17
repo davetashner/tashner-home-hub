@@ -14,7 +14,7 @@
 </script>
 
 <div
-	class="rounded-card bg-surface-raised p-8 max-sm:p-4 {shadows[elevation]} {className}"
+	class="rounded-card bg-surface-raised p-8 max-sm:p-4 short:p-4 {shadows[elevation]} {className}"
 	{...rest}
 >
 	{@render children()}

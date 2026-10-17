@@ -437,15 +437,19 @@
 {:else if selected}
 	<h1 class="sr-only">Chores</h1>
 	<div
-		class="flex min-h-full flex-col gap-10 p-12 portrait:p-10 landscape:flex-row landscape:items-start tablet:gap-4 tablet:p-6 portrait:tablet:p-6"
+		class="flex min-h-full flex-col gap-10 p-12 portrait:p-10 landscape:flex-row landscape:items-start short:grid short:grid-cols-kid-short short:items-start short:gap-3 short:p-3 tablet:gap-4 tablet:p-6 portrait:tablet:p-6"
 	>
-		<div class="flex min-w-0 grow flex-col gap-10 portrait:contents tablet:gap-4">
+		<div class="flex min-w-0 grow flex-col gap-10 portrait:contents short:contents tablet:gap-4">
 			<header
-				class="flex flex-wrap items-center gap-8 portrait:order-1 tablet:flex-nowrap tablet:justify-between tablet:gap-4"
+				class="flex flex-wrap items-center gap-8 portrait:order-1 short:contents tablet:flex-nowrap tablet:justify-between tablet:gap-4"
 			>
-				<div class="flex min-w-0 items-center gap-6 tablet:flex-1 tablet:gap-4">
+				<div class="flex min-w-0 items-center gap-6 short:contents tablet:flex-1 tablet:gap-4">
 					<!-- The switcher below already shows the selected avatar. -->
-					<span class={kids.length > 1 ? 'contents tablet:hidden' : 'contents'}>
+					<span
+						class={kids.length > 1
+							? 'contents short:hidden tablet:hidden'
+							: 'contents short:hidden'}
+					>
 						<MemberAvatar
 							name={selected.name}
 							color={selected.color}
@@ -453,7 +457,9 @@
 							size="lg"
 						/>
 					</span>
-					<p class="min-w-0 text-headline leading-tight font-extrabold break-words">
+					<p
+						class="min-w-0 text-headline leading-tight font-extrabold break-words short:col-start-3 short:text-body"
+					>
 						Hi, {selected.name}!
 					</p>
 					{#if partial}
@@ -469,7 +475,7 @@
 					<nav
 						aria-label="Whose chores?"
 						data-testid="child-switcher"
-						class="flex flex-wrap gap-6 tablet:max-w-3/5 tablet:flex-nowrap tablet:gap-3 tablet:overflow-x-auto tablet:p-1"
+						class="flex flex-wrap gap-6 short:col-start-1 short:row-span-3 short:row-start-1 short:flex-col short:flex-nowrap short:gap-3 short:p-1 tablet:max-w-3/5 tablet:flex-nowrap tablet:gap-3 tablet:overflow-x-auto tablet:p-1"
 					>
 						{#each kids as kid (kid.id)}
 							<button
@@ -483,8 +489,9 @@
 									: ''}"
 							>
 								<MemberAvatar name={kid.name} color={kid.color} avatar={kid.avatar} size="kid" />
-								<span class="max-w-40 truncate text-body font-bold tablet:hidden" aria-hidden="true"
-									>{kid.name}</span
+								<span
+									class="max-w-40 truncate text-body font-bold short:hidden tablet:hidden"
+									aria-hidden="true">{kid.name}</span
 								>
 							</button>
 						{/each}
@@ -492,7 +499,9 @@
 				{/if}
 			</header>
 
-			<div class="flex grow flex-col gap-10 portrait:order-3 tablet:gap-5">
+			<div
+				class="flex grow flex-col gap-10 portrait:order-3 short:col-start-2 short:row-span-3 short:row-start-1 short:gap-3 tablet:gap-5"
+			>
 				{#if groups.length === 0}
 					<div
 						class="flex grow flex-col items-center justify-center gap-6 py-16 text-center"
@@ -504,15 +513,18 @@
 					</div>
 				{:else}
 					{#each groups as group (group.timeOfDay)}
-						<section aria-labelledby="g-{group.timeOfDay}" class="flex flex-col gap-6 tablet:gap-3">
+						<section
+							aria-labelledby="g-{group.timeOfDay}"
+							class="flex flex-col gap-6 short:gap-2 tablet:gap-3"
+						>
 							<h2
 								id="g-{group.timeOfDay}"
-								class="text-title leading-none font-extrabold tablet:text-lead"
+								class="text-title leading-none font-extrabold short:text-caption tablet:text-lead"
 							>
 								<span aria-hidden="true">{GROUP_HEADINGS[group.timeOfDay].emoji}</span>
 								{GROUP_HEADINGS[group.timeOfDay].label}
 							</h2>
-							<div class="flex flex-col gap-6 tablet:gap-3">
+							<div class="flex flex-col gap-6 short:gap-3 tablet:gap-3">
 								{#each group.chores as chore (chore.id)}
 									{@const key = tapKey(selected.id, chore.id)}
 									<ChoreCard
@@ -531,7 +543,7 @@
 		</div>
 
 		<aside
-			class="shrink-0 portrait:order-first landscape:sticky landscape:top-0 landscape:w-1/3 portrait:tablet:order-2 landscape:tablet:w-1/4"
+			class="shrink-0 portrait:order-first landscape:sticky landscape:top-0 landscape:w-1/3 short:col-start-3 short:w-auto portrait:tablet:order-2 landscape:tablet:w-1/4"
 		>
 			<StarJar balance={stars.balance} pending={stars.pending} {goal} bind:jar />
 		</aside>

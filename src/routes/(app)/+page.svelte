@@ -15,14 +15,21 @@
 	<title>Home Hub</title>
 </svelte:head>
 
-<div class="flex min-h-full flex-col justify-center gap-16 p-12 tablet:gap-8 tablet:p-6">
-	<Clock testidPrefix="clock" size="hero" />
-	<WeatherWidget />
-	<div class="grid grid-cols-3 gap-8 portrait:grid-cols-1 tablet:gap-4">
+<div
+	class="flex min-h-full flex-col justify-center gap-16 p-12 short:justify-start short:gap-3 short:p-3 tablet:gap-8 tablet:p-6"
+>
+	<!-- Phone landscape: the clock and the weather share one row to save height. -->
+	<div class="contents short:flex short:items-center short:gap-3">
+		<Clock testidPrefix="clock" size="hero" />
+		<div class="contents short:block short:min-w-0 short:flex-1"><WeatherWidget /></div>
+	</div>
+	<div class="grid grid-cols-3 gap-8 portrait:grid-cols-1 short:gap-3 tablet:gap-4">
 		{#each tiles as tile (tile.title)}
-			<Card class="tablet:p-5">
-				<h2 class="text-lead font-extrabold">{tile.title}</h2>
-				<p class="mt-2 text-body text-ink-muted tablet:text-caption">{tile.line}</p>
+			<Card class="short:p-3 tablet:p-5">
+				<h2 class="text-lead font-extrabold short:text-body">{tile.title}</h2>
+				<p class="mt-2 text-body text-ink-muted short:mt-1 short:text-caption tablet:text-caption">
+					{tile.line}
+				</p>
 			</Card>
 		{/each}
 	</div>

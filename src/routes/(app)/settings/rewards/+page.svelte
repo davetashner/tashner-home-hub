@@ -62,7 +62,7 @@
 
 <svelte:head><title>Rewards</title></svelte:head>
 
-<section class="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8 max-sm:p-3">
+<section class="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8 max-sm:p-3 short:gap-4 short:p-3">
 	<header class="flex flex-wrap items-center justify-between gap-6">
 		<h1 class="text-headline font-extrabold">Rewards</h1>
 		<span class="flex flex-wrap gap-4">

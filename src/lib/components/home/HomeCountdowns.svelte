@@ -24,14 +24,18 @@
 
 {#if upcoming.length > 0}
 	<section aria-label="Countdowns" data-testid="home-countdowns">
-		<ul class="grid grid-cols-3 gap-8 portrait:grid-cols-1">
+		<ul class="grid grid-cols-3 gap-8 portrait:grid-cols-1 short:gap-3">
 			{#each upcoming as c (c.id)}
 				<li>
-					<Card class="flex items-center gap-6" data-testid="home-countdown">
-						<span class="text-display leading-none" aria-hidden="true">{c.icon ?? '⏳'}</span>
+					<Card class="flex items-center gap-6 short:gap-3 short:p-3" data-testid="home-countdown">
+						<span class="text-display leading-none short:text-headline" aria-hidden="true"
+							>{c.icon ?? '⏳'}</span
+						>
 						<span class="flex min-w-0 flex-col gap-1">
-							<span class="text-lead font-extrabold" data-testid="countdown-label">{c.label}</span>
-							<span class="truncate text-body text-ink-muted">{c.title}</span>
+							<span class="text-lead font-extrabold short:text-body" data-testid="countdown-label"
+								>{c.label}</span
+							>
+							<span class="truncate text-body text-ink-muted short:text-caption">{c.title}</span>
 						</span>
 					</Card>
 				</li>
