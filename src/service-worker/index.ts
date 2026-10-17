@@ -10,7 +10,7 @@ import {
 	pickFallback,
 	PHOTO_CACHE_MAX,
 	routeKind
-} from './lib/domain/offline-cache';
+} from '#lib/domain/offline-cache.js';
 
 const build = immutable.map((e) => e.path as string);
 const files = assets.map((e) => e.path as string);
