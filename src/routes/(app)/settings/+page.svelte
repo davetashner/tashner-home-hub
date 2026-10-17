@@ -24,6 +24,12 @@
 					: 'Nothing waiting. Check stars, give bonuses.'
 		},
 		{
+			href: resolve('/(app)/settings/weekly-summary'),
+			emoji: '📊',
+			title: 'Weekly summary',
+			line: 'Stars earned and chores missed, week by week.'
+		},
+		{
 			href: resolve('/(app)/settings/stars'),
 			emoji: '⭐',
 			title: 'Give or remove stars',
