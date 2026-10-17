@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, schema, type Db } from '../db/index.js';
-import { completeRoutineStep, createRoutine, deleteRoutine, listRoutines } from './routines.js';
+import {
+	completeRoutineStep,
+	createRoutine,
+	deleteRoutine,
+	listRoutines,
+	updateRoutine
+} from './routines.js';
 
 let db: Db;
 const steps = [
@@ -62,5 +68,45 @@ describe('routines', () => {
 		expect(deleteRoutine(db, r.id)).toEqual({ deleted: true });
 		expect(db.select().from(schema.routineSteps).all()).toEqual([]);
 		expect(db.select().from(schema.routineProgress).all()).toEqual([]);
+	});
+});
+
+describe('updateRoutine', () => {
+	it('renames and moves the window, keeping progress when the steps are unchanged', () => {
+		const r = createRoutine(db, { memberId: 'kid', name: 'Morning', steps });
+		completeRoutineStep(db, r.id, '2026-01-05', 1);
+		const u = updateRoutine(db, r.id, {
+			name: 'AM',
+			windowStart: '07:00',
+			windowEnd: '09:00',
+			steps
+		});
+		expect(u).toMatchObject({ name: 'AM', windowStart: '07:00', windowEnd: '09:00', steps });
+		expect(listRoutines(db, { date: '2026-01-05' })[0].done).toBe(2);
+	});
+
+	it('replaces and reorders steps and clears progress', () => {
+		const r = createRoutine(db, { memberId: 'kid', name: 'Morning', steps });
+		completeRoutineStep(db, r.id, '2026-01-05', 2);
+		const next = [steps[2], steps[0]];
+		const u = updateRoutine(db, r.id, { name: 'Morning', steps: next });
+		expect(u.steps).toEqual(next);
+		expect(listRoutines(db, { date: '2026-01-05' })[0].done).toBe(0);
+	});
+
+	it('moves to another member', () => {
+		db.insert(schema.members).values({ id: 'k2', name: 'K2', role: 'child', color: 'red' }).run();
+		const r = createRoutine(db, { memberId: 'kid', name: 'Morning', steps });
+		expect(updateRoutine(db, r.id, { memberId: 'k2', name: 'Morning', steps }).memberId).toBe('k2');
+	});
+
+	it('rejects bad input, unknown routines and unknown members', () => {
+		const r = createRoutine(db, { memberId: 'kid', name: 'Morning', steps });
+		expect(code(() => updateRoutine(db, r.id, { name: '', steps }))).toBe('invalid');
+		expect(code(() => updateRoutine(db, 'nope', { name: 'x', steps }))).toBe('not_found');
+		expect(code(() => updateRoutine(db, r.id, { memberId: 'zz', name: 'x', steps }))).toBe(
+			'not_found'
+		);
+		expect(listRoutines(db)[0].name).toBe('Morning');
 	});
 });
