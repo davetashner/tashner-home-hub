@@ -89,12 +89,6 @@ export const waveShape = {
 /** A CPU-rendered GL (SwiftShader, llvmpipe) would starve the page: show the still gradient instead. */
 export const isSoftwareRenderer = (name: string) => /swiftshader|llvmpipe|software/i.test(name);
 
-/**
- * Whether to try the live waves at all. Automated browsers (e2e) never do: WebKit reports a generic
- * GPU name ("Apple GPU") that the renderer check cannot see through, and CI has no real GPU.
- */
-export const mayDrawLive = (env: { webdriver?: boolean }) => env.webdriver !== true;
-
 /** After 20 draws, an average above 100 ms each (under 10 fps) means this device can't keep up. */
 export const isStarved = (elapsedMs: number, draws: number) =>
 	draws >= 20 && elapsedMs / draws > 100;

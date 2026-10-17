@@ -1,6 +1,5 @@
 import {
 	isSoftwareRenderer,
-	mayDrawLive,
 	PALETTE_SLOTS,
 	waveShape,
 	type PaletteValues,
@@ -23,7 +22,8 @@ const COLOR_UNIFORMS = 'uBg0 uBg1 uBg2 uBloom uSheetA uSheetB uLine uDotC'.split
 
 /** WebGL1 renderer drawing one full-screen triangle; null when WebGL or the shader is unavailable. */
 export function createWaveRenderer(canvas: HTMLCanvasElement): WaveRenderer | null {
-	if (!mayDrawLive(navigator)) return null;
+	// Automated browsers (e2e) report generic GPU names and have no real GPU: keep the still gradient.
+	if (navigator.webdriver) return null;
 	const gl = canvas.getContext('webgl', {
 		antialias: false,
 		alpha: false,

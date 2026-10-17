@@ -3,7 +3,6 @@ import {
 	canvasSize,
 	dueForFrame,
 	isSoftwareRenderer,
-	mayDrawLive,
 	isStarved,
 	parseColor,
 	parseWaveChoice,
@@ -73,10 +72,4 @@ describe('parseColor', () => {
 		expect(parseColor('')).toBeNull();
 		expect(parseColor('oklch(a b c)')).toBeNull();
 	});
-});
-
-it('never draws live waves in an automated browser', () => {
-	expect(mayDrawLive({ webdriver: true })).toBe(false);
-	expect(mayDrawLive({ webdriver: false })).toBe(true);
-	expect(mayDrawLive({})).toBe(true);
 });
