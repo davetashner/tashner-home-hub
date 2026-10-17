@@ -587,7 +587,7 @@
 					>
 						<p class="text-display leading-none" aria-hidden="true">🎉</p>
 						<p class="text-headline leading-none font-extrabold">All free today!</p>
-						<p class="text-lead text-ink-muted">No Star Jobs today. Go play!</p>
+						<p class="text-lead text-ink-muted">Nothing to do today. Go play!</p>
 					</div>
 				{:else}
 					<section
@@ -603,7 +603,7 @@
 							<div class="flex flex-col gap-6 short:gap-2 tablet:gap-3">
 								<h3
 									id="g-{group.timeOfDay}"
-									class="text-title leading-none font-extrabold short:text-caption tablet:text-lead"
+									class="text-title leading-none font-extrabold short:sr-only tablet:sr-only"
 								>
 									<span aria-hidden="true">{GROUP_HEADINGS[group.timeOfDay].emoji}</span>
 									{GROUP_HEADINGS[group.timeOfDay].label}
@@ -718,12 +718,12 @@
 {#snippet sectionHeading(id: string, emoji: string, label: string, done: number, total: number)}
 	<h2
 		{id}
-		class="flex items-center gap-4 text-headline leading-none font-extrabold short:text-lead tablet:text-title"
+		class="flex items-center gap-4 text-headline leading-none font-extrabold short:gap-2 short:text-body tablet:gap-2 tablet:text-lead"
 	>
 		<span aria-hidden="true">{emoji}</span>
 		{label}
 		<span
-			class="rounded-chip bg-surface-raised px-4 py-1 text-title shadow-raised short:text-body tablet:text-lead"
+			class="rounded-chip bg-surface-raised px-4 py-1 text-title shadow-raised short:px-2 short:py-0 short:text-caption tablet:px-3 tablet:py-0 tablet:text-body"
 			data-testid="{id}-count"
 			aria-label="{done} of {total} done">{done}/{total}</span
 		>
