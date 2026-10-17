@@ -70,9 +70,12 @@ for (const f of forms) {
 		await signInAsAdult(page, `e2e-phone-form-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
 		await page.goto(f.path);
-		await page.getByRole('button', { name: f.open }).click();
 		const form = page.locator(`[data-testid="${f.form}"], form`).first();
-		await expect(form).toBeVisible();
+		// A tap before hydration is lost (slow WebKit runs): retry it, as critical-flows and pin do.
+		await expect(async () => {
+			await page.getByRole('button', { name: f.open }).click();
+			await expect(form).toBeVisible({ timeout: 1000 });
+		}).toPass();
 		const offenders = await form.evaluate((el) =>
 			[...el.querySelectorAll('*')]
 				.filter((c) => c.getBoundingClientRect().right > window.innerWidth + 1)

@@ -175,7 +175,8 @@ test('calendar: agenda, week and month each show the seeded events', async ({ pa
 	await expect(view.getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'true');
 	await expect(pane.getByText('Soccer practice')).toBeVisible();
 	await expect(pane.getByText('Dentist')).toBeVisible();
-	await expect(pane.getByRole('button', { name: /Grandma visits/ })).toBeVisible();
+	// A multi-day event is one bar on a wide week, and one row per day where narrow weeks list days.
+	await expect(pane.getByRole('button', { name: /Grandma visits/ }).first()).toBeVisible();
 
 	await view.getByRole('button', { name: 'Month' }).click();
 	await expect(view.getByRole('button', { name: 'Month' })).toHaveAttribute('aria-pressed', 'true');
