@@ -6,6 +6,8 @@
 /** Quiet-hours steppers move in quarter hours. */
 export const QUIET_STEP_MINUTES = 15;
 
+import { isSoundTheme, type SoundTheme } from './sound-themes.js';
+
 const DAY = 24 * 60;
 
 /** Strict 24-hour "HH:MM" (two-digit hours), the only shape the PUT accepts. */
@@ -58,6 +60,8 @@ export interface SoundPatch {
 	muted?: boolean;
 	quietStart?: string;
 	quietEnd?: string;
+	theme?: SoundTheme;
+	volume?: number;
 }
 
 /** Validates a PUT body; returns the patch or an error message. Unknown fields are ignored. */
@@ -66,6 +70,16 @@ export function parseSoundPatch(body: Record<string, unknown>): SoundPatch | str
 	if (body.muted !== undefined) {
 		if (typeof body.muted !== 'boolean') return 'muted must be true or false';
 		patch.muted = body.muted;
+	}
+	if (body.theme !== undefined) {
+		if (!isSoundTheme(body.theme)) return 'theme is not a known sound theme';
+		patch.theme = body.theme;
+	}
+	if (body.volume !== undefined) {
+		const v = body.volume;
+		if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 100)
+			return 'volume must be a whole number from 0 to 100';
+		patch.volume = v;
 	}
 	for (const field of ['quietStart', 'quietEnd'] as const) {
 		const v = body[field];

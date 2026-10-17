@@ -76,7 +76,7 @@
 
 <svelte:head><title>Calendars · Home Hub</title></svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6 max-sm:p-3">
 	<header class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
 		<h1 class="text-headline font-extrabold">Calendars</h1>
 		{#if view.kind === 'list'}
@@ -130,7 +130,7 @@
 						{#if removing === s.id}
 							<div class="mt-6 flex flex-col gap-3">
 								<p class="text-body">Remove {s.label}? Its events disappear from the calendar.</p>
-								<div class="flex gap-3">
+								<div class="flex flex-wrap gap-3">
 									<Button variant="danger" onclick={() => remove(s.id)}>Yes, remove</Button>
 									<Button variant="secondary" onclick={() => (removing = null)}>Keep</Button>
 								</div>

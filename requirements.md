@@ -15,6 +15,7 @@ A self-hosted, wall-mounted touchscreen family hub: shared calendar, photo frame
 ### Non-Goals (v1)
 - Public internet exposure or multi-household accounts.
 - Native iOS/Android apps (a mobile-friendly web UI is enough).
+- Android phones and tablets. Personal devices are iPhones and iPads (see §3.10).
 - Voice assistant integration.
 - Video calling.
 - AI features that need paid APIs (e.g. "photo of a school flyer → events"). May revisit later as optional.
@@ -163,6 +164,17 @@ The main audience is a young child. Completing a chore should feel like an event
 | ADM-4 | P1 | Remote access when away from home over a private VPN (e.g. Tailscale/WireGuard), without exposing ports to the internet. |
 | ADM-5 | P1 | Export/import all app data (JSON) for backup and migration. |
 | ADM-6 | P2 | Push notifications to parents (e.g. reward earned, approval waiting) via a free self-hosted service such as ntfy. |
+
+### 3.10 iPads and iPhones
+The hub runs in Safari on iPhones and iPads, in the browser or installed to the Home Screen. Android is not supported. iPhones are always personal devices. An iPad can be a personal device or a second wall display (for example on a kitchen stand).
+
+| ID | Pri | Requirement |
+|---|---|---|
+| DEV-1 | P0 | **Per-device display role**: each browser is either a *wall display* or a *personal device*, stored on the device rather than the account. Wall displays get the kiosk behaviour: return home and photo frame when idle (UI-6, PHO-4), sleep schedule, and short adult sessions. Personal devices get none of it, and "remember me" is on by default. New browsers are personal; the Pi kiosk is a wall display. An adult can change the role in Settings. |
+| DEV-2 | P1 | **Home Screen web app**: Add to Home Screen opens full screen (standalone) with the app icon, name, and theme colour. |
+| DEV-3 | P0 | **Safe areas**: nothing is hidden behind the notch, Dynamic Island, rounded corners, or home indicator, in either orientation. |
+| DEV-4 | P0 | **iPad layouts**: every screen has a designed layout at iPad sizes in landscape and portrait (UI-8), including Split View widths. Tap-target rules (UI-1) apply. |
+| DEV-5 | P1 | **Safari behaviour**: no zoom when focusing a text field, celebration sound works after the first tap and after returning to the app, and live updates resume after iOS suspends the page. Tests run in WebKit as well as Chromium. |
 
 ## 4. Non-Functional Requirements
 

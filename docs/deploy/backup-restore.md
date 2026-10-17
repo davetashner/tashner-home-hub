@@ -34,3 +34,7 @@ docker compose start hub   # run from the compose folder
 ```
 
 Removing `hub.db-wal` and `hub.db-shm` matters: stale sidecar files from the old database would be applied to the restored one. Make sure the restored file is owned by `PUID:PGID` (on Unraid: `chown 99:100 hub.db`). Pending migrations are applied automatically at startup.
+
+## Restarts and shutdown
+
+`docker stop`, `docker compose restart` and image updates send SIGTERM. The hub stops accepting connections, stops its schedulers, lets a backup or photo render that is already running finish (at most 2 seconds), closes the database and exits with code 0, well inside Docker's 10 second limit, so it is never SIGKILLed mid-write. A backup is written to a `.partial` file and renamed only after `integrity_check` passes, so a backup cut short by a stop never shows up in the list as a valid file.

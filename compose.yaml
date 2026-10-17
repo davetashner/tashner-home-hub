@@ -5,6 +5,9 @@ services:
     image: ghcr.io/davetashner/tashner-home-hub:${HUB_TAG:-latest}
     build: . # fallback when the image is not published/pulled
     init: true
+    labels:
+      # Unraid's Docker page shows this icon for compose-managed containers.
+      net.unraid.docker.icon: https://raw.githubusercontent.com/davetashner/tashner-home-hub/main/static/icon-256.png
     restart: unless-stopped
     # Run as a non-root user that owns the bind mount. Defaults to the image's
     # `node` user (1000:1000). On Unraid set PUID=99 PGID=100 (nobody:users).

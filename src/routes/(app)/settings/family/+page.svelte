@@ -38,7 +38,7 @@
 
 <svelte:head><title>Family</title></svelte:head>
 
-<section class="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+<section class="mx-auto flex max-w-4xl flex-col gap-6 p-6 max-sm:p-3">
 	<header class="flex items-center justify-between gap-4">
 		<h1 class="text-headline font-extrabold">Family</h1>
 		{#if editing !== 'new'}
@@ -82,7 +82,7 @@
 									{#if deleteError}<p role="alert" class="text-caption font-bold text-danger">
 											{deleteError}
 										</p>{/if}
-									<div class="flex gap-3">
+									<div class="flex flex-wrap gap-3">
 										<Button
 											variant="danger"
 											onclick={async () =>
@@ -95,7 +95,7 @@
 									</div>
 								</div>
 							{:else}
-								<div class="flex gap-3">
+								<div class="flex flex-wrap gap-3">
 									<Button
 										variant="secondary"
 										onclick={() => ((editing = member.id), (deleting = null))}>Edit</Button

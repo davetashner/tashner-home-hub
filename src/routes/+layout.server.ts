@@ -1,7 +1,16 @@
 import { isAdult } from '#lib/server/auth.js';
+import { displayRole } from '#lib/server/display-role.js';
 import { getDb } from '#lib/server/db/index.js';
 import { householdTimeZone } from '#lib/server/household.js';
+import { readWeatherLocation } from '#lib/server/weather.js';
+import { readWaveBackground } from '#lib/server/wave-background.js';
 import type { LayoutServerLoad } from './$types';
+
+/** Only the coordinates leave the server for the sun maths (no name, no network). */
+function waveLocation() {
+	const loc = readWeatherLocation(getDb());
+	return loc ? { lat: loc.lat, lon: loc.lon } : null;
+}
 
 /**
  * Whether an adult session is active, so the header can offer Lock (never the adult's identity),
@@ -9,5 +18,8 @@ import type { LayoutServerLoad } from './$types';
  */
 export const load: LayoutServerLoad = (event) => ({
 	adult: isAdult(event),
-	timeZone: householdTimeZone(getDb())
+	displayRole: displayRole(event),
+	timeZone: householdTimeZone(getDb()),
+	waveBackground: readWaveBackground(),
+	waveLocation: waveLocation()
 });

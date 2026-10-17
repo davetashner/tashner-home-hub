@@ -43,7 +43,7 @@ say "Installing packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 # Package is `chromium` on current Raspberry Pi OS (older images: chromium-browser).
-apt-get install -y curl wlr-randr xcursorgen || die "base package install failed"
+apt-get install -y curl python3 wlr-randr xcursorgen || die "base package install failed"
 apt-get install -y chromium || apt-get install -y chromium-browser
 
 say "Creating user '$KIOSK_USER'"
@@ -56,9 +56,11 @@ KIOSK_HOME="$(getent passwd "$KIOSK_USER" | cut -d: -f6)"
 say "Installing scripts, config and units"
 install -d -m 755 "$LIB_DIR" /etc/hub-kiosk
 install -m 755 "$HERE"/bin/hub-kiosk-* "$LIB_DIR/"
+install -m 755 "$HERE/display-agent/hub_display_agent.py" "$LIB_DIR/hub-kiosk-display-agent"
 install -m 644 "$CONF_SRC" "$CONF_DST"
 install -m 644 "$HERE"/systemd/hub-kiosk.service "$HERE"/systemd/hub-kiosk-watchdog.service \
-  "$HERE"/systemd/hub-kiosk-watchdog.timer /etc/systemd/user/
+  "$HERE"/systemd/hub-kiosk-watchdog.timer "$HERE"/systemd/hub-kiosk-display-agent.service \
+  /etc/systemd/user/
 install -d -m 755 /etc/systemd/system.conf.d
 install -m 644 "$HERE/systemd/10-hub-watchdog.conf" /etc/systemd/system.conf.d/10-hub-watchdog.conf
 
@@ -81,7 +83,7 @@ cat >"$CFG/autostart" <<EOC
 # Managed by hub-kiosk install.sh. Edits are overwritten.
 $LIB_DIR/hub-kiosk-apply-display &
 systemctl --user import-environment WAYLAND_DISPLAY XDG_RUNTIME_DIR XCURSOR_THEME XCURSOR_SIZE
-systemctl --user start hub-kiosk.service hub-kiosk-watchdog.timer
+systemctl --user start hub-kiosk.service hub-kiosk-watchdog.timer hub-kiosk-display-agent.service
 EOC
 cat >"$CFG/rc.xml" <<EOC
 <?xml version="1.0"?>

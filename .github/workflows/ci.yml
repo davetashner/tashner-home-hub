@@ -50,6 +50,8 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: node scripts/ci/test-integrity.mjs
+      - name: Runner PR-event guard (ADR 0002)
+        run: node scripts/ci/self-hosted-guard.mjs
       - name: Private data (public repo)
         run: node scripts/ci/private-data.mjs
       - name: Secret scan (gitleaks)
@@ -86,8 +88,39 @@ jobs:
       - name: Bundle budget (budgets.json)
         run: pnpm budget
 
-  e2e:
-    name: e2e
+  # Split across two runners: each shard builds and runs its own server and database, which
+  # halves the wall-clock time and keeps the shards from seeing each other's test data.
+  e2e-shard:
+    name: e2e (shard ${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      - name: End-to-end incl. accessibility (landscape + portrait)
+        # Perf gates run alone in e2e-perf: sharing a runner with other tests skews their timings.
+        run: pnpm test:e2e --shard=${{ matrix.shard }}/2 --grep-invert @perf
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-shard-${{ matrix.shard }}
+          path: playwright-report
+          retention-days: 7
+
+  # The perf gates (tagged @perf) measure our own scripting at 4x CPU throttle, so they run on
+  # their own runner with one worker: CPU contention from parallel tests would skew them.
+  e2e-perf:
+    name: e2e (perf)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -99,14 +132,27 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - name: End-to-end incl. accessibility (landscape + portrait)
-        run: pnpm test:e2e
+      - name: Perf gates (one worker)
+        run: pnpm test:e2e --grep @perf --workers=1
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-perf
           path: playwright-report
           retention-days: 7
+
+  # Keeps the required "e2e" status check: passes only when both shards and the perf job passed.
+  e2e:
+    name: e2e
+    needs: [e2e-shard, e2e-perf]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Both shards and the perf gates passed
+        run: |
+          test "${{ needs.e2e-shard.result }}" = "success"
+          test "${{ needs.e2e-perf.result }}" = "success"
 
   container:
     name: container

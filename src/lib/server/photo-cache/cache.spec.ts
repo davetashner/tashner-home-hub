@@ -32,7 +32,7 @@ beforeEach(() => {
 });
 
 describe('render', () => {
-	it('fits a portrait photo, adds a full-size blurred backdrop, strips EXIF', async () => {
+	it('fits a portrait photo, adds a small blurred backdrop, strips EXIF', async () => {
 		const path = addPhoto('p', await syntheticJpeg(300, 400, { takenAt: '2020:01:02 03:04:05' }));
 		const main = await renderMain(path, LAND, 'avif');
 		const meta = await sharp(main.data).metadata();
@@ -42,7 +42,8 @@ describe('render', () => {
 		expect(main.background).toBe(true);
 		const bg = await sharp(await renderBackdrop(path, LAND, 'webp')).metadata();
 		expect(bg.format).toBe('webp');
-		expect([bg.width, bg.height]).toEqual([640, 360]);
+		expect([bg.width, bg.height]).toEqual([40, 23]);
+		expect(bg.exif).toBeUndefined();
 	});
 
 	it.each([1, 2, 3, 4, 5, 6, 7, 8])('applies EXIF orientation %i', async (o) => {

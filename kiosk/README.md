@@ -35,7 +35,7 @@ Provisions a Raspberry Pi 5 as the wall display: Chromium in kiosk mode on labwc
 
 | Key | Meaning |
 |---|---|
-| `HUB_URL` | page to open, e.g. `http://hub.local:3000` |
+| `HUB_URL` | page to open, e.g. `http://hub.local:3000`. Keep it plain: the launcher adds `?display=wall` itself |
 | `HUB_HEALTH_URL` | reachability probe used for error-page recovery |
 | `ORIENTATION` | `normal`, `90`, `180`, `270` |
 | `OUTPUT` | `wlr-randr` output name (`HDMI-A-1`) |
@@ -56,6 +56,10 @@ Edit `kiosk.conf` (`ORIENTATION`), re-run `sudo ./install.sh`, `sudo reboot`. Ma
 
 The 90/270 rows may be swapped relative to `wlr-randr`'s direction; if taps land mirrored, set `TOUCH_MATRIX` to the other one. If rotation works but the touch needs no matrix on your labwc version (mapToOutput alone may rotate), use `TOUCH_MATRIX="1 0 0 0 1 0"`.
 
+### Wall display role
+
+Every browser is a *wall display* or a *personal device* (DEV-1); only wall displays go home and show the photo frame when idle. The kiosk must be a wall display, so `hub-kiosk-launch` (and the watchdog's reopen) open `HUB_URL` with `?display=wall`. The hub turns that into a long-lived `hub_display=wall` cookie in the kiosk's Chromium profile and redirects to the URL without the query. No `kiosk.conf` change is needed, but re-run `sudo ./install.sh` so the updated scripts are installed. If the profile directory is wiped, the next launch sets the role again. A grown-up can also change a browser's role under Settings, Screen.
+
 ### Orientation endpoint (for the display agent)
 
 A grown-up picks the direction under Settings, Orientation. The hub stores it and serves it, read-only and cheap, for the display agent to poll:
@@ -66,6 +70,36 @@ GET {HUB_URL}/api/display/orientation
 ```
 
 `rotation` is a `wlr-randr --transform` value, so it maps straight onto the `ORIENTATION` table above (the same matrices apply). `orientation` is `portrait` for 90 and 270. Until someone changes it the answer is `normal`. The page layout follows the real screen shape by itself; the agent only has to rotate the output and touch input.
+
+### Display power (sleep schedule)
+
+The hub decides when the screen should be on. The agent only polls and obeys (SLP-1..3). All three endpoints are unauthenticated (LAN only) and answer `cache-control: no-store`:
+
+```
+GET  {HUB_URL}/api/display/power
+-> { "power": "on" | "off", "reason": "schedule" | "sleep-now" | "wake" | "disabled", "until"?: ISO time }
+
+POST {HUB_URL}/api/display/wake    (touch while the screen is off; same body as above)
+POST {HUB_URL}/api/display/sleep   (the nav "Sleep" button; same body, status 202)
+```
+
+- Poll `GET /api/display/power` every few seconds and switch the monitor to `power`. `until` is when the hub expects the next change (informational; keep polling).
+- When the screen is off and is touched, call `POST /api/display/wake`, then switch on at once and keep polling. At night the hub puts the screen back to sleep after the re-sleep timeout (default 2 min, `reason: "wake"` while it is on); a touch while on does not need a call, but calling again restarts the timeout. In the day a wake changes nothing.
+- "Sleep now" keeps the screen off until the next scheduled wake-up (or a touch). With the schedule switched off it lasts until a touch.
+- Schedule: Settings, Sleep schedule (default 21:30 off, 06:30 on). A night counts as a weekend night when the morning it ends on is a Saturday or Sunday (so Friday and Saturday bedtimes use the weekend times). Times are in the household time zone.
+
+### Display agent (monitor power and touch to wake)
+
+`kiosk/display-agent/hub_display_agent.py` (Python 3, standard library only) is installed as `/usr/local/lib/hub-kiosk/hub-kiosk-display-agent` and run by the user unit `hub-kiosk-display-agent.service` (started from the labwc autostart, restarts always). It uses the endpoints above and nothing else, so the server needs no access to the Pi.
+
+- Polls `GET /api/display/power` every `POWER_POLL_SECONDS` (default 1 s, to meet "off within 2 s") and runs `wlr-randr --output <OUTPUT> --off` or `--on`. `OUTPUT` from `kiosk.conf` is used if `wlr-randr` lists it; otherwise the first listed output is used.
+- If `wlr-randr` fails and `CEC_BACKEND` is `cec-ctl` or `cec-client`, it tries HDMI-CEC standby / on instead.
+- Reads the touchscreen straight from `/dev/input/event*` (struct reads, no libraries; the `kiosk` user is in the `input` group), so touch works while the output is off. `TOUCH_DEVICE` overrides detection.
+- Touch while off: grabs the touch device exclusively (`EVIOCGRAB`) while the screen is off and until the waking finger lifts, so Chromium never sees the wake tap (SLP-3); the page also swallows taps for 700 ms after the display comes back (wake guard). Switches on first, then `POST /api/display/wake`. The hub applies the night re-sleep timeout; the next poll turns the screen off again. A touch while on at night re-posts wake (at most every 20 s) to restart the timeout. If the hub is down, the screen stays on for `OFFLINE_WAKE_SECONDS`.
+- Hub unreachable: the screen is left as it is; polling backs off from 2 s to 30 s.
+- Logs go to journald: `sudo journalctl _UID=$(id -u kiosk) -e | grep display-agent`.
+
+Tests (no Pi needed): `cd kiosk/display-agent && python3 -m unittest`. CI does not run them yet (the workflow is protected); hub-ugl.12 may add shellcheck.
 
 ## Updating
 
@@ -102,6 +136,10 @@ curl -s http://127.0.0.1:9222/json/list         # on the Pi: is Chromium alive?
 - [ ] Hardware watchdog reboots on forced freeze (`echo c > /proc/sysrq-trigger` with caution, or stop `systemd`'s petting)
 - [ ] Boot with server unreachable: page opens (cached if SW installed), recovers automatically when server returns
 - [ ] Power-cut recovery (no crash-restore bubble); monitor behaviour on HDMI standby and USB touch power (relevant to the display agent)
+- [ ] Display agent: `wlr-randr --output X --off` really powers the panel down and `--on` restores the mode and rotation (else re-apply `hub-kiosk-apply-display` after `--on`)
+- [ ] Display agent: USB touch stays powered while HDMI is off, and `/dev/input/event*` still reports touches (SLP-3); the wake tap does not reach Chromium (the `EVIOCGRAB` grab works on the Pi, and is released after the finger lifts; hub-8lc.9)
+- [ ] Display agent: touch detection picks the ViewSonic (else set `TOUCH_DEVICE`); `wlr-randr` works from the user unit (WAYLAND_DISPLAY imported)
+- [ ] Display agent: "Sleep now" turns the monitor off within 2 s; night wake re-sleeps after the timeout; CEC fallback if `wlr-randr` is not enough
 - [ ] Soak: runs unattended for days
 
 ## Offline caching and automation flags

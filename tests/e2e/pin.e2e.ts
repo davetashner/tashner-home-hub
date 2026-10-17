@@ -48,7 +48,11 @@ async function openPad(page: Page, name: string, next = '/') {
 	seedAdult(name);
 	seedAdult(`${name} Partner`);
 	await page.goto(`/unlock?next=${encodeURIComponent(next)}`);
-	await page.getByRole('button', { name, exact: true }).click();
+	// A tap before the page hydrates is lost, so retry the pick until the pad shows.
+	await expect(async () => {
+		await page.getByRole('button', { name, exact: true }).click();
+		await expect(page.getByTestId('pinpad')).toBeVisible({ timeout: 1000 });
+	}).toPass();
 }
 
 test('keys are at least 96px', async ({ page }, info) => {

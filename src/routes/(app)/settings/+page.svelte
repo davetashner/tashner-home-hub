@@ -24,6 +24,18 @@
 					: 'Nothing waiting. Check stars, give bonuses.'
 		},
 		{
+			href: resolve('/(app)/settings/weekly-summary'),
+			emoji: '📊',
+			title: 'Weekly summary',
+			line: 'Stars earned and chores missed, week by week.'
+		},
+		{
+			href: resolve('/(app)/settings/stars'),
+			emoji: '⭐',
+			title: 'Give or remove stars',
+			line: 'Bonus stars for kindness, or take some back, with a note.'
+		},
+		{
 			href: resolve('/(app)/settings/family'),
 			emoji: '👨‍👩‍👧',
 			title: 'Family',
@@ -48,6 +60,12 @@
 			line: 'What stars can be saved up for.'
 		},
 		{
+			href: resolve('/(app)/settings/countdowns'),
+			emoji: '⏳',
+			title: 'Countdowns',
+			line: 'Days to the trip, the party, the big day.'
+		},
+		{
 			href: resolve('/(app)/settings/photo-library'),
 			emoji: '🖼️',
 			title: 'Photo library',
@@ -58,6 +76,12 @@
 			emoji: '⏱️',
 			title: 'Screen',
 			line: 'When to go back home and start the photo frame.'
+		},
+		{
+			href: resolve('/(app)/settings/sleep-schedule'),
+			emoji: '🌙',
+			title: 'Sleep schedule',
+			line: 'When the wall display goes dark at night and wakes up.'
 		},
 		{
 			href: resolve('/(app)/settings/orientation'),
@@ -72,6 +96,30 @@
 			line: 'Celebration sounds and quiet hours.'
 		},
 		{
+			href: resolve('/(app)/settings/notifications'),
+			emoji: '📲',
+			title: 'Notifications',
+			line: 'Phone alerts for approvals, goals and rewards.'
+		},
+		{
+			href: resolve('/(app)/settings/backup'),
+			emoji: '💾',
+			title: 'Backup',
+			line: 'Export or restore all hub data.'
+		},
+		{
+			href: resolve('/(app)/settings/background'),
+			emoji: '🌊',
+			title: 'Background',
+			line: 'The moving waves behind the screens.'
+		},
+		{
+			href: resolve('/(app)/settings/weather'),
+			emoji: '🌤️',
+			title: 'Weather',
+			line: 'Where home is, for the forecast on the home screen.'
+		},
+		{
 			href: resolve('/(app)/settings/time-zone'),
 			emoji: '🌍',
 			title: 'Time zone',
@@ -84,7 +132,7 @@
 	<title>Settings · Home Hub</title>
 </svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3 short:gap-4 short:p-3">
 	<h1 class="text-headline font-extrabold">Settings</h1>
 	<ReauthBanner sources={data.reauth} />
 	<ul class="flex flex-col gap-4">
@@ -93,10 +141,12 @@
 				<a
 					href={section.href}
 					data-sveltekit-preload-data="tap"
-					class="flex min-h-tap-kid items-center gap-6 rounded-card bg-surface-raised p-6 shadow-raised transition-transform duration-75 active:scale-95"
+					class="flex min-h-tap-kid items-center gap-6 rounded-card bg-surface-raised p-6 shadow-raised transition-transform duration-75 active:scale-95 max-sm:gap-4 max-sm:p-4"
 				>
-					<span class="text-display leading-none" aria-hidden="true">{section.emoji}</span>
-					<span class="flex flex-col gap-1">
+					<span class="text-display leading-none max-sm:text-headline" aria-hidden="true"
+						>{section.emoji}</span
+					>
+					<span class="flex min-w-0 flex-col gap-1">
 						<span class="text-title font-bold">{section.title}</span>
 						<span class="text-body text-ink-muted">{section.line}</span>
 					</span>

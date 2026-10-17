@@ -178,6 +178,7 @@
 					<textarea
 						bind:value={pasted}
 						rows="4"
+						inputmode="url"
 						spellcheck="false"
 						autocapitalize="off"
 						aria-label="Address you landed on"
@@ -231,8 +232,10 @@
 					<input
 						bind:value={appleId}
 						type="email"
+						inputmode="email"
 						autocomplete="off"
 						autocapitalize="off"
+						spellcheck="false"
 						aria-label="Apple ID"
 						class={field}
 					/>
@@ -244,6 +247,8 @@
 					bind:value={appPassword}
 					type="password"
 					autocomplete="off"
+					autocapitalize="off"
+					spellcheck="false"
 					placeholder="abcd-efgh-ijkl-mnop"
 					aria-label="App-specific password"
 					class={field}

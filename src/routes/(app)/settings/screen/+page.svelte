@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
+	import { parseDisplayRole, type DisplayRole } from '#lib/domain/display-role.js';
 	import {
 		DEFAULT_IDLE,
 		IDLE_SETTINGS_EVENT,
@@ -9,6 +12,12 @@
 		parseIdleSettings,
 		type IdleSettings
 	} from '#lib/domain/idle.js';
+	import {
+		DEFAULT_OVERLAY,
+		parseOverlaySettings,
+		type OverlayField,
+		type OverlaySettings
+	} from '#lib/domain/frame-overlay.js';
 	import {
 		DEFAULT_SLIDESHOW,
 		INTERVAL_STEPS,
@@ -21,9 +30,44 @@
 
 	let settings = $state<IdleSettings>({ ...DEFAULT_IDLE });
 	let slideshow = $state<SlideshowSettings>({ ...DEFAULT_SLIDESHOW });
+	let overlay = $state<OverlaySettings>({ ...DEFAULT_OVERLAY });
 	let message = $state('');
+	// This device's role; optimistic until the save lands, then the layout data takes over again.
+	let pending = $state<DisplayRole | null>(null);
+	const role = $derived(pending ?? parseDisplayRole(page.data.displayRole));
+
+	const roles: { value: DisplayRole; label: string; line: string }[] = [
+		{
+			value: 'personal',
+			label: 'Personal',
+			line: 'A phone or tablet. Stays on the screen you left it on, stays unlocked.'
+		},
+		{
+			value: 'wall',
+			label: 'Wall display',
+			line: 'The shared screen. Goes home and shows the photo frame when idle.'
+		}
+	];
+
+	function changeRole(next: DisplayRole) {
+		if (next === role) return;
+		message = '';
+		pending = next;
+		void fetch('/api/display/role', {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ role: next })
+		})
+			.then(async (res) => {
+				if (!res.ok) message = 'Could not save. Try again.';
+				else await invalidateAll();
+			})
+			.catch(() => (message = 'Could not save. Try again.'))
+			.finally(() => (pending = null));
+	}
 	// Each save stamps a number, so a stale load can't undo a change made meanwhile.
 	let slideshowEdits = 0;
+	let overlayEdits = 0;
 
 	onMount(() => {
 		void fetch('/api/settings/idle')
@@ -36,6 +80,13 @@
 			.then(async (res) => {
 				const loaded = res.ok ? parseSlideshowSettings(await res.json()) : null;
 				if (loaded && edits === slideshowEdits) slideshow = loaded;
+			})
+			.catch(() => {});
+		const overlayAt = overlayEdits;
+		void fetch('/api/settings/frame-overlay')
+			.then(async (res) => {
+				const loaded = res.ok ? parseOverlaySettings(await res.json()) : null;
+				if (loaded && overlayAt === overlayEdits) overlay = loaded;
 			})
 			.catch(() => {});
 	});
@@ -58,6 +109,19 @@
 		slideshowEdits++;
 		slideshow = { ...slideshow, ...patch };
 		save('/api/settings/slideshow', patch);
+	}
+
+	const overlayFields: { key: OverlayField; label: string }[] = [
+		{ key: 'clock', label: 'Clock' },
+		{ key: 'date', label: 'Date' },
+		{ key: 'weather', label: 'Weather' },
+		{ key: 'nextEvent', label: 'Next event' }
+	];
+
+	function toggleOverlay(key: OverlayField) {
+		overlayEdits++;
+		overlay = { ...overlay, [key]: !overlay[key] };
+		save('/api/settings/frame-overlay', { [key]: overlay[key] });
 	}
 
 	const transitions: { value: Transition; label: string }[] = [
@@ -94,8 +158,28 @@
 	<title>Screen · Settings · Home Hub</title>
 </svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3 short:gap-4 short:p-3">
 	<h1 class="text-headline font-extrabold">Screen</h1>
+	<Card>
+		<div class="flex flex-col gap-6">
+			<div class="flex flex-col gap-1">
+				<h2 class="text-title font-bold">This device</h2>
+				<p class="text-body text-ink-muted">
+					Only this browser changes. The timers below apply to wall displays.
+				</p>
+			</div>
+			<div class="flex flex-wrap gap-4" role="group" aria-label="This device">
+				{#each roles as r (r.value)}
+					<Button
+						variant={role === r.value ? 'primary' : 'secondary'}
+						aria-pressed={role === r.value}
+						onclick={() => changeRole(r.value)}>{r.label}</Button
+					>
+				{/each}
+			</div>
+			<p class="text-body text-ink-muted">{roles.find((r) => r.value === role)?.line}</p>
+		</div>
+	</Card>
 	{#each rows as row (row.key)}
 		<Card>
 			<div class="flex flex-wrap items-center justify-between gap-6">
@@ -103,7 +187,7 @@
 					<h2 class="text-title font-bold">{row.title}</h2>
 					<p class="text-body text-ink-muted">{row.line}</p>
 				</div>
-				<div class="flex items-center gap-4">
+				<div class="flex items-center gap-4 max-sm:gap-2">
 					<Button
 						variant="secondary"
 						aria-label="{row.title}: less"
@@ -129,7 +213,7 @@
 					<h2 class="text-title font-bold">Next photo</h2>
 					<p class="text-body text-ink-muted">How long each photo stays on the frame.</p>
 				</div>
-				<div class="flex items-center gap-4">
+				<div class="flex items-center gap-4 max-sm:gap-2">
 					<Button
 						variant="secondary"
 						aria-label="Next photo: less"
@@ -153,7 +237,7 @@
 			</div>
 			<div class="flex flex-wrap items-center justify-between gap-6">
 				<h2 class="text-title font-bold">Transition</h2>
-				<div class="flex gap-4" role="group" aria-label="Transition">
+				<div class="flex flex-wrap gap-4" role="group" aria-label="Transition">
 					{#each transitions as t (t.value)}
 						<Button
 							variant={slideshow.transition === t.value ? 'primary' : 'secondary'}
@@ -162,6 +246,25 @@
 						>
 					{/each}
 				</div>
+			</div>
+		</div>
+	</Card>
+	<Card>
+		<div class="flex flex-col gap-6">
+			<div class="flex flex-col gap-1">
+				<h2 class="text-title font-bold">Show on the photo frame</h2>
+				<p class="text-body text-ink-muted">
+					Weather appears once a location is set in Settings, Weather.
+				</p>
+			</div>
+			<div class="flex flex-wrap gap-4" role="group" aria-label="Show on the photo frame">
+				{#each overlayFields as f (f.key)}
+					<Button
+						variant={overlay[f.key] ? 'primary' : 'secondary'}
+						aria-pressed={overlay[f.key]}
+						onclick={() => toggleOverlay(f.key)}>{f.label}</Button
+					>
+				{/each}
 			</div>
 		</div>
 	</Card>

@@ -1,4 +1,4 @@
-import { error, type Cookies, type RequestEvent } from '@sveltejs/kit';
+import { error, type RequestEvent } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { getDb, schema } from '#lib/server/db/index.js';
 import { getKeyring } from '#lib/server/keys.js';
@@ -25,7 +25,20 @@ function sessionKey(): Buffer {
 	return deriveSessionKey(master);
 }
 
-type CookieEvent = { cookies: Cookies; url: URL };
+type CookieEvent = Pick<RequestEvent, 'cookies' | 'url' | 'platform'>;
+
+/**
+ * Whether the browser reached us over https. adapter-node builds `event.url` with an https default
+ * (no runtime ORIGIN), so in production the URL claims https even on the plain-http LAN. Trust the
+ * real socket instead, or a TLS-terminating proxy's x-forwarded-proto. The dev server and tests
+ * have no Node request, and their URL is accurate.
+ */
+export function overHttps(event: Pick<RequestEvent, 'url' | 'platform'>): boolean {
+	const req = event.platform?.req;
+	if (!req) return event.url.protocol === 'https:';
+	if ((req.socket as { encrypted?: boolean } | undefined)?.encrypted) return true;
+	return req.headers['x-forwarded-proto'] === 'https';
+}
 
 function writeCookie(event: CookieEvent, payload: SessionPayload): void {
 	event.cookies.set(SESSION_COOKIE, signSession(sessionKey(), payload), {
@@ -33,7 +46,7 @@ function writeCookie(event: CookieEvent, payload: SessionPayload): void {
 		httpOnly: true,
 		sameSite: 'strict',
 		// LAN http would silently drop a Secure cookie; only mark it Secure over https.
-		secure: event.url.protocol === 'https:',
+		secure: overHttps(event),
 		maxAge: Math.ceil(payload.ttl / 1000)
 	});
 }

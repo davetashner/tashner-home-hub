@@ -1,4 +1,11 @@
-import { loadSoundSettings, warmAudio, playDing, playFanfare, playTap } from './sound.js';
+import {
+	installAudioUnlock,
+	loadSoundSettings,
+	warmAudio,
+	playDing,
+	playFanfare,
+	playTap
+} from './sound.js';
 
 /** Chore celebrations (hub-sps.4): transform/opacity only, started in the tap's frame. */
 export interface CelebrateDetail {
@@ -26,6 +33,7 @@ const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matc
 /** Fetch sound settings now and the confetti chunk once the page is idle. */
 export function preloadCelebrations(): void {
 	void loadSoundSettings();
+	installAudioUnlock();
 	const idle = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 500));
 	// Everything heavy happens here, off the tap: audio graph, confetti worker + canvas.
 	idle(() => {

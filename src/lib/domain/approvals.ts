@@ -47,3 +47,17 @@ export function relativeTime(then: number, now: number): string {
 export function badgeLabel(pending: number): string {
 	return pending > 0 ? `${pending} ⭐ to check` : '';
 }
+
+/** The badge count for narrow headers, capped so the header width stays fixed ('' when zero). */
+export function compactCount(total: number): string {
+	return total <= 0 ? '' : total > 99 ? '99+' : String(total);
+}
+
+/** Window event the approvals screen fires after any change, so the header badge refreshes at once. */
+export const ATTENTION_CHANGED_EVENT = 'hub:attention-changed';
+
+/** Accessible label for the header badge: pending approvals plus goals ready to redeem. */
+export function attentionLabel(total: number): string {
+	if (total <= 0) return '';
+	return `${total} ${total === 1 ? 'thing needs' : 'things need'} a grown-up`;
+}

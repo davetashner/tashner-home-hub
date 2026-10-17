@@ -109,6 +109,9 @@
 	.month {
 		display: grid;
 		height: 100%;
+		/* Weeks never get squeezed below a tap target, however short the pane (phones scroll). */
+		min-height: calc(var(--weeks) * var(--spacing-tap) + 5rem);
+		container-type: inline-size;
 		grid-template-rows: auto repeat(var(--weeks), minmax(0, 1fr));
 		border-radius: var(--radius-card);
 		overflow: hidden;
@@ -209,5 +212,35 @@
 	}
 	.more {
 		padding-left: 1.25rem;
+	}
+	/*
+	 * Seven columns in a narrow pane (phone, iPad landscape beside the rail) cannot hold event
+	 * text: cells show a coloured dot per event, and tapping a day opens its agenda.
+	 */
+	@container (max-width: 700px) {
+		.dow span {
+			font-size: var(--text-caption);
+		}
+		.num {
+			padding: 0.25rem 0.25rem 0;
+			text-align: center;
+			font-size: var(--text-body);
+		}
+		.pill {
+			min-width: 2rem;
+		}
+		.chips {
+			flex-flow: row wrap;
+			justify-content: center;
+			gap: 0.25rem;
+			padding: 0 0.25rem;
+		}
+		.chip {
+			gap: 0;
+		}
+		.chip .truncate,
+		.more {
+			display: none;
+		}
 	}
 </style>

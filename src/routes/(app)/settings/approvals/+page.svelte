@@ -6,7 +6,12 @@
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
-	import { groupByChild, relativeTime, type PendingItem } from '#lib/domain/approvals.js';
+	import {
+		ATTENTION_CHANGED_EVENT,
+		groupByChild,
+		relativeTime,
+		type PendingItem
+	} from '#lib/domain/approvals.js';
 	import { redeemPreview, redeemedMessage } from '#lib/domain/redeem.js';
 	import type { MemberColor } from '#lib/domain/member-colors.js';
 
@@ -70,6 +75,8 @@
 	}
 
 	async function loadBalances() {
+		// Every change on this screen ends here: tell the header badge to recount.
+		window.dispatchEvent(new Event(ATTENTION_CHANGED_EVENT));
 		await Promise.all(
 			children.map(async (c) => {
 				const [res, goal] = await Promise.all([
@@ -230,7 +237,7 @@
 
 <svelte:head><title>Approvals · Home Hub</title></svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 portrait:max-sm:p-4">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3 short:gap-4 short:p-3">
 	<header class="flex flex-wrap items-center justify-between gap-6">
 		<h1 class="text-headline font-extrabold">Approvals</h1>
 		<a
@@ -248,13 +255,13 @@
 	<ul class="flex flex-col gap-8">
 		{#each rows as { child, group, done } (child.id)}
 			<li data-testid="child-card" data-member={child.id}>
-				<Card class="flex flex-col gap-6 portrait:max-sm:!p-4">
+				<Card class="flex flex-col gap-6 max-sm:!p-4">
 					<div class="flex items-center gap-4">
 						<MemberAvatar name={child.name} color={child.color} avatar={child.avatar} />
-						<h2 class="min-w-0 flex-1 text-lead font-extrabold break-words sm:text-title">
+						<h2 class="min-w-0 flex-1 truncate text-lead font-extrabold sm:text-title">
 							{child.name}
 						</h2>
-						<span class="text-lead font-bold" data-testid="balance-{child.id}">
+						<span class="shrink-0 text-lead font-bold" data-testid="balance-{child.id}">
 							{balances[child.id] ?? 0} ⭐
 						</span>
 					</div>
@@ -289,8 +296,8 @@
 									<span class="text-title leading-none" aria-hidden="true">
 										{item.choreIcon ?? '⭐'}
 									</span>
-									<span class="flex min-w-40 flex-1 flex-col">
-										<span class="text-lead font-bold">{item.choreTitle}</span>
+									<span class="flex min-w-40 flex-1 flex-col max-sm:min-w-0">
+										<span class="text-lead font-bold break-words">{item.choreTitle}</span>
 										<span class="text-caption text-ink-muted">
 											{relativeTime(item.completedAt, now)} · {item.stars}
 											{item.stars === 1 ? 'star' : 'stars'}
@@ -298,14 +305,14 @@
 									</span>
 									<span class="flex w-full gap-4 sm:w-auto">
 										<Button
-											class="flex-1"
+											class="min-w-0 flex-1 max-sm:!px-2 max-sm:!text-caption"
 											data-testid="approve"
 											aria-label="Approve {item.choreTitle} for {child.name}"
 											onclick={() => approve([item])}>Approve</Button
 										>
 										<Button
 											variant="secondary"
-											class="flex-1"
+											class="min-w-0 flex-1 max-sm:!px-2 max-sm:!text-caption"
 											data-testid="reject"
 											aria-label="Not yet: {item.choreTitle} for {child.name}"
 											onclick={() => openReject(item)}>Not yet</Button
@@ -338,8 +345,8 @@
 										<span class="text-title leading-none" aria-hidden="true">
 											{item.choreIcon ?? '⭐'}
 										</span>
-										<span class="flex min-w-40 flex-1 flex-col">
-											<span class="text-lead font-bold">{item.choreTitle}</span>
+										<span class="flex min-w-40 flex-1 flex-col max-sm:min-w-0">
+											<span class="text-lead font-bold break-words">{item.choreTitle}</span>
 											<span class="text-caption text-ink-muted">
 												{relativeTime(item.completedAt, now)} · {item.stars}
 												{item.stars === 1 ? 'star' : 'stars'}
@@ -413,23 +420,36 @@
 </section>
 
 {#if rejecting}
-	<div class="fixed inset-0 z-20 flex items-end justify-center bg-ink/50 sm:items-center">
+	<div
+		class="fixed inset-0 z-20 flex items-end justify-center bg-ink/50 pt-safe-0 pr-safe-0 pl-safe-0 sm:items-center"
+	>
 		<div
 			role="dialog"
 			aria-modal="true"
 			aria-label="Not yet"
 			data-testid="reject-sheet"
-			class="sheet flex w-full max-w-2xl flex-col gap-6 rounded-t-sheet bg-surface-raised p-8 shadow-float sm:rounded-sheet"
+			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 pb-safe-8 shadow-float max-sm:p-5 max-sm:pb-safe-5 sm:rounded-sheet short:gap-3 short:p-4 short:pb-safe-4"
 		>
 			<h2 class="text-title font-extrabold">Not yet: {rejecting.choreTitle}</h2>
 			<label class="flex flex-col gap-2">
 				<span class="text-caption text-ink-muted"
 					>A short note for {rejecting.memberName} (optional)</span
 				>
-				<input class={field} maxlength="100" bind:value={note} data-testid="reject-note" />
+				<input
+					class={field}
+					maxlength="100"
+					autocomplete="off"
+					enterkeyhint="send"
+					bind:value={note}
+					data-testid="reject-note"
+				/>
 			</label>
 			<div class="flex gap-4">
-				<Button class="flex-1" data-testid="reject-confirm" onclick={confirmReject}>
+				<Button
+					class="flex-1 whitespace-nowrap max-sm:px-4"
+					data-testid="reject-confirm"
+					onclick={confirmReject}
+				>
 					Send back
 				</Button>
 				<Button variant="secondary" class="flex-1" onclick={() => (rejecting = null)}>
@@ -441,13 +461,15 @@
 {/if}
 
 {#if redeeming && preview}
-	<div class="fixed inset-0 z-20 flex items-end justify-center bg-ink/50 sm:items-center">
+	<div
+		class="fixed inset-0 z-20 flex items-end justify-center bg-ink/50 pt-safe-0 pr-safe-0 pl-safe-0 sm:items-center"
+	>
 		<div
 			role="dialog"
 			aria-modal="true"
 			aria-label="Redeem reward"
 			data-testid="redeem-sheet"
-			class="sheet flex w-full max-w-2xl flex-col gap-6 rounded-t-sheet bg-surface-raised p-8 shadow-float sm:rounded-sheet"
+			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 pb-safe-8 shadow-float max-sm:p-5 max-sm:pb-safe-5 sm:rounded-sheet short:gap-3 short:p-4 short:pb-safe-4"
 		>
 			<h2 class="text-title font-extrabold">
 				<span aria-hidden="true">{redeeming.goal.image ?? '🎁'}</span>
@@ -477,7 +499,7 @@
 {/if}
 
 <div
-	class="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4"
+	class="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center pr-safe-4 pb-safe-0 pl-safe-4"
 	aria-live="polite"
 >
 	{#if toast}

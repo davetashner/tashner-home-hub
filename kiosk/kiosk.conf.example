@@ -2,6 +2,7 @@
 # Plain KEY="value" shell syntax. Re-run `sudo ./install.sh` and reboot after changes.
 
 # URL of the hub server (placeholder; use your server's real LAN name or IP).
+# Leave off any query: hub-kiosk-launch adds ?display=wall so this browser is a wall display.
 HUB_URL="http://hub.local:3000"
 
 # Health endpoint used by the watchdog to decide whether the server is reachable.
@@ -21,3 +22,16 @@ TOUCH_MATRIX=""
 
 # Remote debugging port, bound to localhost only. Used by the watchdog.
 DEBUG_PORT="9222"
+
+# Display agent (monitor power and touch to wake). All optional.
+# Seconds between polls of the hub's power state; 1 keeps "Sleep now" under the 2 s target.
+POWER_POLL_SECONDS="1"
+# Touch device override, e.g. /dev/input/event4. Empty = auto-detect touchscreens.
+TOUCH_DEVICE=""
+# HDMI-CEC fallback if wlr-randr cannot switch the output: cec-ctl | cec-client | empty (off).
+CEC_BACKEND=""
+CEC_DEVICE="/dev/cec0"
+# CEC logical address of the monitor (0 = TV).
+CEC_ADDRESS="0"
+# If the hub is unreachable, a touch-woken screen stays on this many seconds.
+OFFLINE_WAKE_SECONDS="120"

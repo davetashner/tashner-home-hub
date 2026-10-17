@@ -93,7 +93,7 @@
 		/>
 	</label>
 
-	<fieldset class="flex flex-wrap gap-3">
+	<fieldset class="flex min-w-0 flex-wrap gap-3">
 		<legend class="mb-2 text-caption text-ink-muted">Picture</legend>
 		<label class="relative">
 			<input type="radio" name="icon" value="" bind:group={icon} class="peer sr-only" />
@@ -107,7 +107,7 @@
 		{/each}
 	</fieldset>
 
-	<div class="flex items-center gap-4">
+	<div class="flex flex-wrap items-center gap-4">
 		<span class="text-caption text-ink-muted">Stars</span>
 		<Button
 			variant="secondary"
@@ -126,22 +126,22 @@
 		>
 	</div>
 
-	<fieldset class="flex flex-wrap gap-3">
+	<fieldset class="flex min-w-0 flex-wrap gap-3">
 		<legend class="mb-2 text-caption text-ink-muted">Who</legend>
 		{#each members as m (m.id)}
-			<label class="relative flex flex-col items-center gap-1">
+			<label class="relative flex max-w-full flex-col items-center gap-1">
 				<input type="checkbox" value={m.id} bind:group={memberIds} class="peer sr-only" />
 				<span
-					class="press flex items-center gap-3 rounded-chip border-2 border-line bg-surface-raised p-2 pr-4 peer-checked:border-ink peer-checked:ring-4 peer-checked:ring-ink peer-focus-visible:outline-4 peer-focus-visible:outline-accent"
+					class="press flex max-w-full items-center gap-3 rounded-chip border-2 border-line bg-surface-raised p-2 pr-4 peer-checked:border-ink peer-checked:ring-4 peer-checked:ring-ink peer-focus-visible:outline-4 peer-focus-visible:outline-accent"
 				>
 					<MemberAvatar name={m.name} color={m.color} avatar={m.avatar} size="sm" />
-					<span class="text-body">{m.name}</span>
+					<span class="min-w-0 text-body break-words">{m.name}</span>
 				</span>
 			</label>
 		{/each}
 	</fieldset>
 
-	<fieldset class="flex flex-wrap gap-3">
+	<fieldset class="flex min-w-0 flex-wrap gap-3">
 		<legend class="mb-2 text-caption text-ink-muted">When in the day</legend>
 		{#each TIMES as [value, label] (value)}
 			<label class="relative">
@@ -151,7 +151,7 @@
 		{/each}
 	</fieldset>
 
-	<fieldset class="flex flex-wrap gap-3">
+	<fieldset class="flex min-w-0 flex-wrap gap-3">
 		<legend class="mb-2 text-caption text-ink-muted">How often</legend>
 		{#each KINDS as [value, label] (value)}
 			<label class="relative">
@@ -162,7 +162,7 @@
 	</fieldset>
 
 	{#if kind === 'weekdays'}
-		<fieldset class="flex flex-wrap gap-3" aria-label="Days of the week">
+		<fieldset class="flex min-w-0 flex-wrap gap-3" aria-label="Days of the week">
 			{#each DAYS as [value, label] (value)}
 				<label class="relative">
 					<input type="checkbox" {value} bind:group={days} class="peer sr-only" />

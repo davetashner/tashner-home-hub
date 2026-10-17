@@ -42,4 +42,11 @@ export function getDb(): Db {
 	return instance;
 }
 
+/** Closes the shared handle (WAL checkpoint on last close). Safe to call twice. */
+export function closeDb(): void {
+	const db = instance;
+	instance = undefined;
+	if (db?.$client.open) db.$client.close();
+}
+
 export { schema };
