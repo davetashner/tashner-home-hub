@@ -43,6 +43,12 @@
 	/* Photo frame matte behind photos, the same in both themes. */
 	--color-frame: oklch(0% 0 0);
 
+	/* Night clock (SLP-4): very dim, warm amber with no blue, on pure black. */
+	--color-night-clock: oklch(36% 0.08 50);
+	--color-night-clock-dim: oklch(28% 0.06 45);
+	--text-night-clock: min(17vw, 34vh);
+	--spacing-night-nudge: 3vmin;
+
 	--font-sans: 'Nunito Variable', ui-rounded, system-ui, sans-serif;
 
 	/*

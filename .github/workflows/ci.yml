@@ -50,6 +50,8 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: node scripts/ci/test-integrity.mjs
+      - name: Runner PR-event guard (ADR 0002)
+        run: node scripts/ci/self-hosted-guard.mjs
       - name: Private data (public repo)
         run: node scripts/ci/private-data.mjs
       - name: Secret scan (gitleaks)

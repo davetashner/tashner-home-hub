@@ -22,10 +22,16 @@
 
 	let schedule = $state<SleepSchedule>(structuredClone(DEFAULT_SLEEP_SCHEDULE));
 	let message = $state('');
+	let nightClock = $state(false);
 	// Each change stamps a number, so a stale load or a late failure can't undo a newer change.
 	let edits = 0;
 
 	onMount(() => {
+		void fetch('/api/settings/night-clock')
+			.then(async (res) => {
+				if (res.ok) nightClock = (await res.json()).enabled === true;
+			})
+			.catch(() => {});
 		const at = edits;
 		void fetch('/api/settings/sleep-schedule')
 			.then(async (res) => {
@@ -63,6 +69,26 @@
 			method: 'PUT',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify(patch)
+		})
+			.then((res) => {
+				if (!res.ok) fail();
+			})
+			.catch(fail);
+	}
+
+	function setNightClock(enabled: boolean) {
+		// Optimistic, like every other setting here.
+		const before = nightClock;
+		nightClock = enabled;
+		message = '';
+		const fail = () => {
+			message = 'Could not save. Try again.';
+			nightClock = before;
+		};
+		void fetch('/api/settings/night-clock', {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ enabled })
 		})
 			.then((res) => {
 				if (!res.ok) fail();
@@ -185,6 +211,28 @@
 						schedule.resleepMinutes < RESLEEP_MAX &&
 						change({ resleepMinutes: schedule.resleepMinutes + 1 })}>+</Button
 				>
+			</div>
+		</div>
+	</Card>
+	<Card>
+		<div class="flex flex-wrap items-center justify-between gap-6">
+			<div class="flex flex-col gap-1">
+				<h2 class="text-title font-bold">Night clock</h2>
+				<p class="text-body text-ink-muted" data-testid="night-clock-summary">
+					{nightClock
+						? 'At night the wall display shows a very dim clock instead of turning off.'
+						: 'At night the wall display turns fully off.'}
+				</p>
+			</div>
+			<div class="flex flex-wrap gap-4" role="group" aria-label="Night clock">
+				{#each choices as c (c.label)}
+					<Button
+						variant={nightClock === c.enabled ? 'primary' : 'secondary'}
+						aria-pressed={nightClock === c.enabled}
+						aria-label="Night clock {c.label}"
+						onclick={() => nightClock !== c.enabled && setNightClock(c.enabled)}>{c.label}</Button
+					>
+				{/each}
 			</div>
 		</div>
 	</Card>
