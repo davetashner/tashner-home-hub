@@ -80,6 +80,9 @@
 	/* Tablet tier (iPad): proportionate controls and a slim rail. */
 	--spacing-tap-tablet: 72px;
 	--spacing-rail-tablet: 7.5rem;
+	/* PIN pad on a phone: the columns size the keys; only their height and the pad's reach are set. */
+	--spacing-key-phone: clamp(4rem, 9dvh, 4.75rem);
+	--spacing-pad-phone: 20rem;
 
 	--shadow-raised: 0 1px 2px oklch(30% 0.05 55 / 0.08), 0 6px 18px oklch(30% 0.05 55 / 0.08);
 	--shadow-float: 0 2px 4px oklch(30% 0.05 55 / 0.08), 0 18px 48px oklch(30% 0.05 55 / 0.16);

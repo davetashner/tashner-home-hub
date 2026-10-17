@@ -5,9 +5,11 @@
 		onsubmit: (pin: string) => Promise<PinResult>;
 		maxLength?: number;
 		minLength?: number;
+		/** Phone landscape: dots and message stay left, the keys sit in the page's right column. */
+		split?: boolean;
 	}
 
-	let { onsubmit, maxLength = 6, minLength = 4 }: Props = $props();
+	let { onsubmit, maxLength = 6, minLength = 4, split = false }: Props = $props();
 
 	let pin = $state('');
 	let message = $state('');
@@ -61,34 +63,47 @@
 	const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 </script>
 
-<div class="flex flex-col items-center gap-6" data-testid="pinpad">
-	<div
-		class="flex h-12 items-center gap-4"
-		class:shake={shaking}
-		onanimationend={() => (shaking = false)}
-		role="img"
-		aria-label="{pin.length} digits entered"
-		data-testid="pin-dots"
-		data-count={pin.length}
-	>
-		{#each { length: maxLength } as _, i (i)}
-			<span
-				class="h-6 w-6 rounded-chip border-2 border-ink {i < pin.length
-					? 'bg-ink'
-					: 'bg-transparent'}"
-			></span>
-		{/each}
+<div
+	class="pad flex flex-col items-center gap-6 max-sm:gap-3 {split ? 'short:contents' : ''}"
+	data-testid="pinpad"
+>
+	<div class="flex flex-col items-center gap-6 max-sm:gap-3 short:col-start-1 short:gap-2">
+		<div
+			class="flex h-12 items-center gap-4 max-sm:h-8 max-sm:gap-3"
+			class:shake={shaking}
+			onanimationend={() => (shaking = false)}
+			role="img"
+			aria-label="{pin.length} digits entered"
+			data-testid="pin-dots"
+			data-count={pin.length}
+		>
+			{#each { length: maxLength } as _, i (i)}
+				<span
+					class="h-6 w-6 rounded-chip border-2 border-ink {i < pin.length
+						? 'bg-ink'
+						: 'bg-transparent'}"
+				></span>
+			{/each}
+		</div>
+
+		<p
+			class="min-h-12 text-center text-body text-danger max-sm:min-h-6 short:min-h-6"
+			role="alert"
+			data-testid="pin-message"
+		>
+			{#if locked}
+				Locked. Try again in {secondsLeft}s.
+			{:else}
+				{message}
+			{/if}
+		</p>
 	</div>
 
-	<p class="min-h-12 text-center text-body text-danger" role="alert" data-testid="pin-message">
-		{#if locked}
-			Locked. Try again in {secondsLeft}s.
-		{:else}
-			{message}
-		{/if}
-	</p>
-
-	<div class="grid grid-cols-3 gap-4">
+	<div
+		class="keys grid grid-cols-3 gap-4 {split
+			? 'short:col-start-2 short:row-span-4 short:row-start-1'
+			: ''}"
+	>
 		{#each digits as d (d)}
 			<button type="button" class="key" disabled={locked} onclick={() => press(d)}>{d}</button>
 		{/each}
@@ -115,6 +130,7 @@
 		min-height: var(--spacing-tap-kid);
 		min-width: var(--spacing-tap-kid);
 		width: calc(var(--spacing-tap-kid) * 1.25);
+		font-variant-numeric: tabular-nums;
 		border-radius: var(--radius-card);
 		background: var(--color-surface-raised);
 		color: var(--color-ink);
@@ -126,6 +142,31 @@
 		transition:
 			transform var(--duration-quick) var(--ease-out-soft),
 			opacity var(--duration-quick) linear;
+	}
+	/* Phones: the grid's columns size the keys, so they can never overlap; only height is set. */
+	@media (max-width: 40rem), (orientation: landscape) and (max-height: 32rem) {
+		.pad {
+			width: 100%;
+		}
+		.keys {
+			width: min(100%, var(--spacing-pad-phone));
+			gap: calc(var(--spacing) * 3);
+		}
+		.key {
+			width: 100%;
+			min-width: 0;
+			min-height: var(--spacing-tap);
+			height: var(--spacing-key-phone);
+			border-radius: var(--radius-control);
+		}
+	}
+	@media (orientation: landscape) and (max-height: 32rem) {
+		.keys {
+			gap: calc(var(--spacing) * 2);
+		}
+		.key {
+			height: var(--spacing-tap);
+		}
 	}
 	.key:active:not(:disabled) {
 		transform: scale(0.94);
