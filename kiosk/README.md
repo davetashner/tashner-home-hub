@@ -16,7 +16,7 @@ Provisions a Raspberry Pi 5 as the wall display: Chromium in kiosk mode on labwc
 | Server down at boot | Chromium still opens `HUB_URL` (service worker serves cache if it has one). If it lands on an error page, the watchdog reopens the URL once `HUB_HEALTH_URL` answers. A server outage never restarts Chromium |
 | Full freeze | `RuntimeWatchdogSec=15` in `/etc/systemd/system.conf.d/10-hub-watchdog.conf` (hardware watchdog) |
 | Rotation | `wlr-randr --output <OUTPUT> --mode <RESOLUTION> --transform <ORIENTATION>` plus a libinput calibration matrix and `mapToOutput` in labwc `rc.xml` |
-| Hidden cursor | invisible Xcursor theme `hub-blank` set in labwc `environment` |
+| Hidden cursor | invisible Xcursor theme `hub-blank` set in labwc `environment`; `HIDE_CURSOR="no"` shows a normal pointer for mouse use |
 
 ## First boot
 
@@ -117,7 +117,8 @@ curl -s http://127.0.0.1:9222/json/list         # on the Pi: is Chromium alive?
 
 - Black screen / wrong mode: check `wlr-randr` output name and that `RESOLUTION` is listed for it.
 - Desktop shows instead of kiosk: confirm `/etc/lightdm/lightdm.conf.d/50-hub-kiosk.conf` and the session name in `/usr/share/wayland-sessions/`. Alternative: `sudo raspi-config` > System Options > Boot / Auto Login > Desktop Autologin, then set the user to `kiosk`.
-- Cursor visible: also set `cursor: none` in the app CSS.
+- Cursor visible on the touch wall: check `HIDE_CURSOR="yes"` in `kiosk.conf`, re-run `install.sh`, reboot.
+- No pointer with a mouse: set `HIDE_CURSOR="no"`, re-run `install.sh`, reboot.
 - Need to leave kiosk: SSH in; `systemctl --user stop hub-kiosk.service` as above.
 - Not covered: read-only root / overlay filesystem and SSD boot (NFR-5 SD wear). Prefer NVMe/SSD; or `raspi-config` overlay filesystem after setup (the Chromium profile dir would then need to live on a writable partition).
 

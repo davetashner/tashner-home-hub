@@ -22,10 +22,12 @@ say() { echo "==> $*"; }
 : "${OUTPUT:=HDMI-A-1}"
 : "${RESOLUTION:=2560x1440}"
 : "${TOUCH_MATRIX:=}"
+: "${HIDE_CURSOR:=yes}"
 case "$ORIENTATION" in normal | 90 | 180 | 270) ;; *) die "ORIENTATION must be normal|90|180|270" ;; esac
 [[ "$OUTPUT" =~ ^[A-Za-z0-9_-]+$ ]] || die "OUTPUT looks wrong: $OUTPUT"
 [[ "$RESOLUTION" =~ ^[0-9]+x[0-9]+$ ]] || die "RESOLUTION must look like 2560x1440"
 [[ "$HUB_URL" =~ ^https?:// ]] || die "HUB_URL must start with http:// or https://"
+case "$HIDE_CURSOR" in yes | no) ;; *) die "HIDE_CURSOR must be yes|no" ;; esac
 
 # libinput calibration matrices (labwc-config(5) / libinput docs, clockwise rotation).
 # Which of 90/270 matches wlr-randr's --transform direction is confirmed on hardware (hub-8lc.9).
@@ -104,9 +106,15 @@ cat >"$CFG/rc.xml" <<EOC
   </libinput>
 </labwc_config>
 EOC
+# Touch wall: the invisible theme. A TV with a mouse (HIDE_CURSOR=no): a pointer readable at 4K.
+if [ "$HIDE_CURSOR" = yes ]; then
+  CURSOR_THEME=hub-blank CURSOR_SIZE=1
+else
+  CURSOR_THEME=Adwaita CURSOR_SIZE=48
+fi
 cat >"$CFG/environment" <<EOC
-XCURSOR_THEME=hub-blank
-XCURSOR_SIZE=1
+XCURSOR_THEME=$CURSOR_THEME
+XCURSOR_SIZE=$CURSOR_SIZE
 EOC
 chown "$KIOSK_USER:$KIOSK_USER" "$CFG/autostart" "$CFG/rc.xml" "$CFG/environment"
 
