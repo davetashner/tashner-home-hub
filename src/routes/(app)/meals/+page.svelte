@@ -211,10 +211,11 @@
 		grid-template-columns: minmax(0, 1fr);
 		align-content: start;
 	}
-	/* Wall landscape: seven days across, slots stacked under each. */
+	/* Landscape: days side by side, slots stacked under each. The wall fits all seven across;
+	   narrower screens (a laptop) wrap the week rather than squeeze the words until they break. */
 	@media (orientation: landscape) and (min-width: 1100px) {
 		.week {
-			grid-template-columns: repeat(7, minmax(0, 1fr));
+			grid-template-columns: repeat(auto-fit, minmax(var(--spacing-meals-day), 1fr));
 		}
 	}
 	.day {
@@ -235,12 +236,12 @@
 		min-height: calc(var(--spacing-tap) * 1.5);
 		flex-direction: column;
 		gap: 0.25rem;
-		padding: 0.5rem 0.75rem;
+		padding: 0.5rem;
 		border: 0;
 		border-radius: var(--radius-control);
 		background: var(--color-surface-sunken);
 		color: var(--color-ink);
-		overflow-wrap: anywhere;
+		overflow-wrap: break-word;
 		text-align: left;
 	}
 	.press {
