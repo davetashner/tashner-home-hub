@@ -12,6 +12,8 @@
 	import EarnedBanner from '#lib/components/kid/EarnedBanner.svelte';
 	import StreakBadge from '#lib/components/kid/StreakBadge.svelte';
 	import StreakBanner from '#lib/components/kid/StreakBanner.svelte';
+	import BonusBanner from '#lib/components/kid/BonusBanner.svelte';
+	import { newBonuses, newestAt, type LedgerRow } from '#lib/domain/bonus.js';
 	import { reachedMilestone, type Milestone } from '#lib/domain/streaks.js';
 	import {
 		celebrate,
@@ -65,6 +67,10 @@
 	let streakParty = $state<Milestone | null>(null);
 	let streakTimer: ReturnType<typeof setTimeout> | undefined;
 	let earnedTimer: ReturnType<typeof setTimeout> | undefined;
+	// Newest ledger row each child has already seen, so a grown-up's bonus is celebrated once.
+	const seenAt: Record<string, number> = {};
+	let bonusParty = $state<{ stars: number; note: string | null } | null>(null);
+	let bonusTimer: ReturnType<typeof setTimeout> | undefined;
 	// Fallback when localStorage is unavailable, so the party still happens only once per load.
 	const earnedMemo: Record<string, string | null> = {};
 
@@ -104,7 +110,9 @@
 		// Saved copies would undo the tap we are still holding for the server.
 		if (offline.queued > 0) return;
 		const [s, g] = await Promise.all([
-			api<{ balance: number; pending: number }>(`/api/members/${id}/stars?limit=1`),
+			api<{ balance: number; pending: number; history: LedgerRow[] }>(
+				`/api/members/${id}/stars?limit=10`
+			),
 			api<{ reward: Goal } | null>(`/api/members/${id}/goal`)
 		]);
 		starsBy[id] = { balance: s.balance, pending: s.pending };
@@ -115,7 +123,28 @@
 			image: g.reward.image,
 			cost: g.reward.cost
 		};
-		if (id === selectedId) checkEarned(id);
+		const goalParty = id === selectedId && checkEarned(id);
+		noticeBonus(id, s.history, goalParty);
+	}
+
+	/** A grown-up's bonus plays the star celebration; a deduction only changes the number. */
+	function noticeBonus(id: string, history: LedgerRow[], goalParty: boolean) {
+		const fresh = newBonuses(history, seenAt[id] ?? null);
+		seenAt[id] = Math.max(seenAt[id] ?? 0, newestAt(history));
+		// Reaching the goal already throws the bigger party.
+		if (fresh.length === 0 || id !== selectedId || goalParty) return;
+		const stars = fresh.reduce((sum, r) => sum + r.delta, 0);
+		const note = fresh.length === 1 ? fresh[0].note : null;
+		clearTimeout(bonusTimer);
+		bonusTimer = setTimeout(
+			async () => {
+				bonusParty = { stars, note };
+				await tick();
+				celebrateApproval(jar, stars);
+				bonusTimer = setTimeout(() => (bonusParty = null), 4500);
+			},
+			Math.max(0, allDoneUntil - Date.now()) + 300
+		);
 	}
 
 	/** Streak counter; a milestone party plays when the count grows onto one (CHO-10). */
@@ -138,7 +167,7 @@
 	}
 
 	/** "You earned it!" once per reaching the goal (REW-3), after any all-done party. */
-	function checkEarned(memberId: string) {
+	function checkEarned(memberId: string): boolean {
 		const key = earnedKey(memberId);
 		let stored = earnedMemo[key] ?? null;
 		try {
@@ -159,7 +188,7 @@
 		} catch {
 			// memo only
 		}
-		if (!decision.celebrate || !reward) return;
+		if (!decision.celebrate || !reward) return false;
 		clearTimeout(earnedTimer);
 		earnedTimer = setTimeout(
 			() => {
@@ -169,6 +198,7 @@
 			},
 			Math.max(0, allDoneUntil - Date.now()) + 300
 		);
+		return true;
 	}
 
 	async function refresh() {
@@ -245,6 +275,7 @@
 			clearTimeout(allDoneTimer);
 			clearTimeout(earnedTimer);
 			clearTimeout(streakTimer);
+			clearTimeout(bonusTimer);
 		};
 	});
 
@@ -256,6 +287,8 @@
 		clearTimeout(allDoneTimer);
 		clearTimeout(earnedTimer);
 		clearTimeout(streakTimer);
+		clearTimeout(bonusTimer);
+		bonusParty = null;
 		streakParty = null;
 		allDone = false;
 		earned = null;
@@ -479,6 +512,10 @@
 
 {#if streakParty}
 	<StreakBanner days={streakParty.days} stars={streakParty.stars} />
+{/if}
+
+{#if bonusParty}
+	<BonusBanner stars={bonusParty.stars} note={bonusParty.note} />
 {/if}
 
 {#if message}

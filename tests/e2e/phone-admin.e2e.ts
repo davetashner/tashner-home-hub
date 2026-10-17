@@ -119,7 +119,12 @@ test.describe('phone flows', () => {
 		await page.goto('/settings/calendars');
 		const sheet = page.getByTestId('add-connection');
 		const open = async (name: RegExp) => {
-			await page.getByRole('button', { name: 'Add connection' }).click();
+			// A tap before hydration is lost: retry the opening tap until the choices show.
+			await expect(async () => {
+				if (!(await page.getByRole('button', { name }).isVisible()))
+					await page.getByRole('button', { name: 'Add connection' }).click();
+				await expect(page.getByRole('button', { name })).toBeVisible({ timeout: 1000 });
+			}).toPass();
 			await page.getByRole('button', { name }).click();
 			await expect(sheet).toBeVisible();
 		};
@@ -262,9 +267,11 @@ test.describe('phone flows', () => {
 			['reject', 'reject-sheet', 'reject-confirm'],
 			['redeem', 'redeem-sheet', 'redeem-confirm']
 		] as const) {
-			await card.getByTestId(open).click();
 			const sheet = page.getByTestId(sheetId);
-			await expect(sheet).toBeVisible();
+			await expect(async () => {
+				if (!(await sheet.isVisible())) await card.getByTestId(open).click();
+				await expect(sheet).toBeVisible({ timeout: 1000 });
+			}).toPass();
 			await page.waitForTimeout(500); // the slide-in settles
 			expect(await pastEdge(sheet)).toEqual([]);
 			await expectInViewport(page.getByTestId(primary), page);
