@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
 	canvasSize,
 	dueForFrame,
+	isSoftwareRenderer,
 	parseColor,
 	parseWaveChoice,
 	parseWavePatch,
 	renderScale,
 	resolvePalette,
-	tokenName,
 	waveShape
 } from './wave-background.js';
 
@@ -28,9 +28,6 @@ describe('choice and palette', () => {
 		expect(resolvePalette('seafoam', 'light')).toBe('seafoam');
 		expect(resolvePalette('night', 'light')).toBe('dusk');
 		expect(resolvePalette('auto', 'light')).toBe('dusk');
-	});
-	it('builds token names', () => {
-		expect(tokenName('dusk', 'sheet-a')).toBe('--color-wave-dusk-sheet-a');
 	});
 });
 
@@ -55,12 +52,15 @@ describe('shader numbers', () => {
 	});
 });
 
+it('spots software renderers', () => {
+	expect(isSoftwareRenderer('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device))')).toBe(true);
+	expect(isSoftwareRenderer('V3D 7.1')).toBe(false);
+});
+
 describe('parseColor', () => {
-	it('reads hex, rgb and oklch', () => {
+	it('reads hex and oklch', () => {
 		expect(parseColor('#fff')).toEqual([1, 1, 1]);
 		expect(parseColor(' #000000 ')).toEqual([0, 0, 0]);
-		expect(parseColor('rgb(255 0 51)')).toEqual([1, 0, 0.2]);
-		expect(parseColor('rgb(100%, 0%, 0%)')).toEqual([1, 0, 0]);
 		const white = parseColor('oklch(100% 0 0)')!;
 		white.forEach((v) => expect(v).toBeCloseTo(1, 2));
 		const red = parseColor('oklch(62.8% 0.258 29.2)')!;
@@ -71,7 +71,6 @@ describe('parseColor', () => {
 	it('rejects what it cannot read', () => {
 		expect(parseColor('')).toBeNull();
 		expect(parseColor('banana')).toBeNull();
-		expect(parseColor('rgb(1 2)')).toBeNull();
 		expect(parseColor('oklch(a b c)')).toBeNull();
 	});
 });

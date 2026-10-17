@@ -86,6 +86,9 @@ export const waveShape = {
 	dot: 0.0016 * 0.4 * Math.sqrt(120 / DENSITY)
 };
 
+/** A CPU-rendered GL (SwiftShader, llvmpipe) would starve the page: show the still gradient instead. */
+export const isSoftwareRenderer = (name: string) => /swiftshader|llvmpipe|software/i.test(name);
+
 export const WAVE_FPS = 30;
 export const MAX_CANVAS_WIDTH = 3840;
 /** The wall at 4K gets a smaller canvas: the Pi 5 fills fewer pixels, the look stays the same. */
@@ -130,7 +133,7 @@ function oklchToRgb(l: number, c: number, hDeg: number): Rgb {
 	];
 }
 
-/** Parses hex, rgb or oklch colour text into 0..1 sRGB; null if unreadable. */
+/** Parses hex or oklch colour text into 0..1 sRGB; null if unreadable. */
 export function parseColor(input: string): Rgb | null {
 	const s = input.trim().toLowerCase();
 	const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(s);
@@ -138,18 +141,9 @@ export function parseColor(input: string): Rgb | null {
 		const h = hex[1].length === 3 ? [...hex[1]].map((x) => x + x).join('') : hex[1];
 		return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as Rgb;
 	}
-	const fn = /^(rgb|oklch)\(([^)]*)\)$/.exec(s);
-	if (!fn) return null;
-	const parts = fn[2]
-		.split(/[\s,/]+/)
-		.filter(Boolean)
-		.slice(0, 3);
-	if (parts.length < 3) return null;
-	const nums = parts.map((p) => (p.endsWith('%') ? parseFloat(p) / 100 : parseFloat(p)));
-	if (nums.some((n) => Number.isNaN(n))) return null;
-	if (fn[1] === 'rgb')
-		return nums.map((n, i) => clamp01(parts[i].endsWith('%') ? n : n / 255)) as Rgb;
-	return oklchToRgb(nums[0], nums[1], nums[2]);
+	const ok = /^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)/.exec(s);
+	if (!ok) return null;
+	return oklchToRgb(Number(ok[1]) / (ok[2] ? 100 : 1), Number(ok[3]), Number(ok[4]));
 }
 
 export interface PaletteValues {

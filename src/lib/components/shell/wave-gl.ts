@@ -1,4 +1,5 @@
 import {
+	isSoftwareRenderer,
 	PALETTE_SLOTS,
 	waveShape,
 	type PaletteValues,
@@ -27,6 +28,12 @@ export function createWaveRenderer(canvas: HTMLCanvasElement): WaveRenderer | nu
 		powerPreference: 'low-power'
 	});
 	if (!gl) return null;
+	const info = gl.getExtension('WEBGL_debug_renderer_info');
+	const gpu = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
+	if (isSoftwareRenderer(gpu)) {
+		gl.getExtension('WEBGL_lose_context')?.loseContext();
+		return null;
+	}
 	const program = gl.createProgram();
 	const shaders = [
 		[gl.VERTEX_SHADER, VERTEX],

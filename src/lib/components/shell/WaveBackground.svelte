@@ -19,7 +19,6 @@
 	import { wave } from './wave-state.svelte.js';
 
 	/** Behind everything: a live WebGL wave sheet background (hub-gj6.17), with a token gradient as the fallback. */
-	const TOUCH_REST_MS = 4_000;
 
 	let canvas = $state<HTMLCanvasElement>();
 	let failed = $state(false);
@@ -27,19 +26,11 @@
 	let theme = $state<'light' | 'night'>('light');
 	let hidden = $state(false);
 	let reduced = $state(false);
-	// A touch gets the whole GPU: the waves rest for a few seconds so taps and their animations stay smooth.
-	let touched = $state(false);
-	let settle: ReturnType<typeof setTimeout> | undefined;
-	function onTouch() {
-		touched = true;
-		clearTimeout(settle);
-		settle = setTimeout(() => (touched = false), TOUCH_REST_MS);
-	}
 
 	// The photo frame covers the whole screen: draw nothing (and hold no GL context) behind it.
 	const covered = $derived(page.state.frame === true || page.url.pathname === '/photos');
 	const palette = $derived(covered ? null : resolvePalette(wave.choice, theme));
-	const paused = $derived(hidden || touched || wave.paused);
+	const paused = $derived(hidden || wave.paused);
 	const wall = $derived(page.data.displayRole === 'wall');
 
 	function readPalette(name: WavePalette): PaletteValues | null {
@@ -71,7 +62,6 @@
 			observer.disconnect();
 			motion.removeEventListener('change', onMotion);
 			document.removeEventListener('visibilitychange', onVisible);
-			clearTimeout(settle);
 		};
 	});
 
@@ -150,8 +140,6 @@
 			: ''
 	);
 </script>
-
-<svelte:window onpointerdowncapture={onTouch} />
 
 {#if palette}
 	<div class="wave-bg" style:background={gradient} aria-hidden="true" data-testid="wave-background">
