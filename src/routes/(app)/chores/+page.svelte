@@ -10,6 +10,9 @@
 	import StarJar, { type Goal } from '#lib/components/kid/StarJar.svelte';
 	import AllDoneBanner from '#lib/components/kid/AllDoneBanner.svelte';
 	import EarnedBanner from '#lib/components/kid/EarnedBanner.svelte';
+	import StreakBadge from '#lib/components/kid/StreakBadge.svelte';
+	import StreakBanner from '#lib/components/kid/StreakBanner.svelte';
+	import { reachedMilestone, type Milestone } from '#lib/domain/streaks.js';
 	import {
 		celebrate,
 		celebrateAllDone,
@@ -58,6 +61,9 @@
 	let allDoneTimer: ReturnType<typeof setTimeout> | undefined;
 	let allDoneUntil = 0;
 	let earned = $state<Goal | null>(null);
+	let streaks = $state<Record<string, { days: number; next: Milestone | null }>>({});
+	let streakParty = $state<Milestone | null>(null);
+	let streakTimer: ReturnType<typeof setTimeout> | undefined;
 	let earnedTimer: ReturnType<typeof setTimeout> | undefined;
 	// Fallback when localStorage is unavailable, so the party still happens only once per load.
 	const earnedMemo: Record<string, string | null> = {};
@@ -71,6 +77,7 @@
 	const groups = $derived(selectedId ? (boards[selectedId] ?? []) : []);
 	const kids = $derived(kidsWithChores(members, boards));
 	const stars = $derived((selectedId && starsBy[selectedId]) || { balance: 0, pending: 0 });
+	const streak = $derived(selectedId ? (streaks[selectedId] ?? null) : null);
 	const goal = $derived(selectedId ? (goals[selectedId] ?? null) : null);
 
 	/** A chore can belong to several kids: undo and in-flight taps are tracked per child. */
@@ -101,6 +108,7 @@
 			api<{ reward: Goal } | null>(`/api/members/${id}/goal`)
 		]);
 		starsBy[id] = { balance: s.balance, pending: s.pending };
+		void loadStreak(id).catch(() => {});
 		goals[id] = g && {
 			id: g.reward.id,
 			title: g.reward.title,
@@ -108,6 +116,25 @@
 			cost: g.reward.cost
 		};
 		if (id === selectedId) checkEarned(id);
+	}
+
+	/** Streak counter; a milestone party plays when the count grows onto one (CHO-10). */
+	async function loadStreak(id: string) {
+		const r = await api<{ days: number; next: Milestone | null; milestones: Milestone[] }>(
+			`/api/members/${id}/streak?tz=${encodeURIComponent(tz)}`
+		);
+		const hit = reachedMilestone(streaks[id]?.days, r.days, r.milestones);
+		streaks[id] = { days: r.days, next: r.next };
+		if (!hit || id !== selectedId) return;
+		clearTimeout(streakTimer);
+		streakTimer = setTimeout(
+			() => {
+				streakParty = hit;
+				celebrateGoal(jar);
+				streakTimer = setTimeout(() => (streakParty = null), 4500);
+			},
+			Math.max(0, allDoneUntil - Date.now()) + 300
+		);
 	}
 
 	/** "You earned it!" once per reaching the goal (REW-3), after any all-done party. */
@@ -217,6 +244,7 @@
 			onWriteDropped(null);
 			clearTimeout(allDoneTimer);
 			clearTimeout(earnedTimer);
+			clearTimeout(streakTimer);
 		};
 	});
 
@@ -227,6 +255,8 @@
 		// The last child's parties belong to them: do not play them on this child's screen.
 		clearTimeout(allDoneTimer);
 		clearTimeout(earnedTimer);
+		clearTimeout(streakTimer);
+		streakParty = null;
 		allDone = false;
 		earned = null;
 		allDoneUntil = 0;
@@ -372,6 +402,9 @@
 					/>
 					<p class="text-headline leading-none font-extrabold">Hi, {selected.name}!</p>
 				</div>
+				{#if streak && streak.days > 0}
+					<StreakBadge days={streak.days} nextDays={streak.next?.days ?? null} />
+				{/if}
 				{#if kids.length > 1}
 					<nav aria-label="Whose chores?" data-testid="child-switcher" class="flex flex-wrap gap-6">
 						{#each kids as kid (kid.id)}
@@ -442,6 +475,10 @@
 
 {#if earned}
 	<EarnedBanner title={earned.title} image={earned.image} />
+{/if}
+
+{#if streakParty}
+	<StreakBanner days={streakParty.days} stars={streakParty.stars} />
 {/if}
 
 {#if message}
