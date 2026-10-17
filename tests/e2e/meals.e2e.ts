@@ -95,8 +95,7 @@ for (const { w, h, perRow } of [
 	{ w: 1728, h: 1117, perRow: 0 },
 	{ w: 2560, h: 1440, perRow: 7 }
 ]) {
-	test(`meal slot labels fit on one line at ${w}x${h}`, async ({ page }, info) => {
-		test.skip(info.project.name !== 'wall-landscape-1440p', 'one desktop engine is enough');
+	test(`meal slot labels fit on one line at ${w}x${h}`, async ({ page }) => {
 		ensureHousehold();
 		await page.setViewportSize({ width: w, height: h });
 		await page.goto('/meals');
