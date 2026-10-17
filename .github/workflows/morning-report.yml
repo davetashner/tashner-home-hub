@@ -1,0 +1,35 @@
+# Daily morning report issue (ADR 0002, Tier 3). Protected path.
+# Hosted runner on purpose: it only calls the GitHub API, so it needs no tower access and
+# keeps the self-hosted runner free. Never add pull_request or pull_request_target here.
+name: Morning report
+
+on:
+  schedule:
+    - cron: '0 12 * * *' # 12:00 UTC, after the 07:00 nightly and the 09:00 smoke
+  workflow_dispatch:
+
+permissions:
+  contents: read # checkout
+  issues: write # create/update today's report issue, close yesterday's, create the label
+  actions: read # latest Tower runs, their artifacts, and rerun attempts
+  pull-requests: read # merged and open PRs, labels, merge state, checks
+
+concurrency:
+  group: morning-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: morning-report
+    if: github.repository == 'davetashner/tashner-home-hub'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Post the morning report
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/morning-report.mjs
