@@ -30,7 +30,9 @@
 
 <svelte:head><title>Unlock</title></svelte:head>
 
-<main class="flex min-h-dvh flex-col items-center justify-center gap-8 bg-surface p-8 text-ink">
+<main
+	class="flex min-h-dvh flex-col items-center justify-center gap-8 bg-surface p-safe-8 text-ink"
+>
 	<h1 class="text-headline font-extrabold">Grown-ups only</h1>
 
 	{#if data.adults.length === 0}

@@ -65,7 +65,7 @@
 	class="grid h-full bg-surface portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape"
 >
 	<header
-		class="flex items-center justify-between gap-3 px-4 py-4 max-sm:justify-end max-sm:px-3 max-sm:py-2 sm:flex-wrap sm:gap-8 sm:px-12 sm:py-8 portrait:sm:px-10 landscape:col-start-2 landscape:row-start-1 landscape:sm:gap-4 landscape:sm:px-8"
+		class="flex items-center justify-between gap-3 pt-safe-4 pr-safe-4 pb-4 pl-safe-4 max-sm:justify-end max-sm:pt-safe-2 max-sm:pr-safe-3 max-sm:pb-2 max-sm:pl-safe-3 sm:flex-wrap sm:gap-8 sm:pt-safe-8 sm:pr-safe-12 sm:pb-8 sm:pl-safe-12 portrait:sm:pr-safe-10 portrait:sm:pl-safe-10 landscape:col-start-2 landscape:row-start-1 landscape:pl-4 landscape:sm:gap-4 landscape:sm:pr-safe-8 landscape:sm:pl-8"
 	>
 		{#if pathname === '/'}
 			<span class="max-sm:hidden"></span>
@@ -117,7 +117,7 @@
 
 	<nav
 		aria-label="Main"
-		class="flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:px-4 portrait:py-4 portrait:max-sm:p-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:px-5 landscape:py-8"
+		class="flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5"
 	>
 		{#each DESTINATIONS as destination (destination.id)}
 			<NavItem {destination} active={isActive(destination.href, pathname)} />
@@ -129,7 +129,7 @@
 	<main
 		use:swipe={{ onswipe }}
 		tabindex="0"
-		class="min-h-0 touch-pan-y overflow-y-auto portrait:row-start-2 landscape:col-start-2 landscape:row-start-2"
+		class="min-h-0 touch-pan-y overflow-y-auto portrait:row-start-2 landscape:col-start-2 landscape:row-start-2 landscape:pr-safe-0 landscape:pb-safe-0"
 	>
 		{#key pathname}
 			<div class="page-enter h-full">

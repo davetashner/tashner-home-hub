@@ -15,7 +15,7 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
 
-<div class="fixed inset-0 z-50 flex items-end justify-center p-8 landscape:items-center">
+<div class="fixed inset-0 z-50 flex items-end justify-center p-safe-8 landscape:items-center">
 	<button type="button" aria-label="Close details" class="scrim absolute inset-0" onclick={onclose}
 	></button>
 	<div
