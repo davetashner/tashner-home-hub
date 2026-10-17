@@ -14,6 +14,7 @@
 	import IdleWatcher from './IdleWatcher.svelte';
 	import NavItem from './NavItem.svelte';
 	import NightClock from './NightClock.svelte';
+	import WakeGuard from './WakeGuard.svelte';
 	import WaveBackground from './WaveBackground.svelte';
 	import { wave } from './wave-state.svelte.js';
 	import { parseWaveChoice } from '#lib/domain/wave-background.js';
@@ -71,6 +72,7 @@
 {#if page.data.displayRole === 'wall'}
 	<IdleWatcher />
 	<NightClock />
+	<WakeGuard />
 {/if}
 
 <WaveBackground />
