@@ -420,13 +420,15 @@
 </section>
 
 {#if rejecting}
-	<div class="fixed inset-0 z-20 flex items-end justify-center bg-ink/50 sm:items-center">
+	<div
+		class="fixed inset-0 z-20 flex items-end justify-center bg-ink/50 pt-safe-0 pr-safe-0 pl-safe-0 sm:items-center"
+	>
 		<div
 			role="dialog"
 			aria-modal="true"
 			aria-label="Not yet"
 			data-testid="reject-sheet"
-			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 shadow-float max-sm:p-5 sm:rounded-sheet"
+			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 pb-safe-8 shadow-float max-sm:p-5 max-sm:pb-safe-5 sm:rounded-sheet"
 		>
 			<h2 class="text-title font-extrabold">Not yet: {rejecting.choreTitle}</h2>
 			<label class="flex flex-col gap-2">
@@ -459,13 +461,15 @@
 {/if}
 
 {#if redeeming && preview}
-	<div class="fixed inset-0 z-20 flex items-end justify-center bg-ink/50 sm:items-center">
+	<div
+		class="fixed inset-0 z-20 flex items-end justify-center bg-ink/50 pt-safe-0 pr-safe-0 pl-safe-0 sm:items-center"
+	>
 		<div
 			role="dialog"
 			aria-modal="true"
 			aria-label="Redeem reward"
 			data-testid="redeem-sheet"
-			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 shadow-float max-sm:p-5 sm:rounded-sheet"
+			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 pb-safe-8 shadow-float max-sm:p-5 max-sm:pb-safe-5 sm:rounded-sheet"
 		>
 			<h2 class="text-title font-extrabold">
 				<span aria-hidden="true">{redeeming.goal.image ?? '🎁'}</span>
@@ -495,7 +499,7 @@
 {/if}
 
 <div
-	class="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4"
+	class="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center pr-safe-4 pb-safe-0 pl-safe-4"
 	aria-live="polite"
 >
 	{#if toast}

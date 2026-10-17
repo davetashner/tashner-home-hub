@@ -69,7 +69,7 @@
 <svelte:head><title>Set up your hub</title></svelte:head>
 
 <main
-	class="flex min-h-dvh flex-col items-center justify-center gap-10 bg-surface p-8 text-ink"
+	class="flex min-h-dvh flex-col items-center justify-center gap-10 bg-surface p-safe-8 text-ink"
 	data-testid="setup"
 	data-step={step}
 >
