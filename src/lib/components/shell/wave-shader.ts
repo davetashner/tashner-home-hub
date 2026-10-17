@@ -1,4 +1,8 @@
-/** Wave background shaders, ported unchanged from the Wave Studio prototype (hub-gj6.17). */
+/**
+ * Wave background shaders, ported from the Wave Studio prototype (hub-gj6.17). A fourth, slimmer
+ * band rides high on the screen (hub-5p2) so the waves still show behind the header strip when
+ * the calendar or photos cover the middle.
+ */
 export const VERTEX = `attribute vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }`;
 
 export const FRAGMENT = `
@@ -49,11 +53,13 @@ void main(){
   vec4 s1 = sheet(p, t,        0.44, 0.0, 0.22);
   vec4 s2 = sheet(p, t*0.85,   0.58, 2.3, 0.15);
   vec4 s3 = sheet(p, t*1.1,    0.30, 4.7, 0.11);
+  vec4 s4 = sheet(p, t*0.95,   0.86, 6.1, 0.12);
   col = mix(col, uSheetA, clamp(s1.x*uSheetAlpha, 0.0, 1.0));
   col = mix(col, uSheetB, clamp(s2.x*uSheetAlpha*0.8, 0.0, 1.0));
   col = mix(col, uSheetA, clamp(s3.x*uSheetAlpha*0.6, 0.0, 1.0));
-  col = mix(col, uLine, clamp((s1.y + 0.8*s2.y + 0.6*s3.y) * uLineAlpha, 0.0, 1.0));
-  float dots = s1.z + 0.8*s2.z + 0.7*s3.z + 0.6*(s1.w + s2.w + s3.w);
+  col = mix(col, uSheetB, clamp(s4.x*uSheetAlpha*0.75, 0.0, 1.0));
+  col = mix(col, uLine, clamp((s1.y + 0.8*s2.y + 0.6*s3.y + 0.75*s4.y) * uLineAlpha, 0.0, 1.0));
+  float dots = s1.z + 0.8*s2.z + 0.7*s3.z + 0.75*s4.z + 0.6*(s1.w + s2.w + s3.w + s4.w);
   col = mix(col, uDotC, clamp(dots * uDotAlpha, 0.0, 1.0));
   col *= 1.0 - uVignette * dot(q - 0.5, q - 0.5);
   col += (hash(f + fract(t)) - 0.5) / 255.0;
