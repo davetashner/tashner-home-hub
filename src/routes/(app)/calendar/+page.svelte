@@ -43,6 +43,9 @@
 	let status = $state<Status | null>(null);
 	let selected = $state<CalEvent | null>(null);
 	let portrait = $state(false);
+	let paneWidth = $state(0);
+	// Seven day columns need room for a readable title; a narrower pane lists the week by day.
+	const WEEK_GRID_MIN = 720;
 
 	const today = $derived(dateKeyOf(now, tz));
 	const keys = $derived(periodKeys(view, anchor));
@@ -170,7 +173,7 @@
 		>
 	</section>
 {:else}
-	<div class="flex h-full flex-col gap-4 px-12 pb-6 portrait:px-10">
+	<div class="page flex h-full flex-col gap-4 px-12 pb-6 portrait:px-10">
 		<div class="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
 			<div class="flex min-w-0 items-center gap-6">
 				<h1 class="sr-only">Calendar</h1>
@@ -210,6 +213,7 @@
 
 		<div
 			class="viewport min-h-0 flex-1"
+			bind:clientWidth={paneWidth}
 			use:shield
 			use:swipe={{ onswipe: (d) => (d === 'left' ? step(1) : d === 'right' ? step(-1) : null) }}
 		>
@@ -218,6 +222,8 @@
 					<div class="pane scroll {direction}" data-testid="calendar-pane">
 						{#if view === 'agenda'}
 							<AgendaView {events} {keys} {today} {tz} onselect={(e) => (selected = e)} />
+						{:else if view === 'week' && paneWidth < WEEK_GRID_MIN}
+							<AgendaView {events} {keys} {today} {tz} all onselect={(e) => (selected = e)} />
 						{:else if view === 'week'}
 							<WeekView
 								{events}
@@ -344,6 +350,19 @@
 	}
 	.today-btn {
 		padding: 0 2rem;
+	}
+	/* Phone width: the switcher and period controls have to fit on one screen. */
+	@media (max-width: 40rem) {
+		.page {
+			padding-inline: 1rem;
+		}
+		.seg-btn {
+			min-width: 0;
+			padding: 0 0.625rem;
+		}
+		.today-btn {
+			padding: 0 1rem;
+		}
 	}
 	.seg-btn:focus-visible,
 	.nav-btn:focus-visible {
