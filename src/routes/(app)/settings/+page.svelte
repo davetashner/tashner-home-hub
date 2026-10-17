@@ -96,6 +96,12 @@
 			line: 'Celebration sounds and quiet hours.'
 		},
 		{
+			href: resolve('/(app)/settings/background'),
+			emoji: '🌊',
+			title: 'Background',
+			line: 'The moving waves behind the screens.'
+		},
+		{
 			href: resolve('/(app)/settings/weather'),
 			emoji: '🌤️',
 			title: 'Weather',
