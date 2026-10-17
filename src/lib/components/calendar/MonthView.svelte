@@ -110,7 +110,7 @@
 		display: grid;
 		height: 100%;
 		/* Weeks never get squeezed below a tap target, however short the pane (phones scroll). */
-		min-height: calc(var(--weeks) * var(--spacing-tap) + 3rem);
+		min-height: calc(var(--weeks) * var(--spacing-tap) + 5rem);
 		container-type: inline-size;
 		grid-template-rows: auto repeat(var(--weeks), minmax(0, 1fr));
 		border-radius: var(--radius-card);

@@ -17,6 +17,15 @@
 		VIEW_MODES,
 		type CalendarViewMode
 	} from '#lib/domain/calendar-view/period.js';
+	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
+	import {
+		filterEvents,
+		parseSelection,
+		pruneSelection,
+		serializeSelection,
+		toggleMember
+	} from '#lib/domain/calendar-view/member-filter.js';
+	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import { dateKeyOf, type DateKey } from '#lib/domain/calendar-view/zone.js';
 	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 	import { page } from '$app/state';
@@ -26,7 +35,15 @@
 		stale: boolean;
 	}
 
+	interface FilterMember {
+		id: string;
+		name: string;
+		color: MemberColor;
+		avatar: string | null;
+	}
+
 	const VIEW_KEY = 'hub.calendar.view';
+	const MEMBERS_KEY = 'hub.calendar.members';
 	const LABELS: Record<CalendarViewMode, string> = {
 		agenda: 'Agenda',
 		week: 'Week',
@@ -42,6 +59,8 @@
 	let cache = $state<Record<string, CalEvent[]>>({});
 	let status = $state<Status | null>(null);
 	let selected = $state<CalEvent | null>(null);
+	let familyMembers = $state<FilterMember[]>([]);
+	let chosen = $state<string[]>([]);
 	let portrait = $state(false);
 	let paneWidth = $state(0);
 	// Seven day columns need room for a readable title; a narrower pane lists the week by day.
@@ -50,7 +69,7 @@
 	const today = $derived(dateKeyOf(now, tz));
 	const keys = $derived(periodKeys(view, anchor));
 	const title = $derived(periodTitle(view, keys, anchor));
-	const events = $derived(cache[cacheKey(keys)] ?? []);
+	const events = $derived(filterEvents(cache[cacheKey(keys)] ?? [], chosen));
 	const staleSince = $derived.by(() => {
 		const stale = status?.sources.filter((s) => s.stale) ?? [];
 		if (!stale.length) return null;
@@ -101,6 +120,33 @@
 		}
 	}
 
+	function chooseMembers(next: string[]) {
+		chosen = next;
+		try {
+			localStorage.setItem(MEMBERS_KEY, serializeSelection(next));
+		} catch {
+			// Storage unavailable: the choice just does not stick.
+		}
+	}
+
+	async function loadMembers() {
+		try {
+			const res = await fetch('/api/members');
+			if (!res.ok) return;
+			const list: FilterMember[] = (await res.json()).filter((m: FilterMember) =>
+				isMemberColor(m.color)
+			);
+			familyMembers = list;
+			const kept = pruneSelection(
+				chosen,
+				list.map((m) => m.id)
+			);
+			if (kept.length !== chosen.length) chooseMembers(kept);
+		} catch {
+			// Offline: no chips until the next refresh.
+		}
+	}
+
 	function openDay(key: DateKey) {
 		view = 'agenda';
 		go(key, 'none');
@@ -138,12 +184,18 @@
 		} catch {
 			// Storage unavailable: use the default view.
 		}
+		try {
+			chosen = parseSelection(localStorage.getItem(MEMBERS_KEY));
+		} catch {
+			// Storage unavailable: show everyone.
+		}
 		const media = matchMedia('(orientation: portrait)');
 		const onOrientation = () => (portrait = media.matches);
 		onOrientation();
 		media.addEventListener('change', onOrientation);
 		mounted = true;
 		void loadStatus();
+		void loadMembers();
 		const timer = setInterval(() => {
 			now = Date.now();
 			void loadStatus();
@@ -215,6 +267,29 @@
 					</button>
 				</div>
 			</div>
+			{#if familyMembers.length > 1}
+				<div role="group" aria-label="Show events for" class="chips" data-testid="member-filter">
+					<button
+						type="button"
+						class="chip"
+						aria-pressed={chosen.length === 0}
+						onclick={() => chooseMembers([])}>Everyone</button
+					>
+					{#each familyMembers as m (m.id)}
+						<button
+							type="button"
+							class="chip"
+							aria-pressed={chosen.includes(m.id)}
+							onclick={() => chooseMembers(toggleMember(chosen, m.id))}
+						>
+							<span aria-hidden="true">
+								<MemberAvatar name={m.name} color={m.color} avatar={m.avatar} size="sm" />
+							</span>
+							<span>{m.name}</span>
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 
 		<div
@@ -265,7 +340,8 @@
 <style>
 	.viewport {
 		position: relative;
-		overflow: hidden;
+		/* Clip only sideways (the slide animation); the pane inside is what scrolls vertically. */
+		overflow-x: clip;
 		touch-action: pan-y;
 	}
 	.pane {
@@ -353,6 +429,48 @@
 		stroke-width: 2.5;
 		stroke-linecap: round;
 		stroke-linejoin: round;
+	}
+	/* Chips wrap onto more rows rather than running off narrow screens. */
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		min-width: 0;
+		max-width: 100%;
+		/* Two rows at most; a very long member list scrolls inside instead of eating the calendar. */
+		max-height: calc(var(--spacing-tap) * 2 + 0.5rem);
+		overflow-y: auto;
+	}
+	.chip {
+		display: inline-flex;
+		min-width: 0;
+		max-width: 100%;
+		min-height: var(--spacing-tap);
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0 1rem 0 0.375rem;
+		border: 2px solid var(--color-line);
+		border-radius: var(--radius-chip);
+		background: var(--color-surface-raised);
+		font-weight: 800;
+		cursor: pointer;
+	}
+	.chip > span:last-child {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.chip:first-child {
+		padding-inline: 1.25rem;
+	}
+	.chip[aria-pressed='true'] {
+		border-color: var(--color-accent);
+		background: var(--color-accent);
+		color: var(--color-on-accent);
+	}
+	.chip:focus-visible {
+		outline: 4px solid var(--color-accent);
+		outline-offset: 4px;
 	}
 	.today-btn {
 		padding: 0 2rem;
