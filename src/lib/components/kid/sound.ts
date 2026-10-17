@@ -1,3 +1,4 @@
+import { needsResume, unlockOnGesture } from '#lib/domain/audio-unlock.js';
 import {
 	DEFAULT_SOUND,
 	parseSoundSettings,
@@ -33,6 +34,17 @@ export function warmAudio(): void {
 	context(false);
 }
 
+let stopUnlock: (() => void) | null = null;
+
+/**
+ * iOS starts the context suspended and takes it back ('interrupted') when the app is backgrounded
+ * or a call comes in. Resuming has to happen inside a gesture, so every touch/click checks it.
+ */
+export function installAudioUnlock(): void {
+	if (stopUnlock || typeof document === 'undefined') return;
+	stopUnlock = unlockOnGesture(document, () => context(false));
+}
+
 function context(resume = true): AudioContext | null {
 	if (!ctx) {
 		const Ctor =
@@ -41,7 +53,7 @@ function context(resume = true): AudioContext | null {
 		if (!Ctor) return null;
 		ctx = new Ctor();
 	}
-	if (resume && ctx.state === 'suspended') void ctx.resume().catch(() => {});
+	if (resume && needsResume(ctx.state)) void ctx.resume().catch(() => {});
 	return ctx;
 }
 

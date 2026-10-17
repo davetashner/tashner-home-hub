@@ -131,7 +131,7 @@
 	<main
 		use:swipe={{ onswipe }}
 		tabindex="0"
-		class="min-h-0 touch-pan-y overflow-y-auto portrait:row-start-2 landscape:col-start-2 landscape:row-start-2 landscape:pr-safe-0 landscape:pb-safe-0"
+		class="min-h-0 touch-pan-y overflow-y-auto overscroll-contain portrait:row-start-2 landscape:col-start-2 landscape:row-start-2 landscape:pr-safe-0 landscape:pb-safe-0"
 	>
 		{#key pathname}
 			<div class="page-enter h-full">
