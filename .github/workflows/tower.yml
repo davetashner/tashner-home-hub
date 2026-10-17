@@ -1,0 +1,53 @@
+# Runs on the self-hosted "tower" runner (Unraid). Protected path.
+# SECURITY (ADR 0002 "Where it runs"): this repo is public, so the runner must NEVER run
+# on pull_request or pull_request_target. Only schedule, workflow_dispatch and push to main.
+# scripts/ci/self-hosted-guard.mjs fails CI if that rule is broken in any workflow.
+name: Tower
+
+on:
+  schedule:
+    - cron: '0 9 * * *' # nightly, 09:00 UTC (early morning US time)
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tower-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  smoke:
+    name: tower-smoke
+    # Belt and braces: refuse every event except the trusted ones, and any other repo (forks).
+    if: >-
+      github.repository == 'davetashner/tashner-home-hub' &&
+      (github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    runs-on: [self-hosted, tower, tashner-home-hub]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Types (svelte-check, strict)
+        run: pnpm check
+      - name: Unit tests with coverage thresholds
+        run: pnpm test
+      - name: Runner info
+        run: |
+          echo "runner: $RUNNER_NAME ($RUNNER_OS/$RUNNER_ARCH)"
+          echo "node: $(node --version)  pnpm: $(pnpm --version)"
+          echo "cpus: $(nproc)"
+          df -h . /opt/hostedtoolcache /home/runner/.cache 2>/dev/null || df -h .
+          free -h || true

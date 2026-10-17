@@ -9,10 +9,11 @@ import {
 	type SoundSettings
 } from '#lib/domain/celebrate-logic.js';
 import { parseSoundPatch } from '#lib/domain/sound-settings.js';
+import { householdTimeZone } from '#lib/server/household.js';
 import type { RequestHandler } from './$types';
 
 const PREFIX = 'sound.';
-const FIELDS = ['muted', 'quietStart', 'quietEnd'] as const;
+const FIELDS = ['muted', 'quietStart', 'quietEnd', 'theme', 'volume'] as const;
 const KEYS = FIELDS.map((f) => PREFIX + f);
 
 function read(): SoundSettings {
@@ -29,13 +30,13 @@ function read(): SoundSettings {
 			// keep the default for a corrupt value
 		}
 	}
-	return parseSoundSettings(raw);
+	return parseSoundSettings({ ...raw, timeZone: householdTimeZone(getDb()) });
 }
 
 /** Kid-screen sound settings: unmuted, quiet 20:00 to 07:00 unless a grown-up changed them. */
 export const GET: RequestHandler = () => json(read());
 
-/** Adult only. Body: { muted?, quietStart?, quietEnd? } with times as 24-hour "HH:MM". */
+/** Adult only. Body: { muted?, quietStart?, quietEnd?, theme?, volume? } with times as 24-hour "HH:MM". */
 export const PUT: RequestHandler = async (event) => {
 	requireAdult(event);
 	const patch = parseSoundPatch(await readJson(event.request));
