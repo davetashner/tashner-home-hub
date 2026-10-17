@@ -1,4 +1,4 @@
-import { needsResume, unlockOnGesture } from '#lib/domain/audio-unlock.js';
+import { masterGain, needsResume, unlockOnGesture } from '#lib/domain/audio-unlock.js';
 import {
 	DEFAULT_SOUND,
 	parseSoundSettings,
@@ -9,6 +9,7 @@ import { themeNotes, type SoundKind } from '#lib/domain/sound-themes.js';
 
 /** Synthesized with the Web Audio API: no audio files, no licensing. */
 let ctx: AudioContext | null = null;
+let master: GainNode | null = null;
 let settings: SoundSettings = DEFAULT_SOUND;
 // Bumped by every change, so a load that started before it can't bring back older settings.
 let version = 0;
@@ -53,6 +54,10 @@ function context(resume = true): AudioContext | null {
 			(window as never as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 		if (!Ctor) return null;
 		ctx = new Ctor();
+		// Every note goes through this, so a browser under automation (e2e) makes no sound.
+		master = ctx.createGain();
+		master.gain.value = masterGain(navigator.webdriver);
+		master.connect(ctx.destination);
 	}
 	if (resume && needsResume(ctx.state)) void ctx.resume().catch(() => {});
 	return ctx;
@@ -74,7 +79,7 @@ function note(
 	gain.gain.setValueAtTime(0.0001, at);
 	gain.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0001), at + 0.015);
 	gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-	osc.connect(gain).connect(c.destination);
+	osc.connect(gain).connect(master ?? c.destination);
 	osc.start(at);
 	osc.stop(at + dur + 0.05);
 }
