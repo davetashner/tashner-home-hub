@@ -2,9 +2,10 @@ import { needsResume, unlockOnGesture } from '#lib/domain/audio-unlock.js';
 import {
 	DEFAULT_SOUND,
 	parseSoundSettings,
-	soundAllowed,
+	shouldPlaySound,
 	type SoundSettings
 } from '#lib/domain/celebrate-logic.js';
+import { themeNotes, type SoundKind } from '#lib/domain/sound-themes.js';
 
 /** Synthesized with the Web Audio API: no audio files, no licensing. */
 let ctx: AudioContext | null = null;
@@ -57,11 +58,6 @@ function context(resume = true): AudioContext | null {
 	return ctx;
 }
 
-function allowed(): boolean {
-	const now = new Date();
-	return soundAllowed(settings, now.getHours() * 60 + now.getMinutes());
-}
-
 /** One soft note with a quick attack and a gentle fade. */
 function note(
 	c: AudioContext,
@@ -76,19 +72,25 @@ function note(
 	osc.type = type;
 	osc.frequency.value = freq;
 	gain.gain.setValueAtTime(0.0001, at);
-	gain.gain.exponentialRampToValueAtTime(peak, at + 0.015);
+	gain.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0001), at + 0.015);
 	gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
 	osc.connect(gain).connect(c.destination);
 	osc.start(at);
 	osc.stop(at + dur + 0.05);
 }
 
-type Note = [freq: number, offset: number, dur: number, peak: number, type?: OscillatorType];
+/** Test hook: a page that defines window.__hubSounds sees one entry per sound actually played. */
+function record(entry: object) {
+	(window as unknown as { __hubSounds?: object[] }).__hubSounds?.push(entry);
+}
 
-function play(notes: Note[]) {
-	if (!allowed()) return;
+function play(kind: SoundKind, stars = 1, force?: SoundSettings) {
+	const s = force ?? settings;
+	if (!force && !shouldPlaySound(s, Date.now())) return;
 	const c = context();
 	if (!c) return;
+	const notes = themeNotes(s.theme, kind, stars, s.volume);
+	record({ theme: s.theme, kind, volume: s.volume });
 	// Only the cheap, gesture-bound resume() runs on the tap; the notes are scheduled after the frame.
 	requestAnimationFrame(() =>
 		setTimeout(() => {
@@ -98,30 +100,13 @@ function play(notes: Note[]) {
 	);
 }
 
-const [C5, E5, G5, C6, E6, G6] = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568];
-/** Notes `step` seconds apart, each with the same length and loudness. */
-const run = (freqs: number[], step: number, dur: number, peak: number): Note[] =>
-	freqs.map((f, i) => [f, i * step, dur, peak, 'triangle']);
+/** The settings page's Preview button: plays the chosen theme and volume even when muted or quiet. */
+export function previewSound(preview: SoundSettings): void {
+	play('fanfare', 1, preview);
+}
 
 /** Rising arpeggio, one extra note per star (up to five). */
-export function playTap(stars = 1) {
-	play(run([C5, E5, G5, C6, E6].slice(0, Math.min(5, Math.max(3, stars + 2))), 0.07, 0.28, 0.16));
-}
-
-/** Bell-like ding: a fundamental plus an inharmonic partial. */
-export function playDing() {
-	play([
-		[C6, 0, 0.9, 0.18],
-		[C6 * 2.76, 0, 0.35, 0.05],
-		[G6, 0.12, 0.8, 0.12]
-	]);
-}
-
-export function playFanfare() {
-	play([
-		...run([C5, C5, E5, G5, E5, G5], 0.17, 0.2, 0.15),
-		[C6, 1.08, 0.7, 0.2, 'triangle'],
-		[E6, 1.08, 0.7, 0.1],
-		[G6, 1.08, 0.7, 0.08]
-	]);
-}
+export const playTap = (stars = 1) => play('tap', stars);
+/** Bell-like ding for an approval. */
+export const playDing = () => play('ding');
+export const playFanfare = () => play('fanfare');

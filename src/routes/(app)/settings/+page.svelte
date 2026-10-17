@@ -54,6 +54,12 @@
 			line: 'What stars can be saved up for.'
 		},
 		{
+			href: resolve('/(app)/settings/countdowns'),
+			emoji: '⏳',
+			title: 'Countdowns',
+			line: 'Days to the trip, the party, the big day.'
+		},
+		{
 			href: resolve('/(app)/settings/photo-library'),
 			emoji: '🖼️',
 			title: 'Photo library',

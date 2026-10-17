@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Card from '#lib/components/ui/Card.svelte';
 	import Clock from '#lib/components/shell/Clock.svelte';
+	import HomeCountdowns from '#lib/components/home/HomeCountdowns.svelte';
 
 	const tiles = [
 		{ title: 'Today', line: 'Events and reminders will appear here.' },
@@ -23,4 +24,5 @@
 			</Card>
 		{/each}
 	</div>
+	<HomeCountdowns />
 </div>
