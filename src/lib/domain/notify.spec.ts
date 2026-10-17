@@ -54,8 +54,8 @@ describe('config', () => {
 });
 
 it('builds messages', () => {
-	expect(approvalMessage(1).message).toBe('1 chore waiting for approval');
-	expect(approvalMessage(3).message).toBe('3 chores waiting for approval');
+	expect(approvalMessage(1).message).toBe('1 Star Job waiting for approval');
+	expect(approvalMessage(3).message).toBe('3 Star Jobs waiting for approval');
 	expect(goalMessage('Kid', 'Kite').message).toBe('Kid has enough stars for Kite');
 	expect(testMessage().path).toBeUndefined();
 });

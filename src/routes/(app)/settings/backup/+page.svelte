@@ -74,7 +74,7 @@
 		<div class="flex flex-col gap-4">
 			<h2 class="text-title font-bold">Export data</h2>
 			<p class="text-body text-ink-muted">
-				Downloads family, chores, stars, rewards, lists, meals and settings as one file. Calendar
+				Downloads family, Star Jobs, stars, rewards, lists, meals and settings as one file. Calendar
 				and photo logins are not included, so reconnect those after restoring. Photo files stay on
 				the server; only their details are saved.
 			</p>

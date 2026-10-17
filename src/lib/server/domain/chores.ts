@@ -249,7 +249,7 @@ export function updateChore(
 ): ChoreView {
 	const today = todayOf(db, clock);
 	const current = db.select().from(chores).where(eq(chores.id, id)).get();
-	if (!current) throw new LedgerError('not_found', 'Chore not found');
+	if (!current) throw new LedgerError('not_found', 'Star Job not found');
 	const set: Partial<Row> = {};
 	if (patch.title !== undefined) set.title = validTitle(patch.title);
 	if (patch.icon !== undefined) set.icon = validIcon(patch.icon);
@@ -273,7 +273,7 @@ export function updateChore(
 
 export function archiveChore(db: Db, id: string, clock: Clock = {}): ChoreView {
 	const row = db.update(chores).set({ archived: true }).where(eq(chores.id, id)).returning().get();
-	if (!row) throw new LedgerError('not_found', 'Chore not found');
+	if (!row) throw new LedgerError('not_found', 'Star Job not found');
 	return toView(row, todayOf(db, clock));
 }
 
