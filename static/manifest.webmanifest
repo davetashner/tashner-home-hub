@@ -1,7 +1,7 @@
 {
 	"name": "Home Hub",
 	"short_name": "Home Hub",
-	"description": "Family calendar, chores, photos and lists.",
+	"description": "Family calendar, to-dos, photos and lists.",
 	"start_url": "/",
 	"scope": "/",
 	"display": "standalone",

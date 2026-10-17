@@ -6,7 +6,7 @@
 
 	const tiles = [
 		{ title: 'Today', line: 'Events and reminders will appear here.' },
-		{ title: 'Chores', line: 'Who has what, and the stars earned.' },
+		{ title: 'To-Do List', line: 'Who has what, and the stars earned.' },
 		{ title: 'Dinner', line: "Tonight's plan at a glance." }
 	];
 </script>

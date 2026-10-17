@@ -5,7 +5,7 @@ describe('nav', () => {
 	it('lists the five destinations in order', () => {
 		expect(DESTINATIONS.map((d) => d.label)).toEqual([
 			'Calendar',
-			'Chores',
+			'To-Do List',
 			'Photos',
 			'Lists',
 			'Meals'

@@ -17,7 +17,7 @@ export const DESTINATIONS: readonly Destination[] = [
 		href: '/calendar',
 		icon: 'calendar'
 	},
-	{ id: 'chores', label: 'Chores', href: '/chores', icon: 'chores' },
+	{ id: 'chores', label: 'To-Do List', href: '/chores', icon: 'chores' },
 	{ id: 'photos', label: 'Photos', href: '/photos', icon: 'photos' },
 	{ id: 'lists', label: 'Lists', href: '/lists', icon: 'lists' },
 	{ id: 'meals', label: 'Meals', href: '/meals', icon: 'meals' }

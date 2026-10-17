@@ -49,7 +49,7 @@ for (const route of routes) {
 }
 
 for (const f of [
-	{ path: '/settings/chores', open: 'Add chore' },
+	{ path: '/settings/chores', open: 'Add Star Job' },
 	{ path: '/settings/rewards', open: 'Add reward' },
 	{ path: '/settings/family', open: 'Add person' }
 ]) {

@@ -40,7 +40,7 @@ it('posts with ntfy headers, a click link and a timeout signal', async () => {
 	const [url, init] = doFetch.mock.calls[0] as [string, RequestInit];
 	expect(url).toBe('http://ntfy.test/topic_x');
 	expect(init.method).toBe('POST');
-	expect(init.body).toBe('3 chores waiting for approval');
+	expect(init.body).toBe('3 Star Jobs waiting for approval');
 	expect(init.signal).toBeInstanceOf(AbortSignal);
 	expect(init.headers).toEqual({
 		Title: 'Approval waiting',
