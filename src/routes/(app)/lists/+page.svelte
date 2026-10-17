@@ -273,22 +273,24 @@
 
 <section class="flex h-full min-h-0 flex-col gap-4 p-6 short:p-3">
 	<h1 class="sr-only">Lists</h1>
-	<div class="flex flex-wrap gap-3" role="tablist" aria-label="Lists">
-		{#each lists as l (l.id)}
-			{@const on = l.id === current?.id}
-			<button
-				type="button"
-				role="tab"
-				aria-selected={on}
-				data-testid="list-tab"
-				class="min-h-tap rounded-chip px-6 text-body {on
-					? 'bg-accent text-on-accent'
-					: 'border-2 border-line bg-surface-raised text-ink'}"
-				onclick={() => select(l.id)}
-			>
-				{l.title}
-			</button>
-		{/each}
+	<div class="flex flex-wrap gap-3">
+		<div class="contents" role="tablist" aria-label="Lists">
+			{#each lists as l (l.id)}
+				{@const on = l.id === current?.id}
+				<button
+					type="button"
+					role="tab"
+					aria-selected={on}
+					data-testid="list-tab"
+					class="min-h-tap rounded-chip px-6 text-body {on
+						? 'bg-accent text-on-accent'
+						: 'border-2 border-line bg-surface-raised text-ink'}"
+					onclick={() => select(l.id)}
+				>
+					{l.title}
+				</button>
+			{/each}
+		</div>
 		<button
 			type="button"
 			aria-label="New list"
