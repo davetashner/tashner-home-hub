@@ -7,10 +7,7 @@
  * - NOT exported: `events` (a cache of calendar syncs; they refill after a sync),
  *   `routine_progress` (per-day state that resets each morning), session epochs, the weather cache, and photo files (only photo metadata rows travel).
  * - Secrets: calendar/photo-source `credentials` are encrypted with this server's key, so they
- *   are left out and the sources listed under `reconnect`. The ntfy token (settings row
- *   `notify.token`) is the same kind of blob, so it is dropped too and listed as
- *   "Notifications"; `notify.last` and `notify.goals` are server-local state and stay out.
- *   Member PIN hashes ARE exported
+ *   are left out and the sources listed under `reconnect`. Member PIN hashes ARE exported
  *   (salted scrypt hashes, not PINs) so PINs keep working after a restore.
  */
 export const EXPORT_FORMAT = 'tashner-home-hub';
@@ -44,18 +41,7 @@ export const EXPORT_TABLES = [
 export const EXCLUDED_TABLES = ['events', 'routine_progress'] as const;
 
 /** Settings keys that stay local to this server: kept on import, never exported. */
-export const LOCAL_SETTING_PREFIXES = [
-	'session.epoch.',
-	'weather.cache',
-	'notify.last',
-	'notify.goals'
-] as const;
-
-/**
- * Settings rows holding secrets encrypted with this server's key: dropped from exports (and from
- * imported files) and kept on import, like local settings. Each is listed under `reconnect`.
- */
-export const SECRET_SETTING_KEYS = [{ key: 'notify.token', label: 'Notifications' }] as const;
+export const LOCAL_SETTING_PREFIXES = ['session.epoch.', 'weather.cache'] as const;
 
 /** Columns blanked on export, per table. */
 const SECRET_COLUMNS: Record<string, string[]> = {
@@ -86,9 +72,7 @@ export interface ExportDocument {
 }
 
 export const isLocalSetting = (key: unknown): boolean =>
-	typeof key === 'string' &&
-	(LOCAL_SETTING_PREFIXES.some((p) => key.startsWith(p)) ||
-		SECRET_SETTING_KEYS.some((k) => k.key === key));
+	typeof key === 'string' && LOCAL_SETTING_PREFIXES.some((p) => key.startsWith(p));
 
 /** Rows as they go into (or come out of) a document: secrets blanked, local settings dropped. */
 export function scrubRows(table: string, rows: Row[]): Row[] {
@@ -114,10 +98,6 @@ export function buildExport(raw: TableRows, migration: Migration, now: Date): Ex
 				if (r.credentials)
 					reconnect.push({ table: t, id: String(r.id), label: String(r.label ?? r.id) });
 		}
-		if (t === 'settings')
-			for (const { key, label } of SECRET_SETTING_KEYS)
-				if (rows.some((r) => r.key === key && r.value))
-					reconnect.push({ table: 'settings', id: key, label });
 		tables[t] = scrubRows(t, rows);
 	}
 	return {

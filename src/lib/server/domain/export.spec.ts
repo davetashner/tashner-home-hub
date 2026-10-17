@@ -69,25 +69,6 @@ describe('scrubRows', () => {
 	});
 });
 
-describe('ntfy settings', () => {
-	it('keeps the token out of an export and lists it for reconnecting', () => {
-		const raw = empty();
-		raw.settings = [
-			{ key: 'notify.config', value: '{"topic":"t"}' },
-			{ key: 'notify.token', value: 'enc-token-blob' },
-			{ key: 'notify.last', value: '1' },
-			{ key: 'notify.goals', value: '["g"]' }
-		];
-		const d = doc(raw);
-		expect(d.tables.settings).toEqual([{ key: 'notify.config', value: '{"topic":"t"}' }]);
-		expect(JSON.stringify(d)).not.toContain('enc-token-blob');
-		expect(d.reconnect).toEqual([
-			{ table: 'settings', id: 'notify.token', label: 'Notifications' }
-		]);
-		expect(doc().reconnect).toEqual([]);
-	});
-});
-
 describe('validateImport', () => {
 	const good = () => JSON.parse(JSON.stringify(doc())) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 	const err = (input: unknown) => {
