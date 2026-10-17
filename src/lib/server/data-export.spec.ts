@@ -51,7 +51,10 @@ function seed(db: ReturnType<typeof openDb>) {
 		.values([
 			{ key: 'household.tz', value: '"UTC"' },
 			{ key: 'weather.cache', value: '{}' },
-			{ key: 'session.epoch.a1', value: '2' }
+			{ key: 'session.epoch.a1', value: '2' },
+			{ key: 'notify.token', value: 'ntfy-token-blob' },
+			{ key: 'notify.last', value: '5' },
+			{ key: 'notify.goals', value: '["g1"]' }
 		])
 		.run();
 }
@@ -68,7 +71,12 @@ describe('export/import', () => {
 		const text = JSON.stringify(doc);
 		expect(text).not.toContain('secret-blob');
 		expect(doc.tables.settings.map((r) => r.key)).toEqual(['household.tz']);
-		expect(doc.reconnect).toEqual([{ table: 'calendar_sources', id: 'cs1', label: 'Cal' }]);
+		expect(text).not.toContain('ntfy-token-blob');
+		expect(doc.tables.settings.some((r) => String(r.key).startsWith('notify.'))).toBe(false);
+		expect(doc.reconnect).toEqual([
+			{ table: 'calendar_sources', id: 'cs1', label: 'Cal' },
+			{ table: 'settings', id: 'notify.token', label: 'Notifications' }
+		]);
 		expect(doc.tables.members[0].pinHash).toBe('scrypt$x');
 
 		// Wipe, add junk that must be replaced, then import.
@@ -96,6 +104,12 @@ describe('export/import', () => {
 		expect(
 			db.select().from(s.settings).where(eq(s.settings.key, 'session.epoch.a1')).get()?.value
 		).toBe('7');
+		// The local ntfy token and state survive the import untouched.
+		const kept = (k: string) =>
+			db.select().from(s.settings).where(eq(s.settings.key, k)).get()?.value;
+		expect(kept('notify.token')).toBe('ntfy-token-blob');
+		expect(kept('notify.last')).toBe('5');
+		expect(kept('notify.goals')).toBe('["g1"]');
 		db.$client.close();
 	});
 

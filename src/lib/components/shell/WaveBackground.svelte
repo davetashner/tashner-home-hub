@@ -17,6 +17,7 @@
 		type WavePalette
 	} from '#lib/domain/wave-background.js';
 	import { createWaveRenderer, type WaveRenderer } from './wave-gl.js';
+	import { powerState } from '#lib/display/power-state.svelte.js';
 	import { wave } from './wave-state.svelte.js';
 
 	/** Behind everything: a live WebGL wave sheet background (hub-gj6.17), with a token gradient as the fallback. */
@@ -31,7 +32,7 @@
 	// The photo frame covers the whole screen: draw nothing (and hold no GL context) behind it.
 	const covered = $derived(page.state.frame === true || page.url.pathname === '/photos');
 	const palette = $derived(covered ? null : resolvePalette(wave.choice, theme));
-	const paused = $derived(hidden || wave.paused);
+	const paused = $derived(hidden || powerState.power === 'off' || powerState.mode !== 'normal');
 	const wall = $derived(page.data.displayRole === 'wall');
 
 	function readPalette(name: WavePalette): PaletteValues | null {

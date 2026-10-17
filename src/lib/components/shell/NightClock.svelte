@@ -2,53 +2,25 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { formatClock } from '#lib/domain/clock.js';
+	import { setPowerMode, powerState, usePowerState } from '#lib/display/power-state.svelte.js';
 	import {
 		morningRange,
 		nextMorningLine,
 		nightClockOffset,
-		parseDisplayMode,
-		type DisplayMode,
 		type NightEvent
 	} from '#lib/domain/night-clock.js';
 	import { isTimeZone } from '#lib/domain/time-zone.js';
-	import { wave } from './wave-state.svelte.js';
 
 	/** Wall displays only (the shell mounts this for that role): a dim clock on a scheduled night (SLP-4). */
-	const POLL_MS = 15_000;
 	/** The first-event line refreshes this often (calendars sync on a slower cadence than this). */
 	const EVENTS_MS = 5 * 60_000;
 
-	let mode = $state<DisplayMode>('normal');
 	let now = $state(Date.now());
-	let wakeAt = $state<number | null>(null);
 	let events = $state<NightEvent[]>([]);
-	let polls = 0;
-
-	// Wave background pauses while dimmed or off. TODO: read the shared power store (PR 118) instead.
-	$effect(() => {
-		wave.paused = mode !== 'normal';
-		return () => (wave.paused = false);
-	});
-
-	async function poll() {
-		const at = ++polls;
-		try {
-			const res = await fetch('/api/display/power', { cache: 'no-store' });
-			if (res.ok && at === polls) {
-				const body = await res.json();
-				mode = parseDisplayMode(body.mode);
-				const until = Date.parse(body.until);
-				wakeAt = Number.isFinite(until) ? until : null;
-			}
-		} catch {
-			// Keep the current mode; the next poll corrects it.
-		}
-	}
 
 	function wake() {
 		// Optimistic (touch to wake, SLP-3): the app shows now, the server starts the re-sleep timeout.
-		polls++;
-		mode = 'normal';
+		setPowerMode('normal');
 		void fetch('/api/display/wake', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -80,15 +52,19 @@
 	});
 
 	onMount(() => {
-		void poll();
-		const pollTimer = setInterval(() => void poll(), POLL_MS);
+		const release = usePowerState();
 		const tick = setInterval(() => (now = Date.now()), 1000);
 		return () => {
-			clearInterval(pollTimer);
+			release();
 			clearInterval(tick);
 		};
 	});
 
+	const mode = $derived(powerState.mode);
+	const wakeAt = $derived.by(() => {
+		const until = Date.parse(powerState.until ?? '');
+		return Number.isFinite(until) ? until : null;
+	});
 	const zone = $derived(isTimeZone(page.data.timeZone) ? page.data.timeZone : undefined);
 	const clock = $derived(formatClock(new Date(now), zone ? { timeZone: zone } : {}));
 	const morning = $derived(

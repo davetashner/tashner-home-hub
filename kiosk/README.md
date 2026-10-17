@@ -95,7 +95,7 @@ POST {HUB_URL}/api/display/sleep   (the nav "Sleep" button; same body, status 20
 - Polls `GET /api/display/power` every `POWER_POLL_SECONDS` (default 1 s, to meet "off within 2 s") and runs `wlr-randr --output <OUTPUT> --off` or `--on`. `OUTPUT` from `kiosk.conf` is used if `wlr-randr` lists it; otherwise the first listed output is used.
 - If `wlr-randr` fails and `CEC_BACKEND` is `cec-ctl` or `cec-client`, it tries HDMI-CEC standby / on instead.
 - Reads the touchscreen straight from `/dev/input/event*` (struct reads, no libraries; the `kiosk` user is in the `input` group), so touch works while the output is off. `TOUCH_DEVICE` overrides detection.
-- Touch while off: switches on first, then `POST /api/display/wake`. The hub applies the night re-sleep timeout; the next poll turns the screen off again. A touch while on at night re-posts wake (at most every 20 s) to restart the timeout. If the hub is down, the screen stays on for `OFFLINE_WAKE_SECONDS`.
+- Touch while off: grabs the touch device exclusively (`EVIOCGRAB`) while the screen is off and until the waking finger lifts, so Chromium never sees the wake tap (SLP-3); the page also swallows taps for 700 ms after the display comes back (wake guard). Switches on first, then `POST /api/display/wake`. The hub applies the night re-sleep timeout; the next poll turns the screen off again. A touch while on at night re-posts wake (at most every 20 s) to restart the timeout. If the hub is down, the screen stays on for `OFFLINE_WAKE_SECONDS`.
 - Hub unreachable: the screen is left as it is; polling backs off from 2 s to 30 s.
 - Logs go to journald: `sudo journalctl _UID=$(id -u kiosk) -e | grep display-agent`.
 
@@ -137,7 +137,7 @@ curl -s http://127.0.0.1:9222/json/list         # on the Pi: is Chromium alive?
 - [ ] Boot with server unreachable: page opens (cached if SW installed), recovers automatically when server returns
 - [ ] Power-cut recovery (no crash-restore bubble); monitor behaviour on HDMI standby and USB touch power (relevant to the display agent)
 - [ ] Display agent: `wlr-randr --output X --off` really powers the panel down and `--on` restores the mode and rotation (else re-apply `hub-kiosk-apply-display` after `--on`)
-- [ ] Display agent: USB touch stays powered while HDMI is off, and `/dev/input/event*` still reports touches (SLP-3); a wake tap may also reach Chromium
+- [ ] Display agent: USB touch stays powered while HDMI is off, and `/dev/input/event*` still reports touches (SLP-3); the wake tap does not reach Chromium (the `EVIOCGRAB` grab works on the Pi, and is released after the finger lifts; hub-8lc.9)
 - [ ] Display agent: touch detection picks the ViewSonic (else set `TOUCH_DEVICE`); `wlr-randr` works from the user unit (WAYLAND_DISPLAY imported)
 - [ ] Display agent: "Sleep now" turns the monitor off within 2 s; night wake re-sleeps after the timeout; CEC fallback if `wlr-randr` is not enough
 - [ ] Soak: runs unattended for days
