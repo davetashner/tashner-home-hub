@@ -90,6 +90,12 @@
 			line: 'Celebration sounds and quiet hours.'
 		},
 		{
+			href: resolve('/(app)/settings/weather'),
+			emoji: '🌤️',
+			title: 'Weather',
+			line: 'Where home is, for the forecast on the home screen.'
+		},
+		{
 			href: resolve('/(app)/settings/time-zone'),
 			emoji: '🌍',
 			title: 'Time zone',
