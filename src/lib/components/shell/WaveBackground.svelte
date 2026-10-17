@@ -14,7 +14,9 @@
 		PALETTE_LOOK,
 		PALETTE_SLOTS,
 		parseColor,
-		renderScale,
+		readDeviceWaveOff,
+		waveHeld,
+		waveProfile,
 		resolvePalette,
 		tokenName,
 		WAVE_SPEED,
@@ -24,7 +26,7 @@
 	} from '#lib/domain/wave-background.js';
 	import { createWaveRenderer, type WaveRenderer } from './wave-gl.js';
 	import { powerState } from '#lib/display/power-state.svelte.js';
-	import { wave } from './wave-state.svelte.js';
+	import { device, wave } from './wave-state.svelte.js';
 
 	/** Behind everything: a live WebGL wave sheet background (hub-gj6.17), with a token gradient as the fallback. */
 
@@ -44,8 +46,25 @@
 	const palette = $derived(
 		covered ? null : resolvePalette(wave.choice, theme, autoPalette(theme, now, location, zone))
 	);
-	const paused = $derived(hidden || powerState.power === 'off' || powerState.mode !== 'normal');
 	const wall = $derived(page.data.displayRole === 'wall');
+	const profile = $derived(waveProfile(wall));
+	// Wall power state only matters on the wall: personal devices never run the power poller.
+	const paused = $derived(
+		waveHeld(profile, {
+			hidden,
+			reduced: false,
+			powerOff: powerState.power === 'off',
+			nightMode: powerState.mode !== 'normal'
+		})
+	);
+
+	function localStorageOrUndefined(): Storage | undefined {
+		try {
+			return localStorage;
+		} catch {
+			return undefined;
+		}
+	}
 
 	function readPalette(name: WavePalette): PaletteValues | null {
 		const style = getComputedStyle(document.documentElement);
@@ -57,6 +76,7 @@
 	}
 
 	onMount(() => {
+		device.off = readDeviceWaveOff(localStorageOrUndefined());
 		const readTheme = () =>
 			(theme = document.documentElement.dataset.theme === 'night' ? 'night' : 'light');
 		readTheme();
@@ -125,7 +145,7 @@
 	});
 
 	const resize = () => {
-		const s = canvasSize(innerWidth, innerHeight, devicePixelRatio, renderScale(wall));
+		const s = canvasSize(innerWidth, innerHeight, devicePixelRatio, profile.scale, profile.dprCap);
 		renderer?.resize(s.width, s.height);
 	};
 
@@ -158,7 +178,7 @@
 				raf = requestAnimationFrame(frame);
 				t += Math.min((at - last) / 1000, 0.1) * WAVE_SPEED;
 				last = at;
-				if (!dueForFrame(at, lastDraw)) return;
+				if (!dueForFrame(at, lastDraw, profile.fps)) return;
 				lastDraw = at;
 				paint();
 				// Too slow to be worth it (no real GPU): give up and keep the still gradient.
@@ -186,8 +206,9 @@
 		aria-hidden="true"
 		data-testid="wave-background"
 		data-palette={palette}
+		data-device={device.off ? 'off' : 'show'}
 	>
-		{#if !failed}
+		{#if !failed && !device.off}
 			<canvas bind:this={canvas} data-palette={palette} data-drawn={drawn}></canvas>
 		{/if}
 	</div>

@@ -5,6 +5,10 @@ import {
 	dueForFrame,
 	fadeProgress,
 	isSoftwareRenderer,
+	readDeviceWaveOff,
+	waveHeld,
+	waveProfile,
+	writeDeviceWaveOff,
 	isStarved,
 	mixPalette,
 	parseColor,
@@ -61,6 +65,72 @@ it('gives up when frames crawl', () => {
 it('spots software renderers', () => {
 	expect(isSoftwareRenderer('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device))')).toBe(true);
 	expect(isSoftwareRenderer('V3D 7.1')).toBe(false);
+});
+
+it('only refuses renderers positively named as software', () => {
+	for (const n of [
+		'llvmpipe (LLVM 15)',
+		'softpipe',
+		'Microsoft Basic Render Driver',
+		'Mesa OffScreen'
+	])
+		expect(isSoftwareRenderer(n)).toBe(true);
+	// Masked, farbled or unavailable names draw.
+	for (const n of ['Apple GPU', 'WebKit WebGL', 'WebKit', '', 'Adreno (TM) 740'])
+		expect(isSoftwareRenderer(n)).toBe(false);
+	expect(isSoftwareRenderer(undefined, null)).toBe(false);
+	expect(isSoftwareRenderer('Apple GPU', 'Google SwiftShader')).toBe(true);
+});
+
+describe('personal device profile', () => {
+	it('is lighter than the wall and ignores wall power', () => {
+		const phone = waveProfile(false);
+		expect(phone.scale).toBe(0.5);
+		expect(phone.fps).toBe(30);
+		expect(phone.followsWallPower).toBe(false);
+		expect(canvasSize(390, 844, 3, phone.scale, phone.dprCap)).toEqual({ width: 293, height: 633 });
+		expect(waveProfile(true).followsWallPower).toBe(true);
+	});
+
+	it('holds still when hidden, but only the wall holds for power state', () => {
+		const awake = { hidden: false, reduced: false, powerOff: false, nightMode: false };
+		const asleep = { ...awake, powerOff: true, nightMode: true };
+		expect(waveHeld(waveProfile(false), awake)).toBe(false);
+		expect(waveHeld(waveProfile(false), asleep)).toBe(false);
+		expect(waveHeld(waveProfile(true), asleep)).toBe(true);
+		expect(waveHeld(waveProfile(false), { ...awake, hidden: true })).toBe(true);
+		expect(waveHeld(waveProfile(false), { ...awake, reduced: true })).toBe(true);
+	});
+});
+
+describe('per-device opt-out', () => {
+	it('round-trips through storage and survives it throwing', () => {
+		const data = new Map<string, string>();
+		const store = {
+			getItem: (k: string) => data.get(k) ?? null,
+			setItem: (k: string, v: string) => void data.set(k, v),
+			removeItem: (k: string) => void data.delete(k)
+		};
+		expect(readDeviceWaveOff(store)).toBe(false);
+		writeDeviceWaveOff(store, true);
+		expect(readDeviceWaveOff(store)).toBe(true);
+		writeDeviceWaveOff(store, false);
+		expect(readDeviceWaveOff(store)).toBe(false);
+		const broken = {
+			getItem: () => {
+				throw new Error('blocked');
+			},
+			setItem: () => {
+				throw new Error('blocked');
+			},
+			removeItem: () => {
+				throw new Error('blocked');
+			}
+		};
+		expect(readDeviceWaveOff(broken)).toBe(false);
+		expect(() => writeDeviceWaveOff(broken, true)).not.toThrow();
+		expect(readDeviceWaveOff(undefined)).toBe(false);
+	});
 });
 
 describe('parseColor', () => {

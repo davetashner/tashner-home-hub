@@ -30,9 +30,12 @@ export function createWaveRenderer(canvas: HTMLCanvasElement): WaveRenderer | nu
 		powerPreference: 'low-power'
 	});
 	if (!gl) return null;
+	// Refuse only a renderer positively named as software. iOS WebKit and Brave mask GPU names, so
+	// an unknown name draws; the slow-draw bail-out in WaveBackground is the safety net.
 	const info = gl.getExtension('WEBGL_debug_renderer_info');
-	// A GPU we can't name is treated like a CPU renderer: the still gradient is the safe choice.
-	if (!info || isSoftwareRenderer(String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)))) {
+	const names = [gl.getParameter(gl.RENDERER), gl.getParameter(gl.VENDOR)];
+	if (info) names.push(gl.getParameter(info.UNMASKED_RENDERER_WEBGL));
+	if (isSoftwareRenderer(...names.map((n) => (typeof n === 'string' ? n : null)))) {
 		gl.getExtension('WEBGL_lose_context')?.loseContext();
 		return null;
 	}

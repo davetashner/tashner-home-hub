@@ -1,10 +1,24 @@
 <script lang="ts">
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
-	import { wave } from '#lib/components/shell/wave-state.svelte.js';
-	import { WAVE_CHOICES, WAVE_LABELS, type WaveChoice } from '#lib/domain/wave-background.js';
+	import { device, wave } from '#lib/components/shell/wave-state.svelte.js';
+	import {
+		writeDeviceWaveOff,
+		WAVE_CHOICES,
+		WAVE_LABELS,
+		type WaveChoice
+	} from '#lib/domain/wave-background.js';
 
 	let message = $state('');
+
+	function setDevice(off: boolean) {
+		device.off = off;
+		try {
+			writeDeviceWaveOff(localStorage, off);
+		} catch {
+			/* storage blocked */
+		}
+	}
 
 	function choose(choice: WaveChoice) {
 		if (wave.choice === choice) return;
@@ -48,6 +62,26 @@
 						onclick={() => choose(c)}>{WAVE_LABELS[c]}</Button
 					>
 				{/each}
+			</div>
+		</div>
+	</Card>
+	<Card>
+		<div class="flex flex-col gap-6">
+			<p class="text-body text-ink-muted">
+				Only for this phone, tablet or screen. Saved on the device, not for the household. When it
+				is not shown, you see the still gradient.
+			</p>
+			<div class="flex flex-wrap gap-4" role="group" aria-label="On this device">
+				<Button
+					variant={device.off ? 'secondary' : 'primary'}
+					aria-pressed={!device.off}
+					onclick={() => setDevice(false)}>Show here</Button
+				>
+				<Button
+					variant={device.off ? 'primary' : 'secondary'}
+					aria-pressed={device.off}
+					onclick={() => setDevice(true)}>Not on this device</Button
+				>
 			</div>
 		</div>
 	</Card>
