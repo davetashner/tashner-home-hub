@@ -11,6 +11,7 @@
  */
 import { asc, eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import { isSingleEmoji } from '#lib/domain/emoji.js';
 import type { Db } from '../db/index.js';
 import { goals, members, rewards } from '../db/schema.js';
 import { LedgerError } from './ledger.js';
@@ -39,7 +40,6 @@ export interface GoalProgress {
 }
 
 const invalid = (msg: string) => new LedgerError('invalid', msg);
-const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
 
 function validTitle(v: unknown): string {
 	const t = typeof v === 'string' ? v.trim() : '';
@@ -56,11 +56,7 @@ function validCost(v: unknown): number {
 
 function validImage(v: unknown): string | null {
 	if (v === null || v === undefined || v === '') return null;
-	const ok =
-		typeof v === 'string' &&
-		[...segmenter.segment(v)].length === 1 &&
-		/\p{Extended_Pictographic}|\p{Regional_Indicator}|⃣/u.test(v);
-	if (!ok) throw invalid('image must be a single emoji');
+	if (!isSingleEmoji(v)) throw invalid('image must be a single emoji');
 	return v;
 }
 

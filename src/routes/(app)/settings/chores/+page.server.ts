@@ -6,6 +6,6 @@ import type { PageServerLoad } from './$types';
 // Mutations go through the JSON API (/api/chores); plain form POSTs trip SvelteKit's CSRF
 // origin check over plain HTTP (see the family page).
 export const load: PageServerLoad = () => ({
-	chores: listChores(getDb()),
+	chores: listChores(getDb(), { kind: 'star_job' }),
 	members: listMembers(getDb())
 });
