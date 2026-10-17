@@ -222,6 +222,46 @@ export const countdowns = sqliteTable('countdowns', {
 	icon: text('icon')
 });
 
+export const routines = sqliteTable('routines', {
+	id: id(),
+	memberId: text('member_id')
+		.notNull()
+		.references(() => members.id, { onDelete: 'cascade' }),
+	name: text('name').notNull(),
+	/** Optional active window, local HH:MM; both null = always active. May wrap midnight. */
+	windowStart: text('window_start'),
+	windowEnd: text('window_end'),
+	createdAt: createdAt()
+});
+
+export const routineSteps = sqliteTable(
+	'routine_steps',
+	{
+		id: id(),
+		routineId: text('routine_id')
+			.notNull()
+			.references(() => routines.id, { onDelete: 'cascade' }),
+		position: integer('position').notNull(),
+		label: text('label').notNull(),
+		icon: text('icon').notNull()
+	},
+	(t) => [index('routine_steps_routine_idx').on(t.routineId, t.position)]
+);
+
+/** Steps finished so far on one local day; a new day has no row, so progress resets itself. */
+export const routineProgress = sqliteTable(
+	'routine_progress',
+	{
+		routineId: text('routine_id')
+			.notNull()
+			.references(() => routines.id, { onDelete: 'cascade' }),
+		/** Local calendar day, YYYY-MM-DD. */
+		date: text('date').notNull(),
+		done: integer('done').notNull().default(0)
+	},
+	(t) => [uniqueIndex('routine_progress_idx').on(t.routineId, t.date)]
+);
+
 export const settings = sqliteTable('settings', {
 	key: text('key').primaryKey(),
 	/** JSON-encoded value. */
