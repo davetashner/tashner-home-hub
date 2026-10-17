@@ -29,8 +29,8 @@ export function createWaveRenderer(canvas: HTMLCanvasElement): WaveRenderer | nu
 	});
 	if (!gl) return null;
 	const info = gl.getExtension('WEBGL_debug_renderer_info');
-	const gpu = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
-	if (isSoftwareRenderer(gpu)) {
+	// A GPU we can't name is treated like a CPU renderer: the still gradient is the safe choice.
+	if (!info || isSoftwareRenderer(String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)))) {
 		gl.getExtension('WEBGL_lose_context')?.loseContext();
 		return null;
 	}
