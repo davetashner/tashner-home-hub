@@ -10,12 +10,13 @@ const sound = await import('./sound/+server.js');
 const get = () => (sound.GET as unknown as () => Response)().json();
 
 it('defaults to unmuted with quiet hours 20:00 to 07:00', async () => {
-	expect(await get()).toMatchObject({
+	expect(await get()).toEqual({
 		muted: false,
 		quietStart: '20:00',
 		quietEnd: '07:00',
 		theme: 'classic',
-		volume: 100
+		volume: 100,
+		timeZone: expect.any(String)
 	});
 });
 
@@ -28,7 +29,14 @@ it('reads settings rows and ignores corrupt ones', async () => {
 			{ key: 'sound.quietEnd', value: '"06:00"' }
 		])
 		.run();
-	expect(await get()).toMatchObject({ muted: true, quietStart: '20:00', quietEnd: '06:00' });
+	expect(await get()).toEqual({
+		muted: true,
+		quietStart: '20:00',
+		quietEnd: '06:00',
+		theme: 'classic',
+		volume: 100,
+		timeZone: expect.any(String)
+	});
 });
 
 const put = (body: unknown, adult = true) =>
@@ -39,33 +47,60 @@ const put = (body: unknown, adult = true) =>
 	});
 
 it('lets a grown-up mute and change quiet hours', async () => {
-	expect(await (await put({ muted: false, quietStart: '21:30' })).json()).toMatchObject({
+	expect(await (await put({ muted: false, quietStart: '21:30' })).json()).toEqual({
 		muted: false,
 		quietStart: '21:30',
-		quietEnd: '06:00'
+		quietEnd: '06:00',
+		theme: 'classic',
+		volume: 100,
+		timeZone: expect.any(String)
 	});
-	expect(await (await put({ quietEnd: '06:45', muted: true })).json()).toMatchObject({
+	expect(await (await put({ quietEnd: '06:45', muted: true })).json()).toEqual({
 		muted: true,
 		quietStart: '21:30',
-		quietEnd: '06:45'
+		quietEnd: '06:45',
+		theme: 'classic',
+		volume: 100,
+		timeZone: expect.any(String)
 	});
-	expect(await get()).toMatchObject({ muted: true, quietStart: '21:30', quietEnd: '06:45' });
+	expect(await get()).toEqual({
+		muted: true,
+		quietStart: '21:30',
+		quietEnd: '06:45',
+		theme: 'classic',
+		volume: 100,
+		timeZone: expect.any(String)
+	});
 });
 
 it('rejects bad values without writing anything', async () => {
 	await expect(put({ muted: 'no' })).rejects.toMatchObject({ status: 400 });
 	await expect(put({ muted: false, quietStart: '9:00' })).rejects.toMatchObject({ status: 400 });
 	await expect(put({ quietEnd: '24:00' })).rejects.toMatchObject({ status: 400 });
-	expect(await get()).toMatchObject({ muted: true, quietStart: '21:30', quietEnd: '06:45' });
+	expect(await get()).toEqual({
+		muted: true,
+		quietStart: '21:30',
+		quietEnd: '06:45',
+		theme: 'classic',
+		volume: 100,
+		timeZone: expect.any(String)
+	});
 });
 
 it('saves the theme and volume, and reports the household zone', async () => {
 	const saved = await (await put({ theme: 'arcade', volume: 35 })).json();
-	expect(saved).toMatchObject({ theme: 'arcade', volume: 35 });
+	expect(saved).toEqual({
+		muted: true,
+		quietStart: '21:30',
+		quietEnd: '06:45',
+		theme: 'arcade',
+		volume: 35,
+		timeZone: expect.any(String)
+	});
 	expect(typeof saved.timeZone).toBe('string');
 	await expect(put({ theme: 'nope' })).rejects.toMatchObject({ status: 400 });
 	await expect(put({ volume: 101 })).rejects.toMatchObject({ status: 400 });
-	expect(await get()).toMatchObject({ theme: 'arcade', volume: 35 });
+	expect(await get()).toEqual(saved);
 });
 
 it('needs an adult', async () => {
