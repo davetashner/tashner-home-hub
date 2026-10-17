@@ -77,16 +77,24 @@ test('week view blocks and bars are tappable, unclipped, and open near now', asy
 		expect(clipped).toBe(false);
 	}
 
-	// Reopen: the grid should land on the current time, or the top when it is off the grid.
+	// Reopen at 20:45 (page zone), late enough that the line used to fall below the pane: the
+	// grid should land on the current time.
+	const pinned = await page.evaluate(() => {
+		const d = new Date();
+		d.setHours(20, 45, 0, 0);
+		return d.getTime();
+	});
+	await page.clock.install({ time: pinned });
 	await page.reload();
 	await page.waitForLoadState('networkidle');
-	const box = (await pane.boundingBox())!;
-	const hour = new Date().getHours();
-	if (hour >= 8 && hour < 20) {
-		const line = (await pane.locator('.now').boundingBox())!;
-		expect(line.y).toBeGreaterThanOrEqual(box.y);
-		expect(line.y).toBeLessThanOrEqual(box.y + box.height);
-	}
+	await expect(pane.locator('.now')).toBeVisible();
+	await expect
+		.poll(async () => {
+			const box = (await pane.boundingBox())!;
+			const line = (await pane.locator('.now').boundingBox())!;
+			return line.y >= box.y && line.y <= box.y + box.height;
+		})
+		.toBe(true);
 });
 
 test('tapping empty space in a week column opens that day in the agenda', async ({ page }) => {

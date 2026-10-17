@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import WeatherIcon from '#lib/components/weather/WeatherIcon.svelte';
 	import { formatClock } from '#lib/domain/clock.js';
 	import type { CalEvent } from '#lib/domain/calendar-view/layout.js';
 	import {
@@ -114,7 +115,7 @@
 					class="overlay-text flex items-center gap-3 text-lead font-bold whitespace-nowrap"
 					data-testid="overlay-weather"
 				>
-					<span>{line.icon}</span>
+					<span class="text-title leading-none"><WeatherIcon name={line.icon} /></span>
 					<span>{line.temp}</span>
 					<span>{line.label}</span>
 				</p>

@@ -84,8 +84,13 @@ test('meals fits a 390px phone with no sideways scroll', async ({ page }) => {
 		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
 	);
 	expect(overflow).toBeLessThanOrEqual(0);
-	const box = await page.getByTestId('meal-cell').first().boundingBox();
-	expect(box!.height).toBeGreaterThanOrEqual(60);
+	// Retried: the week re-renders once its meals load, so the first cell can be swapped out
+	// between finding it and measuring it (boundingBox is then null).
+	await expect(async () => {
+		const box = await page.getByTestId('meal-cell').first().boundingBox();
+		expect(box).not.toBeNull();
+		expect(box!.height).toBeGreaterThanOrEqual(60);
+	}).toPass();
 });
 
 // Slot labels never break mid-word: a laptop wraps the week, the 4K wall keeps all seven across.
