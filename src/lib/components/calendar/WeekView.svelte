@@ -15,6 +15,7 @@
 	} from '#lib/domain/calendar-view/layout.js';
 	import { minutesIntoDay, nowLineMinute } from '#lib/domain/calendar-view/now-line.js';
 	import type { DateKey } from '#lib/domain/calendar-view/zone.js';
+	import { daySummary } from '#lib/domain/meals.js';
 
 	interface Props {
 		events: CalEvent[];
@@ -22,10 +23,12 @@
 		today: DateKey;
 		tz: string;
 		now: number;
+		/** Planned meals keyed `date|meal` (MEAL-1). */
+		meals?: Map<string, string>;
 		onselect: (event: CalEvent) => void;
 		onday: (key: DateKey) => void;
 	}
-	let { events, keys, today, tz, now, onselect, onday }: Props = $props();
+	let { events, keys, today, tz, now, meals = new Map(), onselect, onday }: Props = $props();
 
 	const bars = $derived(spanBars(events, keys, tz));
 	const barLanes = $derived(bars.reduce((n, b) => Math.max(n, b.lane + 1), 0));
@@ -66,6 +69,13 @@
 				<div class="flex flex-col items-center py-2" class:today={key === today}>
 					<span class="text-body font-extrabold text-ink-muted uppercase">{weekdayShort(key)}</span>
 					<span class="num text-title font-extrabold tabular-nums">{dayNumber(key)}</span>
+					{#if daySummary(meals, key)}
+						<span
+							class="meal text-caption font-bold text-ink-muted"
+							data-testid="week-meal"
+							title={daySummary(meals, key)}>{daySummary(meals, key)}</span
+						>
+					{/if}
 				</div>
 			{/each}
 		</div>
@@ -183,6 +193,13 @@
 		border-radius: var(--radius-chip);
 		background: var(--color-accent);
 		color: var(--color-on-accent);
+	}
+	.meal {
+		max-width: 100%;
+		overflow: hidden;
+		padding: 0 0.25rem;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.allday {
 		gap: 0.375rem 0.25rem;

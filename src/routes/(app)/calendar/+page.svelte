@@ -29,6 +29,7 @@
 	import { dateKeyOf, type DateKey } from '#lib/domain/calendar-view/zone.js';
 	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 	import { page } from '$app/state';
+	import { mealMap, type MealEntry } from '#lib/domain/meals.js';
 
 	interface Status {
 		sources: { sourceId: string; lastSyncAt: number | null; stale: boolean }[];
@@ -93,6 +94,21 @@
 			// Offline: keep showing whatever is cached.
 		}
 	}
+
+	// MEAL-1: the week view shows each day's planned meal under its date. Best effort.
+	let mealCache = $state<Record<string, MealEntry[]>>({});
+	const meals = $derived(mealMap(mealCache[keys[0]] ?? []));
+	async function loadMeals(ks: DateKey[]) {
+		try {
+			const res = await fetch(`/api/meals?from=${ks[0]}&to=${ks[ks.length - 1]}`);
+			if (res.ok) mealCache[ks[0]] = await res.json();
+		} catch {
+			// Offline: the week view just shows no meals.
+		}
+	}
+	$effect(() => {
+		if (mounted && view === 'week') void loadMeals(keys);
+	});
 
 	async function loadStatus() {
 		try {
@@ -312,6 +328,7 @@
 								{today}
 								{tz}
 								{now}
+								{meals}
 								onselect={(e) => (selected = e)}
 								onday={openDay}
 							/>
