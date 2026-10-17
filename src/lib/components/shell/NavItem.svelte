@@ -49,7 +49,9 @@
 	<span class="text-title tablet:text-lead tablet:leading-none"
 		><Icon name={destination.icon} /></span
 	>
-	<span class="max-sm:sr-only short:sr-only tablet:leading-tight">{destination.label}</span>
+	<span class="whitespace-nowrap max-sm:sr-only short:sr-only tablet:leading-tight"
+		>{destination.label}</span
+	>
 </a>
 
 <style>

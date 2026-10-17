@@ -303,7 +303,7 @@
 				celebrateApproval(jar, approved.stars);
 			}
 		} catch {
-			if (!loaded) say('Hmm, I could not load your chores. Trying again soon!');
+			if (!loaded) say('Hmm, I could not load your Star Jobs. Trying again soon!');
 		} finally {
 			loaded = true;
 		}
@@ -465,7 +465,7 @@
 </script>
 
 <svelte:head>
-	<title>My chores · Home Hub</title>
+	<title>My To-Do List · Home Hub</title>
 </svelte:head>
 
 {#if !loaded}
@@ -473,17 +473,17 @@
 {:else if unreachable}
 	<EmptyState
 		icon="chores"
-		title="Chores"
-		line="Hmm, we cannot reach the hub right now. Your chores will show up as soon as we can."
+		title="To-Do List"
+		line="Hmm, we cannot reach the hub right now. Your To-Do List will show up as soon as we can."
 	/>
 {:else if members.length === 0}
 	<EmptyState
 		icon="chores"
-		title="Chores"
+		title="To-Do List"
 		line="No one is here yet. Grown-ups: add your family in Settings, then Family."
 	/>
 {:else if selected}
-	<h1 class="sr-only">Chores</h1>
+	<h1 class="sr-only">To-Do List</h1>
 	<div
 		class="flex min-h-full flex-col gap-10 p-12 portrait:p-10 landscape:flex-row landscape:items-start short:grid short:grid-cols-kid-short short:items-start short:gap-3 short:p-3 tablet:gap-4 tablet:p-6 portrait:tablet:p-6"
 	>
@@ -512,7 +512,7 @@
 					</p>
 					{#if partial}
 						<p data-testid="partial-note" role="status" class="text-body text-ink-muted">
-							Some chores could not refresh. Trying again soon.
+							Some Star Jobs could not refresh. Trying again soon.
 						</p>
 					{/if}
 				</div>
@@ -521,7 +521,7 @@
 				{/if}
 				{#if kids.length > 1}
 					<nav
-						aria-label="Whose chores?"
+						aria-label="Whose To-Do List?"
 						data-testid="child-switcher"
 						class="flex flex-wrap gap-6 short:col-start-1 short:row-span-3 short:row-start-1 short:flex-col short:flex-nowrap short:gap-3 short:p-1 tablet:max-w-3/5 tablet:flex-nowrap tablet:gap-3 tablet:overflow-x-auto tablet:p-1"
 					>
@@ -577,7 +577,7 @@
 					>
 						<p class="text-display leading-none" aria-hidden="true">🎉</p>
 						<p class="text-headline leading-none font-extrabold">All free today!</p>
-						<p class="text-lead text-ink-muted">No chores today. Go play!</p>
+						<p class="text-lead text-ink-muted">No Star Jobs today. Go play!</p>
 					</div>
 				{:else}
 					{#each groups as group (group.timeOfDay)}

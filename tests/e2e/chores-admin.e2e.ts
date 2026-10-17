@@ -17,12 +17,12 @@ test('create, edit and archive a weekday chore', async ({ page }, info) => {
 	trackMember(kid.id);
 
 	await page.goto('/settings/chores');
-	const add = page.getByRole('button', { name: 'Add chore' });
+	const add = page.getByRole('button', { name: 'Add Star Job' });
 	await expectTappable(add);
 	await add.click();
 
 	const form = page.getByTestId('chore-form');
-	await form.getByLabel('Chore', { exact: true }).fill(title);
+	await form.getByLabel('Star Job', { exact: true }).fill(title);
 	await form.locator('label:has(input[name="icon"][value="🦷"]) span').click();
 	await form.getByRole('button', { name: 'More stars' }).click();
 	await expect(form.getByLabel('Star count')).toHaveText('2');

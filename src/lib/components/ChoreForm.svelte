@@ -84,7 +84,7 @@
 
 <form onsubmit={submit} class="flex flex-col gap-6" data-testid="chore-form">
 	<label class="flex flex-col gap-2">
-		<span class="text-caption text-ink-muted">Chore</span>
+		<span class="text-caption text-ink-muted">Star Job</span>
 		<input
 			bind:value={title}
 			maxlength="60"
