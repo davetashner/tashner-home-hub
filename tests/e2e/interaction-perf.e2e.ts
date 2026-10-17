@@ -232,116 +232,124 @@ function checkTaps(
 
 const TAPS = 5;
 
-test('"I did it!" responds within 100 ms of our own work at 4x throttle', async ({
-	page
-}, info) => {
-	test.setTimeout(90_000); // five taps, each preceded by a wait for a quiet page
-	await stubAudio(page);
-	const titles = Array.from({ length: 3 }, (_, i) => `Warm chore ${i + 1}`);
-	const s = await seedKid(page, `tapk ${info.project.name}`, titles);
-	await openKid(page, s);
-	await page.waitForSelector('[data-testid="confetti"]', { state: 'attached' });
-	await arm(page, `() => false`);
-	const cdp = await page.context().newCDPSession(page);
-	const tapChore = async (title: string) => {
-		const button = choreCard(page, title).getByTestId('did-it');
-		// The visual response is this card going pending (earlier taps' cards stay pending).
-		const respond = `() => [...document.querySelectorAll('[data-testid="chore-card"]')].some((c) => c.textContent.includes('${title}') && c.getAttribute('data-status') === 'pending')`;
-		return measureTap(page, cdp, respond, button, () =>
-			expect(page.getByTestId('flying-star')).toHaveCount(0, { timeout: 15_000 })
-		);
-	};
-	// The first tap on a freshly loaded page is cold (nothing JIT-ed yet), so it cannot be repeated: it is
-	// gated alone. The rest are the steady state.
-	const cold = await tapChore('Brush teeth');
-	const warm = [await tapChore('Feed the fish')];
-	for (const title of titles) warm.push(await tapChore(title));
-	checkTaps('I did it (warm)', info, warm);
-	// The cold first tap used to cost 85-140 ms (hub-ugl.4.8): the "↩" glyph in the Undo button forced a
-	// first-ever system-font fallback lookup inside the tap's layout. It is an SVG now; ~12-27 ms at 4x.
-	checkTaps('I did it (cold)', info, [cold]);
-});
-
-test('primary nav responds within 100 ms of our own work at 4x throttle', async ({
-	page
-}, info) => {
-	await signInAsAdult(page, `adult-navperf-${info.project.name.replace(/\W/g, '')}`);
-	await page.goto('/');
-	await page.waitForLoadState('networkidle');
-	await arm(page, `() => false`);
-	const cdp = await page.context().newCDPSession(page);
-	const nav = page.getByRole('navigation', { name: 'Main' });
-	const taps: Perf[] = [];
-	// Tap through the destinations in turn (not Photos: its slideshow never goes quiet).
-	for (const [label, href] of [
-		['Calendar', '/calendar'],
-		['Chores', '/chores'],
-		['Lists', '/lists'],
-		['Meals', '/meals'],
-		['Calendar', '/calendar']
-	]) {
-		const target = nav.getByRole('link', { name: label });
-		// The tapped item shows as selected (data-selected) in the tapped frame or the next, ahead of the route.
-		taps.push(
-			await measureTap(
-				page,
-				cdp,
-				`() => document.querySelector('nav[aria-label="Main"] a[href="${href}"]')?.getAttribute('data-selected') === 'true'`,
-				target,
-				async () => {
-					await expect(page).toHaveURL(new RegExp(`${href}$`));
-					await expect(target).toHaveAttribute('aria-current', 'page');
-				}
-			)
-		);
+test(
+	'"I did it!" responds within 100 ms of our own work at 4x throttle',
+	{ tag: '@perf' },
+	async ({ page }, info) => {
+		test.setTimeout(90_000); // five taps, each preceded by a wait for a quiet page
+		await stubAudio(page);
+		const titles = Array.from({ length: 3 }, (_, i) => `Warm chore ${i + 1}`);
+		const s = await seedKid(page, `tapk ${info.project.name}`, titles);
+		await openKid(page, s);
+		await page.waitForSelector('[data-testid="confetti"]', { state: 'attached' });
+		await arm(page, `() => false`);
+		const cdp = await page.context().newCDPSession(page);
+		const tapChore = async (title: string) => {
+			const button = choreCard(page, title).getByTestId('did-it');
+			// The visual response is this card going pending (earlier taps' cards stay pending).
+			const respond = `() => [...document.querySelectorAll('[data-testid="chore-card"]')].some((c) => c.textContent.includes('${title}') && c.getAttribute('data-status') === 'pending')`;
+			return measureTap(page, cdp, respond, button, () =>
+				expect(page.getByTestId('flying-star')).toHaveCount(0, { timeout: 15_000 })
+			);
+		};
+		// The first tap on a freshly loaded page is cold (nothing JIT-ed yet), so it cannot be repeated: it is
+		// gated alone. The rest are the steady state.
+		const cold = await tapChore('Brush teeth');
+		const warm = [await tapChore('Feed the fish')];
+		for (const title of titles) warm.push(await tapChore(title));
+		checkTaps('I did it (warm)', info, warm);
+		// The cold first tap used to cost 85-140 ms (hub-ugl.4.8): the "↩" glyph in the Undo button forced a
+		// first-ever system-font fallback lookup inside the tap's layout. It is an SVG now; ~12-27 ms at 4x.
+		checkTaps('I did it (cold)', info, [cold]);
 	}
-	checkTaps('nav', info, taps, { maxResponseMs: 500 });
-});
+);
 
-test('parent Approve responds within 100 ms of our own work at 4x throttle', async ({
-	page
-}, info) => {
-	const adultId = `adult-apperf-${info.project.name.replace(/\W/g, '')}`;
-	await signInAsAdult(page, adultId);
-	const name = `Pip ${Date.now() % 1e9}`;
-	const member = await (
-		await page.request.post('/api/members', {
-			data: { name, role: 'child', color: 'member-3', avatar: '🐸' }
-		})
-	).json();
-	const titles = Array.from({ length: TAPS }, (_, i) => `Chore ${i + 1}`);
-	for (const title of titles) {
-		const chore = await (
-			await page.request.post('/api/chores', {
-				data: { title, icon: '🪴', stars: 2, memberIds: [member.id], schedule: { type: 'daily' } }
+test(
+	'primary nav responds within 100 ms of our own work at 4x throttle',
+	{ tag: '@perf' },
+	async ({ page }, info) => {
+		await signInAsAdult(page, `adult-navperf-${info.project.name.replace(/\W/g, '')}`);
+		await page.goto('/');
+		await page.waitForLoadState('networkidle');
+		await arm(page, `() => false`);
+		const cdp = await page.context().newCDPSession(page);
+		const nav = page.getByRole('navigation', { name: 'Main' });
+		const taps: Perf[] = [];
+		// Tap through the destinations in turn (not Photos: its slideshow never goes quiet).
+		for (const [label, href] of [
+			['Calendar', '/calendar'],
+			['Chores', '/chores'],
+			['Lists', '/lists'],
+			['Meals', '/meals'],
+			['Calendar', '/calendar']
+		]) {
+			const target = nav.getByRole('link', { name: label });
+			// The tapped item shows as selected (data-selected) in the tapped frame or the next, ahead of the route.
+			taps.push(
+				await measureTap(
+					page,
+					cdp,
+					`() => document.querySelector('nav[aria-label="Main"] a[href="${href}"]')?.getAttribute('data-selected') === 'true'`,
+					target,
+					async () => {
+						await expect(page).toHaveURL(new RegExp(`${href}$`));
+						await expect(target).toHaveAttribute('aria-current', 'page');
+					}
+				)
+			);
+		}
+		checkTaps('nav', info, taps, { maxResponseMs: 500 });
+	}
+);
+
+test(
+	'parent Approve responds within 100 ms of our own work at 4x throttle',
+	{ tag: '@perf' },
+	async ({ page }, info) => {
+		const adultId = `adult-apperf-${info.project.name.replace(/\W/g, '')}`;
+		await signInAsAdult(page, adultId);
+		const name = `Pip ${Date.now() % 1e9}`;
+		const member = await (
+			await page.request.post('/api/members', {
+				data: { name, role: 'child', color: 'member-3', avatar: '🐸' }
 			})
 		).json();
-		await page.request.post(`/api/chores/${chore.id}/complete`, { data: { memberId: member.id } });
-	}
-	await page.goto('/settings/approvals');
-	const card = page.locator(`[data-testid="child-card"][data-member="${member.id}"]`);
-	await expect(card.getByTestId('approval-row')).toHaveCount(TAPS);
-	await arm(page, `() => false`);
-	const cdp = await page.context().newCDPSession(page);
-	const taps: Perf[] = [];
-	for (const title of titles) {
-		const row = card.getByTestId('approval-row').filter({ hasText: title });
-		taps.push(
-			await measureTap(
-				page,
-				cdp,
-				// Optimistic: the row is gone, or already flying out (a transform/opacity transition).
-				`() => {
+		const titles = Array.from({ length: TAPS }, (_, i) => `Chore ${i + 1}`);
+		for (const title of titles) {
+			const chore = await (
+				await page.request.post('/api/chores', {
+					data: { title, icon: '🪴', stars: 2, memberIds: [member.id], schedule: { type: 'daily' } }
+				})
+			).json();
+			await page.request.post(`/api/chores/${chore.id}/complete`, {
+				data: { memberId: member.id }
+			});
+		}
+		await page.goto('/settings/approvals');
+		const card = page.locator(`[data-testid="child-card"][data-member="${member.id}"]`);
+		await expect(card.getByTestId('approval-row')).toHaveCount(TAPS);
+		await arm(page, `() => false`);
+		const cdp = await page.context().newCDPSession(page);
+		const taps: Perf[] = [];
+		for (const title of titles) {
+			const row = card.getByTestId('approval-row').filter({ hasText: title });
+			taps.push(
+				await measureTap(
+					page,
+					cdp,
+					// Optimistic: the row is gone, or already flying out (a transform/opacity transition).
+					`() => {
 					const row = [...document.querySelectorAll('[data-member="${member.id}"] [data-testid="approval-row"]')].find((r) => r.textContent.includes('${title}'));
 					return !row || row.getAnimations().length > 0;
 				}`,
-				row.getByTestId('approve'),
-				() => expect(row).toHaveCount(0)
-			)
-		);
+					row.getByTestId('approve'),
+					() => expect(row).toHaveCount(0)
+				)
+			);
+		}
+		checkTaps('approve', info, taps);
 	}
-	checkTaps('approve', info, taps);
-});
+);
 
 /** Samples every running animation: which properties it animates, and how many there are. */
 const SAMPLE_ANIMATIONS = `() => {
@@ -388,67 +396,71 @@ function checkSmooth(label: string, info: { project: { name: string } }, p: Perf
 	expect(longest, `${label}: no long main-thread task from the animation`).toBeLessThan(150);
 }
 
-test('the star flight animates only composited properties and keeps the main thread free', async ({
-	page
-}, info) => {
-	test.setTimeout(60_000);
-	await stubAudio(page);
-	const s = await seedKid(page, `flight ${info.project.name}`);
-	await openKid(page, s);
-	await page.waitForSelector('[data-testid="confetti"]', { state: 'attached' });
-	// Warm-up tap: the cold first tap's cost is gated by the tap-latency test, not by this one.
-	await choreCard(page, 'Brush teeth').getByTestId('did-it').click();
-	await expect(page.getByTestId('flying-star')).toHaveCount(0, { timeout: 15_000 });
-	await arm(page, `() => true`);
-	const cdp = await page.context().newCDPSession(page);
-	await settle(page);
-	await throttle(cdp, 4);
-	await watchFrames(page, 1500);
-	// Three stars: three staggered flyers plus the confetti burst.
-	await choreCard(page, 'Feed the fish').getByTestId('did-it').click();
-	await expect(page.getByTestId('flying-star')).toHaveCount(0, { timeout: 15_000 });
-	await page.waitForTimeout(400);
-	const p = await read(page);
-	await throttle(cdp, 1);
-	checkSmooth('star flight', info, p);
-});
+test(
+	'the star flight animates only composited properties and keeps the main thread free',
+	{ tag: '@perf' },
+	async ({ page }, info) => {
+		test.setTimeout(60_000);
+		await stubAudio(page);
+		const s = await seedKid(page, `flight ${info.project.name}`);
+		await openKid(page, s);
+		await page.waitForSelector('[data-testid="confetti"]', { state: 'attached' });
+		// Warm-up tap: the cold first tap's cost is gated by the tap-latency test, not by this one.
+		await choreCard(page, 'Brush teeth').getByTestId('did-it').click();
+		await expect(page.getByTestId('flying-star')).toHaveCount(0, { timeout: 15_000 });
+		await arm(page, `() => true`);
+		const cdp = await page.context().newCDPSession(page);
+		await settle(page);
+		await throttle(cdp, 4);
+		await watchFrames(page, 1500);
+		// Three stars: three staggered flyers plus the confetti burst.
+		await choreCard(page, 'Feed the fish').getByTestId('did-it').click();
+		await expect(page.getByTestId('flying-star')).toHaveCount(0, { timeout: 15_000 });
+		await page.waitForTimeout(400);
+		const p = await read(page);
+		await throttle(cdp, 1);
+		checkSmooth('star flight', info, p);
+	}
+);
 
-test('the photo crossfade animates only composited properties and keeps the main thread free', async ({
-	page
-}, info) => {
-	test.setTimeout(45_000); // the shortest slideshow interval is 10 s, played in real time
-	const tall = await syntheticJpeg(360, 640);
-	const wide = await syntheticJpeg(640, 360);
-	const photos = [
-		{ id: `${info.project.name}-pa`, w: 640, h: 360 },
-		{ id: `${info.project.name}-pb`, w: 360, h: 640 }
-	];
-	await page.route(/\/api\/photo\/[^/?]+\?/, (route) => {
-		const url = new URL(route.request().url());
-		const photo = photos.find((x) => x.id === decodeURIComponent(url.pathname.split('/').pop()!));
-		if (!photo) return route.fallback();
-		if (url.searchParams.get('part') === 'bg') return route.fulfill({ status: 404 });
-		return route.fulfill({ contentType: 'image/jpeg', body: photo.h > photo.w ? tall : wide });
-	});
-	await page.route('**/api/photo/slideshow?**', (route) => route.fulfill({ json: photos }));
-	await page.route('**/api/settings/slideshow', (route) =>
-		route.request().method() === 'GET'
-			? route.fulfill({ json: { intervalSeconds: 10, transition: 'kenburns' } })
-			: route.fallback()
-	);
-	await signInAsAdult(page, `adult-fade-${info.project.name.replace(/\W/g, '')}`);
-	await page.goto('/photos');
-	const front = page.getByTestId('slideshow').locator('[data-front="true"]');
-	await expect(front).toHaveAttribute('data-photo-id', photos[0].id);
-	await page.waitForTimeout(1800); // first fade finished
-	await arm(page, `() => true`);
-	const cdp = await page.context().newCDPSession(page);
-	await settle(page);
-	await throttle(cdp, 4);
-	await watchFrames(page, 14_000);
-	await expect(front).toHaveAttribute('data-photo-id', photos[1].id, { timeout: 15_000 });
-	await page.waitForTimeout(2500);
-	const p = await read(page);
-	await throttle(cdp, 1);
-	checkSmooth('photo crossfade', info, p);
-});
+test(
+	'the photo crossfade animates only composited properties and keeps the main thread free',
+	{ tag: '@perf' },
+	async ({ page }, info) => {
+		test.setTimeout(45_000); // the shortest slideshow interval is 10 s, played in real time
+		const tall = await syntheticJpeg(360, 640);
+		const wide = await syntheticJpeg(640, 360);
+		const photos = [
+			{ id: `${info.project.name}-pa`, w: 640, h: 360 },
+			{ id: `${info.project.name}-pb`, w: 360, h: 640 }
+		];
+		await page.route(/\/api\/photo\/[^/?]+\?/, (route) => {
+			const url = new URL(route.request().url());
+			const photo = photos.find((x) => x.id === decodeURIComponent(url.pathname.split('/').pop()!));
+			if (!photo) return route.fallback();
+			if (url.searchParams.get('part') === 'bg') return route.fulfill({ status: 404 });
+			return route.fulfill({ contentType: 'image/jpeg', body: photo.h > photo.w ? tall : wide });
+		});
+		await page.route('**/api/photo/slideshow?**', (route) => route.fulfill({ json: photos }));
+		await page.route('**/api/settings/slideshow', (route) =>
+			route.request().method() === 'GET'
+				? route.fulfill({ json: { intervalSeconds: 10, transition: 'kenburns' } })
+				: route.fallback()
+		);
+		await signInAsAdult(page, `adult-fade-${info.project.name.replace(/\W/g, '')}`);
+		await page.goto('/photos');
+		const front = page.getByTestId('slideshow').locator('[data-front="true"]');
+		await expect(front).toHaveAttribute('data-photo-id', photos[0].id);
+		await page.waitForTimeout(1800); // first fade finished
+		await arm(page, `() => true`);
+		const cdp = await page.context().newCDPSession(page);
+		await settle(page);
+		await throttle(cdp, 4);
+		await watchFrames(page, 14_000);
+		await expect(front).toHaveAttribute('data-photo-id', photos[1].id, { timeout: 15_000 });
+		await page.waitForTimeout(2500);
+		const p = await read(page);
+		await throttle(cdp, 1);
+		checkSmooth('photo crossfade', info, p);
+	}
+);

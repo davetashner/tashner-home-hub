@@ -127,7 +127,10 @@ test('normal and off modes show no night clock', async ({ page }) => {
 		await page.goto('/');
 		await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
 		await expect(page.getByTestId('night-clock')).toHaveCount(0);
-		await page.unrouteAll();
+		// Leave the page first so no power poll is in flight, then let running handlers finish:
+		// otherwise the request falls through to asWallDisplay's context route mid-fulfil.
+		await page.goto('about:blank');
+		await page.unrouteAll({ behavior: 'wait' });
 	}
 });
 
