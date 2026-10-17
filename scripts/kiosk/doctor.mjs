@@ -13,18 +13,21 @@ export const KIOSK_UNITS = [
  * Wayland session (the `kiosk` user after install.sh, else the desktop user) with its runtime dir.
  */
 export const REMOTE_PRELUDE = `
-W=$(ls /run/user/*/wayland-0 2>/dev/null | head -1)
-OWNER=$( [ -n "$W" ] && stat -c %U "$W" )
-RUNDIR=$( [ -n "$W" ] && dirname "$W" )
-asowner() {
-  if [ -z "$OWNER" ]; then "$@"; return; fi
-  if [ "$OWNER" = "$(id -un)" ]; then env XDG_RUNTIME_DIR="$RUNDIR" WAYLAND_DISPLAY=wayland-0 "$@"
-  else sudo -n -u "$OWNER" env XDG_RUNTIME_DIR="$RUNDIR" WAYLAND_DISPLAY=wayland-0 "$@"; fi
-}
 browser_pid() {
   for p in $(pgrep -x chromium; pgrep -x chromium-browser); do
     tr '\\0' ' ' < /proc/$p/cmdline | grep -qv -- '--type=' && { echo $p; return; }
   done
+}
+# The session owner is whoever runs the browser (the kiosk user's runtime dir is private, so a
+# directory listing as the SSH user cannot see it); else the first Wayland socket root can see.
+BP=$(browser_pid)
+if [ -n "$BP" ]; then OWNER=$(ps -o user= -p "$BP" | tr -d ' ')
+else OWNER=$(sudo -n sh -c 'ls /run/user/*/wayland-0 2>/dev/null' | head -1 | xargs -r stat -c %U 2>/dev/null); fi
+RUNDIR=$( [ -n "$OWNER" ] && echo /run/user/$(id -u "$OWNER") )
+asowner() {
+  if [ -z "$OWNER" ]; then "$@"; return; fi
+  if [ "$OWNER" = "$(id -un)" ]; then env XDG_RUNTIME_DIR="$RUNDIR" WAYLAND_DISPLAY=wayland-0 "$@"
+  else sudo -n -u "$OWNER" env XDG_RUNTIME_DIR="$RUNDIR" WAYLAND_DISPLAY=wayland-0 "$@"; fi
 }
 `;
 
