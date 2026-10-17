@@ -366,11 +366,6 @@
 			height: auto;
 			overflow-y: visible;
 		}
-		/* The page scrolls, so the member chips need no two-row cap (it clipped the second row). */
-		.chips {
-			max-height: none;
-			overflow-y: visible;
-		}
 	}
 	.pane.next {
 		animation: slide-next var(--duration-base) var(--ease-out-soft) both;
@@ -461,6 +456,14 @@
 		/* Two rows at most; a very long member list scrolls inside instead of eating the calendar. */
 		max-height: calc(var(--spacing-tap) * 2 + 0.5rem);
 		overflow-y: auto;
+	}
+	/* Phones: the page scrolls, so the chips need no two-row cap (it clipped the second row).
+	   Kept after .chips so it wins on source order. */
+	@media (max-width: 40rem) {
+		.chips {
+			max-height: none;
+			overflow-y: visible;
+		}
 	}
 	.chip {
 		display: inline-flex;
