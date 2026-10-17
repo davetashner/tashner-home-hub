@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold } from './adult';
+import { seedCalendar } from './calendar';
 
 // MEAL-1. Each project plans a different far-future week so parallel projects sharing one database
 // never see each other's dinner. Mondays: 2043-06-01 is a Monday; offset by project.
@@ -15,8 +16,8 @@ const JSON_HEADERS = { 'content-type': 'application/json' };
 test('plan a dinner, see it in Meals and the calendar week, edit it, delete it', async ({
 	page
 }, info) => {
-	test.setTimeout(60_000); // three page loads on a busy shard
 	ensureHousehold();
+	seedCalendar(); // the calendar page is an empty state until a source exists
 	const k = Math.max(0, PROJECTS.indexOf(info.project.name));
 	const monday = new Date(Date.UTC(2043, 5, 1 + 7 * k)).toISOString().slice(0, 10);
 	const tuesday = new Date(Date.UTC(2043, 5, 2 + 7 * k)).toISOString().slice(0, 10);
