@@ -197,6 +197,10 @@
 		-webkit-tap-highlight-color: transparent;
 		-webkit-font-smoothing: antialiased;
 	}
+	/* The wave layer (z-index: -1) paints above the root's background but below body's: keep body clear. */
+	body {
+		background-color: transparent;
+	}
 	/* iOS Safari zooms the page when a focused field computes below 16px. */
 	input,
 	select,
