@@ -1,12 +1,14 @@
 <script lang="ts">
 	import PinPad, { type PinResult } from '#lib/components/PinPad.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import { page } from '$app/state';
+	import { defaultRemember, parseDisplayRole } from '#lib/domain/display-role.js';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
 	let chosenId = $state<string | undefined>();
-	let remember = $state(false);
+	let remember = $state(defaultRemember(parseDisplayRole(page.data.displayRole)));
 	const memberId = $derived(chosenId ?? (data.adults.length === 1 ? data.adults[0].id : undefined));
 
 	async function submit(pin: string): Promise<PinResult> {

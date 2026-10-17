@@ -35,7 +35,7 @@ Provisions a Raspberry Pi 5 as the wall display: Chromium in kiosk mode on labwc
 
 | Key | Meaning |
 |---|---|
-| `HUB_URL` | page to open, e.g. `http://hub.local:3000` |
+| `HUB_URL` | page to open, e.g. `http://hub.local:3000`. Keep it plain: the launcher adds `?display=wall` itself |
 | `HUB_HEALTH_URL` | reachability probe used for error-page recovery |
 | `ORIENTATION` | `normal`, `90`, `180`, `270` |
 | `OUTPUT` | `wlr-randr` output name (`HDMI-A-1`) |
@@ -55,6 +55,10 @@ Edit `kiosk.conf` (`ORIENTATION`), re-run `sudo ./install.sh`, `sudo reboot`. Ma
 | 270 | 270 | `0 1 0 -1 0 1` |
 
 The 90/270 rows may be swapped relative to `wlr-randr`'s direction; if taps land mirrored, set `TOUCH_MATRIX` to the other one. If rotation works but the touch needs no matrix on your labwc version (mapToOutput alone may rotate), use `TOUCH_MATRIX="1 0 0 0 1 0"`.
+
+### Wall display role
+
+Every browser is a *wall display* or a *personal device* (DEV-1); only wall displays go home and show the photo frame when idle. The kiosk must be a wall display, so `hub-kiosk-launch` (and the watchdog's reopen) open `HUB_URL` with `?display=wall`. The hub turns that into a long-lived `hub_display=wall` cookie in the kiosk's Chromium profile and redirects to the URL without the query. No `kiosk.conf` change is needed, but re-run `sudo ./install.sh` so the updated scripts are installed. If the profile directory is wiped, the next launch sets the role again. A grown-up can also change a browser's role under Settings, Screen.
 
 ### Orientation endpoint (for the display agent)
 

@@ -1,10 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
+import { asWallDisplay } from './display';
 import { expectTappable } from './tap';
 
 // Page routes must see every request; a service worker would answer some from the real server.
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
+// Idle behaviour is for wall displays (DEV-1); new browsers are personal.
+test.beforeEach(({ context }) => asWallDisplay(context));
 
 const MIN = 60_000;
 const HOME = /:\d+\/$/;

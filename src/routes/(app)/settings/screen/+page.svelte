@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
+	import { parseDisplayRole, type DisplayRole } from '#lib/domain/display-role.js';
 	import {
 		DEFAULT_IDLE,
 		IDLE_SETTINGS_EVENT,
@@ -22,6 +25,39 @@
 	let settings = $state<IdleSettings>({ ...DEFAULT_IDLE });
 	let slideshow = $state<SlideshowSettings>({ ...DEFAULT_SLIDESHOW });
 	let message = $state('');
+	// This device's role; optimistic until the save lands, then the layout data takes over again.
+	let pending = $state<DisplayRole | null>(null);
+	const role = $derived(pending ?? parseDisplayRole(page.data.displayRole));
+
+	const roles: { value: DisplayRole; label: string; line: string }[] = [
+		{
+			value: 'personal',
+			label: 'Personal',
+			line: 'A phone or tablet. Stays on the screen you left it on, stays unlocked.'
+		},
+		{
+			value: 'wall',
+			label: 'Wall display',
+			line: 'The shared screen. Goes home and shows the photo frame when idle.'
+		}
+	];
+
+	function changeRole(next: DisplayRole) {
+		if (next === role) return;
+		message = '';
+		pending = next;
+		void fetch('/api/display/role', {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ role: next })
+		})
+			.then(async (res) => {
+				if (!res.ok) message = 'Could not save. Try again.';
+				else await invalidateAll();
+			})
+			.catch(() => (message = 'Could not save. Try again.'))
+			.finally(() => (pending = null));
+	}
 	// Each save stamps a number, so a stale load can't undo a change made meanwhile.
 	let slideshowEdits = 0;
 
@@ -96,6 +132,26 @@
 
 <section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3">
 	<h1 class="text-headline font-extrabold">Screen</h1>
+	<Card>
+		<div class="flex flex-col gap-6">
+			<div class="flex flex-col gap-1">
+				<h2 class="text-title font-bold">This device</h2>
+				<p class="text-body text-ink-muted">
+					Only this browser changes. The timers below apply to wall displays.
+				</p>
+			</div>
+			<div class="flex flex-wrap gap-4" role="group" aria-label="This device">
+				{#each roles as r (r.value)}
+					<Button
+						variant={role === r.value ? 'primary' : 'secondary'}
+						aria-pressed={role === r.value}
+						onclick={() => changeRole(r.value)}>{r.label}</Button
+					>
+				{/each}
+			</div>
+			<p class="text-body text-ink-muted">{roles.find((r) => r.value === role)?.line}</p>
+		</div>
+	</Card>
 	{#each rows as row (row.key)}
 		<Card>
 			<div class="flex flex-wrap items-center justify-between gap-6">

@@ -49,7 +49,9 @@ err_id=$(printf '%s' "$targets" | tr -d '\n' | sed 's/},/}\n/g' |
 if [ -n "$err_id" ]; then
   if curl -fsS --max-time 5 -o /dev/null "${HUB_HEALTH_URL:-$HUB_URL}"; then
     log "server reachable again; reopening $HUB_URL"
-    curl -fsS --max-time 5 -X PUT "$BASE/json/new?$HUB_URL" >/dev/null &&
+    # Same wall-display launch URL as hub-kiosk-launch (the role cookie may not be set yet).
+    case "$HUB_URL" in *\?*) SEP='&' ;; *) SEP='?' ;; esac
+    curl -fsS --max-time 5 -X PUT "$BASE/json/new?${HUB_URL}${SEP}display=wall" >/dev/null &&
       curl -fsS --max-time 5 "$BASE/json/close/$err_id" >/dev/null
   else
     log "server still unreachable; will retry"

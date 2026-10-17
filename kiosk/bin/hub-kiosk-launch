@@ -21,6 +21,11 @@ for c in chromium chromium-browser; do
 done
 [ -n "$CHROMIUM" ] || { echo "hub-kiosk: chromium not installed" >&2; exit 1; }
 
+# `?display=wall` makes this browser a wall display (kiosk behaviour: idle photo frame, short
+# adult sessions). The hub stores that in a cookie in this profile, then redirects without it.
+case "$HUB_URL" in *\?*) SEP='&' ;; *) SEP='?' ;; esac
+WALL_URL="${HUB_URL}${SEP}display=wall"
+
 # The URL is opened even if the server is down; the app's service worker serves its cache,
 # and hub-kiosk-watchdog reloads the page once the server is reachable again.
 exec "$CHROMIUM" \
@@ -45,4 +50,4 @@ exec "$CHROMIUM" \
   --autoplay-policy=no-user-gesture-required \
   --remote-debugging-port="${DEBUG_PORT:-9222}" \
   --remote-debugging-address=127.0.0.1 \
-  "$HUB_URL"
+  "$WALL_URL"
