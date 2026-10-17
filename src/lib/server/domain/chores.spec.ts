@@ -310,3 +310,51 @@ describe('choresForDay', () => {
 		expect(status()).toMatchObject({ status: 'pending', completionId: third.completion.id });
 	});
 });
+
+describe('habits (hub-esf)', () => {
+	const habit = () =>
+		createChore(db, { title: 'Feed the fish', kind: 'habit', memberIds: ['kid'], stars: 5 }, clock);
+
+	it('creates habits with no stars and no approval, whatever is asked', () => {
+		expect(habit()).toMatchObject({ kind: 'habit', stars: 0, requiresApproval: false });
+		expect(createChore(db, { title: 'Wash window' }, clock).kind).toBe('star_job');
+		expect(code(() => createChore(db, { title: 'x', kind: 'nap' as never }, clock))).toBe(
+			'invalid'
+		);
+	});
+
+	it('never changes kind, and refuses stars or approval on a habit', () => {
+		const h = habit();
+		const job = createChore(db, { title: 'Wash window' }, clock);
+		expect(code(() => updateChore(db, h.id, { kind: 'star_job' }, clock))).toBe('invalid');
+		expect(code(() => updateChore(db, job.id, { kind: 'habit' }, clock))).toBe('invalid');
+		expect(code(() => updateChore(db, h.id, { stars: 2 }, clock))).toBe('invalid');
+		expect(code(() => updateChore(db, h.id, { requiresApproval: true }, clock))).toBe('invalid');
+		expect(updateChore(db, h.id, { title: 'Feed fish', kind: 'habit' }, clock).title).toBe(
+			'Feed fish'
+		);
+	});
+
+	it('lists by kind', () => {
+		const h = habit();
+		const job = createChore(db, { title: 'Wash window' }, clock);
+		expect(listChores(db, { ...clock, kind: 'habit' }).map((c) => c.id)).toEqual([h.id]);
+		expect(listChores(db, { ...clock, kind: 'star_job' }).map((c) => c.id)).toEqual([job.id]);
+		expect(listChores(db, clock)).toHaveLength(2);
+	});
+
+	it('completes a habit as an approved check with no stars in the ledger', () => {
+		const h = habit();
+		const { completion } = completeChore(db, {
+			choreId: h.id,
+			memberId: 'kid',
+			date: '2026-01-05',
+			now: clock.now
+		});
+		expect(completion).toMatchObject({ status: 'approved', starsAwarded: 0 });
+		expect(db.select().from(schema.starTransactions).all()).toEqual([]);
+		expect(undoCompletion(db, completion.id, { now: clock.now, byAdult: false }).status).toBe(
+			'undone'
+		);
+	});
+});
