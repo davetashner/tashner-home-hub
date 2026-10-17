@@ -114,6 +114,12 @@
 			line: 'Export or restore all hub data.'
 		},
 		{
+			href: resolve('/(app)/settings/appearance'),
+			emoji: '🌓',
+			title: 'Theme and brightness',
+			line: 'Light, dark or automatic at night, and dimmer evenings.'
+		},
+		{
 			href: resolve('/(app)/settings/background'),
 			emoji: '🌊',
 			title: 'Background',
