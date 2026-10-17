@@ -13,7 +13,7 @@
 	let now = $state(Date.now());
 	let polls = 0;
 
-	// Wave background pauses while dimmed or off. TODO: read the shared power store (#118) instead.
+	// Wave background pauses while dimmed or off. TODO: read the shared power store (PR 118) instead.
 	$effect(() => {
 		wave.paused = mode !== 'normal';
 		return () => (wave.paused = false);
