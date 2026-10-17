@@ -203,6 +203,14 @@
  */
 @custom-variant tablet (@media (min-width: 40rem) and (max-width: 88rem) and (min-height: 32.01rem) and (max-height: 88rem));
 
+/* Kid screen on a phone turned sideways: child strip | chores | greeting and star jar. */
+@utility grid-cols-kid-short {
+	grid-template-columns: auto minmax(0, 1fr) 10rem;
+	@media (max-width: 48rem) {
+		grid-template-columns: auto minmax(0, 1fr) 8rem;
+	}
+}
+
 /* App shell grid: header/content/nav in portrait, side nav + header/content in landscape. */
 @utility grid-rows-shell-portrait {
 	grid-template-rows: auto 1fr auto;

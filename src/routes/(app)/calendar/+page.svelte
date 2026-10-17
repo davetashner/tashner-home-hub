@@ -161,7 +161,9 @@
 </svelte:head>
 
 {#if status && status.sources.length === 0}
-	<section class="flex h-full flex-col items-center justify-center gap-8 p-8 text-center">
+	<section
+		class="flex h-full flex-col items-center justify-center gap-8 p-8 text-center short:gap-3 short:p-3"
+	>
 		<h1 class="text-headline leading-none font-extrabold">Calendar</h1>
 		<p class="max-w-2xl text-lead text-balance text-ink-muted">
 			No calendars are connected yet. An adult can add one in Settings.
@@ -173,11 +175,15 @@
 		>
 	</section>
 {:else}
-	<div class="page flex h-full flex-col gap-4 px-12 pb-6 portrait:px-10">
-		<div class="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+	<div
+		class="page flex h-full flex-col gap-4 px-12 pb-6 portrait:px-10 short:gap-2 short:pt-2 short:pb-2"
+	>
+		<div
+			class="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 short:flex-nowrap short:gap-x-3 short:max-md:flex-wrap"
+		>
 			<div class="flex min-w-0 items-center gap-6">
 				<h1 class="sr-only">Calendar</h1>
-				<p class="text-lead leading-none font-extrabold" data-testid="period-title">
+				<p class="text-lead leading-none font-extrabold short:text-body" data-testid="period-title">
 					{#if mounted}{title}{/if}
 				</p>
 				{#if staleSince !== null || (status?.stale ?? false)}
@@ -188,7 +194,7 @@
 					</Badge>
 				{/if}
 			</div>
-			<div class="flex flex-wrap items-center gap-4">
+			<div class="flex flex-wrap items-center gap-4 short:flex-nowrap short:gap-2">
 				<div role="group" aria-label="View" class="seg">
 					{#each VIEW_MODES as mode (mode)}
 						<button
@@ -351,8 +357,8 @@
 	.today-btn {
 		padding: 0 2rem;
 	}
-	/* Phone width: the switcher and period controls have to fit on one screen. */
-	@media (max-width: 40rem) {
+	/* Phone width, or a phone turned sideways: the switcher and period controls have to fit on one row. */
+	@media (max-width: 40rem), (orientation: landscape) and (max-height: 32rem) {
 		.page {
 			padding-inline: 1rem;
 		}
