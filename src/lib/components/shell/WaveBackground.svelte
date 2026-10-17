@@ -2,7 +2,13 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import {
+		autoPalette,
 		canvasSize,
+		fadeProgress,
+		mixPalette,
+		parseLocation,
+		PICK_FADE_MS,
+		SUN_FADE_MS,
 		dueForFrame,
 		isStarved,
 		PALETTE_LOOK,
@@ -31,7 +37,13 @@
 
 	// The photo frame covers the whole screen: draw nothing (and hold no GL context) behind it.
 	const covered = $derived(page.state.frame === true || page.url.pathname === '/photos');
-	const palette = $derived(covered ? null : resolvePalette(wave.choice, theme));
+	// Auto follows the sunset (hub-gj6.19). Re-evaluated once a minute, never per frame.
+	let now = $state(Date.now());
+	const location = $derived(parseLocation(page.data.waveLocation));
+	const zone = $derived(typeof page.data.timeZone === 'string' ? page.data.timeZone : undefined);
+	const palette = $derived(
+		covered ? null : resolvePalette(wave.choice, theme, autoPalette(theme, now, location, zone))
+	);
 	const paused = $derived(hidden || powerState.power === 'off' || powerState.mode !== 'normal');
 	const wall = $derived(page.data.displayRole === 'wall');
 
@@ -60,19 +72,38 @@
 		const onVisible = () => (hidden = document.hidden);
 		onVisible();
 		document.addEventListener('visibilitychange', onVisible);
+		const minute = setInterval(() => (now = Date.now()), 60_000);
 		return () => {
+			clearInterval(minute);
 			observer.disconnect();
 			motion.removeEventListener('change', onMotion);
 			document.removeEventListener('visibilitychange', onVisible);
 		};
 	});
 
-	// The palette's colours, read from the tokens whenever the palette changes.
+	// The palette's colours, read from the tokens whenever the palette changes. A change crossfades
+	// the colour uniforms (a minute for the sun, a moment for a pick) and never cuts hard.
 	let current: PaletteValues | null = null;
+	let target: PaletteValues | null = null;
+	let fadeFrom: PaletteValues | null = null;
+	let fadeStart = 0;
+	let fadeMs = 0;
 
 	$effect(() => {
-		current = palette ? readPalette(palette) : null;
+		const next = palette ? readPalette(palette) : null;
+		fadeFrom = current && next ? current : null;
+		fadeStart = performance.now();
+		fadeMs = wave.choice === 'auto' ? SUN_FADE_MS : PICK_FADE_MS;
+		target = next;
+		if (!fadeFrom) current = next;
 	});
+
+	function step(at: number) {
+		if (!fadeFrom || !target) return;
+		const k = fadeProgress(at, fadeStart, fadeMs);
+		current = k >= 1 ? target : mixPalette(fadeFrom, target, k);
+		if (k >= 1) fadeFrom = null;
+	}
 
 	let renderer = $state.raw<WaveRenderer | null>(null);
 	let t = WAVE_START_TIME;
@@ -98,7 +129,8 @@
 		renderer?.resize(s.width, s.height);
 	};
 
-	function paint() {
+	function paint(at = performance.now()) {
+		step(at);
 		if (!renderer || !current) return;
 		renderer.draw(t, current);
 		drawn = true;
@@ -111,12 +143,12 @@
 		const still = paused || reduced;
 		const onResize = () => {
 			resize();
-			if (still) paint();
+			if (still) paint(Infinity);
 		};
 		addEventListener('resize', onResize);
 		let raf = 0;
 		if (still) {
-			paint();
+			paint(Infinity); // no loop to run a fade: show the new palette at once
 		} else {
 			let last = performance.now();
 			let lastDraw = 0;
@@ -148,7 +180,13 @@
 </script>
 
 {#if palette}
-	<div class="wave-bg" style:background={gradient} aria-hidden="true" data-testid="wave-background">
+	<div
+		class="wave-bg"
+		style:background={gradient}
+		aria-hidden="true"
+		data-testid="wave-background"
+		data-palette={palette}
+	>
 		{#if !failed}
 			<canvas bind:this={canvas} data-palette={palette} data-drawn={drawn}></canvas>
 		{/if}
