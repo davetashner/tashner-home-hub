@@ -5,18 +5,24 @@ import { px } from './tap';
 
 // DEV-4/UI-1/UI-8: every page has a designed layout at iPad sizes (both orientations, Split View):
 // nothing scrolls sideways, headings fit, and controls are tap-sized (96px on the kid screen).
-// The viewport is set per test, so this runs once, in one Chromium project.
+// Each test sets the viewports itself, so the two wall projects split them: landscape iPads in
+// the landscape project, portrait iPads and Split View in the portrait one.
 test.beforeAll(ensureHousehold);
 
-const viewports = [
+type Viewport = { width: number; height: number };
+const landscape: Viewport[] = [
+	{ width: 1194, height: 834 },
+	{ width: 1180, height: 820 },
+	{ width: 1366, height: 1024 }
+];
+const portrait: Viewport[] = [
 	{ width: 834, height: 1194 },
 	{ width: 820, height: 1180 },
 	{ width: 1024, height: 1366 },
-	{ width: 1194, height: 834 },
-	{ width: 1180, height: 820 },
-	{ width: 1366, height: 1024 },
 	{ width: 678, height: 834 }
 ];
+const viewportsFor = (project: string) => (project.includes('portrait') ? portrait : landscape);
+const label = (vp: Viewport) => `${vp.width}x${vp.height}`;
 /** Split View panes are narrow: the first chore is only guaranteed to show at full iPad sizes. */
 const FULL_SIZE = (w: number) => w >= 820;
 
@@ -100,36 +106,40 @@ async function smallTargets(page: Page, min: number): Promise<string[]> {
 	}, min);
 }
 
-for (const vp of viewports) {
-	test.describe(`iPad ${vp.width}x${vp.height}`, () => {
-		let kid: KidSeed;
+/** A kid with two chores and a goal, so /chores shows the jar, the goal and chores to do. */
+async function seedChoresKid(page: Page, tag: string): Promise<KidSeed> {
+	const kid = await seedKid(page, `ipad-${tag}`, ['Tidy room', 'Read book']);
+	await seedKid(page, `ipad2-${tag}`);
+	const reward = await (
+		await page.request.post('/api/rewards', {
+			data: { title: `Ipad reward ${Date.now() % 1e9}`, cost: 5, image: '🧺' }
+		})
+	).json();
+	await page.request.put(`/api/members/${kid.memberId}/goal`, { data: { rewardId: reward.id } });
+	return kid;
+}
 
-		test.beforeEach(async ({ page }, info) => {
-			test.skip(info.project.name !== 'wall-landscape-1440p', 'sets its own viewport');
-			await page.setViewportSize(vp);
-			kid = await seedKid(page, `ipad-${vp.width}x${vp.height}`, ['Tidy room', 'Read book']);
-			await seedKid(page, `ipad2-${vp.width}x${vp.height}`);
-			const reward = await (
-				await page.request.post('/api/rewards', {
-					data: { title: `Ipad reward ${Date.now() % 1e9}`, cost: 5, image: '🧺' }
-				})
-			).json();
-			await page.request.put(`/api/members/${kid.memberId}/goal`, {
-				data: { rewardId: reward.id }
-			});
-			await signInAsAdult(page, `adult-ipad-${vp.width}x${vp.height}`);
-		});
-
-		for (const route of routes) {
-			test(`${route} fits with tap-sized controls`, async ({ page }) => {
+for (const route of routes) {
+	test(`iPad: ${route} fits with tap-sized controls`, async ({ page }, info) => {
+		await signInAsAdult(page, `adult-ipad-${info.project.name}`);
+		for (const vp of viewportsFor(info.project.name)) {
+			await test.step(label(vp), async () => {
+				await page.setViewportSize(vp);
 				await page.goto(route);
 				await settle(page);
 				await expectFits(page);
 				expect(await smallTargets(page, 60)).toEqual([]);
 			});
 		}
+	});
+}
 
-		test('/chores shows the first chore to do without scrolling', async ({ page }) => {
+test('iPad: /chores shows the first chore to do without scrolling', async ({ page }, info) => {
+	await signInAsAdult(page, `adult-ipad-${info.project.name}`);
+	for (const vp of viewportsFor(info.project.name)) {
+		await test.step(label(vp), async () => {
+			await page.setViewportSize(vp);
+			const kid = await seedChoresKid(page, `${label(vp)}-${info.project.name}`);
 			await page.goto(`/chores?member=${kid.memberId}`);
 			await expect(page.getByTestId('star-jar')).toBeVisible();
 			await settle(page);
@@ -157,13 +167,19 @@ for (const vp of viewports) {
 				);
 			}
 		});
+	}
+});
 
-		test('/chores celebration banner stays on screen', async ({ page }) => {
+test('iPad: /chores celebration banner stays on screen', async ({ page }, info) => {
+	await signInAsAdult(page, `adult-ipad-${info.project.name}`);
+	for (const vp of viewportsFor(info.project.name)) {
+		await test.step(label(vp), async () => {
+			await page.setViewportSize(vp);
+			const kid = await seedChoresKid(page, `done-${label(vp)}-${info.project.name}`);
 			await page.goto(`/chores?member=${kid.memberId}`);
 			await expect(page.getByTestId('star-jar')).toBeVisible();
 			await settle(page);
-			const buttons = page.getByTestId('did-it');
-			const todo = await buttons.count();
+			const todo = await page.getByTestId('did-it').count();
 			for (let i = 0; i < todo; i++) {
 				const btn = page.getByTestId('did-it').first();
 				await expect(async () => {
@@ -180,5 +196,5 @@ for (const vp of viewports) {
 			expect(box.x + box.width).toBeLessThanOrEqual(vp.width);
 			expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
 		});
-	});
-}
+	}
+});
