@@ -4,15 +4,9 @@
 	import { createWakeGuard } from '#lib/domain/wake-guard.js';
 
 	/** Wall displays only (hub-xcr.7, SLP-3): swallow the tap that wakes the display. See wake-guard.ts. */
-	const EVENTS = [
-		'pointerdown',
-		'pointerup',
-		'mousedown',
-		'mouseup',
-		'touchstart',
-		'touchend',
-		'click'
-	] as const;
+	// Pointer events and the click that follows are enough: swallowing the click stops the press, and
+	// no touch listener means no non-passive listener on the scroll path (tap latency).
+	const EVENTS = ['pointerdown', 'pointerup', 'click'] as const;
 
 	const guard = createWakeGuard();
 
@@ -35,8 +29,7 @@
 
 	onMount(() => {
 		const release = usePowerState();
-		for (const type of EVENTS)
-			window.addEventListener(type, swallow, { capture: true, passive: false });
+		for (const type of EVENTS) window.addEventListener(type, swallow, true);
 		document.addEventListener('visibilitychange', resume);
 		window.addEventListener('pageshow', resume);
 		return () => {
