@@ -87,3 +87,33 @@ test('meals fits a 390px phone with no sideways scroll', async ({ page }) => {
 	const box = await page.getByTestId('meal-cell').first().boundingBox();
 	expect(box!.height).toBeGreaterThanOrEqual(60);
 });
+
+// Slot labels never break mid-word: a laptop wraps the week, the 4K wall keeps all seven across.
+for (const { w, h, perRow } of [
+	{ w: 1280, h: 800, perRow: 0 },
+	{ w: 1440, h: 900, perRow: 0 },
+	{ w: 1728, h: 1117, perRow: 0 },
+	{ w: 2560, h: 1440, perRow: 7 }
+]) {
+	test(`meal slot labels fit on one line at ${w}x${h}`, async ({ page }, info) => {
+		test.skip(info.project.name !== 'wall-landscape-1440p', 'one desktop engine is enough');
+		ensureHousehold();
+		await page.setViewportSize({ width: w, height: h });
+		await page.goto('/meals');
+		await expect(page.getByTestId('meals-day')).toHaveCount(7);
+		const layout = await page.evaluate(() => {
+			const labels = [
+				...document.querySelectorAll('[data-testid="meal-cell"] > :first-child')
+			] as HTMLElement[];
+			const lineHeight = parseFloat(getComputedStyle(labels[0]).lineHeight);
+			const days = [...document.querySelectorAll('[data-testid="meals-day"]')] as HTMLElement[];
+			return {
+				tallest: Math.max(...labels.map((l) => l.getBoundingClientRect().height)),
+				lineHeight,
+				perRow: days.filter((d) => d.offsetTop === days[0].offsetTop).length
+			};
+		});
+		expect(layout.tallest).toBeLessThan(layout.lineHeight * 1.5);
+		if (perRow) expect(layout.perRow).toBe(perRow);
+	});
+}
