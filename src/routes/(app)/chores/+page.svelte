@@ -42,6 +42,10 @@
 		UNDO_WINDOW_MS,
 		kidsToShow,
 		switcherMembers,
+		starJobGroups,
+		habitChores,
+		doneCount,
+		habitCount,
 		type KidChore,
 		type KidGroup
 	} from '#lib/domain/kid-chores.js';
@@ -106,6 +110,14 @@
 	const offered = $derived(activeRoutines(routines, nowMinutes));
 	const player = $derived(routines.find((r) => r.id === playing) ?? null);
 	const goal = $derived(selectedId ? (goals[selectedId] ?? null) : null);
+	// Star Jobs and habits share one board; each section counts its own (hub-esf).
+	const jobGroups = $derived(starJobGroups(groups));
+	const jobs = $derived(doneCount(jobGroups.flatMap((g) => g.chores)));
+	const habits = $derived(habitChores(groups));
+	const habitsToday = $derived(habitCount(habits, routines));
+	// Week tally (Monday to today) and today's habit star, from the server.
+	let habitWeeks = $state<Record<string, { done: number; due: number; starEarned: boolean }>>({});
+	const habitWeek = $derived(selectedId ? (habitWeeks[selectedId] ?? null) : null);
 
 	/** A chore can belong to several kids: undo and in-flight taps are tracked per child. */
 	const tapKey = (memberId: string, choreId: string) => `${memberId}:${choreId}`;
@@ -138,6 +150,7 @@
 		]);
 		starsBy[id] = { balance: s.balance, pending: s.pending };
 		void loadStreak(id).catch(() => {});
+		void loadHabits(id).catch(() => {});
 		goals[id] = g && {
 			id: g.reward.id,
 			title: g.reward.title,
@@ -166,6 +179,20 @@
 			},
 			Math.max(0, allDoneUntil - Date.now()) + 300
 		);
+	}
+
+	/** Habit tally; finishing the day's last habit plays a one-star party (hub-esf.4). */
+	async function loadHabits(id: string) {
+		const r = await api<{ week: { done: number; due: number }; starEarned: boolean }>(
+			`/api/members/${id}/habits?date=${localDate(Date.now(), tz)}`
+		);
+		const before = habitWeeks[id];
+		habitWeeks[id] = { ...r.week, starEarned: r.starEarned };
+		if (before && !before.starEarned && r.starEarned && id === selectedId) {
+			say('All your habits are done! You earned a star ⭐');
+			await tick();
+			celebrateApproval(jar, 1);
+		}
 	}
 
 	/** Streak counter; a milestone party plays when the count grows onto one (CHO-10). */
@@ -247,7 +274,10 @@
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ date: localDate(Date.now(), tz), step: index })
-		}).catch(() => {});
+		})
+			// A finished routine can complete the day's habits: pick up the star.
+			.then(() => loadStars(memberId))
+			.catch(() => {});
 	}
 
 	async function refresh() {
@@ -550,27 +580,7 @@
 			<div
 				class="flex grow flex-col gap-10 portrait:order-3 short:col-start-2 short:row-span-3 short:row-start-1 short:gap-3 tablet:gap-5"
 			>
-				{#if offered.length > 0}
-					<div
-						class="flex flex-wrap gap-6 short:order-last short:gap-3 tablet:order-last tablet:gap-3"
-						data-testid="routine-buttons"
-					>
-						{#each offered as r (r.id)}
-							<button
-								type="button"
-								onclick={() => (playing = r.id)}
-								data-testid="routine-button"
-								class="flex min-h-tap-kid items-center gap-6 rounded-card bg-accent px-10 py-4 text-title font-extrabold text-on-accent shadow-raised transition-transform duration-75 active:scale-95 short:gap-3 short:px-6 short:text-lead tablet:px-6 tablet:text-lead"
-							>
-								<span class="size-16 short:size-10 tablet:size-10"
-									><RoutineIcon name={r.steps[0]?.icon ?? 'star'} /></span
-								>
-								{r.name}
-							</button>
-						{/each}
-					</div>
-				{/if}
-				{#if groups.length === 0}
+				{#if jobGroups.length === 0 && habitsToday.total === 0}
 					<div
 						class="flex grow flex-col items-center justify-center gap-6 py-16 text-center"
 						data-testid="all-free"
@@ -580,32 +590,77 @@
 						<p class="text-lead text-ink-muted">No chores today. Go play!</p>
 					</div>
 				{:else}
-					{#each groups as group (group.timeOfDay)}
+					<section
+						aria-labelledby="star-jobs"
+						data-testid="star-jobs"
+						class="flex flex-col gap-6 short:gap-2 tablet:gap-3"
+					>
+						{@render sectionHeading('star-jobs', '⭐', 'Star Jobs', jobs.done, jobs.total)}
+						{#if jobGroups.length === 0}
+							<p class="text-lead text-ink-muted">No Star Jobs today.</p>
+						{/if}
+						{#each jobGroups as group (group.timeOfDay)}
+							<div class="flex flex-col gap-6 short:gap-2 tablet:gap-3">
+								<h3
+									id="g-{group.timeOfDay}"
+									class="text-title leading-none font-extrabold short:text-caption tablet:text-lead"
+								>
+									<span aria-hidden="true">{GROUP_HEADINGS[group.timeOfDay].emoji}</span>
+									{GROUP_HEADINGS[group.timeOfDay].label}
+								</h3>
+								{@render cards(group.chores)}
+							</div>
+						{/each}
+					</section>
+
+					{#if habitsToday.total > 0}
 						<section
-							aria-labelledby="g-{group.timeOfDay}"
+							aria-labelledby="habits"
+							data-testid="habits"
 							class="flex flex-col gap-6 short:gap-2 tablet:gap-3"
 						>
-							<h2
-								id="g-{group.timeOfDay}"
-								class="text-title leading-none font-extrabold short:text-caption tablet:text-lead"
-							>
-								<span aria-hidden="true">{GROUP_HEADINGS[group.timeOfDay].emoji}</span>
-								{GROUP_HEADINGS[group.timeOfDay].label}
-							</h2>
-							<div class="flex flex-col gap-6 short:gap-3 tablet:gap-3">
-								{#each group.chores as chore (chore.id)}
-									{@const key = tapKey(selected.id, chore.id)}
-									<ChoreCard
-										{chore}
-										undoStartedAt={undoStarts[key] ?? null}
-										ondone={done}
-										onundo={undo}
-										onundoexpire={() => dropUndo(key)}
-									/>
-								{/each}
-							</div>
+							{@render sectionHeading(
+								'habits',
+								'✅',
+								'Habits',
+								habitsToday.done,
+								habitsToday.total
+							)}
+							<p class="text-lead text-ink-muted short:text-caption" data-testid="habit-week">
+								{#if habitWeek?.starEarned}
+									All done today: you earned a star ⭐
+								{:else}
+									Do them all today for a star ⭐
+								{/if}
+								{#if habitWeek && habitWeek.due > 0}
+									· This week {habitWeek.done} of {habitWeek.due}
+								{/if}
+							</p>
+							{#if offered.length > 0}
+								<div
+									class="flex flex-wrap gap-6 short:gap-3 tablet:gap-3"
+									data-testid="routine-buttons"
+								>
+									{#each offered as r (r.id)}
+										<button
+											type="button"
+											onclick={() => (playing = r.id)}
+											data-testid="routine-button"
+											class="flex min-h-tap-kid items-center gap-6 rounded-card bg-accent px-10 py-4 text-title font-extrabold text-on-accent shadow-raised transition-transform duration-75 active:scale-95 short:gap-3 short:px-6 short:text-lead tablet:px-6 tablet:text-lead"
+										>
+											<span class="size-16 short:size-10 tablet:size-10"
+												><RoutineIcon name={r.steps[0]?.icon ?? 'star'} /></span
+											>
+											{r.name}
+											{#if isRoutineComplete(r.done, r.steps.length)}<span aria-label="done">✓</span
+												>{/if}
+										</button>
+									{/each}
+								</div>
+							{/if}
+							{@render cards(habits)}
 						</section>
-					{/each}
+					{/if}
 				{/if}
 			</div>
 		</div>
@@ -659,3 +714,35 @@
 		{message}
 	</p>
 {/if}
+
+{#snippet sectionHeading(id: string, emoji: string, label: string, done: number, total: number)}
+	<h2
+		{id}
+		class="flex items-center gap-4 text-headline leading-none font-extrabold short:text-lead tablet:text-title"
+	>
+		<span aria-hidden="true">{emoji}</span>
+		{label}
+		<span
+			class="rounded-chip bg-surface-raised px-4 py-1 text-title shadow-raised short:text-body tablet:text-lead"
+			data-testid="{id}-count"
+			aria-label="{done} of {total} done">{done}/{total}</span
+		>
+	</h2>
+{/snippet}
+
+{#snippet cards(list: KidChore[])}
+	{#if selected}
+		<div class="flex flex-col gap-6 short:gap-3 tablet:gap-3">
+			{#each list as chore (chore.id)}
+				{@const key = tapKey(selected.id, chore.id)}
+				<ChoreCard
+					{chore}
+					undoStartedAt={undoStarts[key] ?? null}
+					ondone={done}
+					onundo={undo}
+					onundoexpire={() => dropUndo(key)}
+				/>
+			{/each}
+		</div>
+	{/if}
+{/snippet}
