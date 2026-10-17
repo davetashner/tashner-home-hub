@@ -7,8 +7,11 @@ import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
 
 test('add a folder, pick albums, scan, hide a photo', async ({ page }, info) => {
 	const name = info.project.name;
+	// Unique per run too (not just per project), so a leftover or concurrent source never shares the card.
+	const run = `${Date.now().toString(36)}-${info.parallelIndex}-${info.repeatEachIndex}`;
+	const label = `Lib ${name} ${run}`;
 	// The server reads the same filesystem; data/photo-library is always an allowed root.
-	const root = resolve('data', 'photo-library', `e2e-${name}`);
+	const root = resolve('data', 'photo-library', `e2e-${name}-${run}`);
 	rmSync(root, { recursive: true, force: true });
 	for (const [dir, w, h] of [
 		['Trip', 640, 360],
@@ -18,9 +21,16 @@ test('add a folder, pick albums, scan, hide a photo', async ({ page }, info) => 
 		writeFileSync(`${root}/${dir}/a.jpg`, await syntheticJpeg(w, h));
 	}
 	await signInAsAdult(page, `e2e-photo-${name}`);
+	// The page's onMount refresh is the first request after hydration. Typing before that lets
+	// hydration re-apply the default label on top of the text ("Family photosLib ..."), so the card
+	// never carries the expected name.
+	const hydrated = page.waitForResponse(
+		(r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/photo-sources'
+	);
 	await page.goto('/settings/photo-library');
+	await hydrated;
 
-	await page.getByLabel('Name').fill(`Lib ${name}`);
+	await page.getByLabel('Name').fill(label);
 	await page.getByLabel('Folder path').fill('/etc');
 	const add = page.getByRole('button', { name: 'Add folder' });
 	await expectTappable(add);
@@ -35,7 +45,7 @@ test('add a folder, pick albums, scan, hide a photo', async ({ page }, info) => 
 	);
 	await add.click();
 	expect((await added).status()).toBe(201);
-	const card = page.getByTestId(`source-Lib ${name}`);
+	const card = page.getByTestId(`source-${label}`);
 	await expect(card.getByTestId('scan-status')).toContainText('2 photos');
 	await expect(card.getByText('Trip')).toBeVisible();
 

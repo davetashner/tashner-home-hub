@@ -183,27 +183,6 @@
 		);
 	}
 
-	// Bonus stars
-	let bonusFor = $state<string | null>(null);
-	let bonusAmount = $state(1);
-	let bonusNote = $state('');
-	function openBonus(id: string) {
-		bonusFor = bonusFor === id ? null : id;
-		bonusAmount = 1;
-		bonusNote = '';
-	}
-	async function giveBonus(child: Child) {
-		const amount = bonusAmount;
-		const res = await api(`/api/members/${child.id}/bonus`, {
-			method: 'POST',
-			body: { delta: amount, note: bonusNote.trim() || 'Bonus stars' }
-		});
-		if (!res.ok) return say("Couldn't give the bonus. Please try again.");
-		bonusFor = null;
-		say(`${amount} bonus ${amount === 1 ? 'star' : 'stars'} for ${child.name}! ⭐`);
-		await loadBalances();
-	}
-
 	// Redeem the goal reward (REW-4). The page is behind the adult PIN; the API checks again.
 	let redeeming = $state<{ child: Child; goal: Goal } | null>(null);
 	const preview = $derived(
@@ -365,54 +344,12 @@
 						</div>
 					{/if}
 
-					<div class="flex flex-col gap-4">
-						<Button
-							variant="ghost"
-							class="self-start"
-							data-testid="bonus-toggle"
-							aria-expanded={bonusFor === child.id}
-							onclick={() => openBonus(child.id)}>Give bonus stars</Button
-						>
-						{#if bonusFor === child.id}
-							<form
-								class="flex flex-wrap items-center gap-4"
-								data-testid="bonus-form"
-								onsubmit={(e) => {
-									e.preventDefault();
-									void giveBonus(child);
-								}}
-							>
-								<span class="flex items-center gap-2">
-									<Button
-										variant="secondary"
-										aria-label="One fewer star"
-										disabled={bonusAmount <= 1}
-										onclick={() => (bonusAmount -= 1)}>−</Button
-									>
-									<output
-										class="w-20 text-center text-title font-extrabold"
-										data-testid="bonus-amount"
-									>
-										{bonusAmount}
-									</output>
-									<Button
-										variant="secondary"
-										aria-label="One more star"
-										disabled={bonusAmount >= 5}
-										onclick={() => (bonusAmount += 1)}>+</Button
-									>
-								</span>
-								<input
-									class="{field} min-w-48 flex-1"
-									placeholder="Why? (optional)"
-									maxlength="100"
-									aria-label="Bonus note"
-									bind:value={bonusNote}
-								/>
-								<Button type="submit" data-testid="bonus-give">Give</Button>
-							</form>
-						{/if}
-					</div>
+					<a
+						href="{resolve('/(app)/settings/stars')}?member={child.id}"
+						data-testid="stars-link"
+						class="flex min-h-tap items-center self-start rounded-control px-6 text-body font-bold text-ink-muted transition-transform duration-75 active:scale-95"
+						>Give or remove stars</a
+					>
 				</Card>
 			</li>
 		{/each}

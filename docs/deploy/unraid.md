@@ -62,6 +62,12 @@ choose albums, and tap **Scan now**. The hub rescans every 15 minutes, never wri
 and ignores symlinks, hidden files, sidecars, and videos. Paths outside `HUB_PHOTO_ROOTS` are refused.
 Make sure the container user (`PUID`/`PGID`, 99:100 on Unraid) can read the share.
 
+## 3d. Upload size limit
+
+The image sets `BODY_SIZE_LIMIT=20M` (adapter-node's default is 512K), so a large data export
+can be imported in Settings. To raise it, add `BODY_SIZE_LIMIT=50M` to `.env`; the value takes a
+`K`, `M`, or `G` suffix.
+
 ## 4. Verify
 
 ```sh

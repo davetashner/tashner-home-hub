@@ -42,12 +42,14 @@
 			undoSecondsLeft(undoStartedAt, now) > 0
 	);
 	const stars = $derived(Math.min(5, Math.max(1, chore.stars)));
+	const habit = $derived(chore.kind === 'habit');
 </script>
 
 <article
 	bind:this={card}
 	data-testid="chore-card"
 	data-status={chore.status}
+	data-kind={chore.kind ?? 'star_job'}
 	class="card relative flex flex-col gap-6 overflow-hidden rounded-card p-8 shadow-raised landscape:flex-row landscape:items-center landscape:gap-10 short:gap-2 short:p-3 tablet:gap-4 tablet:p-5 portrait:tablet:flex-row portrait:tablet:items-center portrait:tablet:gap-6 landscape:tablet:gap-6 {chore.status ===
 	'approved'
 		? 'bg-success-soft'
@@ -70,19 +72,29 @@
 			>
 				{chore.title}
 			</h3>
-			<!-- Phone landscape: a chore that is already done or waiting drops its stars to stay short. -->
-			<div
-				class="flex gap-1 {doable ? '' : 'short:hidden'}"
-				role="img"
-				aria-label="{chore.stars} {chore.stars === 1 ? 'star' : 'stars'}"
-			>
-				{#each { length: stars } as _, i (i)}
-					<StarIcon
-						variant={chore.status === 'pending' ? 'outline' : 'gold'}
-						class="size-14 short:size-6 tablet:size-8"
-					/>
-				{/each}
-			</div>
+			{#if habit}
+				<!-- A habit earns no stars itself; it counts toward the day's habit star. -->
+				<p
+					class="w-fit rounded-chip bg-accent-soft px-4 py-1 text-body font-bold short:hidden tablet:text-caption"
+					data-testid="habit-tag"
+				>
+					✅ Daily habit
+				</p>
+			{:else}
+				<!-- Phone landscape: a chore that is already done or waiting drops its stars to stay short. -->
+				<div
+					class="flex gap-1 {doable ? '' : 'short:hidden'}"
+					role="img"
+					aria-label="{chore.stars} {chore.stars === 1 ? 'star' : 'stars'}"
+				>
+					{#each { length: stars } as _, i (i)}
+						<StarIcon
+							variant={chore.status === 'pending' ? 'outline' : 'gold'}
+							class="size-14 short:size-6 tablet:size-8"
+						/>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	</div>
 

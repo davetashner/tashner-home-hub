@@ -30,7 +30,9 @@ test('a kid with a routine but no chores shows in the switcher and can open the 
 		await page.goto(`/chores?member=${kid.id}`);
 		await expect(page.getByTestId('child-switcher').getByRole('button', { name })).toBeVisible();
 		await expect(page.getByTestId('child-switcher').locator('button')).not.toHaveCount(1);
-		await expect(page.getByTestId('all-free')).toBeVisible();
+		// A routine counts as one habit (hub-esf): no Star Jobs, one habit to do.
+		await expect(page.getByTestId('star-jobs')).toContainText('No Star Jobs today.');
+		await expect(page.getByTestId('habits-count')).toHaveText('0/1');
 		await expect(async () => {
 			await page.getByTestId('routine-button').first().click();
 			await expect(page.getByTestId('routine-player')).toBeVisible();

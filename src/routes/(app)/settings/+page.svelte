@@ -54,6 +54,12 @@
 			line: 'What needs doing, when, and how many stars.'
 		},
 		{
+			href: resolve('/(app)/settings/habits'),
+			emoji: '✅',
+			title: 'Habits',
+			line: 'Everyday things with no stars; doing them all earns one.'
+		},
+		{
 			href: resolve('/(app)/settings/routines'),
 			emoji: '🪥',
 			title: 'Routines',
@@ -76,6 +82,12 @@
 			emoji: '🎮',
 			title: 'Games',
 			line: 'Web games for the Games tab.'
+		},
+		{
+			href: resolve('/(app)/settings/music'),
+			emoji: '🎵',
+			title: 'Music',
+			line: 'Connect Spotify for shower music.'
 		},
 		{
 			href: resolve('/(app)/settings/photo-library'),

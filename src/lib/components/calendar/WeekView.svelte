@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { untrack } from 'svelte';
 	import {
 		dayNumber,
 		hourLabel,
@@ -46,18 +46,39 @@
 	let body: HTMLElement | undefined = $state();
 
 	// Open on what matters: an hour before now when this week holds today, otherwise
-	// the earliest timed event of the week. Runs once per mount (a new week remounts).
-	onMount(() => {
-		const scroller = body?.closest<HTMLElement>('.scroll');
-		if (!scroller || !body) return;
-		const starts = columns.flat().map((s) => s.startMin);
-		const target = keys.includes(today)
-			? Math.max(hours.from * 60, nowMin - 60)
-			: starts.length
-				? Math.min(...starts) - 30
-				: hours.from * 60;
-		const ppm = body.offsetHeight / span;
-		scroller.scrollTop = Math.max(0, (target - hours.from * 60) * ppm);
+	// the earliest timed event of the week. The body may have no real size at mount and the
+	// hour range can widen once events load, so re-aim whenever either changes, but only until
+	// the user scrolls themselves (never fight a manual scroll).
+	$effect(() => {
+		const el = body;
+		const scroller = el?.closest<HTMLElement>('.scroll');
+		if (!el || !scroller) return;
+		const from = hours.from;
+		const total = span;
+		let touched = false;
+		const stop = () => (touched = true);
+		const aim = () => {
+			if (touched || el.offsetHeight === 0) return;
+			const starts = untrack(() => columns.flat().map((s) => s.startMin));
+			const target = untrack(() =>
+				keys.includes(today)
+					? Math.max(from * 60, nowMin - 60)
+					: starts.length
+						? Math.min(...starts) - 30
+						: from * 60
+			);
+			scroller.scrollTop = Math.max(0, (target - from * 60) * (el.offsetHeight / total));
+		};
+		const events = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
+		for (const e of events) scroller.addEventListener(e, stop, { passive: true });
+		const observer = new ResizeObserver(aim);
+		observer.observe(el);
+		observer.observe(scroller);
+		aim();
+		return () => {
+			observer.disconnect();
+			for (const e of events) scroller.removeEventListener(e, stop);
+		};
 	});
 </script>
 

@@ -52,7 +52,9 @@ say "Installing packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 # Package is `chromium` on current Raspberry Pi OS (older images: chromium-browser).
-apt-get install -y curl python3 wlr-randr xcursorgen || die "base package install failed"
+apt-get install -y curl python3 wlr-randr || die "base package install failed"
+# xcursorgen is its own package on bookworm; trixie folds it into x11-apps.
+apt-get install -y xcursorgen || apt-get install -y x11-apps || die "xcursorgen install failed"
 apt-get install -y chromium || apt-get install -y chromium-browser
 
 say "Creating user '$KIOSK_USER'"
@@ -83,6 +85,11 @@ autologin-user=$KIOSK_USER
 autologin-user-timeout=0
 autologin-session=$SESSION
 EOC
+# lightdm reads /etc/lightdm/lightdm.conf after conf.d, and Raspberry Pi OS sets the first user's
+# autologin there, which would beat ours: comment those lines out (already-commented ones stay).
+if [ -f /etc/lightdm/lightdm.conf ]; then
+  sed -i -E 's/^([[:space:]]*autologin-(user|session)=)/#hub-kiosk: \1/' /etc/lightdm/lightdm.conf
+fi
 
 say "Writing labwc config for $KIOSK_USER"
 CFG="$KIOSK_HOME/.config/labwc"

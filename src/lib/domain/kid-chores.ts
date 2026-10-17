@@ -6,6 +6,8 @@ export type Status = 'none' | 'pending' | 'approved' | 'rejected' | 'undone';
 export interface KidChore {
 	id: string;
 	title: string;
+	/** Star Jobs earn stars; habits are plain checks (hub-esf). Missing means a Star Job. */
+	kind?: 'star_job' | 'habit';
 	icon: string | null;
 	stars: number;
 	status: Status;
@@ -111,4 +113,40 @@ export function switcherMembers<T extends { id: string }>(
 ): T[] {
 	const shown = kidsToShow(members, boards, routinesBy, nowMinutes);
 	return shown.length > 0 ? shown : members;
+}
+
+/** Done means checked off: waiting for a grown-up or approved. */
+const isChecked = (c: KidChore) => c.status === 'pending' || c.status === 'approved';
+
+export const isHabit = (c: KidChore) => c.kind === 'habit';
+
+/** The Star Jobs part of a board, keeping its time-of-day groups (empty groups dropped). */
+export function starJobGroups(groups: KidGroup[]): KidGroup[] {
+	return groups
+		.map((g) => ({ ...g, chores: g.chores.filter((c) => !isHabit(c)) }))
+		.filter((g) => g.chores.length > 0);
+}
+
+/** Today's habits, in board order. */
+export const habitChores = (groups: KidGroup[]): KidChore[] =>
+	groups.flatMap((g) => g.chores.filter(isHabit));
+
+export interface Count {
+	done: number;
+	total: number;
+}
+
+/** How many of these chores are checked off. */
+export const doneCount = (chores: KidChore[]): Count => ({
+	done: chores.filter(isChecked).length,
+	total: chores.length
+});
+
+/** Today's habit counter: habits plus routines, each routine one habit done when finished. */
+export function habitCount(habits: KidChore[], routines: KidRoutine[]): Count {
+	const real = routines.filter((r) => r.steps.length > 0);
+	return {
+		done: habits.filter(isChecked).length + real.filter((r) => r.done >= r.steps.length).length,
+		total: habits.length + real.length
+	};
 }
