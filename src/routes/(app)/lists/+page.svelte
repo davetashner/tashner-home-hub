@@ -151,6 +151,7 @@
 <svelte:head><title>Lists · Home Hub</title></svelte:head>
 
 <section class="flex h-full min-h-0 flex-col gap-4 p-6 short:p-3">
+	<h1 class="sr-only">Lists</h1>
 	<div class="flex flex-wrap gap-3" role="tablist" aria-label="Lists">
 		{#each lists as l (l.id)}
 			{@const on = l.id === current?.id}
