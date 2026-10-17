@@ -11,6 +11,7 @@
 		type IdleSettings,
 		type IdleTimer
 	} from '#lib/domain/idle.js';
+	import { GAME_ACTIVE_EVENT } from '#lib/domain/games.js';
 	import { DESTINATION_URLS } from './urls.js';
 
 	/** Ignore the click that follows the touch waking the photo frame, so it doesn't press anything. */
@@ -64,6 +65,11 @@
 		}
 	}
 
+	/** An open game reports in: touches inside its frame never reach this page, so count them as activity. */
+	function ongame() {
+		timer?.activity();
+	}
+
 	function onsettings(e: Event) {
 		start(parseIdleSettings((e as CustomEvent<Record<string, unknown>>).detail));
 	}
@@ -77,8 +83,10 @@
 			})
 			.catch(() => {});
 		window.addEventListener(IDLE_SETTINGS_EVENT, onsettings);
+		window.addEventListener(GAME_ACTIVE_EVENT, ongame);
 		return () => {
 			window.removeEventListener(IDLE_SETTINGS_EVENT, onsettings);
+			window.removeEventListener(GAME_ACTIVE_EVENT, ongame);
 			timer?.stop();
 			timer = null;
 		};

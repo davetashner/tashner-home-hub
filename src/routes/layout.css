@@ -274,6 +274,15 @@
 @utility grid-rows-shell-landscape {
 	grid-template-rows: auto 1fr;
 }
+/* Phone sideways: nav and header share one row. The header keeps its buttons; the nav takes
+   what is left and scrolls inside itself, so no tap target ever shrinks below the tap size. */
+@utility grid-cols-shell-short {
+	grid-template-columns: minmax(0, 1fr) auto;
+}
+/* A row that scrolls by touch without showing a scrollbar. */
+@utility scrollbar-none {
+	scrollbar-width: none;
+}
 
 /*
  * Safe areas (DEV-3): spacing plus the device inset, so nothing sits under an iPhone notch,
