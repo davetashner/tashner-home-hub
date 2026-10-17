@@ -22,3 +22,16 @@ TOUCH_MATRIX=""
 
 # Remote debugging port, bound to localhost only. Used by the watchdog.
 DEBUG_PORT="9222"
+
+# Display agent (monitor power and touch to wake). All optional.
+# Seconds between polls of the hub's power state; 1 keeps "Sleep now" under the 2 s target.
+POWER_POLL_SECONDS="1"
+# Touch device override, e.g. /dev/input/event4. Empty = auto-detect touchscreens.
+TOUCH_DEVICE=""
+# HDMI-CEC fallback if wlr-randr cannot switch the output: cec-ctl | cec-client | empty (off).
+CEC_BACKEND=""
+CEC_DEVICE="/dev/cec0"
+# CEC logical address of the monitor (0 = TV).
+CEC_ADDRESS="0"
+# If the hub is unreachable, a touch-woken screen stays on this many seconds.
+OFFLINE_WAKE_SECONDS="120"

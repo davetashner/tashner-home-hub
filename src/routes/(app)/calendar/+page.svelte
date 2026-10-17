@@ -221,9 +221,9 @@
 				{#key `${view}:${anchor}`}
 					<div class="pane scroll {direction}" data-testid="calendar-pane">
 						{#if view === 'agenda'}
-							<AgendaView {events} {keys} {today} {tz} onselect={(e) => (selected = e)} />
+							<AgendaView {events} {keys} {today} {tz} {now} onselect={(e) => (selected = e)} />
 						{:else if view === 'week' && paneWidth < WEEK_GRID_MIN}
-							<AgendaView {events} {keys} {today} {tz} all onselect={(e) => (selected = e)} />
+							<AgendaView {events} {keys} {today} {tz} {now} all onselect={(e) => (selected = e)} />
 						{:else if view === 'week'}
 							<WeekView
 								{events}

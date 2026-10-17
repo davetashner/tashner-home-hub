@@ -1,0 +1,43 @@
+import { expect, test, type Page } from '@playwright/test';
+import { signInAsAdult } from './adult';
+import { seedCalendar } from './calendar';
+
+const chooseView = (page: Page, name: string) =>
+	page.getByRole('group', { name: 'View' }).getByRole('button', { name }).click();
+
+/** Today at 12:00 in the browser's zone, so the line sits inside the default 7-21 grid. */
+function noon(): Date {
+	const d = new Date();
+	d.setHours(12, 0, 0, 0);
+	return d;
+}
+
+test.beforeEach(async ({ page }) => {
+	seedCalendar({ fresh: false });
+	await signInAsAdult(page, 'e2e-cal-adult');
+	await page.clock.install({ time: noon() });
+	await page.goto('/calendar');
+	await page.waitForLoadState('networkidle');
+});
+
+test('week grid draws the now line and moves it down as the minutes pass', async ({ page }) => {
+	const pane = page.getByTestId('calendar-pane');
+	// A tap right after goto can be lost before hydration: retry until the grid is up.
+	await expect(async () => {
+		await chooseView(page, 'Week');
+		await expect(pane.locator('.week')).toBeVisible({ timeout: 1000 });
+	}).toPass();
+	const line = pane.getByTestId('now-line');
+	await expect(line).toHaveCount(1);
+	const before = (await line.boundingBox())!;
+
+	await page.clock.runFor(10 * 60_000);
+	await expect.poll(async () => (await line.boundingBox())!.y).toBeGreaterThan(before.y + 10);
+});
+
+test('agenda marks now between the events that have and have not started', async ({ page }) => {
+	const pane = page.getByTestId('calendar-pane');
+	const line = pane.getByTestId('now-line').first();
+	await expect(line).toBeVisible();
+	await expect(line).toHaveText('Now');
+});

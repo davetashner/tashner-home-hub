@@ -13,7 +13,8 @@
 		visibleHours,
 		type CalEvent
 	} from '#lib/domain/calendar-view/layout.js';
-	import { zonedMs, type DateKey } from '#lib/domain/calendar-view/zone.js';
+	import { minutesIntoDay, nowLineMinute } from '#lib/domain/calendar-view/now-line.js';
+	import type { DateKey } from '#lib/domain/calendar-view/zone.js';
 
 	interface Props {
 		events: CalEvent[];
@@ -36,7 +37,8 @@
 	);
 	/** Offset from the top of the grid, in minutes of the day. Rows are a fixed px height (see CSS). */
 	const mins = (min: number) => `calc(${min - hours.from * 60} * var(--ppm))`;
-	const nowMin = $derived((now - zonedMs(today, 0, tz)) / 60_000);
+	const nowMin = $derived(minutesIntoDay(now, today, tz));
+	const nowLine = $derived(nowLineMinute(now, today, today, tz, hours));
 
 	let body: HTMLElement | undefined = $state();
 
@@ -138,8 +140,13 @@
 							{/if}
 						</button>
 					{/each}
-					{#if key === today && nowMin >= hours.from * 60 && nowMin <= hours.to * 60}
-						<div class="now" style="top: {mins(nowMin)}" aria-hidden="true"></div>
+					{#if key === today && nowLine !== null}
+						<div
+							class="now"
+							data-testid="now-line"
+							style="top: {mins(nowLine)}"
+							aria-hidden="true"
+						></div>
 					{/if}
 				</div>
 			{/each}
