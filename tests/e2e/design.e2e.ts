@@ -42,6 +42,11 @@ test('swipe pad reports the swipe direction', async ({ page }) => {
 
 test('night theme toggles', async ({ page }) => {
 	await page.goto('/dev/design');
-	await page.getByTestId('theme-toggle').click();
-	await expect(page.locator('html')).toHaveAttribute('data-theme', 'night');
+	const html = page.locator('html');
+	// A tap before the page hydrates is lost (the attribute is still unset): retry until it flips.
+	await expect(async () => {
+		if ((await html.getAttribute('data-theme')) !== 'night')
+			await page.getByTestId('theme-toggle').click();
+		await expect(html).toHaveAttribute('data-theme', 'night', { timeout: 1000 });
+	}).toPass();
 });
