@@ -27,7 +27,7 @@
 			href: resolve('/(app)/settings/weekly-summary'),
 			emoji: '📊',
 			title: 'Weekly summary',
-			line: 'Stars earned and chores missed, week by week.'
+			line: 'Stars earned and Star Jobs missed, week by week.'
 		},
 		{
 			href: resolve('/(app)/settings/stars'),
@@ -50,7 +50,7 @@
 		{
 			href: resolve('/(app)/settings/chores'),
 			emoji: '🧹',
-			title: 'Chores',
+			title: 'Star Jobs',
 			line: 'What needs doing, when, and how many stars.'
 		},
 		{

@@ -69,7 +69,7 @@
 			</p>
 		{:else}
 			<p class="text-body text-ink-muted" data-testid="family-totals">
-				Family: {signed(summary.family.net)} ⭐ · {summary.family.done} of {summary.family.due} chores
+				Family: {signed(summary.family.net)} ⭐ · {summary.family.done} of {summary.family.due} Star Jobs
 				done · {summary.family.missed} missed
 			</p>
 		{/if}
@@ -89,12 +89,12 @@
 						</p>
 						<div class="flex flex-col gap-2">
 							<p class="text-body font-bold" data-testid="done-line">
-								{c.done} of {c.due} chores done{c.pending > 0 ? ` · ${c.pending} waiting` : ''}
+								{c.done} of {c.due} Star Jobs done{c.pending > 0 ? ` · ${c.pending} waiting` : ''}
 							</p>
 							<div
 								class="h-4 overflow-hidden rounded-chip bg-surface-sunken"
 								role="progressbar"
-								aria-label="Chores done"
+								aria-label="Star Jobs done"
 								aria-valuemin={0}
 								aria-valuemax={c.due}
 								aria-valuenow={c.done}

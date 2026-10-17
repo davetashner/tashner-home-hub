@@ -4,7 +4,13 @@ import { ensureHousehold, signInAsAdult } from './adult';
 
 test.beforeAll(ensureHousehold);
 
-const destinations = ['Calendar', 'Chores', 'Photos', 'Lists', 'Meals'];
+const destinations = [
+	['Calendar', 'calendar'],
+	['To-Do List', 'chores'],
+	['Photos', 'photos'],
+	['Lists', 'lists'],
+	['Meals', 'meals']
+];
 
 async function swipe(page: Page, from: number, to: number) {
 	const box = (await page.locator('main').boundingBox())!;
@@ -19,9 +25,9 @@ test('every destination is reachable by tap and marks itself active', async ({ p
 	await page.goto('/');
 	await page.waitForLoadState('networkidle');
 	const nav = page.getByRole('navigation', { name: 'Main' });
-	for (const name of destinations) {
+	for (const [name, path] of destinations) {
 		await nav.getByRole('link', { name }).click();
-		await expect(page).toHaveURL(new RegExp(`/${name.toLowerCase()}$`));
+		await expect(page).toHaveURL(new RegExp(`/${path}$`));
 		await expect(nav.getByRole('link', { name })).toHaveAttribute('aria-current', 'page');
 		await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
 		await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();

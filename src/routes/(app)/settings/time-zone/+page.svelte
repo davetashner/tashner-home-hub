@@ -76,7 +76,7 @@
 			<p class="text-title font-bold tabular-nums">{time}</p>
 		</div>
 		<p class="mt-4 text-body text-ink-muted">
-			Decides when chores reset each day and where calendar times without a zone belong.
+			Decides when Star Jobs reset each day and where calendar times without a zone belong.
 		</p>
 	</Card>
 	<label class="flex flex-col gap-2">

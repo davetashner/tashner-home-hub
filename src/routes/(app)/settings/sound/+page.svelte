@@ -78,7 +78,7 @@
 			<div class="flex flex-col gap-1">
 				<h2 class="text-title font-bold">Celebration sounds</h2>
 				<p class="text-body text-ink-muted">
-					The chimes when a chore is done or a goal is reached.
+					The chimes when a Star Job is done or a goal is reached.
 				</p>
 			</div>
 			<div class="flex flex-wrap gap-4" role="group" aria-label="Celebration sounds">

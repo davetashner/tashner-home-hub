@@ -74,7 +74,7 @@ export function completeChore(
 ): CompleteResult {
 	return db.transaction((tx) => {
 		const chore = tx.select().from(chores).where(eq(chores.id, input.choreId)).get();
-		if (!chore || chore.archived) throw new LedgerError('not_found', 'Chore not found');
+		if (!chore || chore.archived) throw new LedgerError('not_found', 'Star Job not found');
 		const member = tx.select().from(members).where(eq(members.id, input.memberId)).get();
 		if (!member) throw new LedgerError('not_found', 'Member not found');
 

@@ -84,6 +84,40 @@ test('meals fits a 390px phone with no sideways scroll', async ({ page }) => {
 		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
 	);
 	expect(overflow).toBeLessThanOrEqual(0);
-	const box = await page.getByTestId('meal-cell').first().boundingBox();
-	expect(box!.height).toBeGreaterThanOrEqual(60);
+	// Retried: the week re-renders once its meals load, so the first cell can be swapped out
+	// between finding it and measuring it (boundingBox is then null).
+	await expect(async () => {
+		const box = await page.getByTestId('meal-cell').first().boundingBox();
+		expect(box).not.toBeNull();
+		expect(box!.height).toBeGreaterThanOrEqual(60);
+	}).toPass();
 });
+
+// Slot labels never break mid-word: a laptop wraps the week, the 4K wall keeps all seven across.
+for (const { w, h, perRow } of [
+	{ w: 1280, h: 800, perRow: 0 },
+	{ w: 1440, h: 900, perRow: 0 },
+	{ w: 1728, h: 1117, perRow: 0 },
+	{ w: 2560, h: 1440, perRow: 7 }
+]) {
+	test(`meal slot labels fit on one line at ${w}x${h}`, async ({ page }) => {
+		ensureHousehold();
+		await page.setViewportSize({ width: w, height: h });
+		await page.goto('/meals');
+		await expect(page.getByTestId('meals-day')).toHaveCount(7);
+		const layout = await page.evaluate(() => {
+			const labels = [
+				...document.querySelectorAll('[data-testid="meal-cell"] > :first-child')
+			] as HTMLElement[];
+			const lineHeight = parseFloat(getComputedStyle(labels[0]).lineHeight);
+			const days = [...document.querySelectorAll('[data-testid="meals-day"]')] as HTMLElement[];
+			return {
+				tallest: Math.max(...labels.map((l) => l.getBoundingClientRect().height)),
+				lineHeight,
+				perRow: days.filter((d) => d.offsetTop === days[0].offsetTop).length
+			};
+		});
+		expect(layout.tallest).toBeLessThan(layout.lineHeight * 1.5);
+		if (perRow) expect(layout.perRow).toBe(perRow);
+	});
+}
