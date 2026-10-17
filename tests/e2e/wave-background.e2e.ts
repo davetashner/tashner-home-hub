@@ -45,3 +45,23 @@ test('a grown-up turns the background off and back on', async ({ page }, info) =
 		await expect(bg).toBeAttached({ timeout: 500 });
 	}).toPass();
 });
+
+// The sunset windows are unit-tested on the pure functions; seeding a location here would change
+// a setting shared with the other specs.
+test('Auto draws a valid palette, and a picked palette applies and resets', async ({
+	page
+}, info) => {
+	await signInAsAdult(page, `e2e-wave-auto-${info.project.name}`);
+	await page.goto('/settings/background');
+	const bg = page.getByTestId('wave-background');
+	const valid = /^(dusk|sorbet)$/;
+	await expect(bg).toHaveAttribute('data-palette', valid);
+	await expect(async () => {
+		await page.getByRole('button', { name: 'Seafoam' }).click();
+		await expect(bg).toHaveAttribute('data-palette', 'seafoam', { timeout: 500 });
+	}).toPass();
+	await expect(async () => {
+		await page.getByRole('button', { name: 'Auto' }).click();
+		await expect(bg).toHaveAttribute('data-palette', valid, { timeout: 500 });
+	}).toPass();
+});

@@ -37,7 +37,8 @@
 	<Card>
 		<div class="flex flex-col gap-6">
 			<p class="text-body text-ink-muted">
-				Auto is Dusk by day and Night with the night theme. Night shows with the night theme.
+				Auto is Dusk by day, Sorbet from 45 minutes before sunset to 45 minutes after (once a
+				weather location is set), and Night with the night theme. Night shows with the night theme.
 			</p>
 			<div class="flex flex-wrap gap-4" role="group" aria-label="Background">
 				{#each WAVE_CHOICES as c (c)}
