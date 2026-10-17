@@ -8,6 +8,8 @@ process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'hub-games-api-'));
 const list = await import('./games/+server.js');
 const one = await import('./games/[id]/+server.js');
 
+/** The hub's own origin, as SvelteKit gives it on `event.url`. */
+const HUB = 'https://hub.example.com/api/games';
 const req = (method: string, body?: unknown) =>
 	new Request('http://example.com/x', {
 		method,
@@ -16,6 +18,7 @@ const req = (method: string, body?: unknown) =>
 const call = async (h: unknown, ev: Record<string, unknown>, adult = true) =>
 	(h as (e: unknown) => Promise<Response> | Response)({
 		locals: { adult: adult ? { id: 'adult', name: 'Test Adult' } : null },
+		url: new URL(HUB),
 		...ev
 	});
 const create = async (title: string) =>
@@ -48,6 +51,20 @@ describe('games API', () => {
 
 		expect((await call(one.DELETE, { params: { id: a.id } })).status).toBe(200);
 		expect(await titles()).toEqual(['beta', 'gamma']);
+	});
+
+	it("refuses a game on the hub's own origin, on create and edit (hub-wzg review)", async () => {
+		await expect(
+			call(list.POST, { request: req('POST', { title: 'x', url: 'https://hub.example.com/' }) })
+		).rejects.toMatchObject({ status: 400 });
+		const g = await create('delta');
+		await expect(
+			call(one.PATCH, {
+				params: { id: g.id },
+				request: req('PATCH', { url: 'https://hub.example.com/settings' })
+			})
+		).rejects.toMatchObject({ status: 400 });
+		await call(one.DELETE, { params: { id: g.id } });
 	});
 
 	it('rejects bad input, missing rows and a full list', async () => {

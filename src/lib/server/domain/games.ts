@@ -17,10 +17,11 @@ type Conn = Pick<Db, 'select' | 'insert'>;
 import { settings } from '../db/schema.js';
 import { LedgerError } from './ledger.js';
 
-export function listGames(db: Conn): Game[] {
+/** `hubOrigin` (the request's origin) drops any stored game on the hub itself. */
+export function listGames(db: Conn, hubOrigin?: string): Game[] {
 	const row = db.select().from(settings).where(eq(settings.key, GAMES_SETTING_KEY)).get();
 	try {
-		return parseGames(row ? JSON.parse(row.value) : []);
+		return parseGames(row ? JSON.parse(row.value) : [], hubOrigin);
 	} catch {
 		return [];
 	}
@@ -36,9 +37,9 @@ function save(db: Conn, games: Game[]): void {
 
 const invalid = (msg: string) => new LedgerError('invalid', msg);
 
-export function createGame(db: Db, raw: Record<string, unknown>): Game {
+export function createGame(db: Db, raw: Record<string, unknown>, hubOrigin?: string): Game {
 	return db.transaction((tx) => {
-		const checked = checkNewGame(raw);
+		const checked = checkNewGame(raw, hubOrigin);
 		if (!checked.ok) throw invalid(checked.error);
 		const games = listGames(tx);
 		if (games.length >= MAX_GAMES) throw invalid(`at most ${MAX_GAMES} games`);
@@ -49,9 +50,14 @@ export function createGame(db: Db, raw: Record<string, unknown>): Game {
 }
 
 /** Body: any of { title, url, image } and/or { move: -1 | 1 } to reorder. */
-export function updateGame(db: Db, id: string, raw: Record<string, unknown>): Game {
+export function updateGame(
+	db: Db,
+	id: string,
+	raw: Record<string, unknown>,
+	hubOrigin?: string
+): Game {
 	return db.transaction((tx) => {
-		const checked = checkPatch(raw);
+		const checked = checkPatch(raw, hubOrigin);
 		if (!checked.ok) throw invalid(checked.error);
 		if (raw.move !== undefined && raw.move !== -1 && raw.move !== 1)
 			throw invalid('move must be -1 or 1');

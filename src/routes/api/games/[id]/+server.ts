@@ -8,7 +8,7 @@ import type { RequestHandler } from './$types';
 export const PATCH: RequestHandler = async (event) => {
 	requireAdult(event);
 	const body = await readJson(event.request);
-	return handle(() => updateGame(getDb(), event.params.id, body));
+	return handle(() => updateGame(getDb(), event.params.id, body, event.url.origin));
 };
 
 /** Send a JSON content-type (body `{}`): SvelteKit's CSRF check refuses DELETEs without one. */

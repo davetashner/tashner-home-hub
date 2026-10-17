@@ -39,6 +39,19 @@ export function cleanHttpsUrl(v: unknown): string | null {
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string };
 
+/**
+ * Whether a URL is on the hub's own origin. Such a page would run as the hub inside the frame
+ * (with the kid's session, and able to lift its own sandbox), so it is never a game.
+ */
+export function isHubOrigin(url: string, hubOrigin: string | undefined): boolean {
+	if (!hubOrigin) return false;
+	try {
+		return new URL(url).origin === new URL(hubOrigin).origin;
+	} catch {
+		return false;
+	}
+}
+
 export function checkTitle(v: unknown): Checked<string> {
 	const t = typeof v === 'string' ? v.trim() : '';
 	if (t.length < 1 || t.length > GAME_TITLE_MAX)
@@ -46,9 +59,11 @@ export function checkTitle(v: unknown): Checked<string> {
 	return { ok: true, value: t };
 }
 
-export function checkUrl(v: unknown): Checked<string> {
+export function checkUrl(v: unknown, hubOrigin?: string): Checked<string> {
 	const u = cleanHttpsUrl(v);
-	return u ? { ok: true, value: u } : { ok: false, error: 'url must be a full https:// address' };
+	if (!u) return { ok: false, error: 'url must be a full https:// address' };
+	if (isHubOrigin(u, hubOrigin)) return { ok: false, error: 'url must not be on the hub itself' };
+	return { ok: true, value: u };
 }
 
 /** Image is optional: undefined/null/blank means none. */
@@ -62,10 +77,13 @@ export function checkImage(v: unknown): Checked<string | null> {
 }
 
 /** Validates a full new game; returns the first problem found. */
-export function checkNewGame(raw: Record<string, unknown>): Checked<GameFields> {
+export function checkNewGame(
+	raw: Record<string, unknown>,
+	hubOrigin?: string
+): Checked<GameFields> {
 	const title = checkTitle(raw.title);
 	if (!title.ok) return title;
-	const url = checkUrl(raw.url);
+	const url = checkUrl(raw.url, hubOrigin);
 	if (!url.ok) return url;
 	const image = checkImage(raw.image);
 	if (!image.ok) return image;
@@ -73,7 +91,10 @@ export function checkNewGame(raw: Record<string, unknown>): Checked<GameFields> 
 }
 
 /** Validates only the fields present in `raw`. */
-export function checkPatch(raw: Record<string, unknown>): Checked<Partial<GameFields>> {
+export function checkPatch(
+	raw: Record<string, unknown>,
+	hubOrigin?: string
+): Checked<Partial<GameFields>> {
 	const out: Partial<GameFields> = {};
 	if (raw.title !== undefined) {
 		const r = checkTitle(raw.title);
@@ -81,7 +102,7 @@ export function checkPatch(raw: Record<string, unknown>): Checked<Partial<GameFi
 		out.title = r.value;
 	}
 	if (raw.url !== undefined) {
-		const r = checkUrl(raw.url);
+		const r = checkUrl(raw.url, hubOrigin);
 		if (!r.ok) return r;
 		out.url = r.value;
 	}
@@ -93,14 +114,17 @@ export function checkPatch(raw: Record<string, unknown>): Checked<Partial<GameFi
 	return { ok: true, value: out };
 }
 
-/** Reads the stored value defensively: bad entries are dropped, the list is capped. */
-export function parseGames(raw: unknown): Game[] {
+/**
+ * Reads the stored value defensively: bad entries (and, given the hub's origin, any game on it)
+ * are dropped, and the list is capped.
+ */
+export function parseGames(raw: unknown, hubOrigin?: string): Game[] {
 	if (!Array.isArray(raw)) return [];
 	const out: Game[] = [];
 	for (const g of raw) {
 		if (!g || typeof g !== 'object' || out.length >= MAX_GAMES) continue;
 		const r = g as Record<string, unknown>;
-		const full = checkNewGame(r);
+		const full = checkNewGame(r, hubOrigin);
 		if (typeof r.id !== 'string' || !r.id || !full.ok) continue;
 		out.push({ id: r.id, ...full.value });
 	}

@@ -5,6 +5,7 @@ import {
 	checkPatch,
 	checkTitle,
 	cleanHttpsUrl,
+	isHubOrigin,
 	GAME_TITLE_MAX,
 	MAX_GAMES,
 	moveGame,
@@ -113,5 +114,27 @@ describe('moveGame', () => {
 		expect(moveGame(list, 'c', 1).map((x) => x.id)).toEqual(['a', 'b', 'c']);
 		expect(moveGame(list, 'zzz', 1).map((x) => x.id)).toEqual(['a', 'b', 'c']);
 		expect(list.map((x) => x.id)).toEqual(['a', 'b', 'c']);
+	});
+});
+
+describe("the hub's own origin is never a game (hub-wzg review)", () => {
+	const HUB = 'https://hub.example.com';
+	it('matches the origin only, port included', () => {
+		expect(isHubOrigin('https://hub.example.com/games/x', HUB)).toBe(true);
+		expect(isHubOrigin('https://hub.example.com:8443/', HUB)).toBe(false);
+		expect(isHubOrigin('https://games.example.com/', HUB)).toBe(false);
+		expect(isHubOrigin('https://hub.example.com/', undefined)).toBe(false);
+		expect(isHubOrigin('not a url', HUB)).toBe(false);
+	});
+
+	it('is refused on create and edit, and dropped when read', () => {
+		expect(checkNewGame({ title: 'x', url: `${HUB}/x` }, HUB)).toMatchObject({ ok: false });
+		expect(checkPatch({ url: `${HUB}/` }, HUB)).toMatchObject({ ok: false });
+		const stored = [
+			{ id: 'a', title: 'Ours', url: `${HUB}/settings`, image: null },
+			{ id: 'b', title: 'Theirs', url: 'https://games.example.com/', image: null }
+		];
+		expect(parseGames(stored, HUB).map((g) => g.id)).toEqual(['b']);
+		expect(parseGames(stored).map((g) => g.id)).toEqual(['a', 'b']);
 	});
 });
