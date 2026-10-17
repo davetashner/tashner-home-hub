@@ -13,6 +13,8 @@ declare global {
 			/** This device's role from its cookie (DEV-1); only a wall display gets kiosk behaviour. */
 			/** Saved background choice (hub-gj6.17). */
 			waveBackground?: string;
+			/** Household coordinates for Auto's sunset palette (hub-gj6.19); null while unset. */
+			waveLocation?: { lat: number; lon: number } | null;
 			displayRole?: 'wall' | 'personal';
 		}
 		interface PageState {
