@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Card from '#lib/components/ui/Card.svelte';
+	import WeatherWidget from '#lib/components/weather/WeatherWidget.svelte';
 	import Clock from '#lib/components/shell/Clock.svelte';
 
 	const tiles = [
@@ -15,6 +16,7 @@
 
 <div class="flex h-full flex-col justify-center gap-16 p-12">
 	<Clock testidPrefix="clock" size="hero" />
+	<WeatherWidget />
 	<div class="grid grid-cols-3 gap-8 portrait:grid-cols-1">
 		{#each tiles as tile (tile.title)}
 			<Card>
