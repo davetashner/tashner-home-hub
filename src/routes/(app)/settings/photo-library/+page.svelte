@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import type { SourceView } from '#lib/server/photo-source/service.js';
@@ -18,14 +19,13 @@
 	let busy = $state<string>();
 
 	async function call(url: string, method = 'GET', body?: unknown) {
-		const res = await fetch(url, {
+		const res = await safeFetch(url, {
 			method,
 			headers: { 'content-type': 'application/json' },
 			body: body === undefined ? undefined : JSON.stringify(body)
 		});
 		if (!res.ok) {
-			const err: { message?: string } = await res.json().catch(() => ({}));
-			error = err.message ?? 'Something went wrong.';
+			error = await errorMessage(res);
 			return null;
 		}
 		error = undefined;
