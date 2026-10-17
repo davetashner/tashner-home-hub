@@ -45,3 +45,7 @@ playwright-report/
 
 # Local kiosk settings (per-device)
 kiosk/kiosk.conf
+
+# Stryker (mutation testing) output and cache
+/.stryker-tmp
+/reports

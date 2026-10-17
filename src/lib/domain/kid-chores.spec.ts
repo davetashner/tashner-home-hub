@@ -4,6 +4,7 @@ import {
 	jarSlots,
 	localDate,
 	setStatus,
+	kidsToShow,
 	kidsWithChores,
 	switcherMembers,
 	undoSecondsLeft,
@@ -65,5 +66,41 @@ describe('kid chores view logic', () => {
 			{ id: 'm3' }
 		]);
 		expect(kidsWithChores(members, { m2: [] })).toEqual([]);
+	});
+
+	describe('kidsToShow', () => {
+		const members = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }, { id: 'e' }];
+		const routine = (start: string | null, end: string | null) => [
+			{
+				id: 'r',
+				name: 'Morning',
+				windowStart: start,
+				windowEnd: end,
+				steps: [{ label: 'Teeth', icon: 'toothbrush' as const }],
+				done: 0
+			}
+		];
+		const boards = { a: groups(), c: groups() };
+		const routinesBy = {
+			b: routine(null, null), // routine only
+			c: routine(null, null), // both
+			e: routine('06:00', '09:00') // outside its window at noon
+		};
+
+		it('keeps chores-only, routine-only and both; drops neither and out-of-window', () => {
+			expect(kidsToShow(members, boards, routinesBy, 12 * 60).map((m) => m.id)).toEqual([
+				'a',
+				'b',
+				'c'
+			]);
+		});
+
+		it('includes the windowed routine kid once its window opens', () => {
+			expect(kidsToShow(members, boards, routinesBy, 7 * 60).map((m) => m.id)).toContain('e');
+		});
+
+		it('switcherMembers falls back to everyone when nobody qualifies', () => {
+			expect(switcherMembers(members, {}, {}, 0)).toEqual(members);
+		});
 	});
 });

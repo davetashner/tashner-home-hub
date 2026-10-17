@@ -6,7 +6,7 @@
 
 import { setStatus, type KidGroup } from './kid-chores.js';
 
-export type WriteKind = 'complete' | 'undo';
+export type WriteKind = 'complete' | 'undo' | 'check';
 export type SendResult = 'ok' | 'retry' | 'drop';
 export type DropReason = 'expired' | 'rejected';
 

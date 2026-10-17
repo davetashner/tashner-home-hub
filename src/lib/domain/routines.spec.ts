@@ -9,6 +9,7 @@ import {
 	isRoutineIcon,
 	minutesInZone,
 	parseMinutes,
+	sameSteps,
 	validateRoutine,
 	type KidRoutine
 } from './routines.js';
@@ -98,5 +99,16 @@ describe('validateRoutine', () => {
 		['bad icon', { name: 'x', steps: [{ label: 'a', icon: 'rocket' }] }]
 	])('rejects %s', (_n, input) => {
 		expect(validateRoutine(input)).toEqual({ error: expect.any(String) });
+	});
+});
+
+describe('sameSteps', () => {
+	it('compares order, labels and pictures', () => {
+		const a = { label: 'a', icon: 'bed' } as const;
+		const b = { label: 'b', icon: 'star' } as const;
+		expect(sameSteps([a, b], [{ ...a }, { ...b }])).toBe(true);
+		expect(sameSteps([a, b], [b, a])).toBe(false);
+		expect(sameSteps([a], [a, b])).toBe(false);
+		expect(sameSteps([a], [{ ...a, icon: 'book' }])).toBe(false);
 	});
 });

@@ -133,3 +133,7 @@ export function validateRoutine(input: {
 		steps
 	};
 }
+
+/** True when two ordered step lists are identical (same labels and pictures in the same order). */
+export const sameSteps = (a: RoutineStep[], b: RoutineStep[]): boolean =>
+	a.length === b.length && a.every((s, i) => s.label === b[i].label && s.icon === b[i].icon);
