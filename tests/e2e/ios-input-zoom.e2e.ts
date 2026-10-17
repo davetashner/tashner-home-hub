@@ -57,8 +57,11 @@ for (const f of [
 		await signInAsAdult(page, `e2e-zoom-form-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
 		await page.goto(f.path);
-		await page.getByRole('button', { name: f.open }).click();
-		await expect(page.locator('form').first()).toBeVisible();
+		// A tap before the page hydrates is lost, so retry the click until the form opens.
+		await expect(async () => {
+			await page.getByRole('button', { name: f.open }).click();
+			await expect(page.locator('form').first()).toBeVisible({ timeout: 1000 });
+		}).toPass();
 		expect(await smallFields(page)).toEqual([]);
 	});
 }

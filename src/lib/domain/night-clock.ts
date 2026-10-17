@@ -7,6 +7,16 @@
  *   shows only a very dim, warm, large clock.
  * - `normal`: the regular app (daytime, schedule off, or a touch-woken screen until re-sleep).
  */
+import { time } from './calendar-view/format.js';
+import type { CalEvent } from './calendar-view/layout.js';
+import {
+	addDays,
+	dateKeyOf,
+	dayStartMs,
+	daysBetween,
+	utcDateKey,
+	weekday
+} from './calendar-view/zone.js';
 import type { DisplayPower } from './display-power.js';
 
 export const NIGHT_CLOCK_KEY = 'display.night-clock';
@@ -47,4 +57,54 @@ export function nightClockOffset(now: number): { x: number; y: number } {
 		x: round(Math.sin((2 * Math.PI * minute) / 37)),
 		y: round(Math.sin((2 * Math.PI * minute) / 53))
 	};
+}
+
+/** The slice of a calendar event the night clock needs. */
+export type NightEvent = Pick<CalEvent, 'title' | 'startsAt' | 'endsAt' | 'allDay'>;
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** The local day word: Today, Tomorrow, or the weekday name further out. */
+function dayWord(now: number, wakeDay: string, zone: string): string {
+	const ahead = daysBetween(dateKeyOf(now, zone), wakeDay);
+	return ahead <= 0 ? 'Today' : ahead === 1 ? 'Tomorrow' : WEEKDAYS[weekday(wakeDay)];
+}
+
+/** The local day span the morning's fetch must cover: [start, end) of the wake-up day. */
+export function morningRange(wakeAt: number, zone: string): { start: number; end: number } {
+	const day = dateKeyOf(wakeAt, zone);
+	return { start: dayStartMs(day, zone), end: dayStartMs(addDays(day, 1), zone) };
+}
+
+/**
+ * The line under the night clock (SLP-4): the first timed event that starts at or after the
+ * upcoming wake-up on the wake-up's local day, e.g. "Tomorrow 7:15 AM · Swim practice". Events that
+ * started before waking (even if still running) do not count. With no timed event, an all-day
+ * event covering that day is named instead ("Tomorrow · School holiday"). Otherwise null.
+ */
+export function nextMorningLine(
+	events: readonly NightEvent[],
+	wakeAt: number,
+	now: number,
+	zone: string
+): string | null {
+	const wakeDay = dateKeyOf(wakeAt, zone);
+	const { end } = morningRange(wakeAt, zone);
+	const word = dayWord(now, wakeDay, zone);
+	const label = (e: NightEvent) => e.title.trim() || 'Event';
+
+	const timed = events
+		.filter((e) => !e.allDay && e.startsAt >= wakeAt && e.startsAt < end)
+		.sort((a, b) => a.startsAt - b.startsAt || a.title.localeCompare(b.title))[0];
+	if (timed) return `${word} ${time(timed.startsAt, zone)} · ${label(timed)}`;
+
+	const allDay = events
+		.filter((e) => {
+			if (!e.allDay) return false;
+			const first = utcDateKey(e.startsAt);
+			const last = e.endsAt > e.startsAt ? addDays(utcDateKey(e.endsAt), -1) : first;
+			return daysBetween(first, wakeDay) >= 0 && daysBetween(wakeDay, last) >= 0;
+		})
+		.sort((a, b) => a.startsAt - b.startsAt || a.title.localeCompare(b.title))[0];
+	return allDay ? `${word} · ${label(allDay)}` : null;
 }

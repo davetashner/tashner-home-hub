@@ -2,12 +2,13 @@
 	import { onMount } from 'svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
-	import { applySoundSettings } from '#lib/components/kid/sound.js';
+	import { applySoundSettings, previewSound } from '#lib/components/kid/sound.js';
 	import {
 		DEFAULT_SOUND,
 		parseSoundSettings,
 		type SoundSettings
 	} from '#lib/domain/celebrate-logic.js';
+	import { SOUND_THEMES, THEME_LABELS } from '#lib/domain/sound-themes.js';
 	import { quietSummary, stepTime, timeLabel } from '#lib/domain/sound-settings.js';
 
 	let sound = $state<SoundSettings>({ ...DEFAULT_SOUND });
@@ -49,6 +50,12 @@
 			.catch(fail);
 	}
 
+	// The slider shows every drag step at once; the save waits for the finger to lift.
+	function dragVolume(v: number) {
+		sound = { ...sound, volume: v };
+		applySoundSettings(sound);
+	}
+
 	const choices = [
 		{ muted: false, label: 'On' },
 		{ muted: true, label: 'Muted' }
@@ -64,7 +71,7 @@
 	<title>Sound · Settings · Home Hub</title>
 </svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3 short:gap-4 short:p-3">
 	<h1 class="text-headline font-extrabold">Sound</h1>
 	<Card>
 		<div class="flex flex-wrap items-center justify-between gap-6">
@@ -114,6 +121,38 @@
 				</div>
 			{/each}
 			<p class="text-body text-ink-muted">Set both to the same time to turn quiet hours off.</p>
+		</div>
+	</Card>
+	<Card>
+		<div class="flex flex-col gap-6">
+			<h2 class="text-title font-bold">Sound theme</h2>
+			<div class="flex flex-wrap gap-4" role="group" aria-label="Sound theme">
+				{#each SOUND_THEMES as t (t)}
+					<Button
+						variant={sound.theme === t ? 'primary' : 'secondary'}
+						aria-pressed={sound.theme === t}
+						onclick={() => sound.theme !== t && change({ theme: t })}>{THEME_LABELS[t]}</Button
+					>
+				{/each}
+			</div>
+			<div class="flex flex-wrap items-center gap-6">
+				<label class="text-title font-bold" for="sound-volume">Volume</label>
+				<input
+					id="sound-volume"
+					type="range"
+					min="0"
+					max="100"
+					step="5"
+					value={sound.volume}
+					class="h-tap min-w-tap-kid flex-1 accent-accent"
+					oninput={(e) => dragVolume(e.currentTarget.valueAsNumber)}
+					onchange={(e) => change({ volume: e.currentTarget.valueAsNumber })}
+				/>
+				<output class="min-w-tap text-center text-title font-bold" data-testid="volume"
+					>{sound.volume}%</output
+				>
+				<Button variant="secondary" onclick={() => previewSound(sound)}>Preview</Button>
+			</div>
 		</div>
 	</Card>
 	{#if message}<p role="alert" class="text-body text-danger">{message}</p>{/if}
