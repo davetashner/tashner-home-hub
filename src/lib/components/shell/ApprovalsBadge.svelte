@@ -37,10 +37,10 @@
 		data-count={total}
 		aria-label={spoken}
 		data-sveltekit-preload-data="tap"
-		class="press-link inline-flex min-h-tap-kid items-center rounded-chip bg-star px-4 text-caption font-extrabold whitespace-nowrap text-on-star shadow-raised max-sm:!min-h-tap sm:px-8 sm:text-body"
+		class="press-link inline-flex min-h-tap-kid items-center rounded-chip bg-star px-4 text-caption font-extrabold whitespace-nowrap text-on-star shadow-raised max-sm:!min-h-tap sm:px-8 sm:text-body short:!min-h-tap short:px-4 short:text-caption"
 	>
-		<span class="max-sm:hidden">{label}</span>
-		<span class="sm:hidden">{total} ⭐</span>
+		<span class="max-sm:hidden short:hidden">{label}</span>
+		<span class="sm:hidden short:inline">{total} ⭐</span>
 	</a>
 {/if}
 
