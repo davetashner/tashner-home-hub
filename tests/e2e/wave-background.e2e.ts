@@ -66,7 +66,8 @@ test('Auto draws a valid palette, and a picked palette applies and resets', asyn
 	}).toPass();
 });
 
-test('this device can hide the waves and remembers it', async ({ page }) => {
+test('this device can hide the waves and remembers it', async ({ page }, info) => {
+	await signInAsAdult(page, `e2e-wave-device-${info.project.name}`);
 	await page.goto('/settings/background');
 	const bg = page.getByTestId('wave-background');
 	await expect(bg).toHaveAttribute('data-device', 'show');
