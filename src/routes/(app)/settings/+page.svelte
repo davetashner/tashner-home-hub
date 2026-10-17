@@ -72,6 +72,12 @@
 			line: 'Days to the trip, the party, the big day.'
 		},
 		{
+			href: resolve('/(app)/settings/games'),
+			emoji: '🎮',
+			title: 'Games',
+			line: 'Web games for the Games tab.'
+		},
+		{
 			href: resolve('/(app)/settings/photo-library'),
 			emoji: '🖼️',
 			title: 'Photo library',
