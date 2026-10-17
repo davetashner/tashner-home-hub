@@ -9,8 +9,7 @@ type Edge = 'top' | 'right' | 'bottom' | 'left';
 type Insets = Record<Edge, number>;
 
 /** iPhone 15-style insets: Dynamic Island + home indicator, which swap sides when rotated. */
-// The landscape shell doesn't fit an iPhone even without insets (hub-0hv.8): until that layout
-// lands, its right and bottom edges are checked through the padding instead of the boxes.
+// Landscape swaps the side rail for a one-row top bar (hub-0hv.8), so all four edges are checked.
 const phones: {
 	name: string;
 	width: number;
@@ -30,7 +29,7 @@ const phones: {
 		width: 852,
 		height: 393,
 		insets: { top: 0, right: 59, bottom: 21, left: 59 },
-		edges: ['top', 'left']
+		edges: ['top', 'right', 'bottom', 'left']
 	}
 ];
 
@@ -89,13 +88,17 @@ for (const phone of phones) {
 		test('the header and nav pad past the insets', async ({ page }) => {
 			await page.goto('/chores');
 			await page.waitForLoadState('networkidle');
-			const pad = (selector: string, side: 'Right' | 'Bottom') =>
+			const pad = (selector: string, side: 'Right' | 'Bottom' | 'Left') =>
 				page
 					.locator(selector)
 					.first()
 					.evaluate((el, s) => parseFloat(getComputedStyle(el)[`padding${s}`]), side);
 			expect(await pad('header', 'Right')).toBeGreaterThan(phone.insets.right);
-			expect(await pad('nav[aria-label="Main"]', 'Bottom')).toBeGreaterThan(phone.insets.bottom);
+			// Landscape: the nav is a top bar, so the notch side matters and the home indicator is the page's.
+			const landscape = phone.width > phone.height;
+			expect(await pad('nav[aria-label="Main"]', landscape ? 'Left' : 'Bottom')).toBeGreaterThan(
+				landscape ? phone.insets.left : phone.insets.bottom
+			);
 		});
 
 		test('settings clear the insets for an adult', async ({ page }, info) => {
