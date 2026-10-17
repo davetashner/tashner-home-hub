@@ -30,7 +30,9 @@ browser_pid() {
 
 /** One SSH round trip that gathers everything the doctor needs from the Pi, in marked sections. */
 export function remoteFactsScript(hubOrigin) {
-	const health = hubOrigin
+	// It goes into a shell string: only a plain origin is allowed through.
+	const safe = typeof hubOrigin === 'string' && /^https?:\/\/[\w.:-]+$/.test(hubOrigin);
+	const health = safe
 		? `curl -s -o /dev/null -w '%{http_code} %{time_total}' --max-time 5 '${hubOrigin}/healthz'`
 		: 'echo none';
 	return `${REMOTE_PRELUDE}

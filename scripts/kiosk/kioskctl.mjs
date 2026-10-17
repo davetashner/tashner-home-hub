@@ -3,7 +3,7 @@
 // Everything goes over SSH, plus a port-forward to Chromium's DevTools (127.0.0.1 on the Pi).
 // Every command prints JSON, has a timeout (a hung page never hangs the tool), and exits 0 on
 // success, 1 when a check or the page failed, 2 on usage or connection errors.
-// Usage: KIOSK_HOST=user@pi.local node scripts/kiosk/kioskctl.mjs <command> (see `help`).
+// Usage: KIOSK_HOST=user@kiosk.example.com node scripts/kiosk/kioskctl.mjs <command> (see `help`).
 import { spawn } from 'node:child_process';
 import { writeFileSync, writeSync } from 'node:fs';
 import { createServer } from 'node:net';
@@ -61,7 +61,9 @@ const sshBase = [
 /** Runs a bash script on the Pi; resolves with stdout as a Buffer (binary-safe). */
 function ssh(script, timeoutMs = 20_000) {
 	return new Promise((resolve, reject) => {
-		const child = spawn('ssh', [...sshBase, host, 'bash -s'], { stdio: ['pipe', 'pipe', 'pipe'] });
+		const child = spawn('ssh', [...sshBase, '--', host, 'bash -s'], {
+			stdio: ['pipe', 'pipe', 'pipe']
+		});
 		const chunks = [];
 		let stderr = '';
 		const timer = setTimeout(() => {
@@ -99,6 +101,7 @@ async function tunnel() {
 			'ExitOnForwardFailure=yes',
 			'-L',
 			`${port}:127.0.0.1:${debugPort}`,
+			'--',
 			host
 		],
 		{ stdio: 'ignore' }
