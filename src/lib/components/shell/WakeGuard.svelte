@@ -32,8 +32,10 @@
 		e.stopPropagation();
 	}
 
-	function resume() {
+	function resume(e?: Event) {
+		// A plain page load also fires pageshow; only a restore from the bfcache is a resume.
 		if (document.visibilityState === 'hidden') return;
+		if (e instanceof PageTransitionEvent && !e.persisted) return;
 		guard.resume(Date.now());
 		void poll();
 	}
