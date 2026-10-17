@@ -13,7 +13,7 @@
 	let now = $state(Date.now());
 	let polls = 0;
 
-	// The wave background stops drawing while the screen is dimmed or off.
+	// Wave background pauses while dimmed or off. TODO: read the shared power store (#118) instead.
 	$effect(() => {
 		wave.paused = mode !== 'normal';
 		return () => (wave.paused = false);
