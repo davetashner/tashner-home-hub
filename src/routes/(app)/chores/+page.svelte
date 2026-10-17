@@ -12,6 +12,15 @@
 	import EarnedBanner from '#lib/components/kid/EarnedBanner.svelte';
 	import StreakBadge from '#lib/components/kid/StreakBadge.svelte';
 	import StreakBanner from '#lib/components/kid/StreakBanner.svelte';
+	import RoutineIcon from '#lib/components/kid/RoutineIcon.svelte';
+	import RoutinePlayer from '#lib/components/kid/RoutinePlayer.svelte';
+	import {
+		activeRoutines,
+		advance,
+		isRoutineComplete,
+		minutesInZone,
+		type KidRoutine
+	} from '#lib/domain/routines.js';
 	import { reachedMilestone, type Milestone } from '#lib/domain/streaks.js';
 	import {
 		celebrate,
@@ -65,6 +74,9 @@
 	let streakParty = $state<Milestone | null>(null);
 	let streakTimer: ReturnType<typeof setTimeout> | undefined;
 	let earnedTimer: ReturnType<typeof setTimeout> | undefined;
+	let routinesBy = $state<Record<string, KidRoutine[]>>({});
+	let playing = $state<string | null>(null);
+	let nowMinutes = $state(minutesInZone(Date.now(), runtimeZone()));
 	// Fallback when localStorage is unavailable, so the party still happens only once per load.
 	const earnedMemo: Record<string, string | null> = {};
 
@@ -78,6 +90,9 @@
 	const kids = $derived(kidsWithChores(members, boards));
 	const stars = $derived((selectedId && starsBy[selectedId]) || { balance: 0, pending: 0 });
 	const streak = $derived(selectedId ? (streaks[selectedId] ?? null) : null);
+	const routines = $derived(selectedId ? (routinesBy[selectedId] ?? []) : []);
+	const offered = $derived(activeRoutines(routines, nowMinutes));
+	const player = $derived(routines.find((r) => r.id === playing) ?? null);
 	const goal = $derived(selectedId ? (goals[selectedId] ?? null) : null);
 
 	/** A chore can belong to several kids: undo and in-flight taps are tracked per child. */
@@ -171,6 +186,34 @@
 		);
 	}
 
+	/** Today's routines for everyone; keeps local progress if a tap has not reached the server yet. */
+	async function loadRoutines(date: string) {
+		const all = await api<(KidRoutine & { memberId: string })[]>(`/api/routines?date=${date}`);
+		const kept = Object.values(routinesBy).flat();
+		const by: Record<string, KidRoutine[]> = {};
+		for (const { memberId, ...r } of all) {
+			const local = kept.find((k) => k.id === r.id);
+			(by[memberId] ??= []).push({ ...r, done: Math.max(r.done, local?.done ?? 0) });
+		}
+		routinesBy = by;
+		nowMinutes = minutesInZone(Date.now(), tz);
+	}
+
+	function routineDone(routine: KidRoutine, index: number) {
+		const memberId = selectedId;
+		if (!memberId) return;
+		const done = advance(routine.done, index, routine.steps.length);
+		routinesBy[memberId] = (routinesBy[memberId] ?? []).map((r) =>
+			r.id === routine.id ? { ...r, done } : r
+		);
+		if (isRoutineComplete(done, routine.steps.length)) celebrateAllDone();
+		void fetch(`/api/routines/${routine.id}/progress`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ date: localDate(Date.now(), tz), step: index })
+		}).catch(() => {});
+	}
+
 	async function refresh() {
 		if (busy()) return;
 		try {
@@ -196,6 +239,7 @@
 					)
 				: { count: 0, stars: 0 };
 			members = list;
+			void loadRoutines(date).catch(() => {});
 			boards = Object.fromEntries(
 				entries.map(([id, g]) => [id, overlayQueued(g, id, queued)] as const)
 			);
@@ -429,6 +473,21 @@
 			</header>
 
 			<div class="flex grow flex-col gap-10 portrait:order-3">
+				{#if offered.length > 0}
+					<div class="flex flex-wrap gap-6" data-testid="routine-buttons">
+						{#each offered as r (r.id)}
+							<button
+								type="button"
+								onclick={() => (playing = r.id)}
+								data-testid="routine-button"
+								class="flex min-h-tap-kid items-center gap-6 rounded-card bg-accent px-10 py-4 text-title font-extrabold text-on-accent shadow-raised transition-transform duration-75 active:scale-95"
+							>
+								<span class="size-16"><RoutineIcon name={r.steps[0]?.icon ?? 'star'} /></span>
+								{r.name}
+							</button>
+						{/each}
+					</div>
+				{/if}
 				{#if groups.length === 0}
 					<div
 						class="flex grow flex-col items-center justify-center gap-6 py-16 text-center"
@@ -467,6 +526,15 @@
 			<StarJar balance={stars.balance} pending={stars.pending} {goal} bind:jar />
 		</aside>
 	</div>
+{/if}
+
+{#if player}
+	{@const current = player}
+	<RoutinePlayer
+		routine={current}
+		ondone={(i) => routineDone(current, i)}
+		onclose={() => (playing = null)}
+	/>
 {/if}
 
 {#if allDone}
