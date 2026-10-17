@@ -57,6 +57,10 @@ test('?display=wall makes the device a wall, drops the query, and survives a rel
 });
 
 test('Settings > Screen switches this device between personal and wall', async ({ page }) => {
+	// Once this is a wall display the wake guard follows the power state, so pin it on.
+	await page.route('**/api/display/power', (route) =>
+		route.fulfill({ json: { power: 'on', reason: 'schedule', mode: 'normal' } })
+	);
 	await signInAsAdult(page, 'e2e-display-role-adult');
 	await page.goto('/settings/screen');
 	await page.waitForLoadState('networkidle');
