@@ -102,6 +102,12 @@
 			line: 'Export or restore all hub data.'
 		},
 		{
+			href: resolve('/(app)/settings/background'),
+			emoji: '🌊',
+			title: 'Background',
+			line: 'The moving waves behind the screens.'
+		},
+		{
 			href: resolve('/(app)/settings/weather'),
 			emoji: '🌤️',
 			title: 'Weather',
