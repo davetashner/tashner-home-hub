@@ -3,11 +3,20 @@
 	import { page } from '$app/state';
 	import { formatClock } from '#lib/domain/clock.js';
 	import { setPowerMode, powerState, usePowerState } from '#lib/display/power-state.svelte.js';
-	import { nightClockOffset } from '#lib/domain/night-clock.js';
+	import {
+		morningRange,
+		nextMorningLine,
+		nightClockOffset,
+		type NightEvent
+	} from '#lib/domain/night-clock.js';
 	import { isTimeZone } from '#lib/domain/time-zone.js';
 
 	/** Wall displays only (the shell mounts this for that role): a dim clock on a scheduled night (SLP-4). */
+	/** The first-event line refreshes this often (calendars sync on a slower cadence than this). */
+	const EVENTS_MS = 5 * 60_000;
+
 	let now = $state(Date.now());
+	let events = $state<NightEvent[]>([]);
 
 	function wake() {
 		// Optimistic (touch to wake, SLP-3): the app shows now, the server starts the re-sleep timeout.
@@ -19,6 +28,29 @@
 		}).catch(() => {});
 	}
 
+	// While the night clock shows, keep the morning's events fresh (one small request per 5 minutes).
+	$effect(() => {
+		const wake = wakeAt;
+		const tz = zone;
+		if (mode !== 'night-clock' || wake === null || !tz) return;
+		const { start, end } = morningRange(wake, tz);
+		let current = true;
+		async function load() {
+			try {
+				const res = await fetch(`/api/calendar/events?start=${start}&end=${end}`);
+				if (res.ok && current) events = await res.json();
+			} catch {
+				// Keep the last events; the next refresh corrects it.
+			}
+		}
+		void load();
+		const timer = setInterval(() => void load(), EVENTS_MS);
+		return () => {
+			current = false;
+			clearInterval(timer);
+		};
+	});
+
 	onMount(() => {
 		const release = usePowerState();
 		const tick = setInterval(() => (now = Date.now()), 1000);
@@ -29,8 +61,17 @@
 	});
 
 	const mode = $derived(powerState.mode);
+	const wakeAt = $derived.by(() => {
+		const until = Date.parse(powerState.until ?? '');
+		return Number.isFinite(until) ? until : null;
+	});
 	const zone = $derived(isTimeZone(page.data.timeZone) ? page.data.timeZone : undefined);
 	const clock = $derived(formatClock(new Date(now), zone ? { timeZone: zone } : {}));
+	const morning = $derived(
+		mode === 'night-clock' && wakeAt !== null && zone
+			? nextMorningLine(events, wakeAt, now, zone)
+			: null
+	);
 	const nudge = $derived(nightClockOffset(now));
 </script>
 
@@ -50,6 +91,11 @@
 				{clock.time}
 			</p>
 			<p class="text-title text-night-clock-dim" data-testid="night-clock-date">{clock.date}</p>
+			{#if morning}
+				<p class="morning truncate text-body text-night-clock-dim" data-testid="night-clock-event">
+					{morning}
+				</p>
+			{/if}
 		</div>
 	</button>
 {/if}
@@ -62,6 +108,9 @@
 			calc(var(--ny) * var(--spacing-night-nudge))
 		);
 		transition: transform 60s linear;
+	}
+	.morning {
+		max-width: 80vw;
 	}
 	.clock-time {
 		font-size: var(--text-night-clock);

@@ -46,6 +46,36 @@ async function wallRefresh(wall: Page) {
 	await wall.clock.fastForward(MIN);
 }
 
+/**
+ * The kid taps "I did it" on the wall. A tap before the page hydrates is lost, so retry until the
+ * card turns pending, then wait until the server has stored it: the tap is optimistic, and a
+ * phone that opens the approvals page straight away would otherwise load it before it lands.
+ */
+async function tapDidIt(wall: Page, s: KidSeed, title: string) {
+	const chore = choreCard(wall, title);
+	await expect(async () => {
+		if ((await chore.getAttribute('data-status')) !== 'pending')
+			await chore.getByTestId('did-it').click();
+		await expect(chore).toHaveAttribute('data-status', 'pending', { timeout: 1000 });
+	}).toPass();
+	await expect
+		.poll(() => {
+			const db = new Database('data/hub.db', { readonly: true });
+			try {
+				db.pragma('busy_timeout = 5000');
+				const row = db
+					.prepare(
+						"SELECT COUNT(*) AS n FROM chore_completions WHERE member_id = ? AND status = 'pending'"
+					)
+					.get(s.memberId) as { n: number };
+				return row.n;
+			} finally {
+				db.close();
+			}
+		})
+		.toBe(1);
+}
+
 /** Seeds a kid with 2 approved stars and opens the wall's kid screen with a controllable clock. */
 async function openWall(wall: Page, s: KidSeed, asWall = false) {
 	await wall.context().clearCookies(); // the wall needs no adult session
@@ -71,8 +101,7 @@ test('chore to gold star: kid taps, parent approves on a phone, the wall shows t
 
 	// The kid taps "I did it": optimistic pending star on the wall.
 	const teeth = choreCard(wall, 'Brush teeth');
-	await teeth.getByTestId('did-it').click();
-	await expect(teeth).toHaveAttribute('data-status', 'pending');
+	await tapDidIt(wall, s, 'Brush teeth');
 	await expect(wall.getByTestId('jar-counts')).toContainText('2 gold stars, 1 waiting');
 
 	// A parent on their own phone, with their own adult session.
@@ -112,7 +141,7 @@ test('reward redemption: earn the last star, then a parent redeems with the PIN'
 
 	// The kid earns the third star on the wall.
 	await expect(wall.getByTestId('goal-caption')).toHaveText('2 of 3 stars');
-	await choreCard(wall, 'Brush teeth').getByTestId('did-it').click();
+	await tapDidIt(wall, s, 'Brush teeth');
 	await expect(wall.getByTestId('jar-counts')).toContainText('2 gold stars, 1 waiting');
 
 	const phone = await openPhone(browser);
@@ -145,8 +174,12 @@ test('reward redemption: earn the last star, then a parent redeems with the PIN'
 		await expect(card(phone, s).getByTestId(`balance-${s.memberId}`)).toHaveText('0 ⭐');
 
 		// It is logged against the PIN's owner.
-		await phone.getByTestId('redemption-log-link').click();
-		await expect(phone).toHaveURL(/\/settings\/redemptions/);
+		// The page re-renders as the redeem settles, which can swallow a tap on the link: retry it.
+		await expect(async () => {
+			if (!/\/settings\/redemptions/.test(phone.url()))
+				await phone.getByTestId('redemption-log-link').click();
+			await expect(phone).toHaveURL(/\/settings\/redemptions/, { timeout: 1000 });
+		}).toPass();
 		const logged = phone.getByTestId('redemption-row').filter({ hasText: reward });
 		await expect(logged).toContainText('−3 ⭐');
 		await expect(logged).toContainText(`by ${parent}`);

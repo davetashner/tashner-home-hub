@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	attentionLabel,
 	badgeLabel,
+	compactCount,
 	groupByChild,
 	relativeTime,
 	type PendingItem
@@ -48,6 +49,16 @@ describe('badgeLabel', () => {
 	it('is empty at zero', () => {
 		expect(badgeLabel(0)).toBe('');
 		expect(badgeLabel(2)).toBe('2 ⭐ to check');
+	});
+});
+
+describe('compactCount', () => {
+	it('is empty at zero and caps the count at 99+', () => {
+		expect(compactCount(0)).toBe('');
+		expect(compactCount(7)).toBe('7');
+		expect(compactCount(99)).toBe('99');
+		expect(compactCount(100)).toBe('99+');
+		expect(compactCount(218)).toBe('99+');
 	});
 });
 

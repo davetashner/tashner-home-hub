@@ -12,6 +12,8 @@
 	import EarnedBanner from '#lib/components/kid/EarnedBanner.svelte';
 	import StreakBadge from '#lib/components/kid/StreakBadge.svelte';
 	import StreakBanner from '#lib/components/kid/StreakBanner.svelte';
+	import BonusBanner from '#lib/components/kid/BonusBanner.svelte';
+	import { newBonuses, newestAt, type LedgerRow } from '#lib/domain/bonus.js';
 	import { reachedMilestone, type Milestone } from '#lib/domain/streaks.js';
 	import {
 		celebrate,
@@ -34,6 +36,7 @@
 		type KidChore,
 		type KidGroup
 	} from '#lib/domain/kid-chores.js';
+	import { childrenOf, planLoad, type MemberResult } from '#lib/domain/chore-load.js';
 	import { overlayQueued } from '#lib/domain/write-queue.js';
 	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 
@@ -42,12 +45,17 @@
 		name: string;
 		color: MemberColor;
 		avatar: string | null;
+		role?: string;
 	}
 	type Completion = { id: string | null; status: KidChore['status'] };
 
 	const tz = $derived(resolveTimeZone(page.data.timeZone, runtimeZone()));
 
 	let loaded = $state(false);
+	// Children exist but we could not show any (server down, nothing saved yet).
+	let unreachable = $state(false);
+	// Some kids' chores could not be refreshed: we show what we have and keep trying.
+	let partial = $state(false);
 	let members = $state<Member[]>([]);
 	let boards = $state<Record<string, KidGroup[]>>({});
 	let selectedId = $state<string | null>(null);
@@ -65,6 +73,10 @@
 	let streakParty = $state<Milestone | null>(null);
 	let streakTimer: ReturnType<typeof setTimeout> | undefined;
 	let earnedTimer: ReturnType<typeof setTimeout> | undefined;
+	// Newest ledger row each child has already seen, so a grown-up's bonus is celebrated once.
+	const seenAt: Record<string, number> = {};
+	let bonusParty = $state<{ stars: number; note: string | null } | null>(null);
+	let bonusTimer: ReturnType<typeof setTimeout> | undefined;
 	// Fallback when localStorage is unavailable, so the party still happens only once per load.
 	const earnedMemo: Record<string, string | null> = {};
 
@@ -104,7 +116,9 @@
 		// Saved copies would undo the tap we are still holding for the server.
 		if (offline.queued > 0) return;
 		const [s, g] = await Promise.all([
-			api<{ balance: number; pending: number }>(`/api/members/${id}/stars?limit=1`),
+			api<{ balance: number; pending: number; history: LedgerRow[] }>(
+				`/api/members/${id}/stars?limit=10`
+			),
 			api<{ reward: Goal } | null>(`/api/members/${id}/goal`)
 		]);
 		starsBy[id] = { balance: s.balance, pending: s.pending };
@@ -115,7 +129,28 @@
 			image: g.reward.image,
 			cost: g.reward.cost
 		};
-		if (id === selectedId) checkEarned(id);
+		const goalParty = id === selectedId && checkEarned(id);
+		noticeBonus(id, s.history, goalParty);
+	}
+
+	/** A grown-up's bonus plays the star celebration; a deduction only changes the number. */
+	function noticeBonus(id: string, history: LedgerRow[], goalParty: boolean) {
+		const fresh = newBonuses(history, seenAt[id] ?? null);
+		seenAt[id] = Math.max(seenAt[id] ?? 0, newestAt(history));
+		// Reaching the goal already throws the bigger party.
+		if (fresh.length === 0 || id !== selectedId || goalParty) return;
+		const stars = fresh.reduce((sum, r) => sum + r.delta, 0);
+		const note = fresh.length === 1 ? fresh[0].note : null;
+		clearTimeout(bonusTimer);
+		bonusTimer = setTimeout(
+			async () => {
+				bonusParty = { stars, note };
+				await tick();
+				celebrateApproval(jar, stars);
+				bonusTimer = setTimeout(() => (bonusParty = null), 4500);
+			},
+			Math.max(0, allDoneUntil - Date.now()) + 300
+		);
 	}
 
 	/** Streak counter; a milestone party plays when the count grows onto one (CHO-10). */
@@ -138,7 +173,7 @@
 	}
 
 	/** "You earned it!" once per reaching the goal (REW-3), after any all-done party. */
-	function checkEarned(memberId: string) {
+	function checkEarned(memberId: string): boolean {
 		const key = earnedKey(memberId);
 		let stored = earnedMemo[key] ?? null;
 		try {
@@ -159,7 +194,7 @@
 		} catch {
 			// memo only
 		}
-		if (!decision.celebrate || !reward) return;
+		if (!decision.celebrate || !reward) return false;
 		clearTimeout(earnedTimer);
 		earnedTimer = setTimeout(
 			() => {
@@ -169,6 +204,7 @@
 			},
 			Math.max(0, allDoneUntil - Date.now()) + 300
 		);
+		return true;
 	}
 
 	async function refresh() {
@@ -176,30 +212,33 @@
 		try {
 			const list = await api<Member[]>('/api/members');
 			const date = localDate(Date.now(), tz);
-			const entries = await Promise.all(
-				list.map(
-					async (m) =>
-						[
-							m.id,
-							await api<KidGroup[]>(
-								`/api/members/${m.id}/chores?date=${date}&tz=${encodeURIComponent(tz)}`
-							)
-						] as const
-				)
+			const results = await Promise.all(
+				childrenOf(list).map(async (m): Promise<MemberResult<KidGroup>> => {
+					try {
+						const groups = await api<KidGroup[]>(
+							`/api/members/${m.id}/chores?date=${date}&tz=${encodeURIComponent(tz)}`
+						);
+						return { id: m.id, groups };
+					} catch {
+						return { id: m.id, failed: true };
+					}
+				})
 			);
 			if (busy()) return;
 			const queued = await writeQueue.pending();
-			const approved = selectedId
-				? approvedTransitions(
-						boards[selectedId],
-						entries.find(([id]) => id === selectedId)?.[1] ?? []
-					)
-				: { count: 0, stars: 0 };
-			members = list;
+			const plan = planLoad(list, results, boards);
+			const fresh = results.find((r) => r.id === selectedId);
+			const approved =
+				selectedId && fresh && 'groups' in fresh
+					? approvedTransitions(boards[selectedId], fresh.groups)
+					: { count: 0, stars: 0 };
+			unreachable = plan.unreachable;
+			partial = plan.failed.length > 0;
+			members = plan.members;
 			boards = Object.fromEntries(
-				entries.map(([id, g]) => [id, overlayQueued(g, id, queued)] as const)
+				plan.members.map((m) => [m.id, overlayQueued(plan.boards[m.id], m.id, queued)] as const)
 			);
-			const options = switcherMembers(list, boards);
+			const options = switcherMembers(plan.members, boards);
 			if (!options.some((m) => m.id === selectedId)) {
 				// ?member=<id> picks a child; the avatar switcher keeps it in sync.
 				const want = page.url.searchParams.get('member');
@@ -245,6 +284,7 @@
 			clearTimeout(allDoneTimer);
 			clearTimeout(earnedTimer);
 			clearTimeout(streakTimer);
+			clearTimeout(bonusTimer);
 		};
 	});
 
@@ -256,6 +296,8 @@
 		clearTimeout(allDoneTimer);
 		clearTimeout(earnedTimer);
 		clearTimeout(streakTimer);
+		clearTimeout(bonusTimer);
+		bonusParty = null;
 		streakParty = null;
 		allDone = false;
 		earned = null;
@@ -380,6 +422,12 @@
 
 {#if !loaded}
 	<div class="h-full" aria-busy="true"></div>
+{:else if unreachable}
+	<EmptyState
+		icon="chores"
+		title="Chores"
+		line="Hmm, we cannot reach the hub right now. Your chores will show up as soon as we can."
+	/>
 {:else if members.length === 0}
 	<EmptyState
 		icon="chores"
@@ -389,24 +437,46 @@
 {:else if selected}
 	<h1 class="sr-only">Chores</h1>
 	<div
-		class="flex min-h-full flex-col gap-10 p-12 portrait:p-10 landscape:flex-row landscape:items-start"
+		class="flex min-h-full flex-col gap-10 p-12 portrait:p-10 landscape:flex-row landscape:items-start short:grid short:grid-cols-kid-short short:items-start short:gap-3 short:p-3 tablet:gap-4 tablet:p-6 portrait:tablet:p-6"
 	>
-		<div class="flex min-w-0 grow flex-col gap-10 portrait:contents">
-			<header class="flex flex-wrap items-center gap-8 portrait:order-1">
-				<div class="flex items-center gap-6">
-					<MemberAvatar
-						name={selected.name}
-						color={selected.color}
-						avatar={selected.avatar}
-						size="lg"
-					/>
-					<p class="text-headline leading-none font-extrabold">Hi, {selected.name}!</p>
+		<div class="flex min-w-0 grow flex-col gap-10 portrait:contents short:contents tablet:gap-4">
+			<header
+				class="flex flex-wrap items-center gap-8 portrait:order-1 short:contents tablet:flex-nowrap tablet:justify-between tablet:gap-4"
+			>
+				<div class="flex min-w-0 items-center gap-6 short:contents tablet:flex-1 tablet:gap-4">
+					<!-- The switcher below already shows the selected avatar. -->
+					<span
+						class={kids.length > 1
+							? 'contents short:hidden tablet:hidden'
+							: 'contents short:hidden'}
+					>
+						<MemberAvatar
+							name={selected.name}
+							color={selected.color}
+							avatar={selected.avatar}
+							size="lg"
+						/>
+					</span>
+					<p
+						class="min-w-0 text-headline leading-tight font-extrabold break-words short:col-start-3 short:text-body"
+					>
+						Hi, {selected.name}!
+					</p>
+					{#if partial}
+						<p data-testid="partial-note" role="status" class="text-body text-ink-muted">
+							Some chores could not refresh. Trying again soon.
+						</p>
+					{/if}
 				</div>
 				{#if streak && streak.days > 0}
 					<StreakBadge days={streak.days} nextDays={streak.next?.days ?? null} />
 				{/if}
 				{#if kids.length > 1}
-					<nav aria-label="Whose chores?" data-testid="child-switcher" class="flex flex-wrap gap-6">
+					<nav
+						aria-label="Whose chores?"
+						data-testid="child-switcher"
+						class="flex flex-wrap gap-6 short:col-start-1 short:row-span-3 short:row-start-1 short:flex-col short:flex-nowrap short:gap-3 short:p-1 tablet:max-w-3/5 tablet:flex-nowrap tablet:gap-3 tablet:overflow-x-auto tablet:p-1"
+					>
 						{#each kids as kid (kid.id)}
 							<button
 								type="button"
@@ -419,8 +489,9 @@
 									: ''}"
 							>
 								<MemberAvatar name={kid.name} color={kid.color} avatar={kid.avatar} size="kid" />
-								<span class="max-w-40 truncate text-body font-bold" aria-hidden="true"
-									>{kid.name}</span
+								<span
+									class="max-w-40 truncate text-body font-bold short:hidden tablet:hidden"
+									aria-hidden="true">{kid.name}</span
 								>
 							</button>
 						{/each}
@@ -428,7 +499,9 @@
 				{/if}
 			</header>
 
-			<div class="flex grow flex-col gap-10 portrait:order-3">
+			<div
+				class="flex grow flex-col gap-10 portrait:order-3 short:col-start-2 short:row-span-3 short:row-start-1 short:gap-3 tablet:gap-5"
+			>
 				{#if groups.length === 0}
 					<div
 						class="flex grow flex-col items-center justify-center gap-6 py-16 text-center"
@@ -440,12 +513,18 @@
 					</div>
 				{:else}
 					{#each groups as group (group.timeOfDay)}
-						<section aria-labelledby="g-{group.timeOfDay}" class="flex flex-col gap-6">
-							<h2 id="g-{group.timeOfDay}" class="text-title leading-none font-extrabold">
+						<section
+							aria-labelledby="g-{group.timeOfDay}"
+							class="flex flex-col gap-6 short:gap-2 tablet:gap-3"
+						>
+							<h2
+								id="g-{group.timeOfDay}"
+								class="text-title leading-none font-extrabold short:text-caption tablet:text-lead"
+							>
 								<span aria-hidden="true">{GROUP_HEADINGS[group.timeOfDay].emoji}</span>
 								{GROUP_HEADINGS[group.timeOfDay].label}
 							</h2>
-							<div class="flex flex-col gap-6">
+							<div class="flex flex-col gap-6 short:gap-3 tablet:gap-3">
 								{#each group.chores as chore (chore.id)}
 									{@const key = tapKey(selected.id, chore.id)}
 									<ChoreCard
@@ -463,7 +542,9 @@
 			</div>
 		</div>
 
-		<aside class="shrink-0 portrait:order-first landscape:sticky landscape:top-0 landscape:w-1/3">
+		<aside
+			class="shrink-0 portrait:order-first landscape:sticky landscape:top-0 landscape:w-1/3 short:col-start-3 short:w-auto portrait:tablet:order-2 landscape:tablet:w-1/4"
+		>
 			<StarJar balance={stars.balance} pending={stars.pending} {goal} bind:jar />
 		</aside>
 	</div>
@@ -481,11 +562,15 @@
 	<StreakBanner days={streakParty.days} stars={streakParty.stars} />
 {/if}
 
+{#if bonusParty}
+	<BonusBanner stars={bonusParty.stars} note={bonusParty.note} />
+{/if}
+
 {#if message}
 	<p
 		role="status"
 		data-testid="gentle-message"
-		class="fixed bottom-12 left-1/2 z-10 max-w-3xl -translate-x-1/2 rounded-card bg-ink px-10 py-6 text-center text-lead font-bold text-surface shadow-float"
+		class="fixed bottom-12 left-1/2 z-10 max-w-3xl -translate-x-1/2 rounded-card bg-ink px-10 py-6 text-center text-lead font-bold text-surface shadow-float portrait:tablet:bottom-28"
 	>
 		{message}
 	</p>

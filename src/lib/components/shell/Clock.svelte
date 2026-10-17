@@ -23,12 +23,12 @@
 
 <div
 	class="flex flex-col {size === 'hero'
-		? 'items-center gap-4'
+		? 'items-center gap-4 short:gap-1'
 		: 'max-w-full min-w-0 items-start gap-1'}"
 >
 	<p
 		class="leading-none font-extrabold whitespace-nowrap tabular-nums {size === 'hero'
-			? 'text-display'
+			? 'text-display short:text-headline'
 			: 'text-headline tablet:text-lead'}"
 		data-testid="{testidPrefix}-time"
 	>
@@ -36,7 +36,7 @@
 	</p>
 	<p
 		class="text-ink-muted {size === 'hero'
-			? 'text-title'
+			? 'text-title short:text-lead'
 			: 'text-lead tablet:text-caption tablet:whitespace-nowrap'}"
 		data-testid="{testidPrefix}-date"
 	>
