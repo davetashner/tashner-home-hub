@@ -4,7 +4,7 @@ import { ensureHousehold, signInAsAdult } from './adult';
 
 test.beforeAll(ensureHousehold);
 
-const destinations = ['Calendar', 'Chores', 'Photos', 'Lists', 'Meals'];
+const destinations = ['Calendar', 'Chores', 'Photos', 'Lists', 'Meals', 'Games'];
 
 async function swipe(page: Page, from: number, to: number) {
 	const box = (await page.locator('main').boundingBox())!;
