@@ -88,16 +88,17 @@ jobs:
       - name: Bundle budget (budgets.json)
         run: pnpm budget
 
-  # Split across two runners: each shard builds and runs its own server and database, which
-  # halves the wall-clock time and keeps the shards from seeing each other's test data.
+  # Split across four runners: each shard builds and runs its own server and database, so the
+  # shards never see each other's test data. The e2e tests are the critical path of every run
+  # and of the serial merge queue; four shards take it from ~8.5 to ~4.5 minutes.
   e2e-shard:
-    name: e2e (shard ${{ matrix.shard }}/2)
+    name: e2e (shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -106,10 +107,21 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium webkit
+      - id: pw
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      # Browsers are cached per Playwright version; the system libraries still come from apt.
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium-webkit
+      - if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium webkit
       - name: End-to-end incl. accessibility (landscape + portrait)
         # Perf gates run alone in e2e-perf: sharing a runner with other tests skews their timings.
-        run: pnpm test:e2e --shard=${{ matrix.shard }}/2 --grep-invert @perf
+        run: pnpm test:e2e --shard=${{ matrix.shard }}/4 --grep-invert @perf
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
@@ -131,7 +143,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - id: pw
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium
+      - if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      - if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
       - name: Perf gates (one worker)
         run: pnpm test:e2e --grep @perf --workers=1
       - uses: actions/upload-artifact@v7
@@ -141,7 +163,7 @@ jobs:
           path: playwright-report
           retention-days: 7
 
-  # Keeps the required "e2e" status check: passes only when both shards and the perf job passed.
+  # Keeps the required "e2e" status check: passes only when every shard and the perf job passed.
   e2e:
     name: e2e
     needs: [e2e-shard, e2e-perf]
@@ -149,7 +171,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Both shards and the perf gates passed
+      - name: All shards and the perf gates passed
         run: |
           test "${{ needs.e2e-shard.result }}" = "success"
           test "${{ needs.e2e-perf.result }}" = "success"
