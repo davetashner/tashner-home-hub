@@ -15,7 +15,8 @@ FROM node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     PORT=3000 \
     HOST=0.0.0.0 \
-    DATA_DIR=/data
+    DATA_DIR=/data \
+    BODY_SIZE_LIMIT=20M
 ARG APP_VERSION=dev
 ARG VCS_REF=unknown
 ENV APP_VERSION=$APP_VERSION

@@ -68,7 +68,9 @@
 		void (async () => {
 			const res = await fetch('/api/members').catch(() => null);
 			if (res?.ok) children = ((await res.json()) as Child[]).filter((m) => m.role === 'child');
-			selectedId = children[0]?.id ?? null;
+			// ?member=<id> preselects a child (linked from Approvals).
+			const wanted = new URLSearchParams(window.location.search).get('member');
+			selectedId = children.find((c) => c.id === wanted)?.id ?? children[0]?.id ?? null;
 			loaded = true;
 			await Promise.all(children.map((c) => loadStars(c.id)));
 		})();

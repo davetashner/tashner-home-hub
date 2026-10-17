@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
+	import { REWARD_EMOJI, cleanEmoji } from '#lib/domain/emoji.js';
 
 	interface Reward {
 		id: string;
@@ -37,7 +38,12 @@
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
-		const body = { title, cost: Number(cost), image: image.trim() || null };
+		const clean = cleanEmoji(image);
+		if (clean === undefined) {
+			message = 'Pick an emoji from the grid, or type a single emoji.';
+			return;
+		}
+		const body = { title, cost: Number(cost), image: clean };
 		const res = await fetch(editing ? `/api/rewards/${editing}` : '/api/rewards', {
 			method: editing ? 'PATCH' : 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -80,14 +86,6 @@
 		<Card elevation="float">
 			<form class="flex flex-col gap-6" onsubmit={save} data-testid="reward-form">
 				<div class="flex flex-wrap gap-6">
-					<label class="flex flex-col gap-2">
-						<span class="text-caption text-ink-muted">Emoji</span>
-						<input
-							class="{field} w-40 text-center max-sm:w-full"
-							bind:value={image}
-							data-testid="reward-image"
-						/>
-					</label>
 					<label class="flex min-w-64 flex-1 flex-col gap-2 max-sm:min-w-0 max-sm:basis-full">
 						<span class="text-caption text-ink-muted">Name</span>
 						<input
@@ -109,6 +107,40 @@
 							bind:value={cost}
 							required
 							data-testid="reward-cost"
+						/>
+					</label>
+				</div>
+				<div class="flex flex-col gap-2">
+					<span class="text-caption text-ink-muted" id="reward-emoji-label">Emoji</span>
+					<div
+						class="flex flex-wrap gap-2"
+						role="group"
+						aria-labelledby="reward-emoji-label"
+						data-testid="reward-emoji-grid"
+					>
+						{#each REWARD_EMOJI as c (c.emoji)}
+							<button
+								type="button"
+								class="flex size-tap items-center justify-center rounded-control border-2 text-title transition-transform duration-75 active:scale-95 {image ===
+								c.emoji
+									? 'border-accent bg-accent-soft'
+									: 'border-line bg-surface'}"
+								aria-label={c.label}
+								aria-pressed={image === c.emoji}
+								data-testid="reward-emoji"
+								data-emoji={c.emoji}
+								onclick={() => (image = image === c.emoji ? '' : c.emoji)}
+							>
+								{c.emoji}
+							</button>
+						{/each}
+					</div>
+					<label class="flex flex-wrap items-center gap-4">
+						<span class="text-caption text-ink-muted">Other</span>
+						<input
+							class="{field} w-40 text-center max-sm:w-full"
+							bind:value={image}
+							data-testid="reward-image"
 						/>
 					</label>
 				</div>

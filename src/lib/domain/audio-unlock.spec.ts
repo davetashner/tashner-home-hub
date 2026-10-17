@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { needsResume, unlockOnGesture, UNLOCK_EVENTS } from './audio-unlock.js';
+import { masterGain, needsResume, unlockOnGesture, UNLOCK_EVENTS } from './audio-unlock.js';
 
 function fakeTarget() {
 	const handlers = new Map<string, Set<() => void>>();
@@ -79,5 +79,13 @@ describe('unlockOnGesture', () => {
 		await Promise.resolve();
 		stop();
 		expect(target.count()).toBe(0);
+	});
+});
+
+describe('masterGain', () => {
+	it('is silent under automation and full volume otherwise', () => {
+		expect(masterGain(true)).toBe(0);
+		expect(masterGain(false)).toBe(1);
+		expect(masterGain(undefined)).toBe(1);
 	});
 });
