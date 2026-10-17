@@ -4,6 +4,7 @@
 	import { formatClock } from '#lib/domain/clock.js';
 	import { nightClockOffset, parseDisplayMode, type DisplayMode } from '#lib/domain/night-clock.js';
 	import { isTimeZone } from '#lib/domain/time-zone.js';
+	import { wave } from './wave-state.svelte.js';
 
 	/** Wall displays only (the shell mounts this for that role): a dim clock on a scheduled night (SLP-4). */
 	const POLL_MS = 15_000;
@@ -11,6 +12,12 @@
 	let mode = $state<DisplayMode>('normal');
 	let now = $state(Date.now());
 	let polls = 0;
+
+	// The wave background stops drawing while the screen is dimmed or off.
+	$effect(() => {
+		wave.paused = mode !== 'normal';
+		return () => (wave.paused = false);
+	});
 
 	async function poll() {
 		const at = ++polls;

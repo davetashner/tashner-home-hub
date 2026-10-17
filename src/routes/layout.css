@@ -93,6 +93,42 @@
 	--duration-crossfade: 1500ms;
 }
 
+/* Live wave background palettes (hub-gj6.17): read at runtime by WaveBackground, same in both themes. */
+:root {
+	--color-wave-dusk-bg-0: oklch(90.6% 0.039 47);
+	--color-wave-dusk-bg-1: oklch(88.8% 0.045 307);
+	--color-wave-dusk-bg-2: oklch(88.8% 0.039 254);
+	--color-wave-dusk-bloom: oklch(97% 0.022 70);
+	--color-wave-dusk-sheet-a: oklch(100% 0 0);
+	--color-wave-dusk-sheet-b: oklch(95.1% 0.023 346);
+	--color-wave-dusk-line: oklch(100% 0 0);
+	--color-wave-dusk-dot: oklch(100% 0 0);
+	--color-wave-seafoam-bg-0: oklch(92.2% 0.038 173);
+	--color-wave-seafoam-bg-1: oklch(90.9% 0.033 244);
+	--color-wave-seafoam-bg-2: oklch(90.7% 0.036 296);
+	--color-wave-seafoam-bloom: oklch(99.1% 0.013 172);
+	--color-wave-seafoam-sheet-a: oklch(100% 0 0);
+	--color-wave-seafoam-sheet-b: oklch(97.1% 0.023 177);
+	--color-wave-seafoam-line: oklch(100% 0 0);
+	--color-wave-seafoam-dot: oklch(100% 0 0);
+	--color-wave-sorbet-bg-0: oklch(90.4% 0.047 354);
+	--color-wave-sorbet-bg-1: oklch(93% 0.039 57);
+	--color-wave-sorbet-bg-2: oklch(95.5% 0.045 92);
+	--color-wave-sorbet-bloom: oklch(98.6% 0.014 85);
+	--color-wave-sorbet-sheet-a: oklch(100% 0 0);
+	--color-wave-sorbet-sheet-b: oklch(96.6% 0.021 61);
+	--color-wave-sorbet-line: oklch(100% 0 0);
+	--color-wave-sorbet-dot: oklch(100% 0 0);
+	--color-wave-night-bg-0: oklch(22.9% 0.053 274);
+	--color-wave-night-bg-1: oklch(27.6% 0.06 295);
+	--color-wave-night-bg-2: oklch(20.1% 0.039 269);
+	--color-wave-night-bloom: oklch(34.1% 0.078 294);
+	--color-wave-night-sheet-a: oklch(65.4% 0.099 290);
+	--color-wave-night-sheet-b: oklch(60.8% 0.1 271);
+	--color-wave-night-line: oklch(77.8% 0.079 292);
+	--color-wave-night-dot: oklch(85.7% 0.093 78);
+}
+
 /* Night theme (UI-5): same roles, dim warm palette that is gentle in a dark room. */
 [data-theme='night'] {
 	color-scheme: dark;

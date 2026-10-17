@@ -11,6 +11,8 @@ declare global {
 			/** Household IANA zone from the root layout; the source of truth for "today". */
 			timeZone?: string;
 			/** This device's role from its cookie (DEV-1); only a wall display gets kiosk behaviour. */
+			/** Saved background choice (hub-gj6.17). */
+			waveBackground?: string;
 			displayRole?: 'wall' | 'personal';
 		}
 		interface PageState {
