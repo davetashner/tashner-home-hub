@@ -106,7 +106,7 @@ export function eventsWindow(now: number, timeZone: string): { start: number; en
 	return { start: now, end: dayStartMs(addDays(dateKeyOf(now, timeZone), 2), timeZone) };
 }
 
-/** "☀️ 72°F Clear". */
+/** "sun 72°F Clear". */
 export function formatWeatherLine(
 	current: Pick<WeatherCurrent, 'temp' | 'code' | 'isDay'>,
 	unit: WeatherUnit

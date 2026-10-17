@@ -189,12 +189,12 @@ describe('formatting', () => {
 
 	it('formats the weather line', () => {
 		expect(formatWeatherLine({ temp: 72, code: 0, isDay: true }, 'F')).toEqual({
-			icon: '☀️',
+			icon: 'sun',
 			temp: '72°F',
 			label: 'Clear'
 		});
 		expect(formatWeatherLine({ temp: -3, code: 0, isDay: false }, 'C')).toEqual({
-			icon: '🌙',
+			icon: 'moon',
 			temp: '-3°C',
 			label: 'Clear'
 		});
