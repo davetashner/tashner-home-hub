@@ -159,3 +159,64 @@ test('grown-ups set the photo interval and transition', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Fade' })).toHaveAttribute('aria-pressed', 'false');
 	await expect.poll(() => saved).toEqual([{ intervalSeconds: 45 }, { transition: 'kenburns' }]);
 });
+
+/** Holds the primary pointer still on the photo long enough to count as a long-press. */
+async function longPress(page: Page, holdMs = 800) {
+	const box = (await page.getByTestId('slideshow').boundingBox())!;
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down();
+	await page.waitForTimeout(holdMs);
+	await page.mouse.up();
+}
+
+test('a grown-up long-presses a photo to hide it from the slideshow', async ({ page }, info) => {
+	const a = { id: `${info.project.name}-keep`, w: 640, h: 360 };
+	const b = { id: `${info.project.name}-hide`, w: 640, h: 360 };
+	await stubFrame(page, [b, a], { intervalSeconds: 600, transition: 'fade' });
+	const hidden: unknown[] = [];
+	await page.route(/\/api\/photo\/[^/]+\/hide$/, (route) => {
+		hidden.push([route.request().url(), route.request().postDataJSON()]);
+		return route.fulfill({ json: { hidden: true } });
+	});
+	await signInAsAdult(page, `e2e-hide-${info.project.name}`);
+	await page.goto('/photos');
+
+	const frame = page.getByTestId('slideshow');
+	const front = frame.locator('[data-front="true"]');
+	await expect(front).toHaveAttribute('data-photo-id', b.id);
+	const sheet = page.getByRole('dialog', { name: 'Hide this photo?' });
+
+	// A short press does nothing; Cancel leaves the photo alone.
+	await longPress(page, 100);
+	await expect(sheet).toHaveCount(0);
+	await longPress(page);
+	await expect(sheet).toBeVisible();
+	await expectTappable(sheet.getByRole('button', { name: 'Cancel' }));
+	await sheet.getByRole('button', { name: 'Cancel' }).click();
+	await expect(sheet).toHaveCount(0);
+	expect(hidden).toEqual([]);
+	await expect(front).toHaveAttribute('data-photo-id', b.id);
+
+	// Hiding moves on to the next photo at once and saves the flag.
+	await longPress(page);
+	const hide = sheet.getByRole('button', { name: 'Hide this photo' });
+	await expectTappable(hide);
+	await hide.click();
+	await expect(front).toHaveAttribute('data-photo-id', a.id);
+	await expect
+		.poll(() => hidden)
+		.toEqual([[expect.stringContaining(`/${b.id}/hide`), { hidden: true }]]);
+});
+
+test('long-pressing without an adult session asks for the PIN first', async ({ page }, info) => {
+	await stubFrame(page, [{ id: `${info.project.name}-locked`, w: 640, h: 360 }], {
+		intervalSeconds: 600,
+		transition: 'fade'
+	});
+	await page.goto('/photos');
+	await expect(page.getByTestId('slideshow').locator('[data-front="true"]')).toBeVisible();
+	await expect(async () => {
+		await longPress(page);
+		await expect(page).toHaveURL(/\/unlock\?next=%2Fphotos/, { timeout: 1_000 });
+	}).toPass();
+});
