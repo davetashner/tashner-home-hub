@@ -1,0 +1,13 @@
+[Unit]
+Description=Home Hub display agent (monitor power and touch to wake)
+# WAYLAND_DISPLAY and XDG_RUNTIME_DIR are imported by the labwc autostart before this starts.
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/hub-kiosk/hub-kiosk-display-agent
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=default.target
