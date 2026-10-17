@@ -121,6 +121,25 @@ curl -s http://127.0.0.1:9222/json/list         # on the Pi: is Chromium alive?
 - Need to leave kiosk: SSH in; `systemctl --user stop hub-kiosk.service` as above.
 - Not covered: read-only root / overlay filesystem and SSD boot (NFR-5 SD wear). Prefer NVMe/SSD; or `raspi-config` overlay filesystem after setup (the Chromium profile dir would then need to live on a writable partition).
 
+### kioskctl: debug the Pi from your machine
+
+`scripts/kiosk/kioskctl.mjs` (hub-suy) runs every check above from a dev machine, so nobody (human or agent) has to log in to the Pi. It uses SSH plus a port-forward to Chromium's DevTools (localhost on the Pi). Each command prints JSON and has a timeout, so a hung page never hangs the tool. Exit codes: 0 means ok, 1 means a check or the page failed, and 2 means a usage or connection error.
+
+```
+export KIOSK_HOST=admin@kiosk.example.com KIOSK_SSH_KEY=~/.ssh/kiosk   # SSH user needs passwordless sudo
+node scripts/kiosk/kioskctl.mjs doctor          # start here
+node scripts/kiosk/kioskctl.mjs screenshot --out wall.png --scale 0.5
+node scripts/kiosk/kioskctl.mjs eval 'document.title'
+node scripts/kiosk/kioskctl.mjs trace https://hub.example/ --secs 10   # lists requests that never finished
+node scripts/kiosk/kioskctl.mjs reload | restart | sw status | sw reset | logs --lines 50 | tunnel
+```
+
+`doctor` checks: SSH; the Chromium process and its flags; the emoji font; the display mode; the kiosk units; the server, reached from the Pi with curl and from inside Chromium (the two can disagree); DevTools; whether the page loaded and hydrated; whether the wave background is drawn *and* visible; and the wall display role. Lessons it encodes:
+
+- **Curl works but every Chromium request hangs:** the default password store is a gnome-keyring that auto-login never unlocks, and Chromium waits on it for every request. Use `--password-store=basic` (the kiosk launcher does; for desktop Chromium, put it in `/etc/chromium.d/`).
+- **`readyState` stuck at `loading` with no `__sveltekit_*` global:** the inline bootstrap is waiting on a stylesheet or script that never arrived. Run `trace`.
+- `restart` restarts `hub-kiosk.service` if it exists. Otherwise it relaunches the same Chromium command line through `/usr/bin/chromium` in a transient user unit, so `/etc/chromium.d` flags still apply.
+
 ## Not yet verified on hardware (bench test: hub-8lc.9)
 
 - [ ] `install.sh` runs clean on a fresh Pi OS image (package names `chromium`, `wlr-randr`, `xcursorgen`; `raspi-config nonint do_blanking`)
