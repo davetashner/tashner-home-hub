@@ -67,7 +67,7 @@
 	class="grid h-full bg-surface portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape"
 >
 	<header
-		class="flex items-center justify-between gap-3 pt-safe-4 pr-safe-4 pb-4 pl-safe-4 max-sm:justify-end max-sm:pt-safe-2 max-sm:pr-safe-3 max-sm:pb-2 max-sm:pl-safe-3 sm:flex-wrap sm:gap-8 sm:pt-safe-8 sm:pr-safe-12 sm:pb-8 sm:pl-safe-12 portrait:sm:pr-safe-10 portrait:sm:pl-safe-10 landscape:col-start-2 landscape:row-start-1 landscape:pl-4 landscape:sm:gap-4 landscape:sm:pr-safe-8 landscape:sm:pl-8 short:flex-nowrap short:gap-2 short:pt-safe-2 short:pr-safe-2 short:pb-2 short:pl-2"
+		class="flex items-center justify-between gap-3 pt-safe-4 pr-safe-4 pb-4 pl-safe-4 max-sm:justify-end max-sm:pt-safe-2 max-sm:pr-safe-3 max-sm:pb-2 max-sm:pl-safe-3 sm:flex-wrap sm:gap-8 sm:pt-safe-8 sm:pr-safe-12 sm:pb-8 sm:pl-safe-12 portrait:sm:pr-safe-10 portrait:sm:pl-safe-10 landscape:col-start-2 landscape:row-start-1 landscape:pl-4 landscape:sm:gap-4 landscape:sm:pr-safe-8 landscape:sm:pl-8 short:flex-nowrap short:gap-2 short:pt-safe-2 short:pr-safe-2 short:pb-2 short:pl-2 tablet:flex-nowrap tablet:gap-4 tablet:pt-safe-2 tablet:pb-2 portrait:tablet:pr-safe-6 portrait:tablet:pl-safe-6 landscape:tablet:gap-4 landscape:tablet:pr-safe-6 landscape:tablet:pl-6"
 	>
 		{#if pathname === '/'}
 			<span class="max-sm:hidden"></span>
@@ -85,34 +85,34 @@
 			</div>
 		{/if}
 		<div
-			class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4 portrait:sm:gap-2 landscape:sm:gap-2 short:flex-nowrap short:gap-1"
+			class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4 portrait:sm:gap-2 landscape:sm:gap-2 short:flex-nowrap short:gap-1 tablet:flex-nowrap tablet:gap-3 portrait:tablet:gap-3 landscape:tablet:gap-3"
 		>
 			<OfflineBadge />
 			<ApprovalsBadge />
 			<Button
 				onclick={sleep}
 				size="kid"
-				class="gap-3 rounded-chip max-sm:!min-h-tap max-sm:!min-w-tap max-sm:!px-4 short:!min-h-tap short:!min-w-tap short:!px-4"
+				class="gap-3 rounded-chip max-sm:!min-h-tap max-sm:!min-w-tap max-sm:!px-4 short:!min-h-tap short:!min-w-tap short:!px-4 tablet:!text-body tablet:max-xl:!px-0 tablet:max-md:!min-h-tap tablet:max-md:!min-w-tap tablet:md:!min-h-tap-tablet tablet:md:!min-w-tap-tablet tablet:xl:!px-6"
 			>
 				<span class="text-lead"><Icon name="moon" /></span>
-				<span class="max-sm:sr-only short:sr-only">Sleep</span>
+				<span class="max-sm:sr-only short:sr-only tablet:max-xl:sr-only">Sleep</span>
 			</Button>
 			{#if adult}
 				<Button
 					onclick={lock}
 					variant="secondary"
 					size="kid"
-					class="gap-3 rounded-chip max-sm:!min-h-tap max-sm:!min-w-tap max-sm:!px-0 short:!min-h-tap short:!min-w-tap short:!px-0"
+					class="gap-3 rounded-chip max-sm:!min-h-tap max-sm:!min-w-tap max-sm:!px-0 short:!min-h-tap short:!min-w-tap short:!px-0 tablet:!px-0 tablet:!text-body tablet:max-md:!min-h-tap tablet:max-md:!min-w-tap tablet:md:!min-h-tap-tablet tablet:md:!min-w-tap-tablet"
 				>
 					<span class="text-lead"><Icon name="lock" /></span>
-					<span class="max-sm:sr-only short:sr-only">Lock</span>
+					<span class="max-sm:sr-only short:sr-only tablet:sr-only">Lock</span>
 				</Button>
 			{/if}
 			<a
 				href={resolve('/(app)/settings')}
 				aria-label="Settings"
 				data-sveltekit-preload-data="tap"
-				class="press-link inline-flex size-tap-kid items-center justify-center rounded-chip border-2 border-line bg-surface-raised text-title text-ink shadow-raised max-sm:!size-tap short:!size-tap"
+				class="press-link inline-flex size-tap-kid items-center justify-center rounded-chip border-2 border-line bg-surface-raised text-title text-ink shadow-raised max-sm:!size-tap short:!size-tap tablet:text-lead tablet:max-md:!size-tap tablet:md:!size-tap-tablet"
 			>
 				<Icon name="settings" />
 			</a>
@@ -121,7 +121,7 @@
 
 	<nav
 		aria-label="Main"
-		class="flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5 short:col-start-1 short:row-span-1 short:w-auto short:flex-row short:gap-0 short:border-r-0 short:bg-surface short:pt-safe-2 short:pr-2 short:pb-2 short:pl-safe-2"
+		class="flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5 short:col-start-1 short:row-span-1 short:w-auto short:flex-row short:gap-0 short:border-r-0 short:bg-surface short:pt-safe-2 short:pr-2 short:pb-2 short:pl-safe-2 portrait:tablet:gap-2 portrait:tablet:pt-1 portrait:tablet:pr-safe-4 portrait:tablet:pb-safe-1 portrait:tablet:pl-safe-4 landscape:tablet:w-rail-tablet landscape:tablet:gap-2 landscape:tablet:overflow-y-auto landscape:tablet:pt-safe-4 landscape:tablet:pr-2 landscape:tablet:pb-safe-4 landscape:tablet:pl-safe-2"
 	>
 		{#each DESTINATIONS as destination (destination.id)}
 			<NavItem {destination} active={isActive(destination.href, pathname)} />

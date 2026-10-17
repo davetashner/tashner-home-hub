@@ -29,13 +29,15 @@
 	<p
 		class="leading-none font-extrabold whitespace-nowrap tabular-nums {size === 'hero'
 			? 'text-display'
-			: 'text-headline'}"
+			: 'text-headline tablet:text-lead'}"
 		data-testid="{testidPrefix}-time"
 	>
 		{clock.time}
 	</p>
 	<p
-		class="text-ink-muted {size === 'hero' ? 'text-title' : 'text-lead'}"
+		class="text-ink-muted {size === 'hero'
+			? 'text-title'
+			: 'text-lead tablet:text-caption tablet:whitespace-nowrap'}"
 		data-testid="{testidPrefix}-date"
 	>
 		{clock.date}

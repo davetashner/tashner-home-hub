@@ -66,6 +66,9 @@
 	--spacing-tap: 60px;
 	--spacing-tap-kid: 96px;
 	--spacing-rail: 20rem;
+	/* Tablet tier (iPad): proportionate controls and a slim rail. */
+	--spacing-tap-tablet: 72px;
+	--spacing-rail-tablet: 7.5rem;
 
 	--shadow-raised: 0 1px 2px oklch(30% 0.05 55 / 0.08), 0 6px 18px oklch(30% 0.05 55 / 0.08);
 	--shadow-float: 0 2px 4px oklch(30% 0.05 55 / 0.08), 0 18px 48px oklch(30% 0.05 55 / 0.16);
@@ -177,6 +180,14 @@
 
 /* Short landscape screens (phones turned sideways): a compact one-row top bar replaces the side rail. */
 @custom-variant short (@media (orientation: landscape) and (max-height: 32rem));
+
+/*
+ * Tablet tier (DEV-4): an iPad, personal or on a kitchen stand, is seen from arm's length, not
+ * across the room. Both edges between 40rem and 88rem (media queries use the 16px browser rem, so
+ * 640 to 1408px) and not a short-landscape phone. That covers every iPad and Split View width of
+ * 640px or more, and excludes the 2560x1440 wall in either orientation.
+ */
+@custom-variant tablet (@media (min-width: 40rem) and (max-width: 88rem) and (min-height: 32.01rem) and (max-height: 88rem));
 
 /* App shell grid: header/content/nav in portrait, side nav + header/content in landscape. */
 @utility grid-rows-shell-portrait {
