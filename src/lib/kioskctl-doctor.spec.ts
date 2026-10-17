@@ -101,6 +101,10 @@ describe('parsers', () => {
 	it('only probes the server when it knows where it is', () => {
 		expect(remoteFactsScript('https://hub.example')).toContain("'https://hub.example/healthz'");
 		expect(remoteFactsScript(null)).not.toContain('healthz');
+		expect(remoteFactsScript("https://x.example'; rm -rf ~; '")).not.toContain('healthz');
+		expect(remoteFactsScript('http://192.168.0.4:3000')).toContain(
+			"'http://192.168.0.4:3000/healthz'"
+		);
 	});
 });
 
