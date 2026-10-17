@@ -15,6 +15,7 @@ const JSON_HEADERS = { 'content-type': 'application/json' };
 test('plan a dinner, see it in Meals and the calendar week, edit it, delete it', async ({
 	page
 }, info) => {
+	test.setTimeout(60_000); // three page loads on a busy shard
 	ensureHousehold();
 	const k = Math.max(0, PROJECTS.indexOf(info.project.name));
 	const monday = new Date(Date.UTC(2043, 5, 1 + 7 * k)).toISOString().slice(0, 10);

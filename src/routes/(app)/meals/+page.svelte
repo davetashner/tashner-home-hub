@@ -111,6 +111,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Meals · Home Hub</title>
+</svelte:head>
+
 <section class="flex h-full min-h-0 flex-col gap-4 p-4 sm:p-6" data-testid="meals-page">
 	<header class="flex flex-wrap items-center gap-3">
 		<h1 class="mr-auto text-title font-extrabold">Meals</h1>
