@@ -51,3 +51,20 @@ test('add and edit a family member with tappable controls', async ({ page }, inf
 	await page.getByRole('button', { name: 'Yes, delete' }).click();
 	await expect(page.getByText(`${name} Edited`)).toHaveCount(0);
 });
+
+test('a 502 with an empty body says the hub is unreachable', async ({ page }, info) => {
+	await signInAsAdult(page, `e2e-family-502-${info.project.name}`);
+	await page.goto('/settings/family');
+	await page.route('**/api/members', (route) =>
+		route.request().method() === 'POST'
+			? route.fulfill({ status: 502, body: '' })
+			: route.fallback()
+	);
+
+	await page.getByRole('button', { name: 'Add person' }).click();
+	const form = page.getByTestId('member-form');
+	await form.getByLabel('Name').fill('Unreachable');
+	await form.getByRole('button', { name: 'Save' }).click();
+
+	await expect(form.getByText("Couldn't reach the hub. Try again in a moment.")).toBeVisible();
+});
