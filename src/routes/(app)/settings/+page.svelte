@@ -24,6 +24,12 @@
 					: 'Nothing waiting. Check stars, give bonuses.'
 		},
 		{
+			href: resolve('/(app)/settings/stars'),
+			emoji: '⭐',
+			title: 'Give or remove stars',
+			line: 'Bonus stars for kindness, or take some back, with a note.'
+		},
+		{
 			href: resolve('/(app)/settings/family'),
 			emoji: '👨‍👩‍👧',
 			title: 'Family',
