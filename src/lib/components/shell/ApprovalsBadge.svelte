@@ -37,7 +37,7 @@
 		data-count={total}
 		aria-label={spoken}
 		data-sveltekit-preload-data="tap"
-		class="press-link inline-flex min-h-tap-kid items-center rounded-chip bg-star px-4 text-caption font-extrabold whitespace-nowrap text-on-star shadow-raised max-sm:!min-h-tap sm:px-8 sm:text-body short:!min-h-tap short:px-4 short:text-caption tablet:px-4 tablet:text-body tablet:max-md:!min-h-tap tablet:md:!min-h-tap-tablet tablet:lg:px-6"
+		class="press-link inline-flex min-h-tap-kid items-center rounded-chip bg-star px-4 text-caption font-extrabold whitespace-nowrap text-on-star shadow-raised max-sm:!min-h-tap sm:px-8 sm:text-body short:!min-h-tap short:min-w-tap short:justify-center short:px-2 short:text-caption tablet:px-4 tablet:text-body tablet:max-md:!min-h-tap tablet:md:!min-h-tap-tablet tablet:lg:px-6"
 	>
 		<span class="max-sm:hidden short:hidden tablet:max-lg:hidden">{label}</span>
 		<span class="sm:hidden short:inline tablet:max-lg:!inline">{total} ⭐</span>
