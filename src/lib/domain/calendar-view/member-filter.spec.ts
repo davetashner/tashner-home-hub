@@ -26,14 +26,14 @@ describe('filterEvents', () => {
 		expect(filterEvents(events, [])).toBe(events);
 	});
 	it('keeps events that match one selected member', () => {
-		expect(filterEvents(events, ['m1']).map((e) => e.id)).toEqual(['a']);
+		expect(filterEvents(events, ['m1']).map((e) => e.id)).toEqual(['a', 'c']);
 	});
 	it('keeps shared events if any selected member is on them', () => {
-		expect(filterEvents(events, ['m3']).map((e) => e.id)).toEqual(['b', 'd']);
-		expect(filterEvents(events, ['m1', 'm2']).map((e) => e.id)).toEqual(['a', 'b']);
+		expect(filterEvents(events, ['m3']).map((e) => e.id)).toEqual(['b', 'c', 'd']);
+		expect(filterEvents(events, ['m1', 'm2']).map((e) => e.id)).toEqual(['a', 'b', 'c']);
 	});
-	it('hides events with no member while filtering', () => {
-		expect(filterEvents(events, ['m9'])).toEqual([]);
+	it('keeps family-wide events with no member while filtering', () => {
+		expect(filterEvents(events, ['m9']).map((e) => e.id)).toEqual(['c']);
 	});
 });
 

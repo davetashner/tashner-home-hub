@@ -32,10 +32,10 @@ export function pruneSelection(selection: MemberSelection, knownIds: Iterable<st
 
 /**
  * Events shared by several members show if any selected member is on them. With a filter
- * active, events with no member are hidden. No selection returns the events untouched.
+ * active, family-wide events (no member) always show. No selection returns the events untouched.
  */
 export function filterEvents(events: CalEvent[], selection: MemberSelection): CalEvent[] {
 	if (selection.length === 0) return events;
 	const wanted = new Set(selection);
-	return events.filter((ev) => ev.members.some((m) => wanted.has(m.id)));
+	return events.filter((ev) => ev.members.length === 0 || ev.members.some((m) => wanted.has(m.id)));
 }

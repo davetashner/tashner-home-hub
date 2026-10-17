@@ -29,6 +29,8 @@ test('member chips filter the calendar and are remembered', async ({ page }) => 
 	await expect(pane.getByText('Soccer practice').first()).toBeVisible();
 	await expect(pane.getByText('Dentist')).toHaveCount(0);
 	await expect(pane.getByText('Grandma visits')).toHaveCount(0);
+	// Family-wide events (no member) stay visible while filtering.
+	await expect(pane.getByText('School holiday').first()).toBeVisible();
 
 	// A second member adds their events; the shared Dentist shows for either of its members.
 	await chip('Blake').click();
