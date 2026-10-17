@@ -8,8 +8,15 @@ import {
 	kidsWithChores,
 	switcherMembers,
 	undoSecondsLeft,
+	starJobGroups,
+	habitChores,
+	isHabit,
+	doneCount,
+	habitCount,
+	type KidChore,
 	type KidGroup
 } from './kid-chores.js';
+import type { KidRoutine } from './routines.js';
 
 const findChore = (g: KidGroup[], id: string) =>
 	g.flatMap((x) => x.chores).find((c) => c.id === id);
@@ -102,5 +109,58 @@ describe('kid chores view logic', () => {
 		it('switcherMembers falls back to everyone when nobody qualifies', () => {
 			expect(switcherMembers(members, {}, {}, 0)).toEqual(members);
 		});
+	});
+});
+
+describe('Star Jobs and habits (hub-esf)', () => {
+	const c = (id: string, kind: 'star_job' | 'habit' | undefined, status: KidChore['status']) =>
+		({
+			id,
+			title: id,
+			icon: null,
+			stars: kind === 'habit' ? 0 : 1,
+			status,
+			completionId: null,
+			kind
+		}) as KidChore;
+	const board: KidGroup[] = [
+		{
+			timeOfDay: 'morning',
+			chores: [c('towels', 'habit', 'approved'), c('window', undefined, 'none')]
+		},
+		{ timeOfDay: 'evening', chores: [c('fish', 'habit', 'none')] },
+		{ timeOfDay: 'anytime', chores: [c('bedroom', 'star_job', 'pending')] }
+	];
+	const routine = (done: number, steps = 2) =>
+		({
+			id: `r${done}${steps}`,
+			name: 'Morning',
+			windowStart: null,
+			windowEnd: null,
+			steps: Array.from({ length: steps }, () => ({ label: 'x', icon: 'star' as const })),
+			done
+		}) as KidRoutine;
+
+	it('splits a board into Star Jobs (keeping groups) and habits', () => {
+		expect(starJobGroups(board).map((g) => [g.timeOfDay, g.chores.map((x) => x.id)])).toEqual([
+			['morning', ['window']],
+			['anytime', ['bedroom']]
+		]);
+		expect(habitChores(board).map((x) => x.id)).toEqual(['towels', 'fish']);
+		expect(isHabit(c('x', 'habit', 'none'))).toBe(true);
+	});
+
+	it('counts checked-off items, waiting ones included', () => {
+		expect(doneCount(starJobGroups(board).flatMap((g) => g.chores))).toEqual({ done: 1, total: 2 });
+		expect(doneCount([])).toEqual({ done: 0, total: 0 });
+	});
+
+	it('counts each routine as one habit, done when finished, and ignores empty routines', () => {
+		const habits = habitChores(board);
+		expect(habitCount(habits, [routine(2), routine(1), routine(0, 0)])).toEqual({
+			done: 2,
+			total: 4
+		});
+		expect(habitCount([], [])).toEqual({ done: 0, total: 0 });
 	});
 });
