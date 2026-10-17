@@ -81,6 +81,11 @@ autologin-user=$KIOSK_USER
 autologin-user-timeout=0
 autologin-session=$SESSION
 EOC
+# lightdm reads /etc/lightdm/lightdm.conf after conf.d, and Raspberry Pi OS sets the first user's
+# autologin there, which would beat ours: comment those lines out (already-commented ones stay).
+if [ -f /etc/lightdm/lightdm.conf ]; then
+  sed -i -E 's/^([[:space:]]*autologin-(user|session)=)/#hub-kiosk: \1/' /etc/lightdm/lightdm.conf
+fi
 
 say "Writing labwc config for $KIOSK_USER"
 CFG="$KIOSK_HOME/.config/labwc"
