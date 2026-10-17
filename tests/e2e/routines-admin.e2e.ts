@@ -17,6 +17,10 @@ test('an adult creates, edits, reorders and deletes a routine; the kid sees it',
 	}).toPass();
 	await page.getByTestId('routine-member').selectOption(seed.memberId);
 	await page.getByTestId('routine-name').fill(routineName);
+	// The step rows are labelled as steps, for this kid, with no example text that reads as a field.
+	const stepList = page.getByRole('list', { name: 'Steps' });
+	await expect(stepList).toHaveAccessibleDescription(new RegExp(`^What ${kid.name} ticks off`));
+	await expect(page.getByLabel('Step 1 name')).toHaveAttribute('placeholder', 'Step 1');
 	await page.getByLabel('Step 1 name').fill('Brush teeth');
 	await page.getByTestId('add-step').click();
 	await page.getByLabel('Step 2 name').fill('Get dresed');
