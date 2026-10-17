@@ -161,6 +161,8 @@
 @layer base {
 	:root {
 		color-scheme: light;
+		/* Evening dimming (SLP-5) eases in; filter is one of the properties we may animate. */
+		transition: filter var(--duration-crossfade) var(--ease-out-soft);
 	}
 	/* Phones (admin setup, ADM-1): headings built for a wall display leave one word per line on 390px. */
 	@media (max-width: 40rem), (orientation: landscape) and (max-height: 32rem) {

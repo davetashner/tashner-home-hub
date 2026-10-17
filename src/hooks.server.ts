@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
 import { getDb } from '#lib/server/db/index.js';
+import { serverTheme } from '#lib/server/appearance.js';
 import { startBackupScheduler } from '#lib/server/backup.js';
 import { resolveAdult } from '#lib/server/auth.js';
 import { startPhotoScanner } from '#lib/server/photo-source/scheduler.js';
@@ -35,7 +36,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 		redirect(303, display.location);
 	}
 	event.locals.adult = resolveAdult(event);
-	return resolve(event);
+	// Render the right theme on the first paint, so a reload at night never flashes light.
+	const theme = serverTheme();
+	return resolve(event, {
+		transformPageChunk: ({ html }) =>
+			html.replace('<html lang="en">', `<html lang="en" data-theme="${theme}">`)
+	});
 };
 
 /** Opens the database and applies pending migrations once, at server startup. */

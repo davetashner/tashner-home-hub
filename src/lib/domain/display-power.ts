@@ -180,25 +180,25 @@ export function zonedInstant(zone: string, y: number, m: number, d: number, minu
 	return valid.length ? valid[0] : wall - before;
 }
 
-interface Ymd {
+export interface Ymd {
 	y: number;
 	m: number;
 	d: number;
 }
 
-function localYmd(zone: string, instant: number): Ymd {
+export function localYmd(zone: string, instant: number): Ymd {
 	const p: Record<string, number> = {};
 	for (const part of formatter(zone).formatToParts(new Date(instant)))
 		if (part.type !== 'literal') p[part.type] = Number(part.value);
 	return { y: p.year, m: p.month, d: p.day };
 }
 
-function addDays(date: Ymd, days: number): Ymd {
+export function addDays(date: Ymd, days: number): Ymd {
 	const t = new Date(Date.UTC(date.y, date.m - 1, date.d + days));
 	return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() };
 }
 
-const isWeekend = (date: Ymd) => {
+export const isWeekend = (date: Ymd) => {
 	const dow = new Date(Date.UTC(date.y, date.m - 1, date.d)).getUTCDay();
 	return dow === 0 || dow === 6;
 };
