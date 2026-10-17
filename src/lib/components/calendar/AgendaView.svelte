@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import { dayHeading, dayTimeLabel, stripeColor } from '#lib/domain/calendar-view/format.js';
+	import { agendaNowIndex } from '#lib/domain/calendar-view/now-line.js';
 	import { bucketByDay, type CalEvent } from '#lib/domain/calendar-view/layout.js';
 	import type { MemberColor } from '#lib/domain/member-colors.js';
 	import type { DateKey } from '#lib/domain/calendar-view/zone.js';
@@ -10,11 +11,13 @@
 		keys: DateKey[];
 		today: DateKey;
 		tz: string;
+		/** Epoch ms; when given, today's list shows a "Now" divider. */
+		now?: number;
 		onselect: (event: CalEvent) => void;
 		/** List every day of the period, quiet ones included (the Week view on a narrow pane). */
 		all?: boolean;
 	}
-	let { events, keys, today, tz, onselect, all = false }: Props = $props();
+	let { events, keys, today, tz, now, onselect, all = false }: Props = $props();
 
 	const days = $derived(bucketByDay(events, keys, tz));
 	// Quiet days are skipped, except today, which always anchors the list.
@@ -40,8 +43,12 @@
 						Nothing planned. Enjoy the day.
 					</p>
 				{:else}
+					{@const nowAt = key === today && now !== undefined ? agendaNowIndex(list, now) : -1}
 					<ul class="flex flex-col gap-3">
-						{#each list as ev (ev.id)}
+						{#each list as ev, i (ev.id)}
+							{#if i === nowAt}
+								<li class="now-row" data-testid="now-line" aria-label="Now"><span>Now</span></li>
+							{/if}
 							<li>
 								<button
 									type="button"
@@ -68,6 +75,9 @@
 								</button>
 							</li>
 						{/each}
+						{#if nowAt === list.length}
+							<li class="now-row" data-testid="now-line" aria-label="Now"><span>Now</span></li>
+						{/if}
 					</ul>
 				{/if}
 			</section>
@@ -76,6 +86,22 @@
 </div>
 
 <style>
+	.now-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		color: var(--color-danger);
+		font-size: var(--text-caption);
+		font-weight: 800;
+		text-transform: uppercase;
+	}
+	.now-row::after {
+		height: 0.25rem;
+		flex: 1;
+		background: var(--color-danger);
+		content: '';
+	}
+
 	.days {
 		display: block;
 		column-gap: 3rem;
