@@ -24,7 +24,7 @@
 	const sizes: Record<Size, string> = {
 		sm: 'size-12 text-body',
 		md: 'size-tap text-lead',
-		lg: 'size-28 text-title',
+		lg: 'size-28 text-title tablet:size-16 tablet:text-lead',
 		kid: 'size-tap-kid text-title'
 	};
 	const initial = $derived([...name.trim()][0]?.toUpperCase() ?? '?');
