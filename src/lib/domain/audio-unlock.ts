@@ -32,3 +32,8 @@ export function unlockOnGesture(
 		for (const type of UNLOCK_EVENTS) target.removeEventListener(type, onGesture);
 	};
 }
+
+/** Browsers under automation (Playwright, WebDriver) set navigator.webdriver; the hub stays silent there. */
+export function masterGain(webdriver: boolean | undefined): number {
+	return webdriver ? 0 : 1;
+}
