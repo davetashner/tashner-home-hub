@@ -1,20 +1,38 @@
 <script lang="ts">
-	import type { ChoreInput, ChoreView, Weekday } from '#lib/server/domain/chores.js';
+	import type { ChoreInput, ChoreKind, ChoreView, Weekday } from '#lib/server/domain/chores.js';
 	import type { Member } from '#lib/server/domain/members.js';
 	import Button from './ui/Button.svelte';
 	import MemberAvatar from './MemberAvatar.svelte';
 
 	interface Props {
 		chore?: ChoreView;
+		/** What a new item is; an edited one keeps its own. Habits have no stars or approval. */
+		choreKind?: ChoreKind;
 		members: Member[];
 		/** Saves the chore; resolves to an error message, or undefined on success. */
 		onsave: (input: ChoreInput) => Promise<string | undefined>;
 		oncancel: () => void;
 	}
 
-	let { chore, members, onsave, oncancel }: Props = $props();
+	let { chore, choreKind = 'star_job', members, onsave, oncancel }: Props = $props();
+	const habit = $derived((chore?.kind ?? choreKind) === 'habit');
 
-	const ICONS = ['🍽️', '🧸', '🛏️', '🦷', '🧺', '🐶', '🪴', '📚', '🧹', '🎒', '🚿', '🗑️'];
+	const ICONS = [
+		'🍽️',
+		'🧸',
+		'🛏️',
+		'🦷',
+		'🧺',
+		'🐶',
+		'🐟',
+		'🪴',
+		'📚',
+		'🧹',
+		'🪟',
+		'🎒',
+		'🚿',
+		'🗑️'
+	];
 	const TIMES = [
 		['morning', 'Morning'],
 		['afternoon', 'Afternoon'],
@@ -70,21 +88,24 @@
 				: kind === 'once'
 					? { type: 'once', ...(onceDate ? { start: onceDate } : {}) }
 					: { type: kind };
-		message = await onsave({
+		const common = {
 			title,
 			icon: icon || null,
-			stars,
 			memberIds,
 			timeOfDay,
-			requiresApproval: approval,
 			schedule: schedule as ChoreInput['schedule']
-		});
+		};
+		message = await onsave(
+			habit
+				? { ...common, ...(chore ? {} : { kind: 'habit' as const }) }
+				: { ...common, stars, requiresApproval: approval }
+		);
 	}
 </script>
 
 <form onsubmit={submit} class="flex flex-col gap-6" data-testid="chore-form">
 	<label class="flex flex-col gap-2">
-		<span class="text-caption text-ink-muted">Chore</span>
+		<span class="text-caption text-ink-muted">{habit ? 'Habit' : 'Chore'}</span>
 		<input
 			bind:value={title}
 			maxlength="60"
@@ -107,24 +128,24 @@
 		{/each}
 	</fieldset>
 
-	<div class="flex flex-wrap items-center gap-4">
-		<span class="text-caption text-ink-muted">Stars</span>
-		<Button
-			variant="secondary"
-			aria-label="Fewer stars"
-			disabled={stars <= 1}
-			onclick={() => (stars -= 1)}>-</Button
-		>
-		<output aria-label="Star count" class="min-w-tap text-center text-title font-extrabold"
-			>{stars}</output
-		>
-		<Button
-			variant="secondary"
-			aria-label="More stars"
-			disabled={stars >= 10}
-			onclick={() => (stars += 1)}>+</Button
-		>
-	</div>
+	{#if !habit}<div class="flex flex-wrap items-center gap-4">
+			<span class="text-caption text-ink-muted">Stars</span>
+			<Button
+				variant="secondary"
+				aria-label="Fewer stars"
+				disabled={stars <= 1}
+				onclick={() => (stars -= 1)}>-</Button
+			>
+			<output aria-label="Star count" class="min-w-tap text-center text-title font-extrabold"
+				>{stars}</output
+			>
+			<Button
+				variant="secondary"
+				aria-label="More stars"
+				disabled={stars >= 10}
+				onclick={() => (stars += 1)}>+</Button
+			>
+		</div>{/if}
 
 	<fieldset class="flex min-w-0 flex-wrap gap-3">
 		<legend class="mb-2 text-caption text-ink-muted">Who</legend>
@@ -183,10 +204,10 @@
 		</label>
 	{/if}
 
-	<label class="flex min-h-tap items-center gap-4">
-		<input type="checkbox" bind:checked={approval} class="size-tap" />
-		<span class="text-body">A grown-up checks it before stars count</span>
-	</label>
+	{#if !habit}<label class="flex min-h-tap items-center gap-4">
+			<input type="checkbox" bind:checked={approval} class="size-tap" />
+			<span class="text-body">A grown-up checks it before stars count</span>
+		</label>{/if}
 
 	{#if message}<p role="alert" class="text-body font-bold text-danger">{message}</p>{/if}
 

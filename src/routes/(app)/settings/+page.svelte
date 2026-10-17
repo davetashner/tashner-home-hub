@@ -54,6 +54,12 @@
 			line: 'What needs doing, when, and how many stars.'
 		},
 		{
+			href: resolve('/(app)/settings/habits'),
+			emoji: '✅',
+			title: 'Habits',
+			line: 'Everyday things with no stars; doing them all earns one.'
+		},
+		{
 			href: resolve('/(app)/settings/routines'),
 			emoji: '🪥',
 			title: 'Routines',
