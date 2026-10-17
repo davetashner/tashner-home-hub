@@ -42,6 +42,11 @@
 
 	/* Photo frame matte behind photos, the same in both themes. */
 	--color-frame: oklch(0% 0 0);
+	/* Overlay text and the soft scrim that keeps it legible over any photo (PHO-7). */
+	--color-on-frame: oklch(98% 0.01 85);
+	--color-scrim: oklch(0% 0 0 / 0.65);
+	--shadow-frame-text: 0 2px 14px oklch(0% 0 0 / 0.65);
+	--spacing-overlay-nudge: 1.5vmin;
 
 	/* Night clock (SLP-4): very dim, warm amber with no blue, on pure black. */
 	--color-night-clock: oklch(36% 0.08 50);

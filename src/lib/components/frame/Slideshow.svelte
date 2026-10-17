@@ -2,6 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
 	import { longpress } from '#lib/actions/longpress.js';
+	import FrameOverlay from '#lib/components/frame/FrameOverlay.svelte';
 	import HidePhotoSheet from '#lib/components/frame/HidePhotoSheet.svelte';
 	import EmptyState from '#lib/components/shell/EmptyState.svelte';
 	import {
@@ -246,6 +247,9 @@
 				{/key}
 			{/if}
 		{/each}
+		{#if status === 'playing'}
+			<FrameOverlay />
+		{/if}
 	</div>
 {/if}
 
