@@ -1,7 +1,8 @@
 export type IconName =
-	'home' | 'calendar' | 'chores' | 'photos' | 'lists' | 'meals' | 'games' | 'settings';
+	'home' | 'calendar' | 'chores' | 'photos' | 'lists' | 'meals' | 'games' | 'music' | 'settings';
 
-export type DestinationPath = '/calendar' | '/chores' | '/photos' | '/lists' | '/meals' | '/games';
+export type DestinationPath =
+	'/calendar' | '/chores' | '/photos' | '/lists' | '/meals' | '/games' | '/music';
 
 export interface Destination {
 	id: string;
@@ -22,7 +23,8 @@ export const DESTINATIONS: readonly Destination[] = [
 	{ id: 'photos', label: 'Photos', href: '/photos', icon: 'photos' },
 	{ id: 'lists', label: 'Lists', href: '/lists', icon: 'lists' },
 	{ id: 'meals', label: 'Meals', href: '/meals', icon: 'meals' },
-	{ id: 'games', label: 'Games', href: '/games', icon: 'games' }
+	{ id: 'games', label: 'Games', href: '/games', icon: 'games' },
+	{ id: 'music', label: 'Music', href: '/music', icon: 'music' }
 ];
 
 export function isActive(href: string, pathname: string): boolean {
