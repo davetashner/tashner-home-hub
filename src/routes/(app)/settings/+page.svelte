@@ -54,6 +54,12 @@
 			line: 'What needs doing, when, and how many stars.'
 		},
 		{
+			href: resolve('/(app)/settings/routines'),
+			emoji: '🪥',
+			title: 'Routines',
+			line: 'Morning and bedtime checklists with pictures.'
+		},
+		{
 			href: resolve('/(app)/settings/rewards'),
 			emoji: '🎁',
 			title: 'Rewards',
@@ -106,6 +112,12 @@
 			emoji: '💾',
 			title: 'Backup',
 			line: 'Export or restore all hub data.'
+		},
+		{
+			href: resolve('/(app)/settings/appearance'),
+			emoji: '🌓',
+			title: 'Theme and brightness',
+			line: 'Light, dark or automatic at night, and dimmer evenings.'
 		},
 		{
 			href: resolve('/(app)/settings/background'),

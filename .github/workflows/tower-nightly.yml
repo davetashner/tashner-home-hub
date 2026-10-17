@@ -1,0 +1,90 @@
+# Nightly deep checks on the self-hosted "tower" runner (ADR 0002 Tier 3): a soak test of the
+# production build and mutation testing of the domain modules. Protected path.
+# SECURITY (ADR 0002 "Where it runs"): this repo is public, so the runner must NEVER run on
+# pull_request or pull_request_target. Only schedule and workflow_dispatch here.
+# scripts/ci/self-hosted-guard.mjs fails CI if that rule is broken in any workflow.
+# Multi-arch builds are not here: the runner has no Docker socket (see hub-ugl.13).
+name: Tower nightly
+
+on:
+  schedule:
+    - cron: '0 7 * * *' # nightly, 07:00 UTC, before the 09:00 smoke in tower.yml
+  workflow_dispatch:
+    inputs:
+      soak_minutes:
+        description: Soak duration in minutes (use 2 for a quick check)
+        default: '25'
+
+permissions:
+  contents: read
+
+# Its own group: never cancels or queues behind the push-to-main smoke runs in tower.yml.
+concurrency:
+  group: tower-nightly
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  soak:
+    name: tower-soak
+    # Belt and braces: refuse every event except the trusted ones, and any other repo (forks).
+    if: >-
+      github.repository == 'davetashner/tashner-home-hub' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: [self-hosted, tower, tashner-home-hub]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Browsers land in /home/runner/.cache/ms-playwright, which persists between jobs.
+      - run: pnpm exec playwright install chromium
+      - run: pnpm build
+      - name: Soak the production build
+        env:
+          SOAK_MINUTES: ${{ github.event.inputs.soak_minutes || '25' }}
+        run: node scripts/soak/soak.mjs --minutes "$SOAK_MINUTES" --out soak-report
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: soak-report
+          path: soak-report
+          retention-days: 14
+
+  mutation:
+    name: tower-mutation
+    if: >-
+      github.repository == 'davetashner/tashner-home-hub' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: [self-hosted, tower, tashner-home-hub]
+    timeout-minutes: 90
+    env:
+      # Incremental mode: only mutants touched by code or test changes since the last run are redone.
+      STRYKER_INCREMENTAL_FILE: /home/runner/.cache/stryker/incremental.json
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: mkdir -p /home/runner/.cache/stryker
+      # Advisory: the thresholds in stryker.config.mjs have no `break`, so the score never fails the job.
+      - name: Mutation testing (src/lib/domain, src/lib/server/domain)
+        run: pnpm exec stryker run
+      - name: Score and job summary
+        if: always()
+        run: node scripts/soak/mutation-summary.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mutation-report
+          path: reports/mutation
+          retention-days: 14

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { jarSlots } from '#lib/domain/kid-chores.js';
 	import { jarCaption, jarFill } from '#lib/domain/goal-jar.js';
+	import Button from '#lib/components/ui/Button.svelte';
+	import RewardShop from './RewardShop.svelte';
 	import StarIcon from './StarIcon.svelte';
 
 	export interface Goal {
@@ -12,16 +14,23 @@
 	}
 
 	let {
+		memberId,
+		onchanged = () => {},
 		balance,
 		pending,
 		goal = null,
 		jar = $bindable(null)
 	}: {
+		memberId: string;
+		/** The shop changed the goal or spent stars: reload the jar. */
+		onchanged?: () => void;
 		balance: number;
 		pending: number;
 		goal?: Goal | null;
 		jar?: HTMLElement | null;
 	} = $props();
+
+	let shopOpen = $state(false);
 
 	const fill = $derived(goal ? jarFill(balance, pending, goal.cost) : null);
 	const slots = $derived(jarSlots(balance, pending, goal?.cost ?? null));
@@ -38,7 +47,7 @@
 	class="flex flex-col gap-6 rounded-card bg-surface-sunken p-8 short:gap-2 short:p-3 tablet:gap-3 tablet:p-4 portrait:tablet:grid portrait:tablet:grid-cols-2 portrait:tablet:items-center"
 >
 	<div
-		class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 portrait:tablet:col-span-2"
+		class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 portrait:tablet:col-span-2"
 	>
 		<h2 class="text-title leading-none font-extrabold short:sr-only tablet:text-lead">
 			My star jar
@@ -50,6 +59,12 @@
 			{balance}
 			{balance === 1 ? 'star' : 'stars'}{pending > 0 ? ` · ${pending} waiting` : ''}
 		</p>
+		<Button
+			size="kid"
+			class="shrink-0 short:px-6 tablet:px-6"
+			data-testid="open-shop"
+			onclick={() => (shopOpen = true)}>Shop</Button
+		>
 	</div>
 
 	<div
@@ -117,6 +132,16 @@
 		</div>
 	{/if}
 </section>
+
+{#if shopOpen}
+	<RewardShop
+		{memberId}
+		{balance}
+		goal={goal && { id: goal.id, title: goal.title, cost: goal.cost }}
+		onclose={() => (shopOpen = false)}
+		{onchanged}
+	/>
+{/if}
 
 <style>
 	.fill {

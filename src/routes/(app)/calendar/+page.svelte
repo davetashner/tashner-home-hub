@@ -29,6 +29,7 @@
 	import { dateKeyOf, type DateKey } from '#lib/domain/calendar-view/zone.js';
 	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 	import { page } from '$app/state';
+	import { mealMap, type MealEntry } from '#lib/domain/meals.js';
 
 	interface Status {
 		sources: { sourceId: string; lastSyncAt: number | null; stale: boolean }[];
@@ -93,6 +94,21 @@
 			// Offline: keep showing whatever is cached.
 		}
 	}
+
+	// MEAL-1: the week view shows each day's planned meal under its date. Best effort.
+	let mealCache = $state<Record<string, MealEntry[]>>({});
+	const meals = $derived(mealMap(mealCache[keys[0]] ?? []));
+	async function loadMeals(ks: DateKey[]) {
+		try {
+			const res = await fetch(`/api/meals?from=${ks[0]}&to=${ks[ks.length - 1]}`);
+			if (res.ok) mealCache[ks[0]] = await res.json();
+		} catch {
+			// Offline: the week view just shows no meals.
+		}
+	}
+	$effect(() => {
+		if (mounted && view === 'week') void loadMeals(keys);
+	});
 
 	async function loadStatus() {
 		try {
@@ -312,6 +328,7 @@
 								{today}
 								{tz}
 								{now}
+								{meals}
 								onselect={(e) => (selected = e)}
 								onday={openDay}
 							/>
@@ -350,6 +367,22 @@
 	.pane.scroll {
 		overflow-y: auto;
 		padding-bottom: 1rem;
+	}
+	/* Phones: the controls take most of a small screen, so the whole page scrolls (the shell's
+	   main is the scroller) instead of squeezing events into a short inner pane. */
+	@media (max-width: 40rem) {
+		.page {
+			height: auto;
+			min-height: 100%;
+		}
+		.viewport {
+			flex: none;
+		}
+		.pane,
+		.pane.scroll {
+			height: auto;
+			overflow-y: visible;
+		}
 	}
 	.pane.next {
 		animation: slide-next var(--duration-base) var(--ease-out-soft) both;
@@ -440,6 +473,14 @@
 		/* Two rows at most; a very long member list scrolls inside instead of eating the calendar. */
 		max-height: calc(var(--spacing-tap) * 2 + 0.5rem);
 		overflow-y: auto;
+	}
+	/* Phones: the page scrolls, so the chips need no two-row cap (it clipped the second row).
+	   Kept after .chips so it wins on source order. */
+	@media (max-width: 40rem) {
+		.chips {
+			max-height: none;
+			overflow-y: visible;
+		}
 	}
 	.chip {
 		display: inline-flex;

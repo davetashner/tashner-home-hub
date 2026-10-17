@@ -40,7 +40,7 @@
 		localDate,
 		setStatus,
 		UNDO_WINDOW_MS,
-		kidsWithChores,
+		kidsToShow,
 		switcherMembers,
 		type KidChore,
 		type KidGroup
@@ -99,7 +99,7 @@
 
 	const selected = $derived(members.find((m) => m.id === selectedId) ?? null);
 	const groups = $derived(selectedId ? (boards[selectedId] ?? []) : []);
-	const kids = $derived(kidsWithChores(members, boards));
+	const kids = $derived(kidsToShow(members, boards, routinesBy, nowMinutes));
 	const stars = $derived((selectedId && starsBy[selectedId]) || { balance: 0, pending: 0 });
 	const streak = $derived(selectedId ? (streaks[selectedId] ?? null) : null);
 	const routines = $derived(selectedId ? (routinesBy[selectedId] ?? []) : []);
@@ -223,8 +223,8 @@
 	}
 
 	/** Today's routines for everyone; keeps local progress if a tap has not reached the server yet. */
-	async function loadRoutines(date: string) {
-		const all = await api<(KidRoutine & { memberId: string })[]>(`/api/routines?date=${date}`);
+	type RoutineRow = KidRoutine & { memberId: string };
+	function applyRoutines(all: RoutineRow[]) {
 		const kept = Object.values(routinesBy).flat();
 		const by: Record<string, KidRoutine[]> = {};
 		for (const { memberId, ...r } of all) {
@@ -253,8 +253,10 @@
 	async function refresh() {
 		if (busy()) return;
 		try {
-			const list = await api<Member[]>('/api/members');
 			const date = localDate(Date.now(), tz);
+			// Started alongside the member and chore fetches; a failure must not blank the chores.
+			const routinesFetch = api<RoutineRow[]>(`/api/routines?date=${date}`).catch(() => null);
+			const list = await api<Member[]>('/api/members');
 			const results = await Promise.all(
 				childrenOf(list).map(async (m): Promise<MemberResult<KidGroup>> => {
 					try {
@@ -267,6 +269,7 @@
 					}
 				})
 			);
+			const fetchedRoutines = await routinesFetch;
 			if (busy()) return;
 			const queued = await writeQueue.pending();
 			const plan = planLoad(list, results, boards);
@@ -278,11 +281,12 @@
 			unreachable = plan.unreachable;
 			partial = plan.failed.length > 0;
 			members = plan.members;
-			void loadRoutines(date).catch(() => {});
+			// Before choosing a child: a kid with only a routine counts too.
+			if (fetchedRoutines) applyRoutines(fetchedRoutines);
 			boards = Object.fromEntries(
 				plan.members.map((m) => [m.id, overlayQueued(plan.boards[m.id], m.id, queued)] as const)
 			);
-			const options = switcherMembers(plan.members, boards);
+			const options = switcherMembers(plan.members, boards, routinesBy, nowMinutes);
 			if (!options.some((m) => m.id === selectedId)) {
 				// ?member=<id> picks a child; the avatar switcher keeps it in sync.
 				const want = page.url.searchParams.get('member');
@@ -609,7 +613,14 @@
 		<aside
 			class="shrink-0 portrait:order-first landscape:sticky landscape:top-0 landscape:w-1/3 short:col-start-3 short:w-auto portrait:tablet:order-2 landscape:tablet:w-1/4"
 		>
-			<StarJar balance={stars.balance} pending={stars.pending} {goal} bind:jar />
+			<StarJar
+				memberId={selected.id}
+				onchanged={() => void loadStars(selected.id).catch(() => {})}
+				balance={stars.balance}
+				pending={stars.pending}
+				{goal}
+				bind:jar
+			/>
 		</aside>
 	</div>
 {/if}
