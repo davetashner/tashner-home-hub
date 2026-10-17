@@ -22,10 +22,12 @@ say() { echo "==> $*"; }
 : "${OUTPUT:=HDMI-A-1}"
 : "${RESOLUTION:=2560x1440}"
 : "${TOUCH_MATRIX:=}"
+: "${INPUT:=touch}"
 case "$ORIENTATION" in normal | 90 | 180 | 270) ;; *) die "ORIENTATION must be normal|90|180|270" ;; esac
 [[ "$OUTPUT" =~ ^[A-Za-z0-9_-]+$ ]] || die "OUTPUT looks wrong: $OUTPUT"
 [[ "$RESOLUTION" =~ ^[0-9]+x[0-9]+$ ]] || die "RESOLUTION must look like 2560x1440"
 [[ "$HUB_URL" =~ ^https?:// ]] || die "HUB_URL must start with http:// or https://"
+case "$INPUT" in touch | mouse) ;; *) die "INPUT must be touch|mouse" ;; esac
 
 # libinput calibration matrices (labwc-config(5) / libinput docs, clockwise rotation).
 # Which of 90/270 matches wlr-randr's --transform direction is confirmed on hardware (hub-8lc.9).
@@ -99,6 +101,23 @@ $LIB_DIR/hub-kiosk-apply-display &
 systemctl --user import-environment WAYLAND_DISPLAY XDG_RUNTIME_DIR XCURSOR_THEME XCURSOR_SIZE
 systemctl --user start hub-kiosk.service hub-kiosk-watchdog.timer hub-kiosk-display-agent.service
 EOC
+# Touch wall: the invisible cursor theme. Mouse and keyboard on a TV (INPUT=mouse): a pointer
+# readable at 4K, and Esc minimizes the hub so the desktop is reachable (restore it from the taskbar).
+KEYBOARD=""
+if [ "$INPUT" = touch ]; then
+  CURSOR_THEME=hub-blank CURSOR_SIZE=1
+else
+  CURSOR_THEME=Adwaita CURSOR_SIZE=48
+  KEYBOARD='  <keyboard>
+    <keybind key="Escape">
+      <action name="If">
+        <query identifier="chromium*" />
+        <then><action name="Iconify" /></then>
+      </action>
+    </keybind>
+  </keyboard>
+'
+fi
 cat >"$CFG/rc.xml" <<EOC
 <?xml version="1.0"?>
 <!-- Managed by hub-kiosk install.sh. Touch is mapped to $OUTPUT, matrix for orientation $ORIENTATION. -->
@@ -109,11 +128,11 @@ cat >"$CFG/rc.xml" <<EOC
       <calibrationMatrix>$TOUCH_MATRIX</calibrationMatrix>
     </device>
   </libinput>
-</labwc_config>
+${KEYBOARD}</labwc_config>
 EOC
 cat >"$CFG/environment" <<EOC
-XCURSOR_THEME=hub-blank
-XCURSOR_SIZE=1
+XCURSOR_THEME=$CURSOR_THEME
+XCURSOR_SIZE=$CURSOR_SIZE
 EOC
 chown "$KIOSK_USER:$KIOSK_USER" "$CFG/autostart" "$CFG/rc.xml" "$CFG/environment"
 
