@@ -39,6 +39,13 @@ if [ -z "$TOUCH_MATRIX" ]; then
 fi
 [[ "$TOUCH_MATRIX" =~ ^(-?[0-9.]+[[:space:]]+){5}-?[0-9.]+$ ]] || die "TOUCH_MATRIX needs six numbers"
 
+# Automation flags set navigator.webdriver, which the app treats as "under test" (still wave
+# background, evening theme and dimming pinned off). Comments may mention them; code may not.
+if grep -v '^[[:space:]]*#' "$HERE/bin/hub-kiosk-launch" |
+  grep -qE -- '--(enable-automation|headless|test-type)'; then
+  die "bin/hub-kiosk-launch must not pass --enable-automation, --headless or --test-type"
+fi
+
 say "Installing packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
