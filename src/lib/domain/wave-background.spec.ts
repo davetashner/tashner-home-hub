@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+	autoPalette,
 	canvasSize,
 	dueForFrame,
+	fadeProgress,
 	isSoftwareRenderer,
 	isStarved,
+	mixPalette,
 	parseColor,
+	parseLocation,
+	type PaletteValues,
 	parseWaveChoice,
 	renderScale,
 	resolvePalette,
+	sunTimes,
 	waveShape
 } from './wave-background.js';
 
@@ -71,5 +77,114 @@ describe('parseColor', () => {
 	it('rejects what it cannot read', () => {
 		expect(parseColor('')).toBeNull();
 		expect(parseColor('oklch(a b c)')).toBeNull();
+	});
+});
+
+const MIN = 60_000;
+const at = (iso: string) => Date.parse(iso);
+
+describe('sunTimes', () => {
+	const near = (actual: number | null, iso: string) =>
+		expect(Math.abs(actual! - at(iso)) / MIN).toBeLessThanOrEqual(2);
+	it('matches published times', () => {
+		const nyc = sunTimes({ lat: 40.7128, lon: -74.006 }, 2024, 6, 21);
+		near(nyc.sunrise, '2024-06-21T05:25:00-04:00');
+		near(nyc.sunset, '2024-06-21T20:31:00-04:00');
+		const london = sunTimes({ lat: 51.5074, lon: -0.1278 }, 2024, 12, 21);
+		near(london.sunrise, '2024-12-21T08:04:00Z');
+		near(london.sunset, '2024-12-21T15:53:00Z');
+		const sydney = sunTimes({ lat: -33.8688, lon: 151.2093 }, 2024, 12, 21);
+		near(sydney.sunrise, '2024-12-21T05:41:00+11:00');
+		near(sydney.sunset, '2024-12-21T20:05:00+11:00');
+	});
+	it('matches published times on a daylight-saving change day', () => {
+		const nyc = { lat: 40.7128, lon: -74.006 };
+		// US spring forward, 2024-03-10: sunset 6:57 pm EDT.
+		near(sunTimes(nyc, 2024, 3, 10).sunset, '2024-03-10T18:57:00-04:00');
+		// US fall back, 2024-11-03: sunset 4:50 pm EST.
+		near(sunTimes(nyc, 2024, 11, 3).sunset, '2024-11-03T16:50:00-05:00');
+	});
+	it('reports polar day and night', () => {
+		const tromso = { lat: 69.6492, lon: 18.9553 };
+		expect(sunTimes(tromso, 2024, 6, 21)).toEqual({ sunrise: null, sunset: null, polar: 'day' });
+		expect(sunTimes(tromso, 2024, 12, 21)).toEqual({ sunrise: null, sunset: null, polar: 'night' });
+	});
+});
+
+describe('parseLocation', () => {
+	it('accepts coordinates and rejects the rest', () => {
+		expect(parseLocation({ lat: 1, lon: 2, name: 'x' })).toEqual({ lat: 1, lon: 2 });
+		expect(parseLocation(null)).toBeNull();
+		expect(parseLocation('x')).toBeNull();
+		expect(parseLocation({ lat: '1', lon: 2 })).toBeNull();
+		expect(parseLocation({ lat: 91, lon: 0 })).toBeNull();
+		expect(parseLocation({ lat: 0, lon: 181 })).toBeNull();
+	});
+});
+
+describe('autoPalette', () => {
+	const nyc = { lat: 40.7128, lon: -74.006 };
+	const zone = 'America/New_York';
+	const sunset = sunTimes(nyc, 2024, 6, 21).sunset!;
+	const p = (ms: number, theme: 'light' | 'night' = 'light') => autoPalette(theme, ms, nyc, zone);
+	it('is Dusk, then Sorbet from 45 min before to 45 min after sunset, then Dusk', () => {
+		expect(p(at('2024-06-21T03:00:00-04:00'))).toBe('dusk');
+		expect(p(at('2024-06-21T12:00:00-04:00'))).toBe('dusk');
+		expect(p(sunset - 45 * MIN - MIN)).toBe('dusk');
+		expect(p(sunset - 45 * MIN)).toBe('sorbet');
+		expect(p(sunset)).toBe('sorbet');
+		expect(p(sunset + 45 * MIN - MIN)).toBe('sorbet');
+		expect(p(sunset + 45 * MIN)).toBe('dusk');
+		expect(p(sunset + 45 * MIN + MIN)).toBe('dusk');
+		expect(p(at('2024-06-21T23:30:00-04:00'))).toBe('dusk');
+	});
+	it('never picks Night in the day theme and always does in the night theme', () => {
+		for (let h = 0; h < 24; h++) {
+			const ms = at('2024-06-21T00:00:00-04:00') + h * 60 * MIN;
+			expect(p(ms)).not.toBe('night');
+			expect(p(ms, 'night')).toBe('night');
+		}
+	});
+	it('uses the zone for the date and works on a DST day', () => {
+		const s = sunTimes(nyc, 2024, 3, 10).sunset!;
+		expect(p(s - 50 * MIN)).toBe('dusk');
+		expect(p(s - 40 * MIN)).toBe('sorbet');
+	});
+	it('stays Dusk through polar day, and has no window in polar night', () => {
+		const tromso = { lat: 69.6492, lon: 18.9553 };
+		expect(autoPalette('light', at('2024-06-21T22:00:00Z'), tromso, 'Europe/Oslo')).toBe('dusk');
+		expect(autoPalette('light', at('2024-12-21T12:00:00Z'), tromso, 'Europe/Oslo')).toBe('dusk');
+		expect(autoPalette('night', at('2024-12-21T12:00:00Z'), tromso, 'Europe/Oslo')).toBe('night');
+	});
+	it('follows the theme alone without a location, or with an unknown zone', () => {
+		expect(autoPalette('light', 0, null, zone)).toBe('dusk');
+		expect(autoPalette('night', 0, null, zone)).toBe('night');
+		expect(autoPalette('light', 0, nyc, 'Not/AZone')).toBe('dusk');
+		expect(autoPalette('light', sunset, nyc, undefined)).toMatch(/dusk|sorbet/);
+	});
+	it('feeds resolvePalette: Auto takes the sun, a pick ignores it', () => {
+		expect(resolvePalette('auto', 'light', 'sorbet')).toBe('sorbet');
+		expect(resolvePalette('auto', 'night', 'sorbet')).toBe('night');
+		expect(resolvePalette('auto', 'light', 'night')).toBe('dusk');
+		expect(resolvePalette('seafoam', 'light', 'sorbet')).toBe('seafoam');
+		expect(resolvePalette('auto', 'night')).toBe('night');
+	});
+});
+
+describe('palette fade', () => {
+	const mk = (v: number, a: number): PaletteValues => ({
+		colors: [[v, v, v]],
+		look: { sheetAlpha: a, lineAlpha: a, dotAlpha: a, vignette: a }
+	});
+	it('blends and clamps', () => {
+		const m = mixPalette(mk(0, 0), mk(1, 1), 0.5);
+		expect(m.colors[0]).toEqual([0.5, 0.5, 0.5]);
+		expect(m.look.vignette).toBe(0.5);
+		expect(mixPalette(mk(0, 0), mk(1, 1), 3).colors[0][0]).toBe(1);
+	});
+	it('measures progress', () => {
+		expect(fadeProgress(30000, 0, 60000)).toBe(0.5);
+		expect(fadeProgress(90000, 0, 60000)).toBe(1);
+		expect(fadeProgress(5, 0, 0)).toBe(1);
 	});
 });
