@@ -144,3 +144,15 @@ export function getGoal(db: Db, memberId: string): GoalProgress | null {
 		percent: Math.min(100, Math.max(0, Math.floor((balance / cost) * 100)))
 	};
 }
+
+/**
+ * Whether a child may pick this reward as their own goal without a grown-up (REW-5).
+ * Narrow on purpose: an existing child-role member and an existing, active reward. Picking a goal
+ * moves no stars; spending them still needs the adult PIN.
+ */
+export function kidMayPickGoal(db: Db, memberId: string, rewardId: string): boolean {
+	const member = db.select().from(members).where(eq(members.id, memberId)).get();
+	if (!member || member.role !== 'child') return false;
+	const reward = db.select().from(rewards).where(eq(rewards.id, rewardId)).get();
+	return !!reward && reward.active;
+}

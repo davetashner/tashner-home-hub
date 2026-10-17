@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { jarSlots } from '#lib/domain/kid-chores.js';
 	import { jarCaption, jarFill } from '#lib/domain/goal-jar.js';
+	import Button from '#lib/components/ui/Button.svelte';
+	import RewardShop from './RewardShop.svelte';
 	import StarIcon from './StarIcon.svelte';
 
 	export interface Goal {
@@ -12,16 +14,23 @@
 	}
 
 	let {
+		memberId,
+		onchanged = () => {},
 		balance,
 		pending,
 		goal = null,
 		jar = $bindable(null)
 	}: {
+		memberId: string;
+		/** The shop changed the goal or spent stars: reload the jar. */
+		onchanged?: () => void;
 		balance: number;
 		pending: number;
 		goal?: Goal | null;
 		jar?: HTMLElement | null;
 	} = $props();
+
+	let shopOpen = $state(false);
 
 	const fill = $derived(goal ? jarFill(balance, pending, goal.cost) : null);
 	const slots = $derived(jarSlots(balance, pending, goal?.cost ?? null));
@@ -116,7 +125,18 @@
 			</div>
 		</div>
 	{/if}
+	<Button size="kid" data-testid="open-shop" onclick={() => (shopOpen = true)}>Shop</Button>
 </section>
+
+{#if shopOpen}
+	<RewardShop
+		{memberId}
+		{balance}
+		goal={goal && { id: goal.id, title: goal.title, cost: goal.cost }}
+		onclose={() => (shopOpen = false)}
+		{onchanged}
+	/>
+{/if}
 
 <style>
 	.fill {
