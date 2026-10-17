@@ -19,9 +19,12 @@ test('create, edit and archive a weekday chore', async ({ page }, info) => {
 	await page.goto('/settings/chores');
 	const add = page.getByRole('button', { name: 'Add Star Job' });
 	await expectTappable(add);
-	await add.click();
-
+	// A tap before the page hydrates is lost: retry until the form opens.
 	const form = page.getByTestId('chore-form');
+	await expect(async () => {
+		await add.click();
+		await expect(form).toBeVisible({ timeout: 1000 });
+	}).toPass();
 	await form.getByLabel('Star Job', { exact: true }).fill(title);
 	await form.locator('label:has(input[name="icon"][value="🦷"]) span').click();
 	await form.getByRole('button', { name: 'More stars' }).click();
