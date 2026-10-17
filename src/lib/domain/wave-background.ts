@@ -89,6 +89,10 @@ export const waveShape = {
 /** A CPU-rendered GL (SwiftShader, llvmpipe) would starve the page: show the still gradient instead. */
 export const isSoftwareRenderer = (name: string) => /swiftshader|llvmpipe|software/i.test(name);
 
+/** After 20 draws, an average above 100 ms each (under 10 fps) means this device can't keep up. */
+export const isStarved = (elapsedMs: number, draws: number) =>
+	draws >= 20 && elapsedMs / draws > 100;
+
 export const WAVE_FPS = 30;
 export const MAX_CANVAS_WIDTH = 3840;
 /** The wall at 4K gets a smaller canvas: the Pi 5 fills fewer pixels, the look stays the same. */

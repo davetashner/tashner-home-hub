@@ -4,6 +4,7 @@
 	import {
 		canvasSize,
 		dueForFrame,
+		isStarved,
 		PALETTE_LOOK,
 		PALETTE_SLOTS,
 		parseColor,
@@ -118,6 +119,8 @@
 		} else {
 			let last = performance.now();
 			let lastDraw = 0;
+			const began = last;
+			let draws = 0;
 			const frame = (at: number) => {
 				raf = requestAnimationFrame(frame);
 				t += Math.min((at - last) / 1000, 0.1) * WAVE_SPEED;
@@ -125,6 +128,8 @@
 				if (!dueForFrame(at, lastDraw)) return;
 				lastDraw = at;
 				paint();
+				// Too slow to be worth it (no real GPU): give up and keep the still gradient.
+				if (isStarved(at - began, ++draws)) failed = true;
 			};
 			raf = requestAnimationFrame(frame);
 		}

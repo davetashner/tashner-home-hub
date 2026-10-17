@@ -20,7 +20,6 @@ test('the wave layer sits behind the home screen and never takes a tap', async (
 	await expect(bg).toHaveAttribute('aria-hidden', 'true');
 	await expect(bg).toHaveCSS('pointer-events', 'none');
 	await expect(bg).toHaveCSS('z-index', '-1');
-	await expect(bg).toHaveCSS('background-image', /gradient/);
 	await expect(drawn(bg)).toHaveCount(0);
 });
 

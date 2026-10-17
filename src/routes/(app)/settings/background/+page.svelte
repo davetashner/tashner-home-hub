@@ -5,18 +5,16 @@
 	import { WAVE_CHOICES, WAVE_LABELS, type WaveChoice } from '#lib/domain/wave-background.js';
 
 	let message = $state('');
-	let edits = 0;
 
 	function choose(choice: WaveChoice) {
 		if (wave.choice === choice) return;
 		// Optimistic: the background changes on the tap, the save follows.
 		const before = wave.choice;
-		const at = ++edits;
 		wave.choice = choice;
 		message = '';
 		const fail = () => {
 			message = 'Could not save. Try again.';
-			if (at === edits) wave.choice = before;
+			wave.choice = before;
 		};
 		void fetch('/api/settings/wave-background', {
 			method: 'PUT',
