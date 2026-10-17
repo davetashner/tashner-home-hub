@@ -32,6 +32,7 @@
 	let windowStart = $state('');
 	let windowEnd = $state('');
 	let steps = $state<RoutineStep[]>([]);
+	const memberName = $derived(members.find((m) => m.id === memberId)?.name ?? 'they');
 
 	const json = { 'content-type': 'application/json' };
 
@@ -172,7 +173,17 @@
 					</label>
 				</div>
 
-				<ol class="flex flex-col gap-4">
+				<div class="flex flex-col gap-1">
+					<h2 id="routine-steps" class="text-lead font-extrabold">Steps</h2>
+					<p id="routine-steps-help" class="text-caption text-ink-muted">
+						What {memberName} ticks off, in order. Tap a picture to change it.
+					</p>
+				</div>
+				<ol
+					class="flex flex-col gap-4"
+					aria-labelledby="routine-steps"
+					aria-describedby="routine-steps-help"
+				>
 					{#each steps as step, i (i)}
 						<li class="flex flex-col gap-3" data-testid="routine-step-row">
 							<div class="flex items-center gap-3">
@@ -191,7 +202,7 @@
 									maxlength="40"
 									required
 									aria-label="Step {i + 1} name"
-									placeholder="Brush teeth"
+									placeholder="Step {i + 1}"
 								/>
 								<Button
 									variant="secondary"
