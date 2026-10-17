@@ -101,3 +101,49 @@ test('phone: add through the input', async ({ browser }, info) => {
 		await context.close();
 	}
 });
+
+test('long-press an item to delete it, gone after reload', async ({ page, context }, info) => {
+	ensureHousehold();
+	await asWallDisplay(context);
+	const tag = `del${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
+	const row = () => page.getByTestId('list-item').filter({ hasText: tag });
+	await signInAsAdult(page, `e2e-lists-${info.project.name}`);
+	let listId: string | null = null;
+	try {
+		listId = await makeList(page, tag);
+		const added = await page.request.post(`/api/lists/${listId}/items`, { data: { text: tag } });
+		expect(added.ok()).toBe(true);
+		await openList(page, tag);
+		await expect(row()).toHaveCount(1);
+		await expect(page.getByTestId('item-delete')).toHaveCount(0);
+
+		const box = (await row().getByTestId('item-check').boundingBox())!;
+		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+		await page.mouse.down();
+		await page.waitForTimeout(800);
+		await page.mouse.up();
+		// The press must not have toggled the item.
+		await expect(row()).toHaveAttribute('data-done', 'false');
+		const del = row().getByTestId('item-delete');
+		await expectTappable(del);
+
+		// Tapping elsewhere dismisses it.
+		await page.mouse.click(2, 2);
+		await expect(del).toHaveCount(0);
+
+		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+		await page.mouse.down();
+		await page.waitForTimeout(800);
+		await page.mouse.up();
+		const deleted = page.waitForResponse(
+			(r) => r.url().includes('/api/list-items/') && r.request().method() === 'DELETE'
+		);
+		await del.click();
+		await expect(row()).toHaveCount(0);
+		expect((await deleted).ok()).toBe(true);
+		await openList(page, tag);
+		await expect(row()).toHaveCount(0);
+	} finally {
+		await dropList(page, listId);
+	}
+});
