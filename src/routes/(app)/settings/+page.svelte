@@ -84,6 +84,12 @@
 			line: 'Web games for the Games tab.'
 		},
 		{
+			href: resolve('/(app)/settings/music'),
+			emoji: '🎵',
+			title: 'Music',
+			line: 'Connect Spotify for shower music.'
+		},
+		{
 			href: resolve('/(app)/settings/photo-library'),
 			emoji: '🖼️',
 			title: 'Photo library',
