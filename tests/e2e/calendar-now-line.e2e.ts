@@ -29,10 +29,13 @@ test('week grid draws the now line and moves it down as the minutes pass', async
 	}).toPass();
 	const line = pane.getByTestId('now-line');
 	await expect(line).toHaveCount(1);
-	const before = (await line.boundingBox())!;
+	// Offset within the grid, not the viewport: the grid scrolls itself to "now" after it mounts,
+	// which moved the line on screen between the two measurements.
+	const top = () => line.evaluate((el) => (el as HTMLElement).offsetTop);
+	const before = await top();
 
 	await page.clock.runFor(10 * 60_000);
-	await expect.poll(async () => (await line.boundingBox())!.y).toBeGreaterThan(before.y + 10);
+	await expect.poll(top).toBeGreaterThan(before + 10);
 });
 
 test('agenda marks now between the events that have and have not started', async ({ page }) => {
