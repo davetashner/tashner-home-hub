@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import Database from 'better-sqlite3';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { seedKid, type KidSeed } from './kid';
 import { px } from './tap';
@@ -223,4 +224,33 @@ test('phone landscape: /chores "you earned it" banner stays on screen', async ({
 			expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
 		});
 	}
+});
+
+test('phone landscape: a three-digit approvals count keeps the adult header on screen', async ({
+	page
+}, info) => {
+	// CI's shared database can hold 100+ pending approvals; the badge caps its count at "99+" so
+	// the header (with Lock, for an adult) still fits the narrowest phone.
+	const kid = await seedKid(page, `phone-badge-${info.project.name}`);
+	const db = new Database('data/hub.db');
+	db.pragma('busy_timeout = 5000');
+	const insert = db.prepare(
+		"INSERT INTO chore_completions (id, chore_id, member_id, date, completed_at, status) VALUES (?, ?, ?, '2019-01-01', 0, 'pending')"
+	);
+	const choreId = Object.values(kid.chores)[0];
+	db.transaction(() => {
+		for (let i = 0; i < 120; i++) insert.run(`badge-${kid.memberId}-${i}`, choreId, kid.memberId);
+	})();
+	db.close();
+	await signInAsAdult(page, `adult-phone-${info.project.name}`);
+	await page.setViewportSize({ width: 667, height: 375 });
+	await page.goto('/calendar');
+	await settle(page);
+	// innerText skips the hidden wall-size label, so this is what the phone actually shows.
+	await expect
+		.poll(() =>
+			page.getByTestId('approvals-badge').evaluate((el) => (el as HTMLElement).innerText.trim())
+		)
+		.toBe('99+');
+	await expectFits(page);
 });
