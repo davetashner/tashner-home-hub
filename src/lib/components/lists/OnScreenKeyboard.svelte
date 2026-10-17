@@ -3,12 +3,22 @@
 	import { ITEM_TEXT_MAX } from '#lib/domain/lists.js';
 
 	/** The wall has no OS keyboard (LST-2): big keys, all state in the pure reducer. */
-	let { onsubmit }: { onsubmit: (text: string) => void } = $props();
+	let {
+		onsubmit,
+		placeholder = 'Type an item…',
+		submitLabel = 'Add',
+		max = ITEM_TEXT_MAX
+	}: {
+		onsubmit: (text: string) => void;
+		placeholder?: string;
+		submitLabel?: string;
+		max?: number;
+	} = $props();
 
 	let kb = $state(initialKeyboard());
 
 	function tap(key: KeyPress) {
-		kb = press(kb, key, ITEM_TEXT_MAX);
+		kb = press(kb, key, max);
 		if (kb.submitted !== null) onsubmit(kb.submitted);
 	}
 
@@ -23,7 +33,7 @@
 		data-testid="keyboard-text"
 		aria-live="polite"
 	>
-		{#if kb.text}{kb.text}{:else}<span class="text-ink-muted">Type an item…</span>{/if}
+		{#if kb.text}{kb.text}{:else}<span class="text-ink-muted">{placeholder}</span>{/if}
 	</div>
 	{#each KEYBOARD_ROWS as row (row[0])}
 		<div class="flex gap-2">
@@ -64,7 +74,7 @@
 			type="button"
 			class="{key} col-span-2 border-accent bg-accent text-on-accent active:bg-accent-press"
 			data-testid="key-enter"
-			onclick={() => tap({ type: 'enter' })}>Add</button
+			onclick={() => tap({ type: 'enter' })}>{submitLabel}</button
 		>
 	</div>
 </div>

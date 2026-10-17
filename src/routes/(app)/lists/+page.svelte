@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { replaceState } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { longpress } from '#lib/actions/longpress.js';
 	import OnScreenKeyboard from '#lib/components/lists/OnScreenKeyboard.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
-	import { sortItems, withDone, type ListItem } from '#lib/domain/lists.js';
+	import { LIST_TITLE_MAX, sortItems, withDone, type ListItem } from '#lib/domain/lists.js';
 	import { deliver } from '#lib/offline/client.js';
 
 	interface SharedList {
@@ -18,7 +20,15 @@
 
 	let lists = $state<SharedList[]>([]);
 	let loaded = $state(false);
-	let selected = $state<string | null>(null);
+	/** The chosen tab lives in the URL (?list=) so a reload keeps it. */
+	let selected = $state<string | null>(page.url.searchParams.get('list'));
+	/** True while the keyboard is collecting a name for a new list. */
+	let naming = $state(false);
+	/** True while the delete-list confirmation is showing. */
+	let confirming = $state(false);
+	/** Lists deleted but not yet confirmed by the server: a refresh must not resurrect them. */
+	const vanishing: Record<string, true> = {};
+	const adult = $derived(page.data.adult === true);
 	let draft = $state('');
 	/** Check-offs the server has not confirmed yet, so a refresh never flips them back. */
 	const intent: Record<string, boolean> = {};
@@ -61,13 +71,15 @@
 				if (want === i.done) delete intent[i.id];
 				else i.done = want;
 			}
-		lists = base.map((l) => ({
-			...l,
-			items: [
-				...l.items.filter((i) => !(i.id in removing) && !i.id.startsWith('temp-')),
-				...placeholders.filter((p) => p.listId === l.id)
-			]
-		}));
+		lists = base
+			.filter((l) => !(l.id in vanishing))
+			.map((l) => ({
+				...l,
+				items: [
+					...l.items.filter((i) => !(i.id in removing) && !i.id.startsWith('temp-')),
+					...placeholders.filter((p) => p.listId === l.id)
+				]
+			}));
 		if (data) loaded = true;
 	}
 
@@ -81,6 +93,76 @@
 			document.removeEventListener('visibilitychange', onVisible);
 		};
 	});
+
+	function select(id: string) {
+		selected = id;
+		confirming = false;
+		naming = false;
+		const base = resolve('/(app)/[section]', { section: 'lists' });
+		// The path comes from resolve(); only the query string is appended.
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		replaceState(`${base}?list=${encodeURIComponent(id)}`, {});
+	}
+
+	async function createNew(title: string) {
+		naming = false;
+		error = '';
+		const temp: SharedList = { id: `temp-${crypto.randomUUID()}`, title, items: [] };
+		lists = [...lists, temp];
+		selected = temp.id;
+		let real: SharedList | null = null;
+		try {
+			const res = await fetch('/api/lists', {
+				method: 'POST',
+				headers: JSON_HEADERS,
+				body: JSON.stringify({ title })
+			});
+			if (res.ok) real = (await res.json()) as SharedList;
+		} catch {
+			// Offline: treated as a failure below.
+		}
+		if (real) {
+			lists = lists.map((l) => (l.id === temp.id ? { ...real!, items: [] } : l));
+			if (selected === temp.id) select(real.id);
+		} else {
+			error = `Could not create "${title}".`;
+			lists = lists.filter((l) => l.id !== temp.id);
+			if (selected === temp.id) selected = null;
+		}
+		generation++;
+		await refresh();
+	}
+
+	async function removeList() {
+		if (!current) return;
+		const gone = current;
+		confirming = false;
+		error = '';
+		vanishing[gone.id] = true;
+		lists = lists.filter((l) => l.id !== gone.id);
+		selected = null;
+		let ok = false;
+		try {
+			const res = await fetch(`/api/lists/${gone.id}`, {
+				method: 'DELETE',
+				headers: JSON_HEADERS,
+				body: '{}'
+			});
+			ok = res.ok || res.status === 404;
+		} catch {
+			// Offline: treated as a failure below.
+		}
+		delete vanishing[gone.id];
+		if (!ok) {
+			error = `Could not delete "${gone.title}". It is back.`;
+			lists = [...lists, gone];
+			selected = gone.id;
+		} else {
+			replaceState(resolve('/(app)/[section]', { section: 'lists' }), {});
+		}
+		generation++;
+		await refresh();
+	}
 
 	function patchItems(listId: string, fn: (items: ListItem[]) => ListItem[]) {
 		lists = lists.map((l) => (l.id === listId ? { ...l, items: fn(l.items) } : l));
@@ -181,7 +263,8 @@
 		const text = draft.trim();
 		if (!text) return;
 		draft = '';
-		void add(text);
+		if (naming) void createNew(text);
+		else void add(text);
 	}
 </script>
 
@@ -190,22 +273,47 @@
 
 <section class="flex h-full min-h-0 flex-col gap-4 p-6 short:p-3">
 	<h1 class="sr-only">Lists</h1>
-	<div class="flex flex-wrap gap-3" role="tablist" aria-label="Lists">
-		{#each lists as l (l.id)}
-			{@const on = l.id === current?.id}
-			<button
-				type="button"
-				role="tab"
-				aria-selected={on}
-				data-testid="list-tab"
-				class="min-h-tap rounded-chip px-6 text-body {on
-					? 'bg-accent text-on-accent'
-					: 'border-2 border-line bg-surface-raised text-ink'}"
-				onclick={() => (selected = l.id)}
+	<div class="flex flex-wrap gap-3">
+		<div class="contents" role="tablist" aria-label="Lists">
+			{#each lists as l (l.id)}
+				{@const on = l.id === current?.id}
+				<button
+					type="button"
+					role="tab"
+					aria-selected={on}
+					data-testid="list-tab"
+					class="min-h-tap rounded-chip px-6 text-body {on
+						? 'bg-accent text-on-accent'
+						: 'border-2 border-line bg-surface-raised text-ink'}"
+					onclick={() => select(l.id)}
+				>
+					{l.title}
+				</button>
+			{/each}
+		</div>
+		<button
+			type="button"
+			aria-label="New list"
+			data-testid="list-new"
+			aria-pressed={naming}
+			class="min-h-tap min-w-tap rounded-chip border-2 border-dashed border-line px-6 text-body text-ink {naming
+				? 'bg-accent-soft'
+				: 'bg-surface-raised'}"
+			onclick={() => {
+				naming = !naming;
+				confirming = false;
+			}}>+</button
+		>
+		{#if adult && current && !naming}
+			<Button
+				variant="secondary"
+				class="border-danger text-danger"
+				data-testid="list-delete"
+				onclick={() => (confirming = true)}
 			>
-				{l.title}
-			</button>
-		{/each}
+				Delete list
+			</Button>
+		{/if}
 		{#if checked > 0}
 			<Button
 				variant="secondary"
@@ -217,6 +325,30 @@
 			</Button>
 		{/if}
 	</div>
+
+	{#if confirming && current}
+		<div
+			class="flex flex-wrap items-center gap-3 rounded-card border-2 border-danger bg-surface-raised p-4"
+			role="alertdialog"
+			aria-label="Confirm delete list"
+			data-testid="list-confirm"
+		>
+			<p class="min-w-0 flex-1 text-body text-ink">
+				Delete "{current.title}" and its {current.items.length}
+				{current.items.length === 1 ? 'item' : 'items'}?
+			</p>
+			<Button
+				variant="secondary"
+				data-testid="list-confirm-cancel"
+				onclick={() => (confirming = false)}
+			>
+				Cancel
+			</Button>
+			<Button class="bg-danger" data-testid="list-confirm-delete" onclick={removeList}
+				>Delete</Button
+			>
+		</div>
+	{/if}
 
 	{#if error}
 		<p class="text-body text-danger" role="alert" data-testid="list-error">{error}</p>
@@ -269,20 +401,31 @@
 	</ul>
 
 	{#if wall}
-		<OnScreenKeyboard onsubmit={add} />
+		{#key naming}
+			{#if naming}
+				<OnScreenKeyboard
+					onsubmit={createNew}
+					placeholder="Type a list name…"
+					submitLabel="Create"
+					max={LIST_TITLE_MAX}
+				/>
+			{:else}
+				<OnScreenKeyboard onsubmit={add} />
+			{/if}
+		{/key}
 	{:else}
 		<form class="flex gap-3" onsubmit={submitDraft}>
 			<input
 				bind:value={draft}
-				maxlength="120"
+				maxlength={naming ? LIST_TITLE_MAX : 120}
 				autocomplete="off"
 				enterkeyhint="done"
-				placeholder="Add an item"
-				aria-label="New item"
+				placeholder={naming ? 'Name the new list' : 'Add an item'}
+				aria-label={naming ? 'New list name' : 'New item'}
 				data-testid="item-input"
 				class="min-h-tap min-w-0 flex-1 rounded-control border-2 border-line bg-surface px-4 text-body text-ink"
 			/>
-			<Button type="submit" data-testid="item-add">Add</Button>
+			<Button type="submit" data-testid="item-add">{naming ? 'Create' : 'Add'}</Button>
 		</form>
 	{/if}
 </section>
