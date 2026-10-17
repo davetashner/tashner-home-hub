@@ -50,7 +50,9 @@ say "Installing packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 # Package is `chromium` on current Raspberry Pi OS (older images: chromium-browser).
-apt-get install -y curl python3 wlr-randr xcursorgen || die "base package install failed"
+apt-get install -y curl python3 wlr-randr || die "base package install failed"
+# xcursorgen is its own package on bookworm; trixie folds it into x11-apps.
+apt-get install -y xcursorgen || apt-get install -y x11-apps || die "xcursorgen install failed"
 apt-get install -y chromium || apt-get install -y chromium-browser
 
 say "Creating user '$KIOSK_USER'"
