@@ -96,15 +96,20 @@ test('the unlock page remembers by default on a personal device, not on a wall',
 	context
 }) => {
 	const box = () => page.getByRole('checkbox', { name: /stay unlocked/ });
+	// A tap before the page hydrates is lost: retry the pick until the PIN screen shows its checkbox.
+	const pickAdult = () =>
+		expect(async () => {
+			const adult = page.getByRole('button', { name: 'Baseline Adult' });
+			if (await adult.isVisible()) await adult.click();
+			await expect(box()).toBeVisible({ timeout: 1000 });
+		}).toPass();
 	await page.goto('/unlock?next=/settings');
 	await expect(page.getByRole('button', { name: 'Baseline Adult' }).or(box())).toBeVisible();
-	if (await page.getByRole('button', { name: 'Baseline Adult' }).isVisible())
-		await page.getByRole('button', { name: 'Baseline Adult' }).click();
+	await pickAdult();
 	await expect(box()).toBeChecked();
 
 	await asWallDisplay(context);
 	await page.goto('/unlock?next=/settings');
-	if (await page.getByRole('button', { name: 'Baseline Adult' }).isVisible())
-		await page.getByRole('button', { name: 'Baseline Adult' }).click();
+	await pickAdult();
 	await expect(box()).not.toBeChecked();
 });
