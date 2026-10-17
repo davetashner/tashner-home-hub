@@ -47,7 +47,7 @@
 	class="flex flex-col gap-6 rounded-card bg-surface-sunken p-8 short:gap-2 short:p-3 tablet:gap-3 tablet:p-4 portrait:tablet:grid portrait:tablet:grid-cols-2 portrait:tablet:items-center"
 >
 	<div
-		class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 portrait:tablet:col-span-2"
+		class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 portrait:tablet:col-span-2"
 	>
 		<h2 class="text-title leading-none font-extrabold short:sr-only tablet:text-lead">
 			My star jar
@@ -59,6 +59,12 @@
 			{balance}
 			{balance === 1 ? 'star' : 'stars'}{pending > 0 ? ` · ${pending} waiting` : ''}
 		</p>
+		<Button
+			size="kid"
+			class="shrink-0 short:px-6 tablet:px-6"
+			data-testid="open-shop"
+			onclick={() => (shopOpen = true)}>Shop</Button
+		>
 	</div>
 
 	<div
@@ -125,7 +131,6 @@
 			</div>
 		</div>
 	{/if}
-	<Button size="kid" data-testid="open-shop" onclick={() => (shopOpen = true)}>Shop</Button>
 </section>
 
 {#if shopOpen}
