@@ -18,7 +18,7 @@
 		aria-modal="true"
 		aria-labelledby="hide-photo-title"
 		data-testid="hide-photo-sheet"
-		class="sheet relative flex w-full max-w-2xl flex-col gap-6 rounded-sheet bg-surface-raised p-10 text-ink shadow-float"
+		class="sheet relative flex w-full max-w-2xl flex-col gap-6 rounded-sheet bg-surface-raised p-10 text-ink shadow-float short:max-h-full short:gap-3 short:overflow-y-auto short:p-4"
 	>
 		<h2 id="hide-photo-title" class="text-headline leading-tight font-extrabold">
 			Hide this photo?

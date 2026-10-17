@@ -30,16 +30,26 @@ export function isAllDone(groups: KidGroup[]): boolean {
 /** localStorage key remembering the all-done party for one child on one day. */
 export const allDoneKey = (memberId: string) => `hub.all-done.${memberId}`;
 
+import { canonicalZone } from './time-zone.js';
+import { DEFAULT_THEME, isSoundTheme, type SoundTheme } from './sound-themes.js';
+
 export interface SoundSettings {
 	muted: boolean;
 	quietStart: string;
 	quietEnd: string;
+	theme: SoundTheme;
+	/** 0 to 100. */
+	volume: number;
+	/** Household IANA zone the quiet hours are read in (set by the server; browser zone if absent). */
+	timeZone?: string;
 }
 
 export const DEFAULT_SOUND: SoundSettings = {
 	muted: false,
 	quietStart: '20:00',
-	quietEnd: '07:00'
+	quietEnd: '07:00',
+	theme: DEFAULT_THEME,
+	volume: 100
 };
 
 function minutes(hhmm: string): number | null {
@@ -59,7 +69,29 @@ export function inQuietHours(nowMinutes: number, start: string, end: string): bo
 }
 
 export function soundAllowed(settings: SoundSettings, nowMinutes: number): boolean {
-	return !settings.muted && !inQuietHours(nowMinutes, settings.quietStart, settings.quietEnd);
+	return (
+		!settings.muted &&
+		settings.volume > 0 &&
+		!inQuietHours(nowMinutes, settings.quietStart, settings.quietEnd)
+	);
+}
+
+/** Minutes since midnight at `nowMs` in `zone` (the runtime's own zone when absent or invalid). */
+export function minutesInZone(nowMs: number, zone?: string): number {
+	const tz = canonicalZone(zone) ?? undefined;
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone: tz,
+		hourCycle: 'h23',
+		hour: '2-digit',
+		minute: '2-digit'
+	}).formatToParts(new Date(nowMs));
+	const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+	return (get('hour') % 24) * 60 + get('minute');
+}
+
+/** Should a celebration make noise at `nowMs`? Not when muted or inside quiet hours (household zone). */
+export function shouldPlaySound(settings: SoundSettings, nowMs: number): boolean {
+	return soundAllowed(settings, minutesInZone(nowMs, settings.timeZone));
 }
 
 /** Coerces untrusted settings JSON into SoundSettings, falling back to defaults per field. */
@@ -69,6 +101,12 @@ export function parseSoundSettings(raw: unknown): SoundSettings {
 	return {
 		muted: o.muted === true,
 		quietStart: time(o.quietStart, DEFAULT_SOUND.quietStart),
-		quietEnd: time(o.quietEnd, DEFAULT_SOUND.quietEnd)
+		quietEnd: time(o.quietEnd, DEFAULT_SOUND.quietEnd),
+		theme: isSoundTheme(o.theme) ? o.theme : DEFAULT_THEME,
+		volume:
+			typeof o.volume === 'number' && Number.isFinite(o.volume)
+				? Math.min(100, Math.max(0, Math.round(o.volume)))
+				: DEFAULT_SOUND.volume,
+		...(canonicalZone(o.timeZone) ? { timeZone: canonicalZone(o.timeZone)! } : {})
 	};
 }

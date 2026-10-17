@@ -48,6 +48,11 @@ export function badgeLabel(pending: number): string {
 	return pending > 0 ? `${pending} ⭐ to check` : '';
 }
 
+/** The badge count for narrow headers, capped so the header width stays fixed ('' when zero). */
+export function compactCount(total: number): string {
+	return total <= 0 ? '' : total > 99 ? '99+' : String(total);
+}
+
 /** Window event the approvals screen fires after any change, so the header badge refreshes at once. */
 export const ATTENTION_CHANGED_EVENT = 'hub:attention-changed';
 
