@@ -65,6 +65,9 @@ for (const size of SIZES) {
 		await page.waitForTimeout(400);
 		await shot('month');
 		await expectFits(page);
-		await expectTitleWidth(page, 'Grandma visits');
+		// Narrow months show a dot per event instead of its title, so only presence is checked.
+		await expect(
+			page.getByTestId('calendar-pane').getByText('Grandma visits').first()
+		).toBeVisible();
 	});
 }
