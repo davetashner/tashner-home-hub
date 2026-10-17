@@ -40,6 +40,9 @@
 	--color-member-5: oklch(58% 0.17 265);
 	--color-member-6: oklch(60% 0.18 330);
 
+	/* Evening dimming (SLP-5): a black overlay whose opacity is 1 minus the brightness. */
+	--color-dim-overlay: oklch(0% 0 0);
+
 	/* Photo frame matte behind photos, the same in both themes. */
 	--color-frame: oklch(0% 0 0);
 	/* Overlay text and the soft scrim that keeps it legible over any photo (PHO-7). */
@@ -161,8 +164,6 @@
 @layer base {
 	:root {
 		color-scheme: light;
-		/* Evening dimming (SLP-5) eases in; filter is one of the properties we may animate. */
-		transition: filter var(--duration-crossfade) var(--ease-out-soft);
 	}
 	/* Phones (admin setup, ADM-1): headings built for a wall display leave one word per line on 390px. */
 	@media (max-width: 40rem), (orientation: landscape) and (max-height: 32rem) {

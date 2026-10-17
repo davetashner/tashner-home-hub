@@ -13,6 +13,11 @@ function waveLocation() {
 	return loc ? { lat: loc.lat, lon: loc.lon } : null;
 }
 
+const forcedDim = (v: string | undefined) => {
+	const n = Number(v);
+	return v && n >= 0.5 && n <= 1 ? n : null;
+};
+
 /**
  * Whether an adult session is active, so the header can offer Lock (never the adult's identity),
  * and the household zone, which wins over the kiosk browser's own zone for "today" and the clock.
@@ -23,5 +28,7 @@ export const load: LayoutServerLoad = (event) => ({
 	timeZone: householdTimeZone(getDb()),
 	waveBackground: readWaveBackground(),
 	waveLocation: waveLocation(),
-	appearance: readAppearanceData()
+	appearance: readAppearanceData(),
+	/** Test seam (HUB_E2E_FORCE_DIM, 0.5-1): forces the evening look in automated browsers only. */
+	forceDim: forcedDim(process.env.HUB_E2E_FORCE_DIM)
 });

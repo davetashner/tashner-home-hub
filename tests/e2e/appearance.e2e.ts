@@ -12,13 +12,18 @@ async function localInstant(page: Page, hour: number): Promise<Date> {
 }
 
 const html = (page: Page) => page.locator('html');
+const overlay = (page: Page) => page.getByTestId('dim-overlay');
 
 // The shared server's saved appearance never changes here: saves are answered by the test.
-test.beforeEach(({ page }) =>
-	page.route('**/api/settings/appearance', (route) =>
+test.beforeEach(async ({ page }) => {
+	// Every other spec sees a pinned look (light, no dimming); this one tests the live evening look.
+	await page.addInitScript(() => {
+		(window as unknown as { __hubLiveAppearance: boolean }).__hubLiveAppearance = true;
+	});
+	await page.route('**/api/settings/appearance', (route) =>
 		route.request().method() === 'PUT' ? route.fulfill({ json: {} }) : route.continue()
-	)
-);
+	);
+});
 
 test('Auto is light at noon and night in the evening, and the wall dims in the evening', async ({
 	page,
@@ -28,19 +33,33 @@ test('Auto is light at noon and night in the evening, and the wall dims in the e
 	await page.clock.install({ time: await localInstant(page, 12) });
 	await page.goto('/');
 	await expect(html(page)).toHaveAttribute('data-theme', 'light');
-	await expect(html(page)).not.toHaveCSS('filter', /brightness/);
+	await expect(overlay(page)).toHaveCSS('opacity', '0');
 
 	// The once-a-minute tick picks up the evening: no reload, no network.
 	await page.clock.fastForward('10:00:00');
 	await expect(html(page)).toHaveAttribute('data-theme', 'night');
-	await expect(html(page)).toHaveCSS('filter', 'brightness(0.8)');
+	await expect(overlay(page)).toHaveCSS('opacity', '0.2');
+});
+
+test('without the test seam, an automated browser is pinned to light and undimmed', async ({
+	page,
+	context
+}) => {
+	await asWallDisplay(context);
+	await page.addInitScript(() => {
+		(window as unknown as { __hubLiveAppearance: boolean }).__hubLiveAppearance = false;
+	});
+	await page.clock.install({ time: await localInstant(page, 22) });
+	await page.goto('/');
+	await expect(html(page)).toHaveAttribute('data-theme', 'light');
+	await expect(overlay(page)).toHaveCSS('opacity', '0');
 });
 
 test('a personal device is not dimmed in the evening', async ({ page }) => {
 	await page.clock.install({ time: await localInstant(page, 22) });
 	await page.goto('/');
 	await expect(html(page)).toHaveAttribute('data-theme', 'night');
-	await expect(html(page)).not.toHaveCSS('filter', /brightness/);
+	await expect(overlay(page)).toHaveCount(0);
 });
 
 test('a grown-up picks Dark, then Light, and it applies at once', async ({ page }, info) => {
