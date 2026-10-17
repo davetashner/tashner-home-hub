@@ -3,6 +3,7 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { hashPin } from '../../src/lib/server/domain/pin';
 import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
+import { WAKE_GUARD_MS } from '../../src/lib/domain/wake-guard';
 import { PIN, ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
 import { seedCalendar } from './calendar';
@@ -46,8 +47,9 @@ async function wallRefresh(wall: Page) {
 }
 
 /** Seeds a kid with 2 approved stars and opens the wall's kid screen with a controllable clock. */
-async function openWall(wall: Page, s: KidSeed) {
+async function openWall(wall: Page, s: KidSeed, asWall = false) {
 	await wall.context().clearCookies(); // the wall needs no adult session
+	if (asWall) await asWallDisplay(wall.context());
 	// Pin the idle timers far away so the fast-forwards never send the wall home.
 	await wall.route('**/api/settings/idle', (route) =>
 		route.request().method() === 'GET'
@@ -232,4 +234,48 @@ test('photo frame: idle goes home, then the frame shows a photo; a touch leaves 
 	await expect(page).toHaveURL(/:\d+\/$/);
 });
 
-// TODO(hub-xcr.2): sleep-now -> touch-to-wake flow, once screen sleep is built.
+test('sleep now, then the touch that wakes the display does not press the chore under it', async ({
+	page: wall
+}, info) => {
+	const s = await seedKid(wall, `flow-wake ${info.project.name}`);
+	// The sleep state is shared by the whole server, so the display API is answered here:
+	// "Sleep" turns the reported power off, and the Pi agent's wake turns it back on.
+	let power: 'on' | 'off' = 'on';
+	await wall.route('**/api/display/power', (route) =>
+		route.fulfill({
+			json: {
+				power,
+				reason: power === 'off' ? 'sleep-now' : 'schedule',
+				mode: power === 'off' ? 'off' : 'normal'
+			}
+		})
+	);
+	await wall.route('**/api/display/sleep', (route) => {
+		power = 'off';
+		return route.fulfill({ json: { power, reason: 'sleep-now' } });
+	});
+	await openWall(wall, s, true);
+
+	await wall.getByRole('button', { name: 'Sleep' }).click();
+	await expect
+		.poll(() => wall.evaluate(() => fetch('/api/display/power').then((r) => r.json())))
+		.toEqual({ power: 'off', reason: 'sleep-now', mode: 'off' });
+	const asleep = wall.waitForResponse('**/api/display/power');
+	await wall.clock.fastForward(1000); // the guard's poll sees the display off
+	await asleep;
+
+	// The agent wakes the screen; the same touch reaches the page right after.
+	power = 'on';
+	const seen = wall.waitForResponse('**/api/display/power');
+	await wall.clock.fastForward(1000);
+	await seen;
+	const teeth = choreCard(wall, 'Brush teeth');
+	await teeth.getByTestId('did-it').click();
+	await expect(teeth).not.toHaveAttribute('data-status', 'pending');
+	await expect(wall.getByTestId('jar-counts')).toContainText('2 gold stars, 0 waiting');
+
+	// A later tap, once the guard window has passed, works as normal.
+	await wall.clock.fastForward(WAKE_GUARD_MS + 100);
+	await teeth.getByTestId('did-it').click();
+	await expect(teeth).toHaveAttribute('data-status', 'pending');
+});

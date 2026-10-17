@@ -39,6 +39,9 @@ ABS_X, ABS_MT_POSITION_X, ABS_MT_TRACKING_ID = 0x00, 0x35, 0x39
 EVENT_FORMAT = "llHHi"
 EVENT_SIZE = struct.calcsize(EVENT_FORMAT)
 
+# EVIOCGRAB = _IOW('E', 0x90, int): while grabbed, only this process receives the device's events.
+EVIOCGRAB = (1 << 30) | (4 << 16) | (ord("E") << 8) | 0x90
+
 Runner = Callable[..., Tuple[int, str]]  # (argv, optional stdin text) -> (exit code, output)
 
 
@@ -224,6 +227,7 @@ class Agent:
         self.hold_until = 0.0  # ignore "off" from the hub until then (touch-wake while hub is down)
         self.last_wake_post = float("-inf")
         self.failures = 0
+        self.waking = False  # a touch that woke the screen is still down
         log.info("start: screen is %s", {True: "on", False: "off", None: "unknown"}[self.lit])
 
     def _apply(self, power: str) -> None:
@@ -256,6 +260,7 @@ class Agent:
         """A touch-down arrived (any touch device)."""
         now = self.clock()
         if self.lit is not True:
+            self.waking = True  # keep this touch away from Chromium until the finger lifts
             # Optimistic: light the screen first, then tell the hub.
             if self.screen.set_power(True):
                 self.lit = True
@@ -275,6 +280,15 @@ class Agent:
             except HubError as e:
                 log.warning("could not restart the re-sleep timeout: %s", e)
 
+    def touch_ended(self) -> None:
+        """All fingers lifted."""
+        self.waking = False
+
+    def wants_grab(self) -> bool:
+        """Hold the touch device exclusively (SLP-3): while the screen is off, and until the
+        finger that woke it lifts, so Chromium never sees the wake tap. Unknown state: no grab."""
+        return self.lit is False or self.waking
+
 
 # ---------------------------------------------------------------- touch input
 
@@ -288,6 +302,17 @@ def parse_touch_down(buf: bytes) -> bool:
         if etype == EV_ABS and code == ABS_MT_TRACKING_ID and value != -1:
             return True
     return False
+
+
+def touch_state(buf: bytes, touching: bool) -> bool:
+    """Is a finger down after this buffer of input_event structs? `touching` is the state before."""
+    for off in range(0, len(buf) - EVENT_SIZE + 1, EVENT_SIZE):
+        _, _, etype, code, value = struct.unpack_from(EVENT_FORMAT, buf, off)
+        if etype == EV_KEY and code == BTN_TOUCH:
+            touching = value != 0
+        elif etype == EV_ABS and code == ABS_MT_TRACKING_ID:
+            touching = value != -1
+    return touching
 
 
 def has_bit(mask: bytes, bit: int) -> bool:
@@ -318,10 +343,39 @@ class TouchWatcher:
 
     RESCAN_SECONDS = 10.0
 
-    def __init__(self, device: str = ""):
+    def __init__(self, device: str = "", ioctl: Optional[Callable[[int, int, int], object]] = None):
         self.device = device
         self.sel = selectors.DefaultSelector()
         self.last_scan = float("-inf")
+        self._ioctl = ioctl  # injected in tests; the real fcntl.ioctl is imported late (Linux only)
+        self.grabbed = False
+        self.down: Dict[int, bool] = {}  # fd -> finger currently down
+
+    @property
+    def touching(self) -> bool:
+        return any(self.down.values())
+
+    def _grab_fd(self, fd: int, on: bool) -> bool:
+        try:
+            if self._ioctl is None:
+                import fcntl
+
+                self._ioctl = fcntl.ioctl
+            self._ioctl(fd, EVIOCGRAB, 1 if on else 0)
+            return True
+        except OSError as e:
+            log.warning("EVIOCGRAB %s failed: %s", "on" if on else "off", e)
+            return False
+
+    def set_grab(self, want: bool) -> None:
+        """Grab (or release) every watched device. A grab waits for the finger to lift, so
+        Chromium is never left holding a touch whose end it cannot see."""
+        if want == self.grabbed or (want and self.touching):
+            return
+        for key in list(self.sel.get_map().values()):
+            self._grab_fd(key.fd, want)
+        self.grabbed = want
+        log.info("touch devices %s", "grabbed" if want else "released")
 
     def _candidates(self) -> List[str]:
         if self.device:
@@ -349,6 +403,9 @@ class TouchWatcher:
                 ok = False
             if ok:
                 self.sel.register(fd, selectors.EVENT_READ, path)
+                self.down[fd] = False
+                if self.grabbed:
+                    self._grab_fd(fd, True)
                 log.info("watching touch device %s", path)
             else:
                 os.close(fd)
@@ -370,9 +427,11 @@ class TouchWatcher:
                 if e.errno not in (errno.EAGAIN, errno.EWOULDBLOCK):
                     log.warning("touch device %s gone: %s", key.data, e)
                     self.sel.unregister(key.fd)
+                    self.down.pop(key.fd, None)
                     os.close(key.fd)
                 continue
             touched = parse_touch_down(data) or touched
+            self.down[key.fd] = touch_state(data, self.down.get(key.fd, False))
         return touched
 
 
@@ -395,8 +454,14 @@ def main(argv: Sequence[str]) -> int:
         now = time.monotonic()
         if now >= next_poll:
             next_poll = time.monotonic() + agent.poll()
-        if touch.wait(max(0.05, min(0.5, next_poll - time.monotonic()))):
+        was_touching = touch.touching
+        touched = touch.wait(max(0.05, min(0.5, next_poll - time.monotonic())))
+        if touched:
             agent.touch()
+        if was_touching and not touch.touching:
+            agent.touch_ended()
+        touch.set_grab(agent.wants_grab())
+        if touched:
             # Re-check soon so a night re-sleep or a hub override is not left waiting.
             next_poll = min(next_poll, time.monotonic() + cfg.poll_seconds)
 

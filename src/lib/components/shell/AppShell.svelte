@@ -14,6 +14,7 @@
 	import IdleWatcher from './IdleWatcher.svelte';
 	import NavItem from './NavItem.svelte';
 	import NightClock from './NightClock.svelte';
+	import WakeGuard from './WakeGuard.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -63,6 +64,7 @@
 {#if page.data.displayRole === 'wall'}
 	<IdleWatcher />
 	<NightClock />
+	<WakeGuard />
 {/if}
 
 <div
