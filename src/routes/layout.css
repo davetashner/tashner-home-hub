@@ -42,6 +42,11 @@
 
 	/* Photo frame matte behind photos, the same in both themes. */
 	--color-frame: oklch(0% 0 0);
+	/* Overlay text and the soft scrim that keeps it legible over any photo (PHO-7). */
+	--color-on-frame: oklch(98% 0.01 85);
+	--color-scrim: oklch(0% 0 0 / 0.65);
+	--shadow-frame-text: 0 2px 14px oklch(0% 0 0 / 0.65);
+	--spacing-overlay-nudge: 1.5vmin;
 
 	/* Night clock (SLP-4): very dim, warm amber with no blue, on pure black. */
 	--color-night-clock: oklch(36% 0.08 50);
@@ -131,6 +136,14 @@
 			--text-caption: 1rem;
 		}
 	}
+	/* Tablets (iPad, Split View): page headings sized for arm's length, not for the far wall. */
+	@media (min-width: 40rem) and (max-width: 88rem) and (min-height: 32.01rem) and (max-height: 88rem) {
+		:root {
+			--text-title: 1.625rem;
+			--text-headline: 2rem;
+			--text-display: 4rem;
+		}
+	}
 	html,
 	body {
 		height: 100%;
@@ -194,6 +207,14 @@
  * 640px or more, and excludes the 2560x1440 wall in either orientation.
  */
 @custom-variant tablet (@media (min-width: 40rem) and (max-width: 88rem) and (min-height: 32.01rem) and (max-height: 88rem));
+
+/* Kid screen on a phone turned sideways: child strip | chores | greeting and star jar. */
+@utility grid-cols-kid-short {
+	grid-template-columns: auto minmax(0, 1fr) 10rem;
+	@media (max-width: 48rem) {
+		grid-template-columns: auto minmax(0, 1fr) 8rem;
+	}
+}
 
 /* App shell grid: header/content/nav in portrait, side nav + header/content in landscape. */
 @utility grid-rows-shell-portrait {

@@ -22,7 +22,7 @@
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="event-title"
-		class="sheet relative flex max-h-full w-full max-w-4xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-sheet bg-surface-raised p-10 shadow-float"
+		class="sheet relative flex max-h-full w-full max-w-4xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-sheet bg-surface-raised p-10 shadow-float short:gap-3 short:p-4"
 	>
 		<div class="flex items-start gap-6">
 			<span class="stripe" style="background: {stripeColor(event.members)}" aria-hidden="true"

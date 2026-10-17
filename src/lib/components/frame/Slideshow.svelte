@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { page } from '$app/state';
+	import { longpress } from '#lib/actions/longpress.js';
+	import FrameOverlay from '#lib/components/frame/FrameOverlay.svelte';
+	import HidePhotoSheet from '#lib/components/frame/HidePhotoSheet.svelte';
 	import EmptyState from '#lib/components/shell/EmptyState.svelte';
 	import {
 		advance,
@@ -43,6 +47,8 @@
 	let listRequest = 0;
 	let steps = 0;
 	let alive = true;
+	/** The photo a long-press asked to hide, while its confirmation sheet is open. */
+	let hiding = $state<string | null>(null);
 
 	/** Latest list wins: an older response never replaces a newer one. */
 	async function fetchList(): Promise<SlidePhoto[] | null> {
@@ -113,6 +119,49 @@
 		timer = window.setTimeout(next, settings.intervalSeconds * 1000);
 	}
 
+	function onlongpress() {
+		const id = slots[front]?.id;
+		if (!id) return;
+		if (page.data.adult !== true) return unlock();
+		hiding = id;
+	}
+
+	function unlock() {
+		const next = encodeURIComponent(page.url.pathname + page.url.search);
+		// Full load, like the unlock page's own redirect, so the new session cookie is picked up.
+		window.location.assign(`/unlock?next=${next}`);
+	}
+
+	/** Drops the photo from rotation right away, then saves it; a failed save puts the list right. */
+	async function hide() {
+		const id = hiding;
+		hiding = null;
+		if (!id) return;
+		const before = playlist.photos.slice(0, playlist.index + 1).filter((p) => p.id === id).length;
+		const photos = playlist.photos.filter((p) => p.id !== id);
+		playlist = { photos, index: playlist.index - before };
+		if (fresh) fresh = fresh.filter((p) => p.id !== id);
+		if (preloaded?.id === id) preloaded = null;
+		const showing = slots[front]?.id === id;
+		if (photos.length === 0) {
+			window.clearTimeout(timer);
+			status = 'empty';
+		} else if (showing) {
+			window.clearTimeout(timer);
+			void next();
+		}
+		const res = await fetch(`/api/photo/${encodeURIComponent(id)}/hide`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ hidden: true })
+		}).catch(() => null);
+		if (res?.status === 401) return unlock();
+		if (!res?.ok) {
+			const list = await fetchList();
+			if (list && alive) fresh = list;
+		}
+	}
+
 	onMount(() => {
 		target = pickTarget(window.innerWidth, window.innerHeight, window.devicePixelRatio);
 		const loadSettings = fetch('/api/settings/slideshow')
@@ -152,7 +201,10 @@
 	<h1 class="sr-only">Photos</h1>
 	<div
 		use:portal={fullscreen}
-		class="overflow-hidden bg-frame {fullscreen ? 'fixed inset-0 z-50' : 'relative h-full'}"
+		use:longpress={{ onlongpress }}
+		class="touch-callout-none overflow-hidden bg-frame select-none {fullscreen
+			? 'fixed inset-0 z-50'
+			: 'relative h-full'}"
 		data-testid="slideshow"
 		data-transition={settings.transition}
 		aria-label="Photo slideshow"
@@ -195,10 +247,20 @@
 				{/key}
 			{/if}
 		{/each}
+		{#if status === 'playing'}
+			<FrameOverlay />
+		{/if}
 	</div>
 {/if}
 
+{#if hiding}
+	<HidePhotoSheet onhide={hide} onclose={() => (hiding = null)} />
+{/if}
+
 <style>
+	.touch-callout-none {
+		-webkit-touch-callout: none;
+	}
 	.slide {
 		opacity: 0;
 	}

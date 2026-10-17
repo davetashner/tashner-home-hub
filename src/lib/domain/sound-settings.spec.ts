@@ -98,3 +98,15 @@ describe('parseSoundPatch', () => {
 		expect(parseSoundPatch({ quietStart: '25:00' })).toMatch(/^quietStart must be/);
 	});
 });
+
+describe('parseSoundPatch theme and volume', () => {
+	it('accepts a known theme and a whole-number volume', () => {
+		expect(parseSoundPatch({ theme: 'gentle', volume: 0 })).toEqual({ theme: 'gentle', volume: 0 });
+	});
+	it('rejects unknown themes and bad volumes', () => {
+		expect(typeof parseSoundPatch({ theme: 'loud' })).toBe('string');
+		for (const volume of [101, -1, 5.5, '50', null]) {
+			expect(typeof parseSoundPatch({ volume })).toBe('string');
+		}
+	});
+});

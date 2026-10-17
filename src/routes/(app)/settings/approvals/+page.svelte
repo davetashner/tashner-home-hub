@@ -237,7 +237,7 @@
 
 <svelte:head><title>Approvals · Home Hub</title></svelte:head>
 
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3">
+<section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3 short:gap-4 short:p-3">
 	<header class="flex flex-wrap items-center justify-between gap-6">
 		<h1 class="text-headline font-extrabold">Approvals</h1>
 		<a
@@ -428,7 +428,7 @@
 			aria-modal="true"
 			aria-label="Not yet"
 			data-testid="reject-sheet"
-			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 pb-safe-8 shadow-float max-sm:p-5 max-sm:pb-safe-5 sm:rounded-sheet"
+			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 pb-safe-8 shadow-float max-sm:p-5 max-sm:pb-safe-5 sm:rounded-sheet short:gap-3 short:p-4 short:pb-safe-4"
 		>
 			<h2 class="text-title font-extrabold">Not yet: {rejecting.choreTitle}</h2>
 			<label class="flex flex-col gap-2">
@@ -469,7 +469,7 @@
 			aria-modal="true"
 			aria-label="Redeem reward"
 			data-testid="redeem-sheet"
-			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 pb-safe-8 shadow-float max-sm:p-5 max-sm:pb-safe-5 sm:rounded-sheet"
+			class="sheet flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 pb-safe-8 shadow-float max-sm:p-5 max-sm:pb-safe-5 sm:rounded-sheet short:gap-3 short:p-4 short:pb-safe-4"
 		>
 			<h2 class="text-title font-extrabold">
 				<span aria-hidden="true">{redeeming.goal.image ?? '🎁'}</span>
