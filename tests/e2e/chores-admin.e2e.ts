@@ -1,16 +1,20 @@
 import { expect, test } from '@playwright/test';
 import { expectTappable } from './tap';
 import { signInAsAdult } from './adult';
+import { trackMember } from './cleanup';
 
 test('create, edit and archive a weekday chore', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-chores-${info.project.name}`);
-	// Unique per project so the two orientations never collide on the shared database.
-	const title = `Chore ${info.project.name}`;
+	// Unique per run, not just per project: projects and repeats share one database, and a kid or
+	// chore left over with the same name would make the locators below match several rows.
+	const stamp = `${info.project.name} ${Date.now() % 1e9}`;
+	const title = `Chore ${stamp}`;
 	const made = await page.request.post('/api/members', {
-		data: { name: `Kid ${info.project.name}`, role: 'child', color: 'member-3' }
+		data: { name: `Kid ${stamp}`, role: 'child', color: 'member-3' }
 	});
 	expect(made.ok()).toBe(true);
-	const kid = (await made.json()) as { name: string };
+	const kid = (await made.json()) as { id: string; name: string };
+	trackMember(kid.id);
 
 	await page.goto('/settings/chores');
 	const add = page.getByRole('button', { name: 'Add chore' });
