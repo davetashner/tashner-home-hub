@@ -2,12 +2,15 @@ import { mkdirSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { hashPin } from '../../src/lib/server/domain/pin';
+import { sweepPrevious } from './cleanup';
 
 export const PIN = '4817';
 
 /** Seeds a synthetic adult straight into the server's SQLite file, then unlocks this page's session as them. */
 export async function signInAsAdult(page: Page, id: string): Promise<void> {
 	mkdirSync('data', { recursive: true });
+	sweepPrevious();
+	// Adult ids are fixed per test, so parallel projects and repeats reuse them: never swept.
 	const db = new Database('data/hub.db');
 	db.pragma('busy_timeout = 5000');
 	db.prepare(

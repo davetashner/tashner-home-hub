@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
+import { trackMember } from './cleanup';
 
 export interface KidSeed {
 	memberId: string;
@@ -15,6 +16,7 @@ export async function seedKid(page: Page, label: string, extra: string[] = []): 
 			data: { name: `Kiki ${Date.now() % 1e9}`, role: 'child', color: 'member-4', avatar: '🦊' }
 		})
 	).json();
+	trackMember(member.id);
 	const chores: Record<string, string> = {};
 	const defs = [
 		{ title: 'Make bed', icon: '🛏️', stars: 2, timeOfDay: 'morning' },
