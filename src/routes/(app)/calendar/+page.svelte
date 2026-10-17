@@ -431,6 +431,9 @@
 		gap: 0.5rem;
 		min-width: 0;
 		max-width: 100%;
+		/* Two rows at most; a very long member list scrolls inside instead of eating the calendar. */
+		max-height: calc(var(--spacing-tap) * 2 + 0.5rem);
+		overflow-y: auto;
 	}
 	.chip {
 		display: inline-flex;
