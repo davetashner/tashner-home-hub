@@ -1,0 +1,1 @@
+ALTER TABLE `chores` ADD `kind` text DEFAULT 'star_job' NOT NULL;

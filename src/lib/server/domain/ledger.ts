@@ -38,6 +38,7 @@ export function createChore(
 	db: Db,
 	input: {
 		title: string;
+		kind?: 'star_job' | 'habit';
 		stars?: number;
 		memberIds?: string[];
 		icon?: string | null;
@@ -51,6 +52,7 @@ export function createChore(
 		.values({
 			id: randomUUID(),
 			title: input.title,
+			kind: input.kind ?? 'star_job',
 			stars: input.stars ?? 1,
 			memberIds: JSON.stringify(input.memberIds ?? []),
 			icon: input.icon ?? null,
@@ -92,7 +94,9 @@ export function completeChore(
 			.find((c) => c.status === 'pending' || c.status === 'approved');
 		if (existing) return { completion: existing, created: false };
 
-		const status = chore.requiresApproval ? 'pending' : 'approved';
+		// A habit is a plain check: no approval, and no ledger row (its daily star is separate).
+		const habit = chore.kind === 'habit';
+		const status = chore.requiresApproval && !habit ? 'pending' : 'approved';
 		const completion = tx
 			.insert(choreCompletions)
 			.values({
@@ -102,10 +106,11 @@ export function completeChore(
 				date: input.date,
 				completedAt: input.now,
 				status,
-				starsAwarded: chore.stars
+				starsAwarded: habit ? 0 : chore.stars
 			})
 			.returning()
 			.get();
+		if (habit) return { completion, created: true };
 		tx.insert(starTransactions)
 			.values({
 				id: randomUUID(),

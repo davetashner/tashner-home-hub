@@ -11,12 +11,15 @@ import { and, eq, inArray } from 'drizzle-orm';
 import rrulePkg from 'rrule';
 import type { RRule } from 'rrule';
 import type { Db } from '../db/index.js';
-import { choreCompletions, chores, members } from '../db/schema.js';
+import { CHORE_KINDS, choreCompletions, chores, members } from '../db/schema.js';
 import { householdTimeZone } from '../household.js';
 import { LedgerError, createChore as insertChore } from './ledger.js';
 
 export const TIMES_OF_DAY = ['morning', 'afternoon', 'evening', 'anytime'] as const;
 export type TimeOfDay = (typeof TIMES_OF_DAY)[number];
+
+/** Star Jobs earn stars; habits are everyday checks with no stars and no approval (hub-esf). */
+export type ChoreKind = (typeof CHORE_KINDS)[number];
 
 export const WEEKDAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
@@ -34,6 +37,7 @@ export type CompletionState = 'none' | 'pending' | 'approved' | 'rejected' | 'un
 export interface ChoreView {
 	id: string;
 	title: string;
+	kind: ChoreKind;
 	icon: string | null;
 	memberIds: string[];
 	stars: number;
@@ -45,6 +49,8 @@ export interface ChoreView {
 
 export interface ChoreInput {
 	title: string;
+	/** Set on create only; a Star Job never turns into a habit or back. */
+	kind?: ChoreKind;
 	icon?: string | null;
 	memberIds?: string[];
 	stars?: number;
@@ -114,6 +120,12 @@ function validStars(value: unknown): number {
 	if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 10)
 		throw invalid('Stars must be a whole number from 1 to 10');
 	return value;
+}
+
+function validKind(value: unknown): ChoreKind {
+	if (!(CHORE_KINDS as readonly unknown[]).includes(value))
+		throw invalid(`kind must be one of ${CHORE_KINDS.join(', ')}`);
+	return value as ChoreKind;
 }
 
 function validTimeOfDay(value: unknown): TimeOfDay {
@@ -210,6 +222,7 @@ function toView(row: Row, today: string): ChoreView {
 	return {
 		id: row.id,
 		title: row.title,
+		kind: row.kind,
 		icon: row.icon,
 		memberIds: JSON.parse(row.memberIds) as string[],
 		stars: row.stars,
@@ -229,14 +242,17 @@ const todayOf = (db: Db, clock: Clock) =>
 /** Creates a chore. Approval is required unless `requiresApproval: false` (owner default). */
 export function createChore(db: Db, input: ChoreInput, clock: Clock = {}): ChoreView {
 	const today = todayOf(db, clock);
+	const kind = input.kind === undefined ? 'star_job' : validKind(input.kind);
+	const habit = kind === 'habit';
 	const row = insertChore(db, {
 		title: validTitle(input.title),
+		kind,
 		icon: validIcon(input.icon),
 		memberIds: validMembers(db, input.memberIds ?? []),
-		stars: input.stars === undefined ? 1 : validStars(input.stars),
+		stars: habit ? 0 : input.stars === undefined ? 1 : validStars(input.stars),
 		schedule: scheduleToRRule(validSchedule(input.schedule, today)),
 		timeOfDay: input.timeOfDay === undefined ? 'anytime' : validTimeOfDay(input.timeOfDay),
-		requiresApproval: input.requiresApproval
+		requiresApproval: habit ? false : input.requiresApproval
 	});
 	return toView(row, today);
 }
@@ -250,6 +266,10 @@ export function updateChore(
 	const today = todayOf(db, clock);
 	const current = db.select().from(chores).where(eq(chores.id, id)).get();
 	if (!current) throw new LedgerError('not_found', 'Chore not found');
+	if (patch.kind !== undefined && patch.kind !== current.kind)
+		throw invalid('A Star Job cannot become a habit, or a habit a Star Job');
+	if (current.kind === 'habit' && (patch.stars !== undefined || patch.requiresApproval === true))
+		throw invalid('Habits earn no stars and need no approval');
 	const set: Partial<Row> = {};
 	if (patch.title !== undefined) set.title = validTitle(patch.title);
 	if (patch.icon !== undefined) set.icon = validIcon(patch.icon);
@@ -277,12 +297,16 @@ export function archiveChore(db: Db, id: string, clock: Clock = {}): ChoreView {
 	return toView(row, todayOf(db, clock));
 }
 
-export function listChores(db: Db, opts: { includeArchived?: boolean } & Clock = {}): ChoreView[] {
+export function listChores(
+	db: Db,
+	opts: { includeArchived?: boolean; kind?: ChoreKind } & Clock = {}
+): ChoreView[] {
 	const today = todayOf(db, opts);
 	const rows = opts.includeArchived
 		? db.select().from(chores).all()
 		: db.select().from(chores).where(eq(chores.archived, false)).all();
 	return rows
+		.filter((r) => opts.kind === undefined || r.kind === opts.kind)
 		.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
 		.map((r) => toView(r, today));
 }
