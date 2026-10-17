@@ -35,7 +35,7 @@
 <main
 	class="flex min-h-dvh flex-col items-center justify-center gap-8 bg-surface p-safe-8 text-ink max-sm:gap-3 max-sm:p-safe-4 short:grid short:grid-cols-2 short:content-center short:items-center short:gap-x-6 short:gap-y-2 short:p-safe-2"
 >
-	<h1 class="text-headline font-extrabold short:col-start-1">Grown-ups only</h1>
+	<h1 class="text-headline font-extrabold max-sm:text-title short:col-start-1 short:text-title">Grown-ups only</h1>
 
 	{#if data.adults.length === 0}
 		<p class="text-body text-ink-muted">No adult PIN has been set up yet.</p>
@@ -48,8 +48,9 @@
 		</div>
 	{:else}
 		{#if data.adults.length > 1}
-			<p class="flex items-center gap-2 text-body short:col-start-1">
-				Unlocking as <strong>{data.adults.find((a) => a.id === memberId)?.name}</strong>
+			<p class="flex max-w-full min-w-0 items-center gap-2 text-body short:col-start-1">
+				<span class="shrink-0">Unlocking as</span>
+				<strong class="min-w-0 truncate">{data.adults.find((a) => a.id === memberId)?.name}</strong>
 				<Button variant="ghost" class="px-2!" onclick={() => (chosenId = undefined)}>Change</Button>
 			</p>
 		{/if}

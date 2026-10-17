@@ -100,7 +100,7 @@
 	</div>
 
 	<div
-		class="keys grid grid-cols-3 gap-4 {split
+		class="keys grid grid-cols-3 gap-4 max-sm:gap-2 {split
 			? 'short:col-start-2 short:row-span-4 short:row-start-1'
 			: ''}"
 	>
