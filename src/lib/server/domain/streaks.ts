@@ -42,7 +42,7 @@ export function streakMilestones(db: Db): Milestone[] {
 	return parseMilestones(raw);
 }
 
-function streakFor(db: Db, memberId: string, today: string) {
+export function streakFor(db: Db, memberId: string, today: string) {
 	const mine = db
 		.select()
 		.from(chores)
