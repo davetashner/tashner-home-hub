@@ -60,12 +60,20 @@
 						>
 					</div>
 				</div>
-				<ul class="flex flex-1 justify-between gap-4" aria-label="Forecast">
+				<ul
+					class="grid min-w-0 flex-1 auto-cols-fr grid-flow-col gap-2 max-sm:basis-full"
+					aria-label="Forecast"
+				>
 					{#each snap.days as day, i (day.date)}
 						{@const d = describeWeather(day.code)}
-						<li class="flex flex-col items-center gap-1" title={d.label}>
+						<li
+							class="min-w-0 flex-col items-center gap-1 text-center {i >= 3
+								? 'max-sm:hidden'
+								: ''} flex"
+						>
 							<span class="text-caption text-ink-muted">{dayLabel(day.date, i)}</span>
 							<span class="text-title leading-none" aria-hidden="true">{d.icon}</span>
+							<span class="text-caption break-words">{d.label}</span>
 							<span class="text-caption font-bold tabular-nums">{day.high}°</span>
 							<span class="text-caption text-ink-muted tabular-nums">{day.low}°</span>
 						</li>

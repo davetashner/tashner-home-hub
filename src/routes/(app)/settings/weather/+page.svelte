@@ -64,7 +64,11 @@
 	async function turnOff() {
 		const before = loc;
 		loc = null;
-		const res = await fetch('/api/settings/weather', { method: 'DELETE' }).catch(() => null);
+		const res = await fetch('/api/settings/weather', {
+			method: 'DELETE',
+			headers: { 'content-type': 'application/json' },
+			body: '{}'
+		}).catch(() => null);
 		if (!res?.ok) {
 			loc = before;
 			message = 'Could not turn weather off. Try again.';
