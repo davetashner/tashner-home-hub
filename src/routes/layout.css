@@ -131,6 +131,14 @@
 			--text-caption: 1rem;
 		}
 	}
+	/* Tablets (iPad, Split View): page headings sized for arm's length, not for the far wall. */
+	@media (min-width: 40rem) and (max-width: 88rem) and (min-height: 32.01rem) and (max-height: 88rem) {
+		:root {
+			--text-title: 1.625rem;
+			--text-headline: 2rem;
+			--text-display: 4rem;
+		}
+	}
 	html,
 	body {
 		height: 100%;

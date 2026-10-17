@@ -422,24 +422,35 @@
 {:else if selected}
 	<h1 class="sr-only">Chores</h1>
 	<div
-		class="flex min-h-full flex-col gap-10 p-12 portrait:p-10 landscape:flex-row landscape:items-start"
+		class="flex min-h-full flex-col gap-10 p-12 portrait:p-10 landscape:flex-row landscape:items-start tablet:gap-4 tablet:p-6 portrait:tablet:p-6"
 	>
-		<div class="flex min-w-0 grow flex-col gap-10 portrait:contents">
-			<header class="flex flex-wrap items-center gap-8 portrait:order-1">
-				<div class="flex items-center gap-6">
-					<MemberAvatar
-						name={selected.name}
-						color={selected.color}
-						avatar={selected.avatar}
-						size="lg"
-					/>
-					<p class="text-headline leading-none font-extrabold">Hi, {selected.name}!</p>
+		<div class="flex min-w-0 grow flex-col gap-10 portrait:contents tablet:gap-4">
+			<header
+				class="flex flex-wrap items-center gap-8 portrait:order-1 tablet:flex-nowrap tablet:justify-between tablet:gap-4"
+			>
+				<div class="flex min-w-0 items-center gap-6 tablet:flex-1 tablet:gap-4">
+					<!-- The switcher below already shows the selected avatar. -->
+					<span class={kids.length > 1 ? 'contents tablet:hidden' : 'contents'}>
+						<MemberAvatar
+							name={selected.name}
+							color={selected.color}
+							avatar={selected.avatar}
+							size="lg"
+						/>
+					</span>
+					<p class="min-w-0 text-headline leading-tight font-extrabold break-words">
+						Hi, {selected.name}!
+					</p>
 				</div>
 				{#if streak && streak.days > 0}
 					<StreakBadge days={streak.days} nextDays={streak.next?.days ?? null} />
 				{/if}
 				{#if kids.length > 1}
-					<nav aria-label="Whose chores?" data-testid="child-switcher" class="flex flex-wrap gap-6">
+					<nav
+						aria-label="Whose chores?"
+						data-testid="child-switcher"
+						class="flex flex-wrap gap-6 tablet:max-w-3/5 tablet:flex-nowrap tablet:gap-3 tablet:overflow-x-auto tablet:p-1"
+					>
 						{#each kids as kid (kid.id)}
 							<button
 								type="button"
@@ -452,7 +463,7 @@
 									: ''}"
 							>
 								<MemberAvatar name={kid.name} color={kid.color} avatar={kid.avatar} size="kid" />
-								<span class="max-w-40 truncate text-body font-bold" aria-hidden="true"
+								<span class="max-w-40 truncate text-body font-bold tablet:hidden" aria-hidden="true"
 									>{kid.name}</span
 								>
 							</button>
@@ -461,7 +472,7 @@
 				{/if}
 			</header>
 
-			<div class="flex grow flex-col gap-10 portrait:order-3">
+			<div class="flex grow flex-col gap-10 portrait:order-3 tablet:gap-5">
 				{#if groups.length === 0}
 					<div
 						class="flex grow flex-col items-center justify-center gap-6 py-16 text-center"
@@ -473,12 +484,15 @@
 					</div>
 				{:else}
 					{#each groups as group (group.timeOfDay)}
-						<section aria-labelledby="g-{group.timeOfDay}" class="flex flex-col gap-6">
-							<h2 id="g-{group.timeOfDay}" class="text-title leading-none font-extrabold">
+						<section aria-labelledby="g-{group.timeOfDay}" class="flex flex-col gap-6 tablet:gap-3">
+							<h2
+								id="g-{group.timeOfDay}"
+								class="text-title leading-none font-extrabold tablet:text-lead"
+							>
 								<span aria-hidden="true">{GROUP_HEADINGS[group.timeOfDay].emoji}</span>
 								{GROUP_HEADINGS[group.timeOfDay].label}
 							</h2>
-							<div class="flex flex-col gap-6">
+							<div class="flex flex-col gap-6 tablet:gap-3">
 								{#each group.chores as chore (chore.id)}
 									{@const key = tapKey(selected.id, chore.id)}
 									<ChoreCard
@@ -496,7 +510,9 @@
 			</div>
 		</div>
 
-		<aside class="shrink-0 portrait:order-first landscape:sticky landscape:top-0 landscape:w-1/3">
+		<aside
+			class="shrink-0 portrait:order-first landscape:sticky landscape:top-0 landscape:w-1/3 portrait:tablet:order-2 landscape:tablet:w-1/4"
+		>
 			<StarJar balance={stars.balance} pending={stars.pending} {goal} bind:jar />
 		</aside>
 	</div>
@@ -522,7 +538,7 @@
 	<p
 		role="status"
 		data-testid="gentle-message"
-		class="fixed bottom-12 left-1/2 z-10 max-w-3xl -translate-x-1/2 rounded-card bg-ink px-10 py-6 text-center text-lead font-bold text-surface shadow-float"
+		class="fixed bottom-12 left-1/2 z-10 max-w-3xl -translate-x-1/2 rounded-card bg-ink px-10 py-6 text-center text-lead font-bold text-surface shadow-float portrait:tablet:bottom-28"
 	>
 		{message}
 	</p>
