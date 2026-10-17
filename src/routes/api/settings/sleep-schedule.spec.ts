@@ -59,13 +59,23 @@ it('saves a partial update and keeps the rest', async () => {
 it('sleep now turns the screen off and a touch wakes it', async () => {
 	// With the schedule off, only the events matter, whatever time the test runs at.
 	await call(settings.PUT, as(true, { enabled: false }));
-	expect(await poll()).toEqual({ power: 'on', reason: 'disabled' });
+	expect(await poll()).toEqual({ power: 'on', reason: 'disabled', mode: 'normal' });
 	const slept = await call(sleep.POST);
 	expect(slept.status).toBe(202);
 	expect(await slept.json()).toEqual({ power: 'off', reason: 'sleep-now' });
 	const polled = await call(power.GET);
 	expect(polled.headers.get('cache-control')).toBe('no-store');
-	expect(await polled.json()).toEqual({ power: 'off', reason: 'sleep-now' });
+	expect(await polled.json()).toEqual({ power: 'off', reason: 'sleep-now', mode: 'off' });
 	expect(await (await call(wake.POST)).json()).toEqual({ power: 'on', reason: 'disabled' });
-	expect(await poll()).toEqual({ power: 'on', reason: 'disabled' });
+	expect(await poll()).toEqual({ power: 'on', reason: 'disabled', mode: 'normal' });
+});
+
+it('reports night-clock mode on a scheduled night when a grown-up enables it', async () => {
+	const nc = await import('./night-clock/+server.js');
+	await expect(call(nc.GET, as(false, undefined, 'GET'))).rejects.toMatchObject({ status: 401 });
+	await expect(call(nc.PUT, as(true, { enabled: 'x' }))).rejects.toMatchObject({ status: 400 });
+	expect(await (await call(nc.PUT, as(true, { enabled: true }))).json()).toEqual({ enabled: true });
+	expect(await (await call(nc.GET, as(true, undefined, 'GET'))).json()).toEqual({ enabled: true });
+	expect(['normal', 'night-clock', 'off']).toContain((await poll()).mode);
+	await call(nc.PUT, as(true, { enabled: false }));
 });
