@@ -78,6 +78,12 @@
 			line: 'Celebration sounds and quiet hours.'
 		},
 		{
+			href: resolve('/(app)/settings/notifications'),
+			emoji: '📲',
+			title: 'Notifications',
+			line: 'Phone alerts for approvals, goals and rewards.'
+		},
+		{
 			href: resolve('/(app)/settings/time-zone'),
 			emoji: '🌍',
 			title: 'Time zone',
