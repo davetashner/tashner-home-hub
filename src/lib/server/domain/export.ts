@@ -4,8 +4,8 @@
  * What an export holds (and does not):
  * - Every app table below, in foreign-key order (parents first). Row keys are the Drizzle
  *   property names from `schema.ts`.
- * - NOT exported: `events` (a cache of calendar syncs; they refill after a sync), session
- *   epochs, the weather cache, and photo files (only photo metadata rows travel).
+ * - NOT exported: `events` (a cache of calendar syncs; they refill after a sync),
+ *   `routine_progress` (per-day state that resets each morning), session epochs, the weather cache, and photo files (only photo metadata rows travel).
  * - Secrets: calendar/photo-source `credentials` are encrypted with this server's key, so they
  *   are left out and the sources listed under `reconnect`. Member PIN hashes ARE exported
  *   (salted scrypt hashes, not PINs) so PINs keep working after a restore.
@@ -29,11 +29,16 @@ export const EXPORT_TABLES = [
 	'list_items',
 	'meal_plan_entries',
 	'countdowns',
+	'routines',
+	'routine_steps',
 	'settings'
 ] as const;
 
-/** App tables deliberately left out of exports. */
-export const EXCLUDED_TABLES = ['events'] as const;
+/**
+ * App tables deliberately left out of exports: `events` is a calendar sync cache, and
+ * `routine_progress` is per-day state that resets itself each morning.
+ */
+export const EXCLUDED_TABLES = ['events', 'routine_progress'] as const;
 
 /** Settings keys that stay local to this server: kept on import, never exported. */
 export const LOCAL_SETTING_PREFIXES = ['session.epoch.', 'weather.cache'] as const;
