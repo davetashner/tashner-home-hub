@@ -298,7 +298,7 @@
 							aria-pressed={chosen.includes(m.id)}
 							onclick={() => chooseMembers(toggleMember(chosen, m.id))}
 						>
-							<span aria-hidden="true">
+							<span class="chip-avatar" aria-hidden="true">
 								<MemberAvatar name={m.name} color={m.color} avatar={m.avatar} size="sm" />
 							</span>
 							<span>{m.name}</span>
@@ -495,6 +495,14 @@
 		background: var(--color-surface-raised);
 		font-weight: 800;
 		cursor: pointer;
+	}
+	/* The avatar fills the chip's height, so it sits in the pill's rounded end with no left inset. */
+	.chip:has(.chip-avatar) {
+		padding-left: 0;
+	}
+	.chip-avatar {
+		display: flex;
+		flex-shrink: 0;
 	}
 	.chip > span:last-child {
 		overflow: hidden;

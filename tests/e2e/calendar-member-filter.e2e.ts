@@ -65,3 +65,19 @@ test('member chips stay inside a phone-width screen', async ({ page }) => {
 	);
 	expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("a member chip's avatar sits in the pill's rounded left end", async ({ page }) => {
+	seedCalendar({ fresh: false });
+	await page.goto('/calendar');
+	const chip = page
+		.getByTestId('member-filter')
+		.getByRole('button', { name: 'Avery', exact: true });
+	// Retried: the page's entrance animation moves the chips for a moment after load.
+	await expect(async () => {
+		const c = (await chip.boundingBox())!;
+		const a = (await chip.locator('.chip-avatar').boundingBox())!;
+		// Flush left: only the 2px border between the pill's edge and the avatar, as at top and bottom.
+		expect(a.x - c.x).toBeLessThanOrEqual(3);
+		expect(Math.abs(a.y + a.height / 2 - (c.y + c.height / 2))).toBeLessThanOrEqual(1);
+	}).toPass();
+});
