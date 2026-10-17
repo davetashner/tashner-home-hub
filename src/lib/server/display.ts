@@ -10,6 +10,12 @@ import {
 	type DisplayPower,
 	type SleepSchedule
 } from '#lib/domain/display-power.js';
+import {
+	NIGHT_CLOCK_KEY,
+	displayMode,
+	resolveNightClock,
+	type DisplayMode
+} from '#lib/domain/night-clock.js';
 import { householdTimeZone } from '#lib/server/household.js';
 
 /** The stored display rotation; landscape ("normal") until a grown-up changes it. */
@@ -73,4 +79,23 @@ export function currentDisplayPower(now = Date.now()): DisplayPower {
 export function recordPowerEvent(kind: 'sleep' | 'wake', now = Date.now()): DisplayPower {
 	writeSetting(kind === 'sleep' ? SLEEP_NOW_KEY : WAKE_KEY, now);
 	return currentDisplayPower(now);
+}
+
+export const readNightClock = (): boolean => resolveNightClock(readSetting(NIGHT_CLOCK_KEY));
+
+export const writeNightClock = (enabled: boolean): void =>
+	writeSetting(NIGHT_CLOCK_KEY, { enabled });
+
+export interface DisplayState extends DisplayPower {
+	mode: DisplayMode;
+}
+
+/**
+ * What the Pi agent and the wall UI act on (SLP-4): with night clock on, a scheduled night keeps
+ * the monitor powered ("on") and the UI shows the dim clock; the agent needs no change.
+ */
+export function currentDisplayState(now = Date.now()): DisplayState {
+	const power = currentDisplayPower(now);
+	const mode = displayMode(power, readNightClock());
+	return { ...power, power: mode === 'off' ? 'off' : 'on', mode };
 }
