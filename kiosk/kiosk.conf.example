@@ -20,8 +20,9 @@ RESOLUTION="2560x1440"
 # Optional: override the touch calibration matrix (six numbers). Empty = use the built-in table.
 TOUCH_MATRIX=""
 
-# Hide the mouse pointer: yes for the touch screen, no when driving it with a mouse (e.g. on a TV).
-HIDE_CURSOR="yes"
+# Input: touch (hidden pointer) for the touch screen, or mouse while driving it with a mouse and
+# keyboard (e.g. on a TV): a visible pointer, and Esc minimizes the hub to reach the desktop.
+INPUT="touch"
 
 # Remote debugging port, bound to localhost only. Used by the watchdog.
 DEBUG_PORT="9222"
