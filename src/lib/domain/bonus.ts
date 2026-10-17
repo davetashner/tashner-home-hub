@@ -55,9 +55,9 @@ export interface LedgerRow {
 	createdAt: number;
 }
 
-const ACTIVITY_REASONS = new Set(['bonus', 'adjustment', 'streak']);
+const ACTIVITY_REASONS = new Set(['bonus', 'adjustment', 'streak', 'habits_day']);
 
-/** Approved bonus, adjustment and streak rows, newest first, capped. */
+/** Approved bonus, adjustment, streak and daily-habit rows, newest first, capped. */
 export function activityRows(history: LedgerRow[], limit = 10): LedgerRow[] {
 	return history
 		.filter((r) => ACTIVITY_REASONS.has(r.reason) && r.status === 'approved')
@@ -67,6 +67,7 @@ export function activityRows(history: LedgerRow[], limit = 10): LedgerRow[] {
 
 export function activityTitle(row: LedgerRow): string {
 	if (row.reason === 'streak') return row.note ?? 'Streak bonus';
+	if (row.reason === 'habits_day') return row.note ?? 'All habits done';
 	return row.note ?? (row.delta > 0 ? 'Bonus stars' : 'Stars removed');
 }
 
