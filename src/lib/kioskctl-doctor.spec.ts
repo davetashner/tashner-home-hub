@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	diagnose,
 	parseFlags,
+	parseSpeaker,
 	parseWlrRandr,
 	remoteFacts,
 	remoteFactsScript,
@@ -96,6 +97,20 @@ describe('parsers', () => {
 			emoji: 0,
 			outputs: []
 		});
+	});
+
+	it('reads the chosen speaker and whether it is the default sink', () => {
+		const info = `mac aa:bb:cc:dd:ee:01\n\tAlias: Shower Speaker\n\tPaired: yes\n\tConnected: yes\ndefault node.name = "bluez_output.AA_BB_CC_DD_EE_01.1"`;
+		expect(parseSpeaker(info)).toEqual({
+			mac: 'AA:BB:CC:DD:EE:01',
+			name: 'Shower Speaker',
+			paired: true,
+			connected: true,
+			defaultSink: true
+		});
+		expect(parseSpeaker('mac \ndefault ')).toMatchObject({ mac: null, connected: false });
+		expect(remoteFacts('=== speaker\nmac \n=== end').speaker).toMatchObject({ mac: null });
+		expect(remoteFacts('=== host\nkiosk').speaker).toBeUndefined();
 	});
 
 	it('only probes the server when it knows where it is', () => {
@@ -195,6 +210,25 @@ describe('diagnose', () => {
 			status: 'fail',
 			detail: expect.stringMatching(/covered/)
 		});
+	});
+
+	it('reports the speaker, and fails one that is connected but not playing', () => {
+		const sp = (over = {}) => ({
+			mac: 'AA:BB:CC:DD:EE:01',
+			name: 'Shower Speaker',
+			paired: true,
+			connected: true,
+			defaultSink: true,
+			...over
+		});
+		const check = (over: object | null) =>
+			status(healthy({ remote: remote(over ? { speaker: sp(over) } : {}) }), 'speaker');
+		expect(check(null)).toBeUndefined();
+		expect(check({})).toMatchObject({ status: 'pass', detail: 'Shower Speaker connected' });
+		expect(check({ mac: null })).toMatchObject({ status: 'warn', detail: 'none chosen' });
+		expect(check({ paired: false, connected: false })).toMatchObject({ status: 'warn' });
+		expect(check({ connected: false })).toMatchObject({ status: 'warn', hint: 'switch it on' });
+		expect(check({ defaultSink: false })).toMatchObject({ status: 'fail' });
 	});
 
 	it('warns when this browser is not a wall display', () => {
