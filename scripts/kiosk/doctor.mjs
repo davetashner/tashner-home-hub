@@ -13,24 +13,29 @@ export const KIOSK_UNITS = [
  * Wayland session (the `kiosk` user after install.sh, else the desktop user) with its runtime dir.
  */
 export const REMOTE_PRELUDE = `
-W=$(ls /run/user/*/wayland-0 2>/dev/null | head -1)
-OWNER=$( [ -n "$W" ] && stat -c %U "$W" )
-RUNDIR=$( [ -n "$W" ] && dirname "$W" )
-asowner() {
-  if [ -z "$OWNER" ]; then "$@"; return; fi
-  if [ "$OWNER" = "$(id -un)" ]; then env XDG_RUNTIME_DIR="$RUNDIR" WAYLAND_DISPLAY=wayland-0 "$@"
-  else sudo -n -u "$OWNER" env XDG_RUNTIME_DIR="$RUNDIR" WAYLAND_DISPLAY=wayland-0 "$@"; fi
-}
 browser_pid() {
   for p in $(pgrep -x chromium; pgrep -x chromium-browser); do
     tr '\\0' ' ' < /proc/$p/cmdline | grep -qv -- '--type=' && { echo $p; return; }
   done
 }
+# The session owner is whoever runs the browser (the kiosk user's runtime dir is private, so a
+# directory listing as the SSH user cannot see it); else the first Wayland socket root can see.
+BP=$(browser_pid)
+if [ -n "$BP" ]; then OWNER=$(ps -o user= -p "$BP" | tr -d ' ')
+else OWNER=$(sudo -n sh -c 'ls /run/user/*/wayland-0 2>/dev/null' | head -1 | xargs -r stat -c %U 2>/dev/null); fi
+RUNDIR=$( [ -n "$OWNER" ] && echo /run/user/$(id -u "$OWNER") )
+asowner() {
+  if [ -z "$OWNER" ]; then "$@"; return; fi
+  if [ "$OWNER" = "$(id -un)" ]; then env XDG_RUNTIME_DIR="$RUNDIR" WAYLAND_DISPLAY=wayland-0 "$@"
+  else sudo -n -u "$OWNER" env XDG_RUNTIME_DIR="$RUNDIR" WAYLAND_DISPLAY=wayland-0 "$@"; fi
+}
 `;
 
 /** One SSH round trip that gathers everything the doctor needs from the Pi, in marked sections. */
 export function remoteFactsScript(hubOrigin) {
-	const health = hubOrigin
+	// It goes into a shell string: only a plain origin is allowed through.
+	const safe = typeof hubOrigin === 'string' && /^https?:\/\/[\w.:-]+$/.test(hubOrigin);
+	const health = safe
 		? `curl -s -o /dev/null -w '%{http_code} %{time_total}' --max-time 5 '${hubOrigin}/healthz'`
 		: 'echo none';
 	return `${REMOTE_PRELUDE}
