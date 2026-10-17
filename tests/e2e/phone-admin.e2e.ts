@@ -60,7 +60,7 @@ for (const route of routes) {
 }
 
 const forms = [
-	{ name: 'chore', path: '/settings/chores', open: 'Add chore', form: 'chore-form' },
+	{ name: 'chore', path: '/settings/chores', open: 'Add Star Job', form: 'chore-form' },
 	{ name: 'reward', path: '/settings/rewards', open: 'Add reward', form: 'reward-form' },
 	{ name: 'family member', path: '/settings/family', open: 'Add person', form: 'member-form' }
 ];

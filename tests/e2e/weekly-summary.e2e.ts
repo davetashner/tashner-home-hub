@@ -71,7 +71,7 @@ test('an adult sees a child card with the week numbers, on a phone', async ({ pa
 		await expect(card.getByTestId('stars-line')).toHaveText(
 			'Earned 6 · Spent 0 · Removed 0 · Balance 6'
 		);
-		await expect(card.getByTestId('done-line')).toHaveText('3 of 8 chores done');
+		await expect(card.getByTestId('done-line')).toHaveText('3 of 8 Star Jobs done');
 		await expect(card.getByTestId('missed-list').locator('li')).toHaveCount(3);
 
 		// First tap after goto: the page may still be hydrating.

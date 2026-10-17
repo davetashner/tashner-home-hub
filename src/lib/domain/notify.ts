@@ -95,7 +95,7 @@ const note = (title: string, message: string, priority: 3 | 4, tags: string[], p
 export const approvalMessage = (count: number): NtfyMessage =>
 	note(
 		'Approval waiting',
-		`${count} ${count === 1 ? 'chore' : 'chores'} waiting for approval`,
+		`${count} ${count === 1 ? 'Star Job' : 'Star Jobs'} waiting for approval`,
 		3,
 		['white_check_mark'],
 		'/settings/approvals'
