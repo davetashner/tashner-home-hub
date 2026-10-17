@@ -62,13 +62,13 @@
 		c.memberIds.flatMap((id) => data.members.filter((m) => m.id === id));
 </script>
 
-<svelte:head><title>Chores</title></svelte:head>
+<svelte:head><title>Star Jobs</title></svelte:head>
 
 <section class="mx-auto flex max-w-4xl flex-col gap-6 p-6 max-sm:p-3">
 	<header class="flex items-center justify-between gap-4">
-		<h1 class="text-headline font-extrabold">Chores</h1>
+		<h1 class="text-headline font-extrabold">Star Jobs</h1>
 		{#if editing !== 'new'}
-			<Button onclick={() => ((editing = 'new'), (archiving = null))}>Add chore</Button>
+			<Button onclick={() => ((editing = 'new'), (archiving = null))}>Add Star Job</Button>
 		{/if}
 	</header>
 
@@ -140,7 +140,7 @@
 				</Card>
 			</li>
 		{:else}
-			<li class="text-body text-ink-muted">No chores yet. Add the first one.</li>
+			<li class="text-body text-ink-muted">No Star Jobs yet. Add the first one.</li>
 		{/each}
 	</ul>
 </section>

@@ -6,7 +6,7 @@ test.beforeAll(ensureHousehold);
 
 test('no Lock control without an adult session', async ({ page }) => {
 	await page.goto('/chores');
-	await expect(page.getByRole('heading', { level: 1, name: 'Chores' })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 1, name: 'To-Do List' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Lock' })).toHaveCount(0);
 });
 
