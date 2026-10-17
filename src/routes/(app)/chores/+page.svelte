@@ -609,7 +609,14 @@
 		<aside
 			class="shrink-0 portrait:order-first landscape:sticky landscape:top-0 landscape:w-1/3 short:col-start-3 short:w-auto portrait:tablet:order-2 landscape:tablet:w-1/4"
 		>
-			<StarJar balance={stars.balance} pending={stars.pending} {goal} bind:jar />
+			<StarJar
+				memberId={selected.id}
+				onchanged={() => void loadStars(selected.id).catch(() => {})}
+				balance={stars.balance}
+				pending={stars.pending}
+				{goal}
+				bind:jar
+			/>
 		</aside>
 	</div>
 {/if}
