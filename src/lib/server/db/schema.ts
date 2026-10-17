@@ -24,7 +24,14 @@ export const PROVIDERS = ['google', 'icloud', 'ics'] as const;
 export const COMPLETION_STATUSES = ['pending', 'approved', 'rejected', 'undone'] as const;
 /** Star Jobs earn stars; habits are everyday checks that earn none on their own (hub-esf). */
 export const CHORE_KINDS = ['star_job', 'habit'] as const;
-export const STAR_REASONS = ['chore', 'bonus', 'streak', 'redemption', 'adjustment'] as const;
+export const STAR_REASONS = [
+	'chore',
+	'bonus',
+	'streak',
+	'redemption',
+	'adjustment',
+	'habits_day'
+] as const;
 
 export const members = sqliteTable('members', {
 	id: id(),
