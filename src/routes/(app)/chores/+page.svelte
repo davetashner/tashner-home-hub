@@ -150,7 +150,8 @@
 		]);
 		starsBy[id] = { balance: s.balance, pending: s.pending };
 		void loadStreak(id).catch(() => {});
-		void loadHabits(id).catch(() => {});
+		// Only the child on screen: warming every jar must not cost a week of habit math per kid.
+		if (id === selectedId) void loadHabits(id).catch(() => {});
 		goals[id] = g && {
 			id: g.reward.id,
 			title: g.reward.title,
