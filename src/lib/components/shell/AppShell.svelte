@@ -79,7 +79,7 @@
 
 <div
 	class:bg-surface={wave.choice === 'off'}
-	class="grid h-full portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape"
+	class="grid h-full portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape short:grid-cols-shell-short"
 >
 	<header
 		class="flex items-center justify-between gap-3 pt-safe-4 pr-safe-4 pb-4 pl-safe-4 max-sm:justify-end max-sm:pt-safe-2 max-sm:pr-safe-3 max-sm:pb-2 max-sm:pl-safe-3 sm:flex-wrap sm:gap-8 sm:pt-safe-8 sm:pr-safe-12 sm:pb-8 sm:pl-safe-12 portrait:sm:pr-safe-10 portrait:sm:pl-safe-10 landscape:col-start-2 landscape:row-start-1 landscape:pl-4 landscape:sm:gap-4 landscape:sm:pr-safe-8 landscape:sm:pl-8 short:flex-nowrap short:gap-1 short:pt-safe-2 short:pr-safe-2 short:pb-2 short:pl-2 tablet:flex-nowrap tablet:gap-4 tablet:pt-safe-2 tablet:pb-2 portrait:tablet:pr-safe-6 portrait:tablet:pl-safe-6 landscape:tablet:gap-4 landscape:tablet:pr-safe-6 landscape:tablet:pl-6"
@@ -136,7 +136,7 @@
 
 	<nav
 		aria-label="Main"
-		class="flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5 short:col-start-1 short:row-span-1 short:w-auto short:flex-row short:gap-0 short:border-r-0 short:bg-surface short:pt-safe-2 short:pr-2 short:pb-2 short:pl-safe-2 portrait:tablet:gap-2 portrait:tablet:pt-1 portrait:tablet:pr-safe-4 portrait:tablet:pb-safe-1 portrait:tablet:pl-safe-4 landscape:tablet:w-rail-tablet landscape:tablet:gap-2 landscape:tablet:overflow-y-auto landscape:tablet:pt-safe-4 landscape:tablet:pr-2 landscape:tablet:pb-safe-4 landscape:tablet:pl-safe-2"
+		class="flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5 short:col-start-1 short:row-span-1 short:w-auto short:min-w-0 short:scrollbar-none short:overflow-x-auto short:flex-row short:gap-0 short:border-r-0 short:bg-surface short:pt-safe-2 short:pr-2 short:pb-2 short:pl-safe-2 portrait:tablet:gap-2 portrait:tablet:pt-1 portrait:tablet:pr-safe-4 portrait:tablet:pb-safe-1 portrait:tablet:pl-safe-4 landscape:tablet:w-rail-tablet landscape:tablet:gap-2 landscape:tablet:overflow-y-auto landscape:tablet:pt-safe-4 landscape:tablet:pr-2 landscape:tablet:pb-safe-4 landscape:tablet:pl-safe-2"
 	>
 		{#each DESTINATIONS as destination (destination.id)}
 			<NavItem {destination} active={isActive(destination.href, pathname)} />
