@@ -2,30 +2,16 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { formatClock } from '#lib/domain/clock.js';
-	import { nightClockOffset, parseDisplayMode, type DisplayMode } from '#lib/domain/night-clock.js';
+	import { setPowerMode, powerState, usePowerState } from '#lib/display/power-state.svelte.js';
+	import { nightClockOffset } from '#lib/domain/night-clock.js';
 	import { isTimeZone } from '#lib/domain/time-zone.js';
 
 	/** Wall displays only (the shell mounts this for that role): a dim clock on a scheduled night (SLP-4). */
-	const POLL_MS = 15_000;
-
-	let mode = $state<DisplayMode>('normal');
 	let now = $state(Date.now());
-	let polls = 0;
-
-	async function poll() {
-		const at = ++polls;
-		try {
-			const res = await fetch('/api/display/power', { cache: 'no-store' });
-			if (res.ok && at === polls) mode = parseDisplayMode((await res.json()).mode);
-		} catch {
-			// Keep the current mode; the next poll corrects it.
-		}
-	}
 
 	function wake() {
 		// Optimistic (touch to wake, SLP-3): the app shows now, the server starts the re-sleep timeout.
-		polls++;
-		mode = 'normal';
+		setPowerMode('normal');
 		void fetch('/api/display/wake', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -34,15 +20,15 @@
 	}
 
 	onMount(() => {
-		void poll();
-		const pollTimer = setInterval(() => void poll(), POLL_MS);
+		const release = usePowerState();
 		const tick = setInterval(() => (now = Date.now()), 1000);
 		return () => {
-			clearInterval(pollTimer);
+			release();
 			clearInterval(tick);
 		};
 	});
 
+	const mode = $derived(powerState.mode);
 	const zone = $derived(isTimeZone(page.data.timeZone) ? page.data.timeZone : undefined);
 	const clock = $derived(formatClock(new Date(now), zone ? { timeZone: zone } : {}));
 	const nudge = $derived(nightClockOffset(now));
