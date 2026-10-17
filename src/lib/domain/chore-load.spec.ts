@@ -14,6 +14,11 @@ describe('childrenOf', () => {
 });
 
 describe('planLoad', () => {
+	it('counts a kid with no chores today as present (they may only have a routine)', () => {
+		const plan = planLoad([adult, kid('k1')], [{ id: 'k1', groups: [] }], {});
+		expect(plan.members).toEqual([kid('k1')]);
+		expect(plan.unreachable).toBe(false);
+	});
 	it('keeps the kids that loaded when one fails', () => {
 		const plan = planLoad(
 			[adult, kid('k1'), kid('k2')],

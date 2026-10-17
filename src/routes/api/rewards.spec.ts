@@ -79,4 +79,41 @@ describe('rewards API', () => {
 			call(goal.PUT, { params: { id: 'kid' }, request: req('PUT', { rewardId: 'nope' }) })
 		).rejects.toMatchObject({ status: 404 });
 	});
+
+	describe('kid picking a goal without a grown-up', () => {
+		const anon = (id: string, rewardId: unknown) =>
+			(goal.PUT as unknown as (e: unknown) => Promise<Response>)({
+				locals: {},
+				params: { id },
+				request: req('PUT', { rewardId })
+			});
+
+		it('allows a child to pick an active reward', async () => {
+			getDb()
+				.insert(schema.members)
+				.values({ id: 'kid2', name: 'Kid Two', role: 'child', color: 'blue' })
+				.run();
+			const r = await (
+				await call(rewards.POST, { request: req('POST', { title: 'Kite', cost: 5 }) })
+			).json();
+			const res = await anon('kid2', r.id);
+			expect(res.status).toBe(200);
+			expect((await res.json()).reward.id).toBe(r.id);
+		});
+
+		it('refuses an adult member, an unknown member, and missing or archived rewards', async () => {
+			getDb()
+				.insert(schema.members)
+				.values({ id: 'grownup', name: 'Grown Up', role: 'adult', color: 'blue' })
+				.run();
+			const r = await (
+				await call(rewards.POST, { request: req('POST', { title: 'Old toy', cost: 5 }) })
+			).json();
+			await expect(anon('grownup', r.id)).rejects.toMatchObject({ status: 401 });
+			await expect(anon('ghost', r.id)).rejects.toMatchObject({ status: 401 });
+			await expect(anon('kid2', 'nope')).rejects.toMatchObject({ status: 401 });
+			await call(archive.POST, { params: { id: r.id } });
+			await expect(anon('kid2', r.id)).rejects.toMatchObject({ status: 401 });
+		});
+	});
 });

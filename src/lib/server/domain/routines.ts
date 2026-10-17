@@ -3,10 +3,17 @@ import { asc, eq, inArray, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/index.js';
 import { members, routineProgress, routineSteps, routines } from '../db/schema.js';
-import { advance, clampDone, validateRoutine, type KidRoutine } from '#lib/domain/routines.js';
+import {
+	advance,
+	clampDone,
+	sameSteps,
+	validateRoutine,
+	type KidRoutine
+} from '#lib/domain/routines.js';
 import { LedgerError } from './ledger.js';
 
-type RoutineInput = Parameters<typeof validateRoutine>[0] & { memberId: string };
+type RoutineBody = Parameters<typeof validateRoutine>[0];
+type RoutineInput = RoutineBody & { memberId: string };
 
 function get(db: Db, id: string) {
 	const row = db.select().from(routines).where(eq(routines.id, id)).get();
@@ -64,6 +71,35 @@ export function createRoutine(db: Db, input: RoutineInput) {
 			...s
 		}));
 		tx.insert(routineSteps).values(rows).run();
+	});
+	return listRoutines(db).find((r) => r.id === id)!;
+}
+
+/**
+ * Replaces a routine's name, window and ordered steps (and optionally its member).
+ * Progress rule: when the step list changes (add, remove, reorder, relabel, new picture) the
+ * saved progress is cleared, because "steps done" counts positions and would point at the wrong
+ * step. Renaming, changing the window or the member keeps today's progress.
+ */
+export function updateRoutine(db: Db, id: string, input: RoutineBody & { memberId?: string }) {
+	const current = get(db, id);
+	const v = validateRoutine(input);
+	if ('error' in v) throw new LedgerError('invalid', v.error);
+	const memberId = input.memberId ?? current.memberId;
+	if (!db.select().from(members).where(eq(members.id, memberId)).get())
+		throw new LedgerError('not_found', 'Member not found');
+	const before = listRoutines(db).find((r) => r.id === id)!.steps;
+	db.transaction((tx) => {
+		tx.update(routines)
+			.set({ memberId, name: v.name, windowStart: v.windowStart, windowEnd: v.windowEnd })
+			.where(eq(routines.id, id))
+			.run();
+		if (sameSteps(before, v.steps)) return;
+		tx.delete(routineSteps).where(eq(routineSteps.routineId, id)).run();
+		tx.delete(routineProgress).where(eq(routineProgress.routineId, id)).run();
+		tx.insert(routineSteps)
+			.values(v.steps.map((s, position) => ({ id: randomUUID(), routineId: id, position, ...s })))
+			.run();
 	});
 	return listRoutines(db).find((r) => r.id === id)!;
 }

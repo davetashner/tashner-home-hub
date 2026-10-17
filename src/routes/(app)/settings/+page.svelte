@@ -54,6 +54,12 @@
 			line: 'What needs doing, when, and how many stars.'
 		},
 		{
+			href: resolve('/(app)/settings/routines'),
+			emoji: '🪥',
+			title: 'Routines',
+			line: 'Morning and bedtime checklists with pictures.'
+		},
+		{
 			href: resolve('/(app)/settings/rewards'),
 			emoji: '🎁',
 			title: 'Rewards',

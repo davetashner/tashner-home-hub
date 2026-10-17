@@ -1,3 +1,5 @@
+import { activeRoutines, type KidRoutine } from '#lib/domain/routines.js';
+
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'anytime';
 export type Status = 'none' | 'pending' | 'approved' | 'rejected' | 'undone';
 
@@ -75,7 +77,7 @@ export function jarSlots(balance: number, pending: number, goalCost: number | nu
 	return { total, gold, pending: Math.min(p, total - gold) };
 }
 
-/** Members with at least one chore today: the avatar switcher shows when there are two or more. */
+/** Members with at least one chore today. */
 export function kidsWithChores<T extends { id: string }>(
 	members: T[],
 	boards: Record<string, KidGroup[]>
@@ -83,11 +85,30 @@ export function kidsWithChores<T extends { id: string }>(
 	return members.filter((m) => (boards[m.id]?.length ?? 0) > 0);
 }
 
-/** Members worth showing: those with chores today; if nobody has any, everyone. */
+/**
+ * Members worth showing: those with chores today or a routine open right now (a routine-only kid
+ * still needs a way to reach their button). The avatar switcher shows when there are two or more.
+ */
+export function kidsToShow<T extends { id: string }>(
+	members: T[],
+	boards: Record<string, KidGroup[]>,
+	routinesBy: Record<string, KidRoutine[]>,
+	nowMinutes: number
+): T[] {
+	return members.filter(
+		(m) =>
+			(boards[m.id]?.length ?? 0) > 0 ||
+			activeRoutines(routinesBy[m.id] ?? [], nowMinutes).length > 0
+	);
+}
+
+/** The kids to show; if nobody qualifies, everyone. */
 export function switcherMembers<T extends { id: string }>(
 	members: T[],
-	boards: Record<string, KidGroup[]>
+	boards: Record<string, KidGroup[]>,
+	routinesBy: Record<string, KidRoutine[]> = {},
+	nowMinutes = 0
 ): T[] {
-	const withChores = kidsWithChores(members, boards);
-	return withChores.length > 0 ? withChores : members;
+	const shown = kidsToShow(members, boards, routinesBy, nowMinutes);
+	return shown.length > 0 ? shown : members;
 }
