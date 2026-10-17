@@ -65,3 +65,23 @@ test('Auto draws a valid palette, and a picked palette applies and resets', asyn
 		await expect(bg).toHaveAttribute('data-palette', valid, { timeout: 500 });
 	}).toPass();
 });
+
+test('this device can hide the waves and remembers it', async ({ page }, info) => {
+	await signInAsAdult(page, `e2e-wave-device-${info.project.name}`);
+	await page.goto('/settings/background');
+	const bg = page.getByTestId('wave-background');
+	await expect(bg).toHaveAttribute('data-device', 'show');
+	const device = page.getByRole('group', { name: 'On this device' });
+	await device.getByRole('button', { name: 'Not on this device' }).click();
+	await expect(bg).toHaveAttribute('data-device', 'off');
+	await expect(bg.locator('canvas')).toHaveCount(0);
+	expect(await page.evaluate(() => localStorage.getItem('hub.wave.device'))).toBe('off');
+	await page.reload();
+	await expect(bg).toHaveAttribute('data-device', 'off');
+	await page
+		.getByRole('group', { name: 'On this device' })
+		.getByRole('button', { name: 'Show here' })
+		.click();
+	await expect(bg).toHaveAttribute('data-device', 'show');
+	expect(await page.evaluate(() => localStorage.getItem('hub.wave.device'))).toBeNull();
+});

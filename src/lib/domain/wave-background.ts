@@ -201,8 +201,16 @@ export const waveShape = {
 	dot: 0.0016 * 0.4 * Math.sqrt(120 / DENSITY)
 };
 
-/** A CPU-rendered GL (SwiftShader, llvmpipe) would starve the page: show the still gradient instead. */
-export const isSoftwareRenderer = (name: string) => /swiftshader|llvmpipe|software/i.test(name);
+const SOFTWARE_GL =
+	/swiftshader|llvmpipe|softpipe|software|microsoft basic render|mesa offscreen|\bgdi generic\b/i;
+
+/**
+ * True only for a renderer POSITIVELY named as CPU-based (SwiftShader, llvmpipe...). iOS WebKit and
+ * Brave hide or farble GPU names ("Apple GPU", "WebKit WebGL", empty): those are not software, so
+ * the wave draws and the slow-draw bail-out (`isStarved`) is the safety net.
+ */
+export const isSoftwareRenderer = (...names: (string | null | undefined)[]) =>
+	names.some((n) => typeof n === 'string' && SOFTWARE_GL.test(n));
 
 /** After 20 draws, an average above 100 ms each (under 10 fps) means this device can't keep up. */
 export const isStarved = (elapsedMs: number, draws: number) =>
@@ -213,14 +221,59 @@ export const MAX_CANVAS_WIDTH = 3840;
 /** The wall at 4K gets a smaller canvas: the Pi 5 fills fewer pixels, the look stays the same. */
 export const renderScale = (wall: boolean) => (wall ? 0.5 : 0.6);
 
+export interface WaveProfile {
+	scale: number;
+	/** Highest device pixel ratio counted when sizing the canvas. */
+	dprCap: number;
+	fps: number;
+	/** Only the wall pauses for its display power state; the power poller runs nowhere else. */
+	followsWallPower: boolean;
+}
+
+/** Wall: the 4K Pi. Phones and tablets: a smaller canvas and a battery-friendly 30 fps. */
+export const waveProfile = (wall: boolean): WaveProfile =>
+	wall
+		? { scale: renderScale(true), dprCap: 2, fps: WAVE_FPS, followsWallPower: true }
+		: { scale: 0.5, dprCap: 1.5, fps: WAVE_FPS, followsWallPower: false };
+
+/** Whether the loop should hold still: hidden tab, reduced motion, or (wall only) screen asleep. */
+export const waveHeld = (
+	profile: WaveProfile,
+	s: { hidden: boolean; reduced: boolean; powerOff: boolean; nightMode: boolean }
+) => s.hidden || s.reduced || (profile.followsWallPower && (s.powerOff || s.nightMode));
+
+export const DEVICE_WAVE_KEY = 'hub.wave.device';
+
+/** Per-device opt-out ("off" hides the live waves on this device only). Storage may throw. */
+export function readDeviceWaveOff(storage: Pick<Storage, 'getItem'> | undefined): boolean {
+	try {
+		return storage?.getItem(DEVICE_WAVE_KEY) === 'off';
+	} catch {
+		return false;
+	}
+}
+
+export function writeDeviceWaveOff(
+	storage: Pick<Storage, 'setItem' | 'removeItem'> | undefined,
+	off: boolean
+): void {
+	try {
+		if (off) storage?.setItem(DEVICE_WAVE_KEY, 'off');
+		else storage?.removeItem(DEVICE_WAVE_KEY);
+	} catch {
+		/* private mode or blocked storage: the choice just lasts this page view */
+	}
+}
+
 /** Canvas pixel size for a window: device pixel ratio up to 2, times the scale, capped at 3840 wide. */
 export function canvasSize(
 	width: number,
 	height: number,
 	dpr: number,
-	scale: number
+	scale: number,
+	dprCap = 2
 ): { width: number; height: number } {
-	const d = Math.min(dpr || 1, 2);
+	const d = Math.min(dpr || 1, dprCap);
 	let w = Math.round(width * d * scale);
 	let h = Math.round(height * d * scale);
 	const cap = MAX_CANVAS_WIDTH / Math.max(w, 1);
