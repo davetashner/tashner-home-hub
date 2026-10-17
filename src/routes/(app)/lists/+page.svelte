@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { longpress } from '#lib/actions/longpress.js';
 	import OnScreenKeyboard from '#lib/components/lists/OnScreenKeyboard.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import { sortItems, withDone, type ListItem } from '#lib/domain/lists.js';
@@ -24,6 +25,9 @@
 	/** Adds and removals still in flight: a refresh landing mid-request must not undo them. */
 	let placeholders: ListItem[] = [];
 	const removing: Record<string, true> = {};
+	/** The item whose Delete action a long-press revealed. */
+	let armed = $state<string | null>(null);
+	let error = $state('');
 
 	const current = $derived(lists.find((l) => l.id === selected) ?? lists[0]);
 	const items = $derived(current ? sortItems(current.items) : []);
@@ -139,6 +143,39 @@
 		await refresh(() => gone.forEach((id) => delete removing[id]));
 	}
 
+	async function remove(item: ListItem) {
+		armed = null;
+		error = '';
+		removing[item.id] = true;
+		patchItems(item.listId, (all) => all.filter((i) => i.id !== item.id));
+		let ok = false;
+		try {
+			const res = await fetch(`/api/list-items/${item.id}`, {
+				method: 'DELETE',
+				headers: JSON_HEADERS,
+				body: '{}'
+			});
+			// A 404 means someone else already deleted it: the goal is met.
+			ok = res.ok || res.status === 404;
+		} catch {
+			// Offline: treated as a failure below.
+		}
+		delete removing[item.id];
+		if (!ok) {
+			error = `Could not delete "${item.text}". It is back on the list.`;
+			patchItems(item.listId, (all) => (all.some((i) => i.id === item.id) ? all : [...all, item]));
+		}
+		generation++;
+		await refresh();
+	}
+
+	/** Tapping anywhere outside the revealed row dismisses its Delete action. */
+	function dismissArmed(event: PointerEvent) {
+		if (armed === null) return;
+		const row = (event.target as Element | null)?.closest('[data-armed="true"]');
+		if (!row) armed = null;
+	}
+
 	function submitDraft(event: SubmitEvent) {
 		event.preventDefault();
 		const text = draft.trim();
@@ -148,6 +185,7 @@
 	}
 </script>
 
+<svelte:window onpointerdowncapture={dismissArmed} />
 <svelte:head><title>Lists · Home Hub</title></svelte:head>
 
 <section class="flex h-full min-h-0 flex-col gap-4 p-6 short:p-3">
@@ -180,12 +218,17 @@
 		{/if}
 	</div>
 
+	{#if error}
+		<p class="text-body text-danger" role="alert" data-testid="list-error">{error}</p>
+	{/if}
+
 	<ul class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto" data-testid="list-items">
 		{#each items as item (item.id)}
 			<li
 				class="flex items-stretch gap-2 rounded-card border-2 border-line bg-surface-raised"
 				data-testid="list-item"
 				data-done={item.done}
+				data-armed={armed === item.id}
 			>
 				<button
 					type="button"
@@ -193,6 +236,7 @@
 					aria-pressed={item.done}
 					data-testid="item-check"
 					onclick={() => toggle(item)}
+					use:longpress={{ onlongpress: () => (armed = item.id) }}
 				>
 					<span
 						class="grid size-tap shrink-0 place-items-center rounded-control border-2 {item.done
@@ -204,6 +248,16 @@
 						>{item.text}</span
 					>
 				</button>
+				{#if armed === item.id}
+					<Button
+						variant="secondary"
+						class="m-2 shrink-0 border-danger text-danger"
+						data-testid="item-delete"
+						onclick={() => remove(item)}
+					>
+						Delete
+					</Button>
+				{/if}
 			</li>
 		{:else}
 			{#if loaded}
