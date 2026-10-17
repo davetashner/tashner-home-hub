@@ -1,5 +1,8 @@
 """Unit tests for the display agent decision logic. Run: python3 -m unittest (in this folder)."""
 
+import errno
+import selectors
+import socket
 import struct
 import unittest
 
@@ -241,6 +244,78 @@ class TouchParseTests(unittest.TestCase):
         self.assertTrue(h.is_touch_device(mask(h.ABS_X, size=8), mask(h.BTN_TOUCH)))
         self.assertFalse(h.is_touch_device(mask(h.ABS_X, size=8), mask()))  # e.g. a joystick
         self.assertFalse(h.is_touch_device(mask(size=8), mask(h.BTN_TOUCH)))
+
+
+class GrabTests(unittest.TestCase):
+    def test_agent_wants_grab_only_while_off_or_waking(self):
+        agent, _, _, _ = make(listing=WLR_OFF)
+        self.assertTrue(agent.wants_grab())
+        agent.touch()
+        self.assertTrue(agent.lit)
+        self.assertTrue(agent.wants_grab())  # screen on, but the wake finger is still down
+        agent.touch_ended()
+        self.assertFalse(agent.wants_grab())
+
+    def test_no_grab_when_on_or_unknown(self):
+        agent, _, _, _ = make(listing=WLR_ON)
+        self.assertFalse(agent.wants_grab())
+        agent.lit = None
+        self.assertFalse(agent.wants_grab())
+
+    def test_touch_while_on_does_not_grab(self):
+        agent, _, _, _ = make(listing=WLR_ON)
+        agent.touch()
+        self.assertFalse(agent.wants_grab())
+
+    def test_touch_state_follows_btn_touch_and_tracking_id(self):
+        ev = TouchParseTests.ev
+        self.assertTrue(h.touch_state(ev(h.EV_KEY, h.BTN_TOUCH, 1), False))
+        self.assertFalse(h.touch_state(ev(h.EV_KEY, h.BTN_TOUCH, 0), True))
+        self.assertFalse(h.touch_state(ev(h.EV_ABS, h.ABS_MT_TRACKING_ID, -1), True))
+        self.assertTrue(h.touch_state(ev(h.EV_ABS, h.ABS_MT_TRACKING_ID, 3), False))
+        self.assertTrue(h.touch_state(ev(h.EV_ABS, h.ABS_MT_POSITION_X, 5), True))
+
+    def _watcher(self, calls):
+        w = h.TouchWatcher("", ioctl=lambda fd, req, arg: calls.append((fd, req, arg)))
+        a, b = socket.socketpair()
+        self.addCleanup(a.close)
+        self.addCleanup(b.close)
+        w.sel.register(a.fileno(), selectors.EVENT_READ, "/dev/input/event0")
+        w.down[a.fileno()] = False
+        return w, a.fileno()
+
+    def test_eviocgrab_request_number(self):
+        self.assertEqual(h.EVIOCGRAB, 0x40044590)
+
+    def test_grab_and_release_use_eviocgrab(self):
+        calls = []
+        w, fd = self._watcher(calls)
+        w.set_grab(True)
+        w.set_grab(True)  # idempotent
+        w.set_grab(False)
+        self.assertEqual(calls, [(fd, h.EVIOCGRAB, 1), (fd, h.EVIOCGRAB, 0)])
+
+    def test_grab_waits_for_finger_up(self):
+        calls = []
+        w, fd = self._watcher(calls)
+        w.down[fd] = True
+        w.set_grab(True)
+        self.assertEqual(calls, [])
+        w.down[fd] = False
+        w.set_grab(True)
+        self.assertEqual(calls, [(fd, h.EVIOCGRAB, 1)])
+
+    def test_failed_ioctl_does_not_raise(self):
+        def boom(fd, req, arg):
+            raise OSError(errno.EBUSY, "busy")
+
+        w = h.TouchWatcher("", ioctl=boom)
+        a, b = socket.socketpair()
+        self.addCleanup(a.close)
+        self.addCleanup(b.close)
+        w.sel.register(a.fileno(), selectors.EVENT_READ, "x")
+        w.set_grab(True)
+        self.assertTrue(w.grabbed)
 
 
 if __name__ == "__main__":
