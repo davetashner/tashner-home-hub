@@ -90,6 +90,12 @@
 			line: 'Connect Spotify for shower music.'
 		},
 		{
+			href: resolve('/(app)/settings/siri'),
+			emoji: '🎙️',
+			title: 'Siri and Shortcuts',
+			line: 'Add list items and Star Jobs by voice from a phone.'
+		},
+		{
 			href: resolve('/(app)/settings/photo-library'),
 			emoji: '🖼️',
 			title: 'Photo library',

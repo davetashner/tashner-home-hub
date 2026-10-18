@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { signInAsAdult } from './adult';
+import { gotoHydrated } from './hydrated';
 
 // DEV-5: iOS Safari zooms the page when a focused field computes below 16px.
 const settingsDir = path.resolve('src/routes/(app)/settings');
@@ -56,12 +57,9 @@ for (const f of [
 	test(`ios: the ${f.open} form fields are at least 16px`, async ({ page }, info) => {
 		await signInAsAdult(page, `e2e-zoom-form-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
-		await page.goto(f.path);
-		// A tap before the page hydrates is lost, so retry the click until the form opens.
-		await expect(async () => {
-			await page.getByRole('button', { name: f.open }).click();
-			await expect(page.locator('form').first()).toBeVisible({ timeout: 1000 });
-		}).toPass();
+		await gotoHydrated(page, f.path);
+		await page.getByRole('button', { name: f.open }).click();
+		await expect(page.locator('form').first()).toBeVisible();
 		expect(await smallFields(page)).toEqual([]);
 	});
 }

@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { trackMember } from './cleanup';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 test('Star Jobs and habits each count, and finishing every habit earns a star', async ({
 	page
@@ -23,7 +24,7 @@ test('Star Jobs and habits each count, and finishing every habit earns a star', 
 	expect((await add({ title: 'Feed the fish', icon: '🐟', kind: 'habit' })).ok()).toBe(true);
 	await page.context().clearCookies(); // the kid screen needs no adult session
 
-	await page.goto(`/chores?member=${member.id}`);
+	await gotoHydrated(page, `/chores?member=${member.id}`);
 	const jobs = page.getByTestId('star-jobs');
 	const habits = page.getByTestId('habits');
 	await expect(page.getByTestId('star-jobs-count')).toHaveText('0/1');
@@ -35,11 +36,8 @@ test('Star Jobs and habits each count, and finishing every habit earns a star', 
 	const card = (title: string) => habits.getByTestId('chore-card').filter({ hasText: title });
 	const didIt = card('Hang up towels').getByTestId('did-it');
 	await expectTappable(didIt);
-	// A tap before the page hydrates is lost: retry until it counts.
-	await expect(async () => {
-		await didIt.click();
-		await expect(page.getByTestId('habits-count')).toHaveText('1/2', { timeout: 1000 });
-	}).toPass();
+	await didIt.click();
+	await expect(page.getByTestId('habits-count')).toHaveText('1/2');
 	// Habits are plain checks: done at once, no grown-up needed.
 	await expect(card('Hang up towels').getByTestId('done')).toBeVisible();
 

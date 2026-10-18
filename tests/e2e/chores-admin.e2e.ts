@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { expectTappable } from './tap';
 import { signInAsAdult } from './adult';
 import { trackMember } from './cleanup';
+import { gotoHydrated } from './hydrated';
 
 test('create, edit and archive a weekday chore', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-chores-${info.project.name}`);
@@ -16,15 +17,12 @@ test('create, edit and archive a weekday chore', async ({ page }, info) => {
 	const kid = (await made.json()) as { id: string; name: string };
 	trackMember(kid.id);
 
-	await page.goto('/settings/chores');
+	await gotoHydrated(page, '/settings/chores');
 	const add = page.getByRole('button', { name: 'Add Star Job' });
 	await expectTappable(add);
-	// A tap before the page hydrates is lost: retry until the form opens.
 	const form = page.getByTestId('chore-form');
-	await expect(async () => {
-		await add.click();
-		await expect(form).toBeVisible({ timeout: 1000 });
-	}).toPass();
+	await add.click();
+	await expect(form).toBeVisible();
 	await form.getByLabel('Star Job', { exact: true }).fill(title);
 	await form.locator('label:has(input[name="icon"][value="🦷"]) span').click();
 	await form.getByRole('button', { name: 'More stars' }).click();

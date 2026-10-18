@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 interface Seed {
 	name: string;
@@ -29,7 +30,12 @@ async function seed(page: Page, label: string): Promise<Seed> {
 	for (const def of defs) {
 		const chore = await (
 			await request.post('/api/chores', {
-				data: { ...def, memberIds: [member.id], schedule: { type: 'daily' } }
+				data: {
+					...def,
+					memberIds: [member.id],
+					schedule: { type: 'daily' },
+					requiresApproval: true
+				}
 			})
 		).json();
 		chores[def.title] = chore.id;
@@ -45,7 +51,7 @@ async function seed(page: Page, label: string): Promise<Seed> {
 }
 
 async function open(page: Page, s: Seed) {
-	await page.goto(`/chores?member=${s.memberId}`);
+	await gotoHydrated(page, `/chores?member=${s.memberId}`);
 	await expect(page.getByTestId('star-jar')).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Brush teeth' })).toBeVisible();
 }
@@ -99,7 +105,7 @@ test('a tap the server refuses reverts with a gentle message', async ({ page }, 
 for (const theme of ['day', 'night']) {
 	test(`no serious accessibility problems (${theme})`, async ({ page }, info) => {
 		const s = await seed(page, `axe ${theme} ${info.project.name}`);
-		await page.goto(`/chores?member=${s.memberId}`);
+		await gotoHydrated(page, `/chores?member=${s.memberId}`);
 		await card(page, 'Feed the fish').getByTestId('did-it').click();
 		await expect(card(page, 'Feed the fish').getByTestId('waiting')).toBeVisible();
 		if (theme === 'night')
@@ -129,7 +135,7 @@ test('a chore without approval can be undone in its 10 seconds, taking the gold 
 		}
 	});
 	await page.context().clearCookies();
-	await page.goto(`/chores?member=${member.id}`);
+	await gotoHydrated(page, `/chores?member=${member.id}`);
 	const cress = card(page, 'Water cress');
 	const saved = page.waitForResponse((r) => r.url().includes('/complete'));
 	await cress.getByTestId('did-it').click();
@@ -160,11 +166,12 @@ test('an any-day job shows under This week until done, then stays done today', a
 			icon: '🧹',
 			stars: 2,
 			memberIds: [member.id],
-			schedule: { type: 'flex', every: 1 }
+			schedule: { type: 'flex', every: 1 },
+			requiresApproval: true
 		}
 	});
 	await page.context().clearCookies();
-	await page.goto(`/chores?member=${member.id}`);
+	await gotoHydrated(page, `/chores?member=${member.id}`);
 	await expect(page.getByRole('heading', { name: /This week · any day/ })).toBeAttached();
 	const room = card(page, 'Tidy my room');
 	await expect(room.getByTestId('flex-due')).toHaveText('Due by Sunday');
@@ -175,4 +182,33 @@ test('an any-day job shows under This week until done, then stays done today', a
 	expect((await saved).ok()).toBe(true);
 	await page.reload();
 	await expect(card(page, 'Tidy my room')).toHaveAttribute('data-status', 'pending');
+});
+
+test('a new to-do is self-serve by default: gold at once, star flies, nothing waits', async ({
+	page
+}, info) => {
+	await signInAsAdult(page, `adult-kc-self${info.project.name.replace(/\W/g, '')}`);
+	const member = await (
+		await page.request.post('/api/members', {
+			data: { name: `Sunny ${Date.now() % 1e9}`, role: 'child', color: 'member-3', avatar: '🦉' }
+		})
+	).json();
+	const chore = await (
+		await page.request.post('/api/chores', {
+			data: { title: 'Tidy shelf', icon: '📚', stars: 2, memberIds: [member.id] }
+		})
+	).json();
+	expect(chore.requiresApproval).toBe(false);
+	await page.context().clearCookies();
+	await page.goto(`/chores?member=${member.id}`);
+	const shelf = card(page, 'Tidy shelf');
+	const saved = page.waitForResponse((r) => r.url().includes('/complete'));
+	await shelf.getByTestId('did-it').click();
+	// Gold from the tap itself, before the server answers: no "Waiting for grown-up" flash.
+	await expect(shelf).toHaveAttribute('data-status', 'approved');
+	await expect(page.getByTestId('flying-star')).toHaveCount(2, { timeout: 500 });
+	await expect(shelf.getByTestId('waiting')).toHaveCount(0);
+	expect((await saved).ok()).toBe(true);
+	await expect(page.getByTestId('jar-counts')).toContainText('2 gold stars');
+	await expect(page.getByTestId('jar-counts')).toContainText('0 waiting');
 });

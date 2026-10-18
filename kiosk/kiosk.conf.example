@@ -46,3 +46,9 @@ BT_SPEAKER=""
 # Port of the display agent's speaker API, which the hub server calls. install.sh creates the token.
 SPEAKER_API_PORT="8742"
 SPEAKER_API_TOKEN_FILE="/etc/hub-kiosk/speaker-api.token"
+
+# Spotify Connect (hub-txj.2): the Pi appears in Spotify as the device "Hub" and plays through the
+# Bluetooth speaker. on | off. One-time login: see kiosk/README.md, Spotify Connect.
+SPOTIFY_CONNECT="off"
+# Volume (0-100) librespot starts at until the hub sets one.
+SPOTIFY_INITIAL_VOLUME="40"

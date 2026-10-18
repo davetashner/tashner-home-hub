@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import Button from '#lib/components/ui/Button.svelte';
@@ -22,7 +23,7 @@
 	let image = $state('');
 
 	async function load() {
-		const res = await fetch('/api/rewards');
+		const res = await safeFetch('/api/rewards');
 		rewards = res.ok ? await res.json() : [];
 		loaded = true;
 	}
@@ -44,13 +45,13 @@
 			return;
 		}
 		const body = { title, cost: Number(cost), image: clean };
-		const res = await fetch(editing ? `/api/rewards/${editing}` : '/api/rewards', {
+		const res = await safeFetch(editing ? `/api/rewards/${editing}` : '/api/rewards', {
 			method: editing ? 'PATCH' : 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify(body)
 		});
 		if (!res.ok) {
-			message = (await res.json().catch(() => null))?.message ?? 'Could not save';
+			message = await errorMessage(res);
 			return;
 		}
 		editing = null;
@@ -58,7 +59,7 @@
 	}
 
 	async function archive(r: Reward) {
-		await fetch(`/api/rewards/${r.id}/archive`, { method: 'POST' });
+		await safeFetch(`/api/rewards/${r.id}/archive`, { method: 'POST' });
 		await load();
 	}
 
