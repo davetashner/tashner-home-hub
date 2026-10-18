@@ -84,6 +84,12 @@
 			line: 'Turn stars into pocket money, and track what is owed.'
 		},
 		{
+			href: resolve('/(app)/settings/sitter-mode'),
+			emoji: '🧑‍🍼',
+			title: 'Sitter mode',
+			line: 'Hand the wall to a sitter, with the emergency info.'
+		},
+		{
 			href: resolve('/(app)/settings/countdowns'),
 			emoji: '⏳',
 			title: 'Countdowns',
