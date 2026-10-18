@@ -235,7 +235,7 @@ test('phone landscape: /chores "you earned it" banner stays on screen @J16.3', a
 test('phone landscape: a three-digit approvals count keeps the adult header on screen @J16.3', async ({
 	page
 }, info) => {
-	// CI's shared database can hold 100+ pending approvals; the badge caps its count at "99+" so
+	// The run's shared database can hold 100+ pending approvals; the badge caps its count at "99+" so
 	// the header (with Lock, for an adult) still fits the narrowest phone.
 	const kid = await seedKid(page, `phone-badge-${info.project.name}`);
 	const db = new Database(DB_PATH);
