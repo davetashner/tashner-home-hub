@@ -11,7 +11,8 @@ import {
 	parseNoteImage,
 	startOfDay,
 	untilLabel,
-	visibleNotes
+	visibleNotes,
+	withStableKeys
 } from './notes.js';
 
 const note = (id: string, createdAt: number, pinned = false, expiresAt: number | null = null) => ({
@@ -112,5 +113,12 @@ describe('note images', () => {
 		const bits = Buffer.alloc(NOTE_IMAGE_MAX_BYTES + 3);
 		bits.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 		expect(parseNoteImage('data:image/png;base64,' + bits.toString('base64'))).toBeNull();
+	});
+});
+
+describe('withStableKeys', () => {
+	it('reuses the temp key for a posted note and the id for the rest', () => {
+		const out = withStableKeys([{ id: 'srv-1' }, { id: 'srv-2' }], new Map([['srv-1', 'temp-1']]));
+		expect(out.map((n) => n.key)).toEqual(['temp-1', 'srv-2']);
 	});
 });
