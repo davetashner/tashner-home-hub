@@ -101,6 +101,42 @@
 	}
 
 	const when = (at: number) => new Date(at).toLocaleString();
+
+	// Yearly windows: an album shows only between two days each year (e.g. around an anniversary).
+	type Album = SourceView['albums'][number];
+	const MONTHS = Array.from({ length: 12 }, (_, i) =>
+		new Date(2000, i, 1).toLocaleString(undefined, { month: 'short' })
+	);
+	const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+	const pad = (n: number) => String(n).padStart(2, '0');
+	const monthDay = (m: number, d: number) => `${pad(m)}-${pad(d)}`;
+	const split = (md: string) => [Number(md.slice(0, 2)), Number(md.slice(3))] as const;
+	const dayLabel = (md: string) => `${MONTHS[split(md)[0] - 1]} ${split(md)[1]}`;
+	const field = 'min-h-tap rounded-control border-2 border-line bg-surface px-3 text-body';
+
+	let editing = $state<string>();
+	let draft = $state({ fromM: 1, fromD: 1, toM: 1, toD: 1 });
+	const key = (s: SourceView, a: Album) => `${s.id}:${a.name}`;
+
+	function edit(s: SourceView, a: Album) {
+		const [fromM, fromD] = split(a.window?.from ?? '01-01');
+		const [toM, toD] = split(a.window?.to ?? '01-01');
+		draft = { fromM, fromD, toM, toD };
+		editing = key(s, a);
+	}
+
+	/** Optimistic: the album shows its new dates first, then the change is saved. */
+	async function setWindow(s: SourceView, a: Album, w: { from: string; to: string } | null) {
+		const before = a.window;
+		generation++;
+		a.window = w && { ...w, open: false };
+		editing = undefined;
+		const view: SourceView | null = await call(`/api/photo-sources/${s.id}`, 'PATCH', {
+			windows: { [a.name]: w }
+		});
+		if (view) sources = sources.map((x) => (x.id === view.id ? view : x));
+		else a.window = before;
+	}
 </script>
 
 <svelte:head><title>Photo library</title></svelte:head>
@@ -181,6 +217,59 @@
 								<span class="flex-1">{a.name}</span>
 								<span class="text-ink-muted">{a.count}</span>
 							</label>
+							{#if editing === key(s, a)}
+								<form
+									class="flex flex-wrap items-end gap-3 pb-2"
+									aria-label="Dates for {a.name}"
+									onsubmit={(e) => {
+										e.preventDefault();
+										void setWindow(s, a, {
+											from: monthDay(draft.fromM, draft.fromD),
+											to: monthDay(draft.toM, draft.toD)
+										});
+									}}
+								>
+									{#each [['From', 'fromM', 'fromD'], ['To', 'toM', 'toD']] as const as [name, m, d] (name)}
+										<fieldset class="flex gap-2">
+											<legend class="text-caption text-ink-muted">{name}</legend>
+											<select
+												class={field}
+												aria-label="{name} month"
+												bind:value={draft[m]}
+												onchange={() =>
+													(draft[d] = Math.min(draft[d], DAYS_IN_MONTH[draft[m] - 1]!))}
+											>
+												{#each MONTHS as label, i (label)}<option value={i + 1}>{label}</option
+													>{/each}
+											</select>
+											<select class={field} aria-label="{name} day" bind:value={draft[d]}>
+												{#each { length: DAYS_IN_MONTH[draft[m] - 1]! }, i (i)}
+													<option value={i + 1}>{i + 1}</option>
+												{/each}
+											</select>
+										</fieldset>
+									{/each}
+									<Button type="submit">Save dates</Button>
+									<Button variant="ghost" onclick={() => (editing = undefined)}>Cancel</Button>
+								</form>
+							{:else}
+								<div class="flex flex-wrap items-center gap-3 pb-2">
+									{#if a.window}
+										<span class="text-caption text-ink-muted" data-testid="album-window">
+											Only {dayLabel(a.window.from)} – {dayLabel(a.window.to)} each year{a.window
+												.open
+												? ' · showing now'
+												: ''}
+										</span>
+										<Button variant="ghost" onclick={() => edit(s, a)}>Change dates</Button>
+										<Button variant="ghost" onclick={() => setWindow(s, a, null)}
+											>Clear dates</Button
+										>
+									{:else}
+										<Button variant="ghost" onclick={() => edit(s, a)}>Show only between…</Button>
+									{/if}
+								</div>
+							{/if}
 						</li>
 					{/each}
 				</ul>

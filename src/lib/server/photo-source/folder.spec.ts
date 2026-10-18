@@ -77,9 +77,9 @@ describe('scanSource', () => {
 		expect(paths()).toEqual(['Pets/c.jpg', 'Trip/a.JPG', 'Trip/deep/b.png', 'top.jpg']);
 		const albums = viewSource(db, 's')!.albums;
 		expect(albums).toEqual([
-			{ name: '(root)', count: 1, selected: true },
-			{ name: 'Pets', count: 1, selected: true },
-			{ name: 'Trip', count: 2, selected: true }
+			{ name: '(root)', count: 1, selected: true, window: null },
+			{ name: 'Pets', count: 1, selected: true, window: null },
+			{ name: 'Trip', count: 2, selected: true, window: null }
 		]);
 		expect(lastScan(db, 's')?.count).toBe(4);
 	});
