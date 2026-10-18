@@ -5,6 +5,7 @@ import {
 	decideCheckin,
 	emptyCard,
 	extendedEnd,
+	LOG_SESSIONS,
 	joinCard,
 	normalizeCard,
 	overlapsOpenSession,
@@ -211,4 +212,20 @@ export function submitCheckin(db: Db, kind: unknown, now: number): CheckinOutcom
 		.values({ id: randomUUID(), sessionId: row!.id, kind: decision.kind, at: now })
 		.run();
 	return { ok: true, at: now, kind: decision.kind, sitterName: row!.sitterName };
+}
+
+export interface SessionLogEntry extends SitterSessionView {
+	checkins: Checkin[];
+}
+
+/** The last finished sessions with their check-ins, newest first, for the parents' log. */
+export function sessionLog(db: Db, now: number, limit = LOG_SESSIONS): SessionLogEntry[] {
+	return db
+		.select()
+		.from(sitterSessions)
+		.orderBy(desc(sitterSessions.startAt))
+		.all()
+		.filter((r) => sessionStatus(r, now) === 'ended')
+		.slice(0, limit)
+		.map((r) => ({ ...toView(r, now), checkins: listCheckins(db, r.id) }));
 }

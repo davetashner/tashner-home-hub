@@ -113,6 +113,15 @@ export interface Checkin {
 	at: number;
 }
 
+export const CHECKIN_LABELS: Record<CheckinKind, string> = {
+	'in-bed': 'Kids in bed',
+	'all-good': 'All good',
+	'call-me': 'Call me'
+};
+
+/** How many finished sessions the parents' log keeps. */
+export const LOG_SESSIONS = 10;
+
 export const isCheckinKind = (v: unknown): v is CheckinKind =>
 	typeof v === 'string' && (CHECKIN_KINDS as readonly string[]).includes(v);
 
