@@ -10,12 +10,16 @@ const JSON_HEADERS = { 'content-type': 'application/json' };
 test('an adult adds a game, it shows on the Games tab, opens in a frame and Back returns', async ({
 	page
 }, info) => {
-	await page.route('https://games.example.com/**', (route) =>
-		route.fulfill({
+	// The hub's address must never reach a game host: record every Referer it sees.
+	const seen: { kind: string; referer: string | undefined }[] = [];
+	await page.route('https://games.example.com/**', (route) => {
+		const req = route.request();
+		seen.push({ kind: req.resourceType(), referer: req.headers()['referer'] });
+		return route.fulfill({
 			contentType: 'text/html',
 			body: '<!doctype html><title>Space Hop</title><h1 id="g">Space Hop is running</h1>'
-		})
-	);
+		});
+	});
 	await signInAsAdult(page, 'e2e-games-adult');
 	const tag = `${info.project.name.slice(5, 9)}${Date.now().toString(36)}`;
 	const name = `Space Hop ${tag}`;
@@ -59,6 +63,13 @@ test('an adult adds a game, it shows on the Games tab, opens in a frame and Back
 		await expect(page.frameLocator('[data-testid="game-player"] iframe').locator('#g')).toHaveText(
 			'Space Hop is running'
 		);
+		await expect(page.locator('[data-testid="game-player"] iframe')).toHaveAttribute(
+			'referrerpolicy',
+			'no-referrer'
+		);
+		await expect.poll(() => seen.map((s) => s.kind)).toContain('fetch');
+		expect(seen.some((s) => s.kind === 'document')).toBe(true);
+		expect(seen.filter((s) => s.referer !== undefined)).toEqual([]);
 		const back = page.getByTestId('game-back');
 		const backBox = (await back.boundingBox())!;
 		expect(px(backBox.height)).toBeGreaterThanOrEqual(96);

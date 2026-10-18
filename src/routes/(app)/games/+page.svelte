@@ -87,7 +87,12 @@
 		// A failed frame still fires `load` (with the browser's error page), so probe the address too:
 		// a no-cors request rejects exactly when the network or host is unreachable.
 		const probe = new AbortController();
-		fetch(open.url, { mode: 'no-cors', cache: 'no-store', signal: probe.signal }).catch(() => {
+		fetch(open.url, {
+			mode: 'no-cors',
+			cache: 'no-store',
+			referrerPolicy: 'no-referrer',
+			signal: probe.signal
+		}).catch(() => {
 			if (!probe.signal.aborted) unreachable = true;
 		});
 		ping();
