@@ -23,11 +23,15 @@ say() { echo "==> $*"; }
 : "${RESOLUTION:=2560x1440}"
 : "${TOUCH_MATRIX:=}"
 : "${INPUT:=touch}"
+: "${BT_SPEAKER:=}"
+: "${SPEAKER_API_TOKEN_FILE:=/etc/hub-kiosk/speaker-api.token}"
 case "$ORIENTATION" in normal | 90 | 180 | 270) ;; *) die "ORIENTATION must be normal|90|180|270" ;; esac
 [[ "$OUTPUT" =~ ^[A-Za-z0-9_-]+$ ]] || die "OUTPUT looks wrong: $OUTPUT"
 [[ "$RESOLUTION" =~ ^[0-9]+x[0-9]+$ ]] || die "RESOLUTION must look like 2560x1440"
 [[ "$HUB_URL" =~ ^https?:// ]] || die "HUB_URL must start with http:// or https://"
 case "$INPUT" in touch | mouse) ;; *) die "INPUT must be touch|mouse" ;; esac
+[ -z "$BT_SPEAKER" ] || [[ "$BT_SPEAKER" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]] ||
+  die "BT_SPEAKER must look like AA:BB:CC:DD:EE:FF"
 
 # libinput calibration matrices (labwc-config(5) / libinput docs, clockwise rotation).
 # Which of 90/270 matches wlr-randr's --transform direction is confirmed on hardware (hub-8lc.9).
@@ -56,6 +60,9 @@ apt-get install -y curl python3 wlr-randr || die "base package install failed"
 # xcursorgen is its own package on bookworm; trixie folds it into x11-apps.
 apt-get install -y xcursorgen || apt-get install -y x11-apps || die "xcursorgen install failed"
 apt-get install -y chromium || apt-get install -y chromium-browser
+# Bluetooth speaker (hub-txj.1): bluez plus PipeWire's Bluetooth plugin and its CLI tools.
+apt-get install -y bluez libspa-0.2-bluetooth pipewire-bin wireplumber ||
+  echo "(Bluetooth audio packages unavailable; the speaker will not work)"
 
 say "Creating user '$KIOSK_USER'"
 if ! id "$KIOSK_USER" >/dev/null 2>&1; then
@@ -68,12 +75,23 @@ say "Installing scripts, config and units"
 install -d -m 755 "$LIB_DIR" /etc/hub-kiosk
 install -m 755 "$HERE"/bin/hub-kiosk-* "$LIB_DIR/"
 install -m 755 "$HERE/display-agent/hub_display_agent.py" "$LIB_DIR/hub-kiosk-display-agent"
+install -m 644 "$HERE/display-agent/hub_speaker.py" "$LIB_DIR/hub_speaker.py"
 install -m 644 "$CONF_SRC" "$CONF_DST"
 install -m 644 "$HERE"/systemd/hub-kiosk.service "$HERE"/systemd/hub-kiosk-watchdog.service \
   "$HERE"/systemd/hub-kiosk-watchdog.timer "$HERE"/systemd/hub-kiosk-display-agent.service \
   /etc/systemd/user/
 install -d -m 755 /etc/systemd/system.conf.d
 install -m 644 "$HERE/systemd/10-hub-watchdog.conf" /etc/systemd/system.conf.d/10-hub-watchdog.conf
+
+say "Setting up the Bluetooth speaker API"
+# The hub server proxies Settings > Music > Speaker to the display agent with this token.
+if [ ! -s "$SPEAKER_API_TOKEN_FILE" ]; then
+  python3 -c 'import secrets; print(secrets.token_hex(24))' >"$SPEAKER_API_TOKEN_FILE"
+fi
+chown "root:$KIOSK_USER" "$SPEAKER_API_TOKEN_FILE"
+chmod 640 "$SPEAKER_API_TOKEN_FILE"
+systemctl enable --now bluetooth.service || echo "(bluetooth.service unavailable)"
+rfkill unblock bluetooth 2>/dev/null || true
 
 say "Configuring autologin to the desktop"
 SESSION="labwc"
@@ -163,4 +181,5 @@ cat <<EOC
 Done. Reboot to start the kiosk:  sudo reboot
 Config: $CONF_DST  (edit kiosk/kiosk.conf, re-run this script, reboot)
 Hardware watchdog takes effect after reboot (RuntimeWatchdogSec=15).
+Speaker API: port ${SPEAKER_API_PORT:-8742}, token in $SPEAKER_API_TOKEN_FILE (give it to the hub server).
 EOC

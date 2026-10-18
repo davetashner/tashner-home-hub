@@ -147,3 +147,57 @@ test('long-press an item to delete it, gone after reload', async ({ page, contex
 		await dropList(page, listId);
 	}
 });
+
+test('create a list from the wall keyboard, keep it across reload, adult deletes it', async ({
+	page,
+	context
+}, info) => {
+	ensureHousehold();
+	await asWallDisplay(context);
+	const tag = `new${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
+	const tab = () => page.getByTestId('list-tab').filter({ hasText: tag });
+	await signInAsAdult(page, `e2e-lists-${info.project.name}`);
+	let created = false;
+	try {
+		await page.goto('/lists');
+		await expectTappable(page.getByTestId('list-new'));
+		await page.getByTestId('list-new').click();
+		await page.getByTestId('key-shift').click();
+		await page.getByTestId('key-shift').click();
+		await tapKeys(page, tag);
+		const posted = page.waitForResponse(
+			(r) => r.url().endsWith('/api/lists') && r.request().method() === 'POST'
+		);
+		await page.getByTestId('key-enter').click();
+		created = true;
+		expect((await posted).status()).toBe(201);
+		await expect(tab()).toHaveAttribute('aria-selected', 'true');
+		await expect(page).toHaveURL(/list=[0-9a-f-]{36}/);
+
+		await page.reload();
+		await expect(tab()).toHaveAttribute('aria-selected', 'true');
+
+		await expectTappable(page.getByTestId('list-delete'));
+		await page.getByTestId('list-delete').click();
+		await page.getByTestId('list-confirm-cancel').click();
+		await expect(tab()).toHaveCount(1);
+		await page.getByTestId('list-delete').click();
+		const deleted = page.waitForResponse(
+			(r) => r.url().includes('/api/lists/') && r.request().method() === 'DELETE'
+		);
+		await page.getByTestId('list-confirm-delete').click();
+		expect((await deleted).ok()).toBe(true);
+		await expect(tab()).toHaveCount(0);
+		await page.reload();
+		await expect(tab()).toHaveCount(0);
+		created = false;
+	} finally {
+		if (created) {
+			const all = (await (await page.request.get('/api/lists')).json()) as {
+				id: string;
+				title: string;
+			}[];
+			for (const l of all.filter((x) => x.title === tag)) await dropList(page, l.id);
+		}
+	}
+});
