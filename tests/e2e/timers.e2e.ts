@@ -1,44 +1,16 @@
-import { expect, test, type Page } from '@playwright/test';
-import {
-	addTime,
-	pauseTimer,
-	resumeTimer,
-	startTimer,
-	type KitchenTimer
-} from '../../src/lib/domain/timers';
+import { expect, test } from '@playwright/test';
+import { startTimer, type KitchenTimer } from '../../src/lib/domain/timers';
 import { ensureHousehold } from './adult';
 import { stubAudio } from './kid';
 import { expectTappable } from './tap';
 import { gotoHydrated } from './hydrated';
+import { fakeTimerApi } from './timers-api';
 
 // TMR-1: kitchen timers. The projects share one database, and a timer firing in it would put a
 // banner over every other spec's screen, so /api/timers is answered by an in-memory stand-in here.
 // The real storage and routes are covered by src/routes/api/timers.spec.ts.
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
-
-async function fakeTimerApi(page: Page, timers: KitchenTimer[]) {
-	await page.route('**/api/timers**', async (route) => {
-		const req = route.request();
-		const id = new URL(req.url()).pathname.split('/')[3];
-		const body = req.postDataJSON() ?? {};
-		const now = Date.now();
-		if (req.method() === 'POST') {
-			timers.push(startTimer(body.id, body.durationMs, body.label, now));
-		} else if (req.method() === 'PATCH') {
-			const i = timers.findIndex((t) => t.id === id);
-			const fn =
-				body.action === 'pause' ? pauseTimer : body.action === 'resume' ? resumeTimer : null;
-			timers[i] = fn ? fn(timers[i], now) : addTime(timers[i], body.ms, now);
-		} else if (req.method() === 'DELETE') {
-			timers.splice(
-				timers.findIndex((t) => t.id === id),
-				1
-			);
-		}
-		await route.fulfill({ json: req.method() === 'GET' ? { now, timers } : {} });
-	});
-}
 
 test('start, pause, add a minute and cancel timers; the pill follows along', async ({ page }) => {
 	const timers: KitchenTimer[] = [];
