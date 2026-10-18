@@ -18,8 +18,11 @@ import { setDisplayRole } from '#lib/server/display-role.js';
 import { isRequestAllowed } from '#lib/server/domain/network.js';
 
 const allowPublic = process.env.HUB_ALLOW_PUBLIC === 'true';
+const allowTailscale = process.env.HUB_ALLOW_TAILSCALE === 'true';
 
-/** LAN-only by default (NFR-3): refuse non-private source addresses unless HUB_ALLOW_PUBLIC=true. */
+/** LAN-only by default (NFR-3): refuse non-private source addresses unless HUB_ALLOW_PUBLIC=true.
+ * HUB_ALLOW_TAILSCALE=true also admits 100.64.0.0/10. getClientAddress() already applies XFF_DEPTH, so
+ * both rules see the same resolved client IP. */
 export const handle: Handle = async ({ event, resolve }) => {
 	let clientAddress: string | undefined;
 	try {
@@ -27,7 +30,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	} catch {
 		clientAddress = undefined;
 	}
-	if (!isRequestAllowed(clientAddress, { allowPublic })) {
+	if (!isRequestAllowed(clientAddress, { allowPublic, allowTailscale })) {
 		error(403, 'Forbidden: this hub only accepts connections from the local network');
 	}
 	// `?display=wall` (the Pi kiosk's launch URL) sets this device's role, then drops the query.
