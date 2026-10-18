@@ -29,19 +29,19 @@ function longestStreak(db: Db, memberId: string, today: string, refs: (string | 
 		.filter((c) => (JSON.parse(c.memberIds) as string[]).includes(memberId))
 		.map((c) => ({ id: c.id, schedule: parseSchedule(c.schedule, today) }));
 	const from = addDays(today, -MAX_STREAK_DAYS);
-	const approved = new Set(
-		db
-			.select()
-			.from(choreCompletions)
-			.where(and(eq(choreCompletions.memberId, memberId), eq(choreCompletions.status, 'approved')))
-			.all()
-			.filter((c) => c.date >= from && c.date <= today)
-			.map((c) => `${c.date}|${c.choreId}`)
-	);
+	const rows = db
+		.select()
+		.from(choreCompletions)
+		.where(and(eq(choreCompletions.memberId, memberId), eq(choreCompletions.status, 'approved')))
+		.all()
+		.filter((c) => c.date >= from && c.date <= today);
+	const approved = new Set(rows.map((c) => `${c.date}|${c.choreId}`));
+	// Judging a day expands every habit's schedule, so start at the first finished habit, not a year back.
+	const first = rows.reduce<string | null>((m, c) => (m === null || c.date < m ? c.date : m), null);
+	if (first === null) return paidStreakDays(refs);
 	const vacation = readVacation(db);
 	const outcomes: DayOutcome[] = [];
-	for (let i = MAX_STREAK_DAYS; i >= 0; i--) {
-		const date = addDays(today, -i);
+	for (let date = first; date <= today; date = addDays(date, 1)) {
 		if (isVacationDay(vacation, date)) {
 			outcomes.push('none');
 			continue;
@@ -52,7 +52,7 @@ function longestStreak(db: Db, memberId: string, today: string, refs: (string | 
 			due.filter((c) => approved.has(`${date}|${c.id}`)).length
 		);
 		// Today is still open: it never breaks a run.
-		outcomes.push(i === 0 && outcome === 'missed' ? 'none' : outcome);
+		outcomes.push(date === today && outcome === 'missed' ? 'none' : outcome);
 	}
 	return Math.max(longestRun(outcomes), paidStreakDays(refs));
 }
