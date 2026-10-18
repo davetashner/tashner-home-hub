@@ -7,6 +7,8 @@ import { createReward, setGoal } from './domain/rewards.js';
 import {
 	hasNotifyToken,
 	notifyGoalsReached,
+	notifyRewardRedeemed,
+	notifyStreakMilestones,
 	readLastResult,
 	saveNotifyConfig,
 	saveNotifyToken,
@@ -83,5 +85,47 @@ it('announces a reached goal once', async () => {
 	await flush();
 	expect(fetchMock).toHaveBeenCalledOnce();
 	expect(fetchMock.mock.calls[0]![1].body).toBe('Kid A has enough stars for Kite');
+	vi.unstubAllGlobals();
+});
+
+const flushAll = () => new Promise((r) => setTimeout(r, 0));
+
+it('announces a redemption once, with names from the DB, and respects the toggle', async () => {
+	const fetchMock = vi.fn().mockResolvedValue(ok());
+	vi.stubGlobal('fetch', fetchMock);
+	notifyRewardRedeemed(db, 'kid', createReward(db, { title: 'Kite', cost: 5, image: null }).id);
+	await flushAll();
+	expect(fetchMock).toHaveBeenCalledOnce();
+	expect(fetchMock.mock.calls[0]![1].body).toBe('Kid A redeemed Kite');
+	expect(fetchMock.mock.calls[0]![1].headers.Title).toBe('Reward redeemed');
+	saveNotifyConfig(db, {
+		...config,
+		events: { ...config.events, redeemed: false }
+	});
+	notifyRewardRedeemed(db, 'kid', createReward(db, { title: 'Ball', cost: 5, image: null }).id);
+	await flushAll();
+	expect(fetchMock).toHaveBeenCalledOnce();
+	vi.unstubAllGlobals();
+});
+
+it('announces each streak milestone paid, respects the toggle, never throws', async () => {
+	const fetchMock = vi.fn().mockResolvedValue(ok());
+	vi.stubGlobal('fetch', fetchMock);
+	notifyStreakMilestones(db, 'kid', [{ days: 7, stars: 3 }]);
+	await flushAll();
+	expect(fetchMock).toHaveBeenCalledOnce();
+	expect(fetchMock.mock.calls[0]![1].body).toBe('Kid A hit a 7-day streak and earned 3 stars');
+	notifyStreakMilestones(db, 'kid', []);
+	await flushAll();
+	expect(fetchMock).toHaveBeenCalledOnce();
+	fetchMock.mockRejectedValue(new Error('down'));
+	expect(() => notifyStreakMilestones(db, 'kid', [{ days: 14, stars: 5 }])).not.toThrow();
+	expect(() => notifyRewardRedeemed(db, 'nobody', 'nope')).not.toThrow();
+	await flushAll();
+	saveNotifyConfig(db, { ...config, events: { ...config.events, streak: false } });
+	fetchMock.mockClear();
+	notifyStreakMilestones(db, 'kid', [{ days: 7, stars: 3 }]);
+	await flushAll();
+	expect(fetchMock).not.toHaveBeenCalled();
 	vi.unstubAllGlobals();
 });

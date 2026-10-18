@@ -1,7 +1,7 @@
 // Parent push notifications (ADM-6, REW-3): pure rules. The HTTP call is in #lib/server/notify.js.
 
 export const DEFAULT_NTFY_SERVER = 'https://ntfy.sh';
-export const EVENT_KEYS = ['approval', 'goal'] as const;
+export const EVENT_KEYS = ['approval', 'goal', 'redeemed', 'streak'] as const;
 export type EventKey = (typeof EVENT_KEYS)[number];
 
 export interface NotifyConfig {
@@ -17,7 +17,7 @@ export const DEFAULT_NOTIFY: NotifyConfig = {
 	serverUrl: DEFAULT_NTFY_SERVER,
 	topic: '',
 	baseUrl: '',
-	events: { approval: true, goal: true }
+	events: { approval: true, goal: true, redeemed: true, streak: true }
 };
 
 export interface NtfyMessage {
@@ -108,6 +108,17 @@ export const goalMessage = (name: string, reward: string): NtfyMessage =>
 		4,
 		['star', 'tada'],
 		'/settings/approvals'
+	);
+
+export const redeemedMessage = (name: string, reward: string): NtfyMessage =>
+	note('Reward redeemed', `${name} redeemed ${reward}`, 3, ['gift'], '/settings/redemptions');
+
+export const streakMessage = (name: string, days: number, stars: number): NtfyMessage =>
+	note(
+		'Streak milestone',
+		`${name} hit a ${days}-day streak and earned ${stars} ${stars === 1 ? 'star' : 'stars'}`,
+		3,
+		['fire']
 	);
 
 export const testMessage = (): NtfyMessage =>
