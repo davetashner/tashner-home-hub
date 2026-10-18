@@ -77,22 +77,46 @@ export function rebaseMigration(opts = {}) {
 	const readJournal = () => JSON.parse(readFileSync(join(cwd, JOURNAL), 'utf8'));
 	const result = { rebased: false, migrations: [], unresolved: [] };
 
-	const fixMigration = (sqlPath) => {
-		const oldTag = sqlPath.replace(/^drizzle\//, '').replace(/\.sql$/, '');
-		const num = /^\d+/.exec(oldTag)[0]; // NNNN or a 14-digit timestamp
-		const name = oldTag.replace(/^\d+_/, '');
-		const oldSql = show('REBASE_HEAD', sqlPath) ?? '';
-		log(`Migration ${oldTag}: regenerating on top of ${base}`);
-
-		git(['checkout', 'HEAD', '--', JOURNAL]);
-		const snap = `drizzle/meta/${num}_snapshot.json`;
-		if (show('HEAD', snap) !== null) git(['checkout', 'HEAD', '--', snap]);
-		else {
-			tryGit(['rm', '-f', '--quiet', '--', snap]);
-			rmSync(join(cwd, snap), { force: true });
+	/** Throw if any file under drizzle/ still holds conflict markers (never feed those to prettier). */
+	const assertNoConflictMarkers = () => {
+		const bad = [];
+		const walk = (rel) => {
+			for (const ent of readdirSync(join(cwd, rel), { withFileTypes: true })) {
+				const r = `${rel}/${ent.name}`;
+				if (ent.isDirectory()) walk(r);
+				else if (/^<{7}( |$)/m.test(readFileSync(join(cwd, r), 'utf8'))) bad.push(r);
+			}
+		};
+		if (existsSync(join(cwd, 'drizzle'))) walk('drizzle');
+		if (bad.length > 0) {
+			throw new Error(
+				`Conflict markers found in: ${bad.join(', ')}. Resolve them (or take main's copy) and rerun.`
+			);
 		}
-		tryGit(['rm', '-f', '--quiet', '--', sqlPath]);
-		rmSync(join(cwd, sqlPath), { force: true });
+	};
+
+	/** Make drizzle/ identical to `rev`'s, in the index and the working tree. */
+	const resetDrizzleTo = (rev) => {
+		const want = new Set(
+			tryGit(['ls-tree', '-r', '--name-only', rev, '--', 'drizzle']).out.split('\n').filter(Boolean)
+		);
+		const have = new Set(
+			[
+				...git(['ls-files', '-z', '--', 'drizzle']).split('\0'),
+				...git(['ls-files', '-z', '--others', '--exclude-standard', '--', 'drizzle']).split('\0')
+			].filter(Boolean)
+		);
+		for (const f of have) {
+			if (want.has(f)) continue;
+			tryGit(['rm', '-f', '--quiet', '--cached', '--', f]);
+			rmSync(join(cwd, f), { force: true });
+		}
+		if (want.size > 0) git(['checkout', rev, '--', 'drizzle']);
+	};
+
+	/** Regenerate the branch's net migration once, on top of the current HEAD. */
+	const regenerate = (name, oldSql, oldTag) => {
+		log(`Migration ${oldTag}: regenerating once on top of ${base}`);
 		const dataDir = join(cwd, 'data');
 		if (existsSync(dataDir)) {
 			for (const f of readdirSync(dataDir)) {
@@ -108,6 +132,7 @@ export function rebaseMigration(opts = {}) {
 			entries[entries.length - 1].when = Math.max(now(), entries[entries.length - 2].when + 1);
 		}
 		writeFileSync(join(cwd, JOURNAL), `${JSON.stringify(journal, null, '\t')}\n`);
+		assertNoConflictMarkers();
 		prettier(cwd);
 
 		const newTag = entries[entries.length - 1].tag;
@@ -152,11 +177,30 @@ export function rebaseMigration(opts = {}) {
 		return true;
 	};
 
+	// The branch's net migration(s): SQL files present at the tip but not at the merge base. Two
+	// commits (add, then rename) collapse to one name here, whatever the intermediate names were.
+	let netAdded = [];
+	let regen = false;
 	if (!inRebase()) {
 		if (git(['status', '--porcelain', '--untracked-files=no']).trim()) {
 			throw new Error('Working tree has uncommitted changes; commit or stash them first.');
 		}
 		if (fetch) git(['fetch', 'origin', base.replace(/^origin\//, '')]);
+		const mb = tryGit(['merge-base', base, 'HEAD']);
+		if (mb.ok) {
+			netAdded = git([
+				'diff',
+				'--name-only',
+				'--diff-filter=A',
+				mb.out.trim(),
+				'HEAD',
+				'--',
+				'drizzle'
+			])
+				.split('\n')
+				.filter((p) => /^drizzle\/[^/]+\.sql$/.test(p))
+				.map((p) => ({ path: p, sql: show('HEAD', p) ?? '' }));
+		}
 		const r = tryGit(['rebase', base]);
 		if (r.ok) {
 			result.rebased = true;
@@ -167,6 +211,13 @@ export function rebaseMigration(opts = {}) {
 
 	while (inRebase()) {
 		const unmerged = git(['diff', '--name-only', '--diff-filter=U']).split('\n').filter(Boolean);
+		if (unmerged.some((p) => /(^|\/)schema\.ts$/.test(p))) {
+			result.unresolved = unmerged;
+			log('Rebase stopped on a conflict in schema.ts. This script never resolves schema.ts:');
+			for (const f of unmerged) log(`  ${f}`);
+			log('Resolve it by hand, `git add` it, then rerun with --continue.');
+			return result;
+		}
 		const added = tryGit([
 			'diff-tree',
 			'--no-commit-id',
@@ -182,12 +233,19 @@ export function rebaseMigration(opts = {}) {
 			.filter(([s, p]) => s === 'A' && p?.endsWith('.sql'))
 			.map(([, p]) => p);
 
-		for (const sqlPath of added) {
-			const num = /^drizzle\/(\d+)_/.exec(sqlPath)[1];
-			const taken = tryGit(['ls-tree', '--name-only', 'HEAD', 'drizzle/'])
-				.out.split('\n')
-				.some((p) => p.startsWith(`drizzle/${num}_`) && p !== sqlPath);
-			if (taken || unmerged.some((p) => p.startsWith('drizzle/'))) fixMigration(sqlPath);
+		const numTaken = added.some((sqlPath) => {
+			const num = /^drizzle\/(\d+)_/.exec(sqlPath)?.[1];
+			return (
+				num &&
+				tryGit(['ls-tree', '--name-only', 'HEAD', 'drizzle/'])
+					.out.split('\n')
+					.some((p) => p.startsWith(`drizzle/${num}_`) && p !== sqlPath)
+			);
+		});
+		if (numTaken || unmerged.some((p) => p.startsWith('drizzle/'))) {
+			regen = true;
+			// Take the upstream drizzle/ wholesale; the migration is regenerated once at the end.
+			resetDrizzleTo('HEAD');
 		}
 		fixTableCount();
 
@@ -199,8 +257,37 @@ export function rebaseMigration(opts = {}) {
 			log('Resolve them, `git add` them, then rerun with --continue.');
 			return result;
 		}
-		const c = tryGit(['rebase', '--continue']);
+		let c = tryGit(['rebase', '--continue']);
+		if (!c.ok && inRebase() && !git(['status', '--porcelain', '--untracked-files=no']).trim()) {
+			c = tryGit(['rebase', '--skip']); // the commit became empty once drizzle/ was reset
+		}
 		if (!c.ok && !inRebase()) throw new Error(`rebase --continue failed:\n${c.out}`);
+	}
+
+	if (regen) {
+		// Replayed commits may have left stale migration files; start from main's drizzle/ again.
+		resetDrizzleTo(base);
+		if (netAdded.length === 0) {
+			const orig = git(['rev-parse', 'ORIG_HEAD']).trim();
+			const mb = git(['merge-base', base, orig]).trim();
+			netAdded = git(['diff', '--name-only', '--diff-filter=A', mb, orig, '--', 'drizzle'])
+				.split('\n')
+				.filter((p) => /^drizzle\/[^/]+\.sql$/.test(p))
+				.map((p) => ({ path: p, sql: show(orig, p) ?? '' }));
+		}
+		if (netAdded.length > 0) {
+			if (netAdded.length > 1) {
+				log(`WARNING: branch adds ${netAdded.length} migrations; collapsing them into one.`);
+			}
+			const last = netAdded[netAdded.length - 1];
+			const oldTag = last.path.replace(/^drizzle\//, '').replace(/\.sql$/, '');
+			regenerate(oldTag.replace(/^\d+_/, ''), netAdded.map((m) => m.sql).join('\n'), oldTag);
+			if (git(['status', '--porcelain', '--untracked-files=no']).trim()) {
+				const ahead = git(['rev-list', '--count', `${base}..HEAD`]).trim() !== '0';
+				if (ahead) git(['commit', '-q', '--amend', '--no-edit', '-s']);
+				else git(['commit', '-q', '-s', '-m', `chore: regenerate ${oldTag} migration`]);
+			}
+		}
 	}
 	result.rebased = true;
 	return result;
