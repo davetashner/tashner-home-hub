@@ -2,14 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { DESTINATIONS, destinationIndex, isActive, swipeTarget } from './nav.js';
 
 describe('nav', () => {
-	it('lists the six destinations in order', () => {
+	it('lists the seven destinations in order', () => {
 		expect(DESTINATIONS.map((d) => d.label)).toEqual([
 			'Calendar',
 			'To-Do List',
 			'Photos',
 			'Lists',
 			'Meals',
-			'Games'
+			'Games',
+			'Music'
 		]);
 	});
 
@@ -29,12 +30,13 @@ describe('nav', () => {
 	it('does not wrap at the ends', () => {
 		expect(swipeTarget('/calendar', 'right')).toBeNull();
 		expect(swipeTarget('/meals', 'left')).toBe('/games');
-		expect(swipeTarget('/games', 'left')).toBeNull();
+		expect(swipeTarget('/games', 'left')).toBe('/music');
+		expect(swipeTarget('/music', 'left')).toBeNull();
 	});
 
 	it('enters the strip from home and ignores other pages', () => {
 		expect(swipeTarget('/', 'left')).toBe('/calendar');
-		expect(swipeTarget('/', 'right')).toBe('/games');
+		expect(swipeTarget('/', 'right')).toBe('/music');
 		expect(swipeTarget('/settings', 'left')).toBeNull();
 	});
 });
