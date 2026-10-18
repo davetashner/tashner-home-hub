@@ -230,7 +230,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J17.3 | Unreachable Home Assistant is handled gracefully, and the card is hidden when nothing is configured. | built | wall | `home-assistant` |
 | J17.4 | A grown-up connects Home Assistant, tests it, picks, renames and reorders entities. | built | wall | `home-assistant`. Simulated: Home Assistant is a fake server in the tests |
 | **J18** | **Drawing board** (Kid at the wall) | | | |
-| J18.1 | Draw with a pen or finger on the Home notes card and post it to the board. | built | wall | `drawing` |
-| J18.2 | Tap a drawing to enlarge it; anyone dismisses it. | built | wall | `drawing` |
+| J18.1 | Draw with a pen or finger on the Home notes card and post it to the board. | planned | wall | planned |
+| J18.2 | Tap a drawing to enlarge it; anyone dismisses it. | planned | wall | planned |
 
 <!-- journeys:end -->
