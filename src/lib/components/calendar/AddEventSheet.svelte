@@ -29,10 +29,20 @@
 		today: DateKey;
 		/** The wall has no OS keyboard: text goes in through the on-screen one. */
 		wall: boolean;
+		/** `edit` changes an existing event: no calendar choice, different wording. */
+		mode?: 'add' | 'edit';
 		onsubmit: (draft: EventDraft) => void;
 		onclose: () => void;
 	}
-	let { draft = $bindable(), calendars, today, wall, onsubmit, onclose }: Props = $props();
+	let {
+		draft = $bindable(),
+		calendars,
+		today,
+		wall,
+		mode = 'add',
+		onsubmit,
+		onclose
+	}: Props = $props();
 
 	type TextField = 'title' | 'location' | 'notes';
 	const FIELDS: Record<TextField, { label: string; max: number }> = {
@@ -80,7 +90,9 @@
 		data-testid="add-event-sheet"
 		class="sheet relative flex max-h-full w-full max-w-4xl flex-col gap-5 overflow-y-auto overscroll-contain rounded-sheet bg-surface-raised p-8 shadow-float short:gap-3 short:p-4"
 	>
-		<h2 id="add-event-title" class="text-title leading-tight font-extrabold">Add event</h2>
+		<h2 id="add-event-title" class="text-title leading-tight font-extrabold">
+			{mode === 'edit' ? 'Edit event' : 'Add event'}
+		</h2>
 
 		{#if typing}
 			<p class="text-lead font-extrabold">{FIELDS[typing].label}</p>
@@ -142,7 +154,9 @@
 				</div>
 			{/each}
 
-			{#if calendars.length > 1}
+			{#if mode === 'edit'}
+				<!-- The calendar is fixed once the event exists. -->
+			{:else if calendars.length > 1}
 				<div role="group" aria-label="Calendar" class="flex flex-wrap gap-2">
 					{#each calendars as c (c.id)}
 						<button
@@ -222,7 +236,9 @@
 			{#if problem}<p class="text-body font-extrabold text-danger" role="alert">{problem}</p>{/if}
 			<div class="flex justify-end gap-4">
 				<Button variant="secondary" onclick={onclose}>Cancel</Button>
-				<Button onclick={save} data-testid="ev-save">Save</Button>
+				<Button onclick={save} data-testid="ev-save"
+					>{mode === 'edit' ? 'Save changes' : 'Save'}</Button
+				>
 			</div>
 		{/if}
 	</div>

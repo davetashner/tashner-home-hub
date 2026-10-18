@@ -8,6 +8,10 @@ export interface CalMember {
 
 export interface CalEvent {
 	id: string;
+	/** The calendar source this event came from (absent on pending ghosts). */
+	sourceId?: string;
+	/** RRULE text when the event repeats. */
+	recurrence?: string | null;
 	title: string;
 	startsAt: number;
 	endsAt: number;

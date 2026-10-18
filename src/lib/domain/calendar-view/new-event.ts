@@ -1,5 +1,5 @@
 import type { CalEvent } from './layout.js';
-import { addDays, pad, zonedMs, type DateKey } from './zone.js';
+import { addDays, dateKeyOf, dayStartMs, pad, utcDateKey, zonedMs, type DateKey } from './zone.js';
 
 /** Time pickers move in quarter hours. */
 export const STEP_MIN = 15;
@@ -122,4 +122,45 @@ export function pendingEvent(d: EventDraft, tz: string, id: string): CalEvent {
 /** Whether a pending event belongs in the window [start, end). */
 export function overlaps(ev: CalEvent, start: number, end: number): boolean {
 	return ev.startsAt < end && Math.max(ev.endsAt, ev.startsAt + 1) > start;
+}
+
+/**
+ * Whether the edit sheet can represent this event. Repeating events, timed events that cross
+ * midnight and zero-length ones are left to the phone.
+ */
+export function editableInHub(ev: CalEvent, tz: string): boolean {
+	if (ev.recurrence || ev.pending) return false;
+	if (ev.allDay) return ev.endsAt > ev.startsAt;
+	if (ev.endsAt <= ev.startsAt) return false;
+	return (
+		dateKeyOf(ev.startsAt, tz) === dateKeyOf(ev.endsAt - 1, tz) && endMinutes(ev, tz) <= LAST_END
+	);
+}
+
+function endMinutes(ev: CalEvent, tz: string): number {
+	return Math.round((ev.endsAt - dayStartMs(dateKeyOf(ev.startsAt, tz), tz)) / 60_000);
+}
+
+/** A draft pre-filled from a stored event, for the edit sheet. Call only if `editableInHub`. */
+export function draftFromEvent(ev: CalEvent, tz: string): EventDraft {
+	const base = {
+		title: ev.title,
+		location: ev.location ?? '',
+		notes: ev.notes ?? '',
+		calendarId: ev.sourceId ?? ''
+	};
+	if (ev.allDay) {
+		const date = utcDateKey(ev.startsAt);
+		return {
+			...base,
+			allDay: true,
+			date,
+			endDate: utcDateKey(ev.endsAt - 86_400_000),
+			startMin: 9 * 60,
+			endMin: 10 * 60
+		};
+	}
+	const date = dateKeyOf(ev.startsAt, tz);
+	const startMin = Math.round((ev.startsAt - dayStartMs(date, tz)) / 60_000);
+	return { ...base, allDay: false, date, endDate: date, startMin, endMin: endMinutes(ev, tz) };
 }
