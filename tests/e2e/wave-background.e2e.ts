@@ -133,6 +133,15 @@ test('Christmas Day shows the tree and the fire', async ({ page }) => {
 	}
 });
 
+// hub-6pv.6.5: St Patrick's rainbow, pot of gold and dancing leprechauns.
+test("St Patrick's Day shows a rainbow, a pot of gold and leprechauns", async ({ page }) => {
+	await gotoHydrated(page, '/?season=stpatricks');
+	const layer = page.getByTestId('seasonal-layer');
+	for (const id of ['rainbow', 'pot-of-gold', 'leprechaun-1', 'leprechaun-2']) {
+		await expect(layer.locator(`[data-sprite="${id}"]`)).toHaveCount(1);
+	}
+});
+
 test('this device can hide the waves and remembers it', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wave-device-${info.project.name}`);
 	await gotoHydrated(page, '/settings/background');

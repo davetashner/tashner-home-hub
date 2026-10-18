@@ -9,9 +9,9 @@ import { REINDEER, type Season, type SeasonState } from './season.js';
 /**
  * How a sprite moves. Every motion is transform/opacity only and never rests in one exact spot
  * for hours (burn-in): `rest` sways a little, `float` bobs, `fly` crosses the screen now and then,
- * `team` crosses as one line with the rest of its team (Santa's sleigh).
+ * `team` crosses as one line with the rest of its team (Santa's sleigh), `glow` breathes softly.
  */
-export type SpriteMotion = 'rest' | 'float' | 'fly' | 'team';
+export type SpriteMotion = 'rest' | 'float' | 'fly' | 'team' | 'glow';
 
 export interface Sprite {
 	id: string;
@@ -222,7 +222,66 @@ const christmasday: Sprite[] = [
 	}
 ];
 
-const SPRITES: Partial<Record<Season, readonly Sprite[]>> = { halloween, christmasday };
+const STPATRICKS = '/seasons/stpatricks';
+
+/** St Patrick's Day (hub-6pv.6.5): a rainbow ends at a pot of gold while two leprechauns dance a jig. */
+const stpatricks: Sprite[] = [
+	{
+		id: 'rainbow',
+		src: `${STPATRICKS}/rainbow.webp`,
+		motion: 'glow',
+		size: 24,
+		x: { edge: 'right', vmin: 1 },
+		y: { edge: 'bottom', pct: 3 },
+		period: 14,
+		delay: 0
+	},
+	{
+		id: 'pot-of-gold',
+		src: `${STPATRICKS}/pot-of-gold.webp`,
+		motion: 'rest',
+		size: 9,
+		x: { edge: 'right', vmin: 2 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 300,
+		delay: 0
+	},
+	{
+		id: 'shamrocks',
+		src: `${STPATRICKS}/shamrocks.webp`,
+		motion: 'rest',
+		size: 6,
+		x: { edge: 'right', vmin: 46 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 260,
+		delay: -80
+	},
+	{
+		id: 'leprechaun-1',
+		src: `${STPATRICKS}/leprechaun-step.webp`,
+		flap: `${STPATRICKS}/leprechaun-kick.webp`,
+		motion: 'rest',
+		size: 11,
+		x: { edge: 'right', vmin: 34 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 7,
+		delay: 0,
+		flip: true
+	},
+	{
+		id: 'leprechaun-2',
+		src: `${STPATRICKS}/leprechaun-step.webp`,
+		flap: `${STPATRICKS}/leprechaun-kick.webp`,
+		motion: 'rest',
+		size: 10,
+		x: { edge: 'right', vmin: 53 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 8,
+		delay: -3
+	}
+];
+
+const SPRITES: Partial<Record<Season, readonly Sprite[]>> = { halloween, christmasday, stpatricks };
 
 /** The sprites a season shows; none for a plain day or a season without pictures yet. */
 export function spritesFor(

@@ -87,6 +87,19 @@ describe('spritesFor', () => {
 		expect(spritesFor(on('christmasday')).find((s) => s.id === 'fireplace')!.flicker).toBe(true);
 	});
 
+	it("ends St Patrick's rainbow at a pot of gold, with leprechauns dancing a jig", () => {
+		const list = spritesFor(on('stpatricks'));
+		expect(list.map((s) => s.id)).toEqual(
+			expect.arrayContaining(['rainbow', 'pot-of-gold', 'leprechaun-1', 'leprechaun-2'])
+		);
+		const dancers = list.filter((s) => s.id.startsWith('leprechaun-'));
+		expect(dancers.every((d) => d.flap)).toBe(true);
+		// The pot is drawn after (over) the rainbow's foot.
+		expect(list.findIndex((s) => s.id === 'pot-of-gold')).toBeGreaterThan(
+			list.findIndex((s) => s.id === 'rainbow')
+		);
+	});
+
 	it('has no sprites yet for seasons whose art is still to come', () => {
 		expect(spritesFor(on('autumn'))).toEqual([]);
 	});
