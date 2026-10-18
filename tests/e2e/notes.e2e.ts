@@ -57,9 +57,11 @@ async function kidPostsAdultPinsAnyoneDismisses(
 		await expect(mine).toContainText('📖');
 		await expect(mine).toContainText('Until');
 		await expect(page.getByTestId('note-pin')).toHaveCount(0); // pinning is adult-only
-		const dismiss = await mine.getByTestId('note-dismiss').boundingBox();
-		expect(px(dismiss!.width)).toBeGreaterThanOrEqual(60);
-		expect(px(dismiss!.height)).toBeGreaterThanOrEqual(60);
+		// The optimistic note is swapped for the server's copy (new id, so a new element) once the
+		// POST settles; measure with retries so a detached element is re-resolved, not read as null.
+		const dismissBox = () => mine.getByTestId('note-dismiss').boundingBox();
+		await expect.poll(async () => px((await dismissBox())?.width ?? 0)).toBeGreaterThanOrEqual(60);
+		await expect.poll(async () => px((await dismissBox())?.height ?? 0)).toBeGreaterThanOrEqual(60);
 
 		// Survives a reload (it reached the server) and a kid cannot pin through the API.
 		await gotoHydrated(page, '/');
