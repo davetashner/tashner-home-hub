@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { onMount, tick, type Snippet } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -18,6 +18,71 @@
 	import WaveBackground from './WaveBackground.svelte';
 	import { wave } from './wave-state.svelte.js';
 	import { parseWaveChoice } from '#lib/domain/wave-background.js';
+
+	const NAV_KEY = 'hub.nav.collapsed';
+	// Slide-out length: matches --duration-base (240ms) plus a little slack.
+	const SLIDE_MS = 260;
+
+	// `collapsed` drives the slide (transform/opacity); `gone` drops the rail from the grid
+	// once it has slid out, so the content really gains the width. Only landscape, non-short
+	// layouts have a side rail; elsewhere the CSS ignores both flags.
+	let collapsed = $state(false);
+	let gone = $state(false);
+	let handle = $state<HTMLButtonElement>();
+	let collapseButton = $state<HTMLButtonElement>();
+	let sideRail = $state(false);
+	let goneTimer: ReturnType<typeof setTimeout> | undefined;
+
+	onMount(() => {
+		const media = matchMedia('(orientation: landscape) and (min-height: 32.01rem)');
+		const onMedia = () => (sideRail = media.matches);
+		onMedia();
+		media.addEventListener('change', onMedia);
+		try {
+			if (localStorage.getItem(NAV_KEY) === '1') {
+				collapsed = true;
+				gone = true;
+			}
+		} catch {
+			// Storage unavailable: the rail just starts expanded.
+		}
+		return () => {
+			media.removeEventListener('change', onMedia);
+			clearTimeout(goneTimer);
+		};
+	});
+
+	function remember(value: boolean) {
+		try {
+			localStorage.setItem(NAV_KEY, value ? '1' : '0');
+		} catch {
+			// Private mode or blocked storage: the choice just does not stick.
+		}
+	}
+
+	async function collapse() {
+		collapsed = true;
+		remember(true);
+		clearTimeout(goneTimer);
+		goneTimer = setTimeout(() => (gone = true), SLIDE_MS);
+		await tick();
+		handle?.focus();
+	}
+
+	async function expand() {
+		clearTimeout(goneTimer);
+		// Put the rail back in the grid (still slid out), then slide it in on the next frames.
+		gone = false;
+		remember(false);
+		await tick();
+		requestAnimationFrame(() =>
+			requestAnimationFrame(async () => {
+				collapsed = false;
+				await tick();
+				collapseButton?.focus();
+			})
+		);
+	}
 
 	let { children }: { children: Snippet } = $props();
 
@@ -79,26 +144,42 @@
 
 <div
 	class:bg-surface={wave.choice === 'off'}
-	class="grid h-full portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape short:grid-cols-shell-short"
+	data-collapsed={collapsed ? '' : undefined}
+	data-gone={gone ? '' : undefined}
+	class="shell grid h-full portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape short:grid-cols-shell-short"
 >
 	<header
-		class="flex items-center justify-between gap-3 pt-safe-4 pr-safe-4 pb-4 pl-safe-4 max-sm:justify-end max-sm:pt-safe-2 max-sm:pr-safe-3 max-sm:pb-2 max-sm:pl-safe-3 sm:flex-wrap sm:gap-8 sm:pt-safe-8 sm:pr-safe-12 sm:pb-8 sm:pl-safe-12 portrait:sm:pr-safe-10 portrait:sm:pl-safe-10 landscape:col-start-2 landscape:row-start-1 landscape:pl-4 landscape:sm:gap-4 landscape:sm:pr-safe-8 landscape:sm:pl-8 short:flex-nowrap short:gap-1 short:pt-safe-2 short:pr-safe-2 short:pb-2 short:pl-2 tablet:flex-nowrap tablet:gap-4 tablet:pt-safe-2 tablet:pb-2 portrait:tablet:pr-safe-6 portrait:tablet:pl-safe-6 landscape:tablet:gap-4 landscape:tablet:pr-safe-6 landscape:tablet:pl-6"
+		class="shell-header flex items-center justify-between gap-3 pt-safe-4 pr-safe-4 pb-4 pl-safe-4 max-sm:justify-end max-sm:pt-safe-2 max-sm:pr-safe-3 max-sm:pb-2 max-sm:pl-safe-3 sm:flex-wrap sm:gap-8 sm:pt-safe-8 sm:pr-safe-12 sm:pb-8 sm:pl-safe-12 portrait:sm:pr-safe-10 portrait:sm:pl-safe-10 landscape:col-start-2 landscape:row-start-1 landscape:pl-4 landscape:sm:gap-4 landscape:sm:pr-safe-8 landscape:sm:pl-8 short:flex-nowrap short:gap-1 short:pt-safe-2 short:pr-safe-2 short:pb-2 short:pl-2 tablet:flex-nowrap tablet:gap-4 tablet:pt-safe-2 tablet:pb-2 portrait:tablet:pr-safe-6 portrait:tablet:pl-safe-6 landscape:tablet:gap-4 landscape:tablet:pr-safe-6 landscape:tablet:pl-6"
 	>
-		{#if pathname === '/'}
-			<span class="max-sm:hidden"></span>
-		{:else}
-			<div class="min-w-0 max-sm:hidden landscape:flex-1 landscape:sm:min-w-min">
-				<a
-					href={resolve('/(app)')}
-					data-sveltekit-preload-data="tap"
-					aria-label="Home"
-					class="press-link block w-fit max-w-full min-w-0 rounded-control short:flex short:size-tap short:items-center short:justify-center short:rounded-chip short:border-2 short:border-line short:bg-surface-raised short:text-title short:text-ink short:shadow-raised"
+		<div class="flex min-w-0 items-center gap-4 landscape:flex-1 landscape:sm:min-w-min">
+			{#if collapsed}
+				<button
+					bind:this={handle}
+					type="button"
+					onclick={expand}
+					aria-label="Show menu"
+					data-testid="nav-handle"
+					class="shell-handle press-link hidden size-tap-kid items-center justify-center rounded-chip border-2 border-line bg-surface-raised/70 text-title text-ink shadow-raised"
 				>
-					<span class="short:hidden"><Clock testidPrefix="header-clock" /></span>
-					<span class="hidden short:inline"><Icon name="home" /></span>
-				</a>
-			</div>
-		{/if}
+					<Icon name="menu" />
+				</button>
+			{/if}
+			{#if pathname === '/'}
+				<span class="max-sm:hidden"></span>
+			{:else}
+				<div class="min-w-0 max-sm:hidden landscape:flex-1 landscape:sm:min-w-min">
+					<a
+						href={resolve('/(app)')}
+						data-sveltekit-preload-data="tap"
+						aria-label="Home"
+						class="press-link block w-fit max-w-full min-w-0 rounded-control short:flex short:size-tap short:items-center short:justify-center short:rounded-chip short:border-2 short:border-line short:bg-surface-raised short:text-title short:text-ink short:shadow-raised"
+					>
+						<span class="short:hidden"><Clock testidPrefix="header-clock" /></span>
+						<span class="hidden short:inline"><Icon name="home" /></span>
+					</a>
+				</div>
+			{/if}
+		</div>
 		<div
 			class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4 portrait:sm:gap-2 landscape:sm:gap-2 short:flex-nowrap short:gap-0.5 tablet:flex-nowrap tablet:gap-3 portrait:tablet:gap-3 landscape:tablet:gap-3"
 		>
@@ -136,11 +217,22 @@
 
 	<nav
 		aria-label="Main"
-		class="flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5 short:col-start-1 short:row-span-1 short:w-auto short:min-w-0 short:scrollbar-none short:flex-row short:gap-0 short:overflow-x-auto short:border-r-0 short:bg-surface short:pt-safe-2 short:pr-2 short:pb-2 short:pl-safe-2 portrait:tablet:gap-2 portrait:tablet:pt-1 portrait:tablet:pr-safe-4 portrait:tablet:pb-safe-1 portrait:tablet:pl-safe-4 landscape:tablet:w-rail-tablet landscape:tablet:gap-2 landscape:tablet:overflow-y-auto landscape:tablet:pt-safe-4 landscape:tablet:pr-2 landscape:tablet:pb-safe-4 landscape:tablet:pl-safe-2"
+		inert={collapsed && sideRail}
+		class="shell-nav flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5 short:col-start-1 short:row-span-1 short:w-auto short:min-w-0 short:scrollbar-none short:flex-row short:gap-0 short:overflow-x-auto short:border-r-0 short:bg-surface short:pt-safe-2 short:pr-2 short:pb-2 short:pl-safe-2 portrait:tablet:gap-2 portrait:tablet:pt-1 portrait:tablet:pr-safe-4 portrait:tablet:pb-safe-1 portrait:tablet:pl-safe-4 landscape:tablet:w-rail-tablet landscape:tablet:gap-2 landscape:tablet:overflow-y-auto landscape:tablet:pt-safe-4 landscape:tablet:pr-2 landscape:tablet:pb-safe-4 landscape:tablet:pl-safe-2"
 	>
 		{#each DESTINATIONS as destination (destination.id)}
 			<NavItem {destination} active={isActive(destination.href, pathname)} />
 		{/each}
+		<button
+			bind:this={collapseButton}
+			type="button"
+			onclick={collapse}
+			data-testid="nav-collapse"
+			class="shell-collapse press-link mt-auto hidden min-h-tap-kid items-center justify-center gap-3 rounded-chip border-2 border-line bg-surface-raised px-4 text-body text-ink"
+		>
+			<span class="text-lead"><Icon name="collapse" /></span>
+			<span class="tablet:sr-only">Hide menu</span>
+		</button>
 	</nav>
 
 	<!-- The page scrolls here; tabindex lets keyboard users scroll it even when it has no focusable content (axe scrollable-region-focusable). -->
@@ -148,7 +240,7 @@
 	<main
 		use:swipe={{ onswipe }}
 		tabindex="0"
-		class="min-h-0 touch-pan-y overflow-y-auto overscroll-contain portrait:row-start-2 landscape:col-start-2 landscape:row-start-2 landscape:pr-safe-0 landscape:pb-safe-0 short:col-span-2 short:col-start-1 short:border-t-2 short:border-line short:pl-safe-0"
+		class="shell-main min-h-0 touch-pan-y overflow-y-auto overscroll-contain portrait:row-start-2 landscape:col-start-2 landscape:row-start-2 landscape:pr-safe-0 landscape:pb-safe-0 short:col-span-2 short:col-start-1 short:border-t-2 short:border-line short:pl-safe-0"
 	>
 		{#key pathname}
 			<div class="page-enter h-full">
@@ -159,6 +251,35 @@
 </div>
 
 <style>
+	/* Side-rail layouts only: landscape and not a short phone-sideways screen. */
+	@media (orientation: landscape) and (min-height: 32.01rem) {
+		.shell-collapse {
+			display: inline-flex;
+		}
+		.shell-nav {
+			transition:
+				transform var(--duration-base) var(--ease-out-soft),
+				opacity var(--duration-base) linear;
+		}
+		.shell[data-collapsed] .shell-nav {
+			transform: translateX(-100%);
+			opacity: 0;
+			pointer-events: none;
+		}
+		.shell[data-gone] {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.shell[data-gone] .shell-nav {
+			display: none;
+		}
+		.shell[data-gone] .shell-header,
+		.shell[data-gone] .shell-main {
+			grid-column-start: 1;
+		}
+		.shell-handle {
+			display: inline-flex;
+		}
+	}
 	.press-link {
 		transition:
 			transform var(--duration-quick) var(--ease-out-soft),
