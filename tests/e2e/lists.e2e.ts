@@ -195,3 +195,77 @@ test('create a list from the wall keyboard, keep it across reload, adult deletes
 		}
 	}
 });
+
+// hub-niv: every list is for one adult or the House; the owner only groups and filters.
+async function ownerFlow(page: Page, adultId: string, tag: string) {
+	const tab = page.getByTestId('list-tab').filter({ hasText: tag });
+	const option = (owner: string) =>
+		page.locator(`[data-testid="owner-option"][data-owner="${owner}"]`);
+	const filterBy = (owner: string) =>
+		page.locator(`[data-testid="owner-filter-option"][data-owner="${owner}"]`).click();
+	await openList(page, tag);
+	// New lists start as House.
+	await expect(
+		page.locator('[data-testid="list-group"][data-owner="house"]').getByText(tag)
+	).toBeVisible();
+	await expect(option('house')).toHaveAttribute('aria-pressed', 'true');
+	await expectTappable(option(adultId));
+
+	const saved = page.waitForResponse(
+		(r) => r.url().includes('/owner') && r.request().method() === 'POST'
+	);
+	await option(adultId).click();
+	// Optimistic: the list has already moved groups before the server answers.
+	await expect(
+		page.locator(`[data-testid="list-group"][data-owner="${adultId}"]`).getByText(tag)
+	).toBeVisible();
+	expect((await saved).ok()).toBe(true);
+	await reloadHydrated(page);
+	await expect(
+		page.locator(`[data-testid="list-group"][data-owner="${adultId}"]`).getByText(tag)
+	).toBeVisible();
+
+	await filterBy('house');
+	await expect(tab).toHaveCount(0);
+	await filterBy(adultId);
+	await expect(tab).toHaveCount(1);
+	await filterBy('all');
+	await expect(tab).toHaveCount(1);
+	await expect(tab).toContainText('0 left');
+}
+
+test('wall: reassign a list to an adult, then filter by owner', async ({ page, context }, info) => {
+	ensureHousehold();
+	await asWallDisplay(context);
+	const tag = `own${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
+	const adultId = `e2e-lists-owner-${info.project.name}`;
+	await signInAsAdult(page, adultId);
+	let listId: string | null = null;
+	try {
+		listId = await makeList(page, tag);
+		await ownerFlow(page, adultId, tag);
+	} finally {
+		await dropList(page, listId);
+	}
+});
+
+test('phone: reassign a list and filter by owner', async ({ browser }, info) => {
+	ensureHousehold();
+	const context = await browser.newContext({
+		baseURL: info.project.use.baseURL,
+		viewport: { width: 390, height: 844 },
+		hasTouch: true
+	});
+	const page = await context.newPage();
+	const tag = `pown${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
+	const adultId = `e2e-lists-owner-${info.project.name}`;
+	await signInAsAdult(page, adultId);
+	let listId: string | null = null;
+	try {
+		listId = await makeList(page, tag);
+		await ownerFlow(page, adultId, tag);
+	} finally {
+		await dropList(page, listId);
+		await context.close();
+	}
+});
