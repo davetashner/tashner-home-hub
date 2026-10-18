@@ -18,6 +18,15 @@ export interface RemoteFacts {
 	outputs: Output[];
 	units: Record<string, string>;
 	health: string | null;
+	/** Absent when the remote script had no speaker section. */
+	speaker?: SpeakerFacts;
+}
+export interface SpeakerFacts {
+	mac: string | null;
+	name: string | null;
+	paired: boolean;
+	connected: boolean;
+	defaultSink: boolean;
 }
 export interface PageFacts {
 	url: string;
@@ -54,6 +63,7 @@ export declare function parseFlags(cmdline: string): {
 	kiosk: boolean;
 	automation: boolean;
 };
+export declare function parseSpeaker(text: string): SpeakerFacts;
 export declare function parseWlrRandr(text: string): Output[];
 export declare function diagnose(facts: Facts): Check[];
 export declare function summarize(checks: Check[]): {

@@ -47,6 +47,16 @@ echo "=== wlr"; asowner wlr-randr 2>&1
 echo "=== units"; for u in ${KIOSK_UNITS.join(' ')}; do echo "$u $(asowner systemctl --user is-active $u 2>/dev/null || true)"; done
 echo "=== health"; ${health}
 echo
+echo "=== speaker"
+H=$(getent passwd "\${OWNER:-$(id -un)}" | cut -d: -f6)
+SPK=$(sudo -n cat "$H/.local/state/hub-kiosk/speaker" 2>/dev/null | tr -d '[:space:]')
+[ -n "$SPK" ] || SPK=$(sed -n 's/^BT_SPEAKER="\\{0,1\\}\\([0-9A-Fa-f:]*\\).*/\\1/p' /etc/hub-kiosk/kiosk.conf 2>/dev/null)
+case "$SPK" in *[!0-9A-Fa-f:]*) SPK="" ;; esac
+echo "mac $SPK"
+if [ -n "$SPK" ]; then
+  asowner bluetoothctl info "$SPK" 2>/dev/null | grep -E '^\\s+(Alias|Paired|Connected):'
+  echo "default $(asowner wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -o 'node.name = "[^"]*"')"
+fi
 echo "=== end"`;
 }
 
@@ -80,7 +90,22 @@ export function remoteFacts(text) {
 		emoji: Number(s.emoji) || 0,
 		outputs: parseWlrRandr(s.wlr ?? ''),
 		units,
-		health: s.health && s.health !== 'none' ? s.health : null
+		health: s.health && s.health !== 'none' ? s.health : null,
+		...(s.speaker === undefined ? {} : { speaker: parseSpeaker(s.speaker) })
+	};
+}
+
+/** The `speaker` section: the chosen speaker's Bluetooth state and whether it is the default sink. */
+export function parseSpeaker(text) {
+	const field = (name) => new RegExp(`^\\s*${name}:? (.*)$`, 'm').exec(text)?.[1]?.trim() ?? '';
+	const mac = field('mac').toUpperCase();
+	if (!mac) return { mac: null, name: null, paired: false, connected: false, defaultSink: false };
+	return {
+		mac,
+		name: field('Alias') || null,
+		paired: field('Paired') === 'yes',
+		connected: field('Connected') === 'yes',
+		defaultSink: field('default').includes(`bluez_output.${mac.replaceAll(':', '_')}`)
 	};
 }
 
@@ -212,6 +237,20 @@ export function diagnose(facts) {
 				? pass('server-from-pi', `200 in ${Math.round(Number(secs) * 1000)} ms`)
 				: fail('server-from-pi', `curl ${code}`, 'the Pi cannot reach the hub server')
 		);
+	}
+
+	const sp = r.speaker;
+	if (sp) {
+		const hint = 'pick it in Settings > Music > Speaker';
+		if (!sp.mac) out.push(warn('speaker', 'none chosen', hint));
+		else if (!sp.paired) out.push(warn('speaker', `${sp.mac} not paired`, hint));
+		else if (!sp.connected)
+			out.push(warn('speaker', `${sp.name ?? sp.mac} off or out of range`, 'switch it on'));
+		else if (!sp.defaultSink)
+			out.push(
+				fail('speaker', `${sp.name ?? sp.mac} connected but not the default sink`, 'wpctl status')
+			);
+		else out.push(pass('speaker', `${sp.name ?? sp.mac} connected`));
 	}
 
 	if (!facts.devtools) {

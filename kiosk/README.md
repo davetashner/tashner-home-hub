@@ -90,7 +90,7 @@ POST {HUB_URL}/api/display/sleep   (the nav "Sleep" button; same body, status 20
 
 ### Display agent (monitor power and touch to wake)
 
-`kiosk/display-agent/hub_display_agent.py` (Python 3, standard library only) is installed as `/usr/local/lib/hub-kiosk/hub-kiosk-display-agent` and run by the user unit `hub-kiosk-display-agent.service` (started from the labwc autostart, restarts always). It uses the endpoints above and nothing else, so the server needs no access to the Pi.
+`kiosk/display-agent/hub_display_agent.py` (Python 3, standard library only) is installed as `/usr/local/lib/hub-kiosk/hub-kiosk-display-agent` and run by the user unit `hub-kiosk-display-agent.service` (started from the labwc autostart, restarts always). For screen power it uses the endpoints above and nothing else; the one call the other way is the Bluetooth speaker API below.
 
 - Polls `GET /api/display/power` every `POWER_POLL_SECONDS` (default 1 s, to meet "off within 2 s") and runs `wlr-randr --output <OUTPUT> --off` or `--on`. `OUTPUT` from `kiosk.conf` is used if `wlr-randr` lists it; otherwise the first listed output is used.
 - If `wlr-randr` fails and `CEC_BACKEND` is `cec-ctl` or `cec-client`, it tries HDMI-CEC standby / on instead.
@@ -98,6 +98,22 @@ POST {HUB_URL}/api/display/sleep   (the nav "Sleep" button; same body, status 20
 - Touch while off: grabs the touch device exclusively (`EVIOCGRAB`) while the screen is off and until the waking finger lifts, so Chromium never sees the wake tap (SLP-3); the page also swallows taps for 700 ms after the display comes back (wake guard). Switches on first, then `POST /api/display/wake`. The hub applies the night re-sleep timeout; the next poll turns the screen off again. A touch while on at night re-posts wake (at most every 20 s) to restart the timeout. If the hub is down, the screen stays on for `OFFLINE_WAKE_SECONDS`.
 - Hub unreachable: the screen is left as it is; polling backs off from 2 s to 30 s.
 - Logs go to journald: `sudo journalctl _UID=$(id -u kiosk) -e | grep display-agent`.
+
+### Bluetooth speaker
+
+`kiosk/display-agent/hub_speaker.py`, started by the display agent, keeps one Bluetooth speaker connected as the default PipeWire sink (music in the bathroom, hub-txj).
+
+- **Choosing it:** the adult picks the speaker in the hub's Settings > Music > Speaker. The hub server calls the agent's API on `SPEAKER_API_PORT` (default 8742) with `Authorization: Bearer <token>`. The token is in `SPEAKER_API_TOKEN_FILE` (default `/etc/hub-kiosk/speaker-api.token`), which `install.sh` creates once; give the same token to the hub server. Without a token file the API stays off.
+  - `GET /speaker`: `{state, mac, name, defaultSink}`. `state` is `none` (no speaker chosen), `not_paired`, `off` (paired but not connected) or `connected`.
+  - `POST /speaker/scan`: discovers for 8 s, then lists named devices with `kind` (`speaker`, `phone` or `other`), `rssi` and 0-4 signal `bars`. Speakers come first.
+  - `POST /speaker/use` `{"mac": "AA:BB:CC:DD:EE:FF"}`: pairs (the speaker must be in pairing mode), trusts, connects, makes it the default sink and remembers it in `~kiosk/.local/state/hub-kiosk/speaker`. On failure: 409 `{error}` with a message for the adult.
+  - `POST /speaker/test`: plays a short chime on the speaker itself.
+- **Fallback:** `BT_SPEAKER` in `kiosk.conf` names a speaker for a fresh install. A choice made in Settings wins. If it is not paired yet, the agent tries pairing every 5 minutes.
+- **Reconnect:** every 30 s the agent reconnects the chosen speaker if it is paired but off (after it powers on or the Pi reboots), and makes it the default sink again.
+- **Check it:** `kioskctl doctor` reports the speaker state.
+- **Range:** the Pi 5's built-in radio shares its antenna with Wi-Fi. If the speaker drops out in the bathroom, or stutters while Wi-Fi is busy, use a USB Bluetooth adapter (any bluez-supported 5.x dongle):
+  1. Plug it in and disable the built-in radio with `dtoverlay=disable-bt` in `/boot/firmware/config.txt`.
+  2. Reboot and pair again.
 
 Tests (no Pi needed): `cd kiosk/display-agent && python3 -m unittest`. CI does not run them yet (the workflow is protected); hub-ugl.12 may add shellcheck.
 
