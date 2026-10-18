@@ -1,5 +1,6 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { DATA_DIR } from './data-dir';
 import { expect, test } from '@playwright/test';
 import { expectTappable } from './tap';
 import { signInAsAdult } from './adult';
@@ -12,7 +13,7 @@ test('add a folder, pick albums, scan, hide a photo', async ({ page }, info) => 
 	const run = `${Date.now().toString(36)}-${info.parallelIndex}-${info.repeatEachIndex}`;
 	const label = `Lib ${name} ${run}`;
 	// The server reads the same filesystem; data/photo-library is always an allowed root.
-	const root = resolve('data', 'photo-library', `e2e-${name}-${run}`);
+	const root = resolve(DATA_DIR, 'photo-library', `e2e-${name}-${run}`);
 	rmSync(root, { recursive: true, force: true });
 	for (const [dir, w, h] of [
 		['Trip', 640, 360],

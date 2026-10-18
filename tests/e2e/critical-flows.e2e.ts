@@ -9,6 +9,7 @@ import { asWallDisplay } from './display';
 import { seedCalendar } from './calendar';
 import { choreCard, seedKid, type KidSeed } from './kid';
 import { gotoHydrated } from './hydrated';
+import { DATA_DIR, DB_PATH } from './data-dir';
 
 // Tier 2 critical flows (ADR 0002): each test chains several features the way the family uses them.
 // Page routes must see every request; a service worker would answer some from the real server.
@@ -30,8 +31,8 @@ async function openPhone(browser: Browser): Promise<Page> {
 
 /** Seeds an adult with a unique name straight into SQLite (the unlock picker lists adults by name). */
 function seedNamedAdult(id: string, name: string): void {
-	mkdirSync('data', { recursive: true });
-	const db = new Database('data/hub.db');
+	mkdirSync(DATA_DIR, { recursive: true });
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare(
 		"INSERT OR REPLACE INTO members (id, name, role, color, pin_hash) VALUES (?, ?, 'adult', 'member-1', ?)"
@@ -66,7 +67,7 @@ async function tapDidIt(wall: Page, s: KidSeed, title: string) {
 	await expect(chore).toHaveAttribute('data-status', 'pending');
 	await expect
 		.poll(() => {
-			const db = new Database('data/hub.db', { readonly: true });
+			const db = new Database(DB_PATH, { readonly: true });
 			try {
 				db.pragma('busy_timeout = 5000');
 				const row = db

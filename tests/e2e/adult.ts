@@ -3,15 +3,16 @@ import type { Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { hashPin } from '../../src/lib/server/domain/pin';
 import { sweepPrevious } from './cleanup';
+import { DATA_DIR, DB_PATH } from './data-dir';
 
 export const PIN = '4817';
 
 /** Seeds a synthetic adult straight into the server's SQLite file, then unlocks this page's session as them. */
 export async function signInAsAdult(page: Page, id: string): Promise<void> {
-	mkdirSync('data', { recursive: true });
+	mkdirSync(DATA_DIR, { recursive: true });
 	sweepPrevious();
 	// Adult ids are fixed per test, so parallel projects and repeats reuse them: never swept.
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare(
 		"INSERT OR REPLACE INTO members (id, name, role, color, pin_hash) VALUES (?, 'Test Adult', 'adult', 'member-1', ?)"
@@ -28,8 +29,8 @@ export async function signInAsAdult(page: Page, id: string): Promise<void> {
  * to /setup). Idempotent; the baseline adult is never deleted by other tests.
  */
 export function ensureHousehold(): void {
-	mkdirSync('data', { recursive: true });
-	const db = new Database('data/hub.db');
+	mkdirSync(DATA_DIR, { recursive: true });
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare(
 		"INSERT OR IGNORE INTO members (id, name, role, color, pin_hash) VALUES ('e2e-baseline-adult', 'Baseline Adult', 'adult', 'member-1', ?)"

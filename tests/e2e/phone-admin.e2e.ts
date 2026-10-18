@@ -4,6 +4,7 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { signInAsAdult } from './adult';
 import { gotoHydrated } from './hydrated';
+import { DB_PATH } from './data-dir';
 
 // ADM-1: every admin page must be usable from a phone (390x844). Pages are discovered from the
 // settings subtree so new ones are covered automatically.
@@ -168,7 +169,7 @@ test.describe('phone flows', () => {
 	test('phone: the reconnect warning wraps a long calendar name', async ({ page }, info) => {
 		const id = `e2e-phone-reauth-${info.project.name}`;
 		await signInAsAdult(page, `${id}-adult`);
-		const db = new Database('data/hub.db');
+		const db = new Database(DB_PATH);
 		db.pragma('busy_timeout = 5000');
 		db.prepare('DELETE FROM calendar_sources WHERE id = ?').run(id);
 		db.prepare(

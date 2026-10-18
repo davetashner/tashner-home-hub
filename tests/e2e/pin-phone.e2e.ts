@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { hashPin } from '../../src/lib/server/domain/pin';
 import { gotoHydrated } from './hydrated';
+import { DATA_DIR, DB_PATH } from './data-dir';
 
 // The PIN pad on phone screens: keys never overlap, and the whole unlock flow fits. Only reads
 // the unlock page; the two adults are synthetic and removed afterwards.
@@ -18,8 +19,8 @@ const screens = [
 const seeded: string[] = [];
 
 function withDb(fn: (db: Database.Database) => void): void {
-	mkdirSync('data', { recursive: true });
-	const db = new Database('data/hub.db');
+	mkdirSync(DATA_DIR, { recursive: true });
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	try {
 		fn(db);
