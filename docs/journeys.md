@@ -240,5 +240,6 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J19.5 | The sitter always has the Emergency info button (behind the sitter PIN when one is set), and the parent-only parts of the wall are locked while a session runs. | built | wall | `sitter-wall` |
 | J19.6 | A parent starts, extends and ends a session from their phone, and the sitter can check in (kids in bed, all good, call me). | built | wall | untested: undefined |
 | J19.7 | After a session, the parents read a short log of the check-ins and when they happened. | built | wall | untested: undefined |
+| J19.8 | When the parents allow it, the sitter checks Star Jobs with the sitter PIN; otherwise approving stays with the parents. | built | wall | `sitter-wall` |
 
 <!-- journeys:end -->

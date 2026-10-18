@@ -775,6 +775,11 @@
 					"id": "J19.7",
 					"text": "After a session, the parents read a short log of the check-ins and when they happened.",
 					"status": "built"
+				},
+				{
+					"id": "J19.8",
+					"text": "When the parents allow it, the sitter checks Star Jobs with the sitter PIN; otherwise approving stays with the parents.",
+					"status": "built"
 				}
 			]
 		}

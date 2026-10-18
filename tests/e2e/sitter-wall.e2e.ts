@@ -141,3 +141,102 @@ test(
 		}
 	}
 );
+
+test(
+	'the sitter PIN checks Star Jobs only when the parents allowed it',
+	{ tag: '@J19.8' },
+	async ({ page }, info) => {
+		test.setTimeout(120_000);
+		const release = await holdSitter();
+		const tag = info.project.name.replace(/\W/g, '');
+		try {
+			await signInAsAdult(page, `adult-sitter-wall-${tag}`);
+			const kid = (await (
+				await page.request.post('/api/members', {
+					data: {
+						name: `Kid B ${Date.now() % 1e9}`,
+						role: 'child',
+						color: 'member-4',
+						avatar: '🦊'
+					}
+				})
+			).json()) as { id: string };
+			trackMember(kid.id);
+			const title = `Sweep ${tag} ${Date.now() % 1e6}`;
+			const chore = (await (
+				await page.request.post('/api/chores', {
+					data: {
+						title,
+						icon: '🧹',
+						stars: 2,
+						timeOfDay: 'evening',
+						memberIds: [kid.id],
+						schedule: { type: 'daily' },
+						requiresApproval: true
+					}
+				})
+			).json()) as { id: string };
+			const done = (await (
+				await page.request.post(`/api/chores/${chore.id}/complete`, {
+					data: { memberId: kid.id }
+				})
+			).json()) as { completion: { id: string } };
+
+			const sitterCtx = await sitterWall(page);
+			const wall = await sitterCtx.newPage();
+			await gotoHydrated(wall, '/');
+
+			await test.step('J19.8 no Check jobs button when approving was not allowed', async () => {
+				const id = await startSession(page.request, {
+					endAt: Date.now() + HOUR,
+					pin: '4812',
+					approveJobs: false
+				});
+				await wall.reload();
+				await expect(wall.getByTestId('emergency-open')).toBeVisible();
+				await expect(wall.getByTestId('sitter-approvals-open')).toHaveCount(0);
+				const denied = await sitterCtx.request.post('/api/sitter/approvals', {
+					data: { pin: '4812', action: 'approve', completionId: done.completion.id }
+				});
+				expect(denied.status()).toBe(403);
+				await endSession(page.request, id);
+			});
+
+			await test.step('J19.8 with permission the sitter PIN approves a Star Job', async () => {
+				await startSession(page.request, {
+					endAt: Date.now() + HOUR,
+					pin: '4812',
+					approveJobs: true
+				});
+				await wall.reload();
+				await wall.getByTestId('sitter-approvals-open').click();
+				const pad = wall.getByTestId('pinpad');
+				for (const d of '0000') await pad.getByRole('button', { name: d, exact: true }).click();
+				await pad.getByRole('button', { name: 'Enter PIN' }).click();
+				await expect(wall.getByTestId('pin-message')).toHaveText('Wrong PIN.');
+				for (const d of '4812') await pad.getByRole('button', { name: d, exact: true }).click();
+				await pad.getByRole('button', { name: 'Enter PIN' }).click();
+				const row = wall.getByTestId('sitter-approval').filter({ hasText: title });
+				await expect(row).toBeVisible();
+				await row.getByTestId('sitter-approve').click();
+				await expect(row).toHaveCount(0);
+				await expect
+					.poll(async () => {
+						const list = (await (await page.request.get('/api/approvals')).json()) as {
+							completionId: string;
+						}[];
+						return list.some((i) => i.completionId === done.completion.id);
+					})
+					.toBe(false);
+			});
+
+			await sitterCtx.close();
+		} finally {
+			const cur = (await (await page.request.get('/api/sitter/current')).json()) as {
+				session: { id: string } | null;
+			};
+			if (cur.session) await endSession(page.request, cur.session.id);
+			release();
+		}
+	}
+);

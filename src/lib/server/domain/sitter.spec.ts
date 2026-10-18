@@ -17,6 +17,7 @@ import {
 	saveCard,
 	sessionLog,
 	submitCheckin,
+	sitterApprover,
 	SITTER_CARD_KEY
 } from './sitter.js';
 
@@ -188,5 +189,21 @@ describe('session log', () => {
 		const log = sessionLog(db, NOW + 30 * H);
 		expect(log).toHaveLength(10);
 		expect(log[0]!.startAt).toBe(NOW + 11 * 2 * H);
+	});
+});
+
+describe('sitterApprover', () => {
+	it('lets the PIN approve only when the parents allowed it', () => {
+		createSession(db, { endAt: NOW + H, pin: '4812' }, NOW);
+		expect(() => sitterApprover(db, '4812', NOW)).toThrow(/did not allow/);
+		endSession(db, currentSession(db, NOW)!.id, NOW);
+		createSession(db, { endAt: NOW + H, pin: '4812', approveJobs: true }, NOW + 1);
+		expect(sitterApprover(db, '4812', NOW + 2).approveJobs).toBe(true);
+	});
+	it('refuses a wrong PIN, a missing PIN and an ended session', () => {
+		createSession(db, { endAt: NOW + H, pin: '4812', approveJobs: true }, NOW);
+		expect(() => sitterApprover(db, '0000', NOW)).toThrow(/Wrong PIN/);
+		expect(() => sitterApprover(db, undefined, NOW)).toThrow(/Wrong PIN/);
+		expect(() => sitterApprover(db, '4812', NOW + 2 * H)).toThrow(/Wrong PIN/);
 	});
 });
