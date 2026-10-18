@@ -232,5 +232,12 @@ The full journey run on every device, with videos, happens only on release PRs (
 | **J18** | **Drawing board** (Kid at the wall) | | | |
 | J18.1 | Draw with a pen or finger on the Home notes card and post it to the board. | built | wall | `drawing` |
 | J18.2 | Tap a drawing to enlarge it; anyone dismisses it. | built | wall | `drawing` |
+| **J19** | **Sitter mode** (Parent at the wall) | | | |
+| J19.1 | A grown-up fills in the info card: emergency contacts, address, allergies, bedtimes, house rules, Wi-Fi and notes for tonight. | built | wall | untested: undefined |
+| J19.2 | Start a sitter session now or on a schedule, with an optional sitter name, 4-digit PIN and permissions. | built | wall | untested: undefined |
+| J19.3 | Extend a session or end it early; it ends itself at its end time. | built | wall | untested: undefined |
+| J19.4 | The wall gets the info card only during an active session, and with a PIN only after the sitter enters it. | built | wall | untested: undefined |
+| J19.5 | The wall shows tonight's plan and the emergency info to the sitter and locks the parent-only parts. | planned | wall | planned |
+| J19.6 | A parent starts, ends and checks in on a session from their phone. | planned | wall | planned |
 
 <!-- journeys:end -->

@@ -733,6 +733,47 @@
 					"beads": ["hub-fkp"]
 				}
 			]
+		},
+		{
+			"id": "J19",
+			"name": "Sitter mode",
+			"persona": "Parent at the wall",
+			"critical": false,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J19.1",
+					"text": "A grown-up fills in the info card: emergency contacts, address, allergies, bedtimes, house rules, Wi-Fi and notes for tonight.",
+					"status": "built"
+				},
+				{
+					"id": "J19.2",
+					"text": "Start a sitter session now or on a schedule, with an optional sitter name, 4-digit PIN and permissions.",
+					"status": "built"
+				},
+				{
+					"id": "J19.3",
+					"text": "Extend a session or end it early; it ends itself at its end time.",
+					"status": "built"
+				},
+				{
+					"id": "J19.4",
+					"text": "The wall gets the info card only during an active session, and with a PIN only after the sitter enters it.",
+					"status": "built"
+				},
+				{
+					"id": "J19.5",
+					"text": "The wall shows tonight's plan and the emergency info to the sitter and locks the parent-only parts.",
+					"status": "planned",
+					"beads": ["hub-7pj.2"]
+				},
+				{
+					"id": "J19.6",
+					"text": "A parent starts, ends and checks in on a session from their phone.",
+					"status": "planned",
+					"beads": ["hub-7pj.3"]
+				}
+			]
 		}
 	]
 }
