@@ -8,7 +8,7 @@ import { routineColumn } from './kid-chores.js';
 /** Dinner has no time in the meal plan: it opens the evening at about this time. */
 export const DINNER_MINUTES = 18 * 60;
 
-export type PlanKind = 'dinner' | 'routine' | 'bedtime' | 'home';
+export type PlanKind = 'dinner' | 'routine' | 'bedtime' | 'pet' | 'home';
 
 export interface PlanItem {
 	key: string;
@@ -37,6 +37,8 @@ export interface PlanInput {
 	dinner: string | null;
 	routines: (KidRoutine & { kidName: string })[];
 	bedtimes: { name: string; bedtime: string }[];
+	/** Pet feeding times ("HH:MM"), one entry per pet and time. */
+	feedings?: { name: string; time: string }[];
 	/** "Parent One and Parent Two" or "The grown-ups". */
 	parents: string;
 }
@@ -93,6 +95,16 @@ export function buildPlan(i: PlanInput): PlanItem[] {
 			key: `bed-${b.name}`,
 			kind: 'bedtime',
 			label: `${b.name}'s bedtime`,
+			...base(at)
+		});
+	}
+	for (const f of i.feedings ?? []) {
+		const at = parseMinutes(f.time);
+		if (at === null) continue;
+		items.push({
+			key: `pet-${f.name}-${f.time}`,
+			kind: 'pet',
+			label: `Feed ${f.name}`,
 			...base(at)
 		});
 	}

@@ -145,13 +145,29 @@ describe('card', () => {
 		rules: ['No screens', '  ', 'Lights out at bedtime'],
 		wifiName: 'TestNet',
 		wifiPassword: 'hunter2',
-		tonight: 'Pizza in the freezer'
+		tonight: 'Pizza in the freezer',
+		pets: [
+			{ name: ' Rex ', kind: 'Dog', notes: 'Pill at 8', feedTimes: ['18:00', '25:00', 'x'] },
+			{ name: '' }
+		],
+		vet: { name: 'Test Vet', phone: '555-0102', hours: '9-5', address: '2 Test Road' },
+		petER: { name: 'Test Pet ER', phone: '555-0103' }
 	};
 	it('normalizes untrusted input', () => {
 		const c = normalizeCard(raw);
 		expect(c.contacts).toEqual([{ name: 'Grandma', relation: 'Grandmother', phone: '555-0101' }]);
 		expect(c.kids.map((k) => k.bedtime)).toEqual(['19:30', '']);
 		expect(c.rules).toEqual(['No screens', 'Lights out at bedtime']);
+		expect(c.pets).toEqual([
+			{ name: 'Rex', kind: 'Dog', notes: 'Pill at 8', feedTimes: ['18:00'] }
+		]);
+		expect(c.vet).toEqual({
+			name: 'Test Vet',
+			phone: '555-0102',
+			hours: '9-5',
+			address: '2 Test Road'
+		});
+		expect(c.petER).toEqual({ name: 'Test Pet ER', phone: '555-0103', hours: '', address: '' });
 	});
 	it('handles junk', () => {
 		expect(normalizeCard(null)).toEqual(emptyCard());
@@ -159,16 +175,33 @@ describe('card', () => {
 		expect(normalizeCard({ contacts: 'x', rules: 5, kids: {} })).toEqual(emptyCard());
 	});
 	it('caps lengths and counts', () => {
-		const c = normalizeCard({ tonight: 'x'.repeat(5000), rules: Array(40).fill('r') });
+		const c = normalizeCard({
+			tonight: 'x'.repeat(5000),
+			rules: Array(40).fill('r'),
+			pets: Array(40).fill({ name: 'P', feedTimes: Array(20).fill('18:00') })
+		});
+		expect(c.pets).toHaveLength(10);
+		expect(c.pets[0].feedTimes).toHaveLength(6);
 		expect(c.tonight).toHaveLength(1000);
 		expect(c.rules).toHaveLength(15);
 	});
 	it('splits sensitive fields out and joins them back', () => {
 		const card = normalizeCard(raw);
 		const { plain, sensitive } = splitCard(card);
-		expect(JSON.stringify(plain)).not.toMatch(/555|Test Lane|Peanuts|Inhaler|hunter2/);
+		expect(JSON.stringify(plain)).not.toMatch(
+			/555|Test Lane|Test Road|Peanuts|Inhaler|hunter2|Pill at 8|Test Vet/
+		);
 		expect(sensitive.phones).toEqual(['555-0101']);
 		expect(joinCard(plain, sensitive)).toEqual(card);
+	});
+	it('reads a card sealed before pets existed', () => {
+		const { plain, sensitive } = splitCard(normalizeCard(raw));
+		const oldPlain = { ...plain, pets: undefined };
+		const oldSensitive = { ...sensitive, petNotes: undefined, vet: undefined, petER: undefined };
+		const c = joinCard(oldPlain, oldSensitive);
+		expect(c.pets).toEqual([]);
+		expect(c.vet.name).toBe('');
+		expect(c.petER.phone).toBe('');
 	});
 	it('joins tolerate missing sensitive entries', () => {
 		const { plain } = splitCard(normalizeCard(raw));

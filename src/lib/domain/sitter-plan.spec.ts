@@ -98,6 +98,24 @@ describe('buildPlan', () => {
 		expect(plan[0].done).toBe(true);
 	});
 
+	it('adds pet feedings in clock order and skips bad times', () => {
+		const plan = buildPlan({
+			...base,
+			dinner: null,
+			feedings: [
+				{ name: 'Rex', time: '19:00' },
+				{ name: 'Rex', time: '' },
+				{ name: 'Tom', time: '18:15' }
+			]
+		});
+		expect(plan.map((p) => p.label)).toEqual([
+			'Feed Tom',
+			'Feed Rex',
+			'Parent One and Parent Two home'
+		]);
+		expect(plan[0].kind).toBe('pet');
+	});
+
 	it('puts a windowless routine at the later of now and dinner time', () => {
 		const plan = buildPlan({ ...base, dinner: null, routines: [routine('r', null)] });
 		expect(plan[0].at).toBe(18 * 60);

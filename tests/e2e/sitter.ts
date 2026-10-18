@@ -64,6 +64,14 @@ export function testCard(kidId: string) {
 		rules: ['No screens after 7', 'Lights out at bedtime'],
 		wifiName: 'TestNet',
 		wifiPassword: 'not-a-real-password',
-		tonight: 'Pizza in the freezer'
+		tonight: 'Pizza in the freezer',
+		pets: [{ name: 'Rex', kind: 'Dog', notes: 'Pill in cheese', feedTimes: ['18:30'] }],
+		vet: { name: 'Test Vet', phone: '555-0102', hours: '9 to 5', address: '2 Test Road' },
+		petER: {
+			name: 'Test Pet ER',
+			phone: '555-0103',
+			hours: 'Open 24 hours',
+			address: '3 Test Road'
+		}
 	};
 }

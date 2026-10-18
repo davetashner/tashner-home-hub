@@ -3,7 +3,13 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
-	import { CHECKIN_LABELS, emptyCard, type SitterCard } from '#lib/domain/sitter.js';
+	import {
+		CHECKIN_LABELS,
+		emptyCard,
+		type Clinic,
+		type Pet,
+		type SitterCard
+	} from '#lib/domain/sitter.js';
 	import type { SessionLogEntry, SitterSessionView } from '#lib/server/domain/sitter.js';
 	import type { PageData } from './$types';
 
@@ -11,6 +17,8 @@
 
 	let card = $state<SitterCard>(emptyCard());
 	let rulesText = $state('');
+	/** Pets as edited: feeding times are typed as "18:00, 07:30". */
+	let petRows = $state<{ pet: Pet; times: string }[]>([]);
 	let sessions = $state<SitterSessionView[]>([]);
 	let log = $state<SessionLogEntry[]>([]);
 	let message = $state('');
@@ -62,12 +70,17 @@
 		if (s.ok) sessions = await s.json();
 		if (l.ok) log = await l.json();
 		rulesText = card.rules.join('\n');
+		petRows = card.pets.map((pet) => ({ pet, times: pet.feedTimes.join(', ') }));
 	}
 	onMount(load);
 
 	async function saveCard(e: SubmitEvent) {
 		e.preventDefault();
-		const body = { ...card, rules: rulesText.split('\n') };
+		const pets = petRows.map(({ pet, times }) => ({
+			...pet,
+			feedTimes: times.split(/[\s,]+/).filter(Boolean)
+		}));
+		const body = { ...card, rules: rulesText.split('\n'), pets };
 		const res = await safeFetch('/api/sitter/card', {
 			method: 'PUT',
 			headers: json,
@@ -77,6 +90,7 @@
 		saved = res.ok;
 		if (res.ok) {
 			card = withKidRows(await res.json());
+			petRows = card.pets.map((pet) => ({ pet, times: pet.feedTimes.join(', ') }));
 		}
 	}
 
@@ -346,6 +360,55 @@
 				{#if card.kids.length === 0}<p class="text-body text-ink-muted">No kids added yet.</p>{/if}
 			</div>
 
+			<div class="flex flex-col gap-4">
+				<h3 class="text-lead font-bold">Pets</h3>
+				{#each petRows as row, i (i)}
+					<div class="flex flex-col gap-4" data-testid="sitter-pet">
+						<div class="flex flex-wrap gap-4">
+							<input
+								class="{field} min-w-48 flex-1"
+								placeholder="Name"
+								aria-label="Pet name"
+								bind:value={row.pet.name}
+							/>
+							<input
+								class="{field} w-64 max-sm:w-full"
+								placeholder="Kind (dog, cat...)"
+								aria-label="Pet kind"
+								bind:value={row.pet.kind}
+							/>
+							<input
+								class="{field} w-64 max-sm:w-full"
+								placeholder="Fed at (18:00, 07:30)"
+								aria-label="Feeding times for pet"
+								bind:value={row.times}
+							/>
+							<Button variant="ghost" aria-label="Remove pet" onclick={() => petRows.splice(i, 1)}>
+								Remove
+							</Button>
+						</div>
+						<input
+							class={field}
+							placeholder="Feeding, medicine, quirks"
+							aria-label="Pet notes"
+							bind:value={row.pet.notes}
+						/>
+					</div>
+				{/each}
+				<div>
+					<Button
+						variant="secondary"
+						data-testid="sitter-add-pet"
+						onclick={() =>
+							petRows.push({ pet: { name: '', kind: '', notes: '', feedTimes: [] }, times: '' })}
+					>
+						Add pet
+					</Button>
+				</div>
+				{@render clinicFields('Regular vet', card.vet, 'vet')}
+				{@render clinicFields('After-hours pet emergency hospital', card.petER, 'pet-er')}
+			</div>
+
 			<label class={label}>
 				<span class={cap}>House rules (one per line)</span>
 				<textarea class="{field} py-4" rows="4" bind:value={rulesText} data-testid="sitter-rules"
@@ -390,3 +453,36 @@
 		</form>
 	</Card>
 </section>
+
+{#snippet clinicFields(title: string, c: Clinic, id: string)}
+	<div class="flex flex-col gap-4" data-testid="sitter-{id}">
+		<p class="text-body font-bold">{title}</p>
+		<div class="flex flex-wrap gap-4">
+			<input
+				class="{field} min-w-48 flex-1"
+				placeholder="Name"
+				aria-label="{title} name"
+				bind:value={c.name}
+			/>
+			<input
+				class="{field} w-64 max-sm:w-full"
+				placeholder="Phone"
+				aria-label="{title} phone"
+				inputmode="tel"
+				bind:value={c.phone}
+			/>
+			<input
+				class="{field} w-64 max-sm:w-full"
+				placeholder="Hours"
+				aria-label="{title} hours"
+				bind:value={c.hours}
+			/>
+		</div>
+		<input
+			class={field}
+			placeholder="Address"
+			aria-label="{title} address"
+			bind:value={c.address}
+		/>
+	</div>
+{/snippet}

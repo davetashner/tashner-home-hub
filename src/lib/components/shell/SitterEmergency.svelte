@@ -2,7 +2,12 @@
 	import { onMount } from 'svelte';
 	import PinPad, { type PinResult } from '#lib/components/PinPad.svelte';
 	import { toBody } from '#lib/components/kid/portal.js';
-	import { POISON_CONTROL, type SitterCard, type WallSession } from '#lib/domain/sitter.js';
+	import {
+		POISON_CONTROL,
+		type Clinic,
+		type SitterCard,
+		type WallSession
+	} from '#lib/domain/sitter.js';
 	import { sitter, unlockCard } from './sitter-state.svelte.js';
 
 	/**
@@ -144,6 +149,26 @@
 				</section>
 			{/each}
 
+			{#if card.pets.length > 0 || card.vet.name || card.petER.name}
+				<section
+					data-testid="emergency-pets"
+					class="flex flex-col gap-3 rounded-card bg-surface-raised p-6 shadow-raised short:p-3"
+				>
+					<h3 class="text-lead font-extrabold">Pets</h3>
+					{#each card.pets as pet, i (i)}
+						<div data-testid="emergency-pet" class="flex flex-col text-body">
+							<p class="font-extrabold">{pet.name}{pet.kind ? ` (${pet.kind})` : ''}</p>
+							{#if pet.feedTimes.length > 0}
+								<p class="text-caption text-ink-muted">Fed at {pet.feedTimes.join(', ')}</p>
+							{/if}
+							{#if pet.notes}<p class="whitespace-pre-line">{pet.notes}</p>{/if}
+						</div>
+					{/each}
+					{@render clinic('Vet', card.vet)}
+					{@render clinic('After-hours pet ER', card.petER)}
+				</section>
+			{/if}
+
 			<section
 				class="flex flex-col gap-3 rounded-card bg-surface-raised p-6 shadow-raised short:p-3"
 			>
@@ -176,6 +201,25 @@
 		<p class="text-body text-ink-muted">Loading...</p>
 	{/if}
 </div>
+
+{#snippet clinic(title: string, c: Clinic)}
+	{#if c.name}
+		<div data-testid="emergency-clinic" class="flex flex-col text-body">
+			<p class="text-caption font-extrabold text-ink-muted">{title}</p>
+			<p class="font-extrabold">{c.name}</p>
+			{#if c.hours}<p class="text-caption text-ink-muted">{c.hours}</p>{/if}
+			{#if c.address}<p>{c.address}</p>{/if}
+			{#if c.phone}
+				<a
+					href="tel:{c.phone.replace(/[^\d+]/g, '')}"
+					class="press flex min-h-tap-kid items-center rounded-control bg-surface-sunken px-4 font-extrabold"
+				>
+					{c.phone}
+				</a>
+			{/if}
+		</div>
+	{/if}
+{/snippet}
 
 <!-- eslint-enable svelte/no-navigation-without-resolve -->
 
