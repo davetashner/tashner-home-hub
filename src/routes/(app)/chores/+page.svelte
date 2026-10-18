@@ -655,50 +655,52 @@
 						Some Star Jobs could not refresh. Trying again soon.
 					</p>
 				{/if}
-				<div class="flex flex-col gap-1 tablet:flex-row tablet:items-center tablet:gap-3">
-					<div class="flex flex-wrap items-center gap-3 short:gap-1">
-						<p
-							data-testid="star-jobs"
-							class="flex items-center gap-2 rounded-chip bg-job-soft px-4 py-1 text-body font-extrabold short:px-2 short:text-caption tablet:px-3 tablet:text-caption"
-						>
-							<span aria-hidden="true">⭐</span>
-							{#if jobGroups.length === 0}
-								No Star Jobs today.
-							{:else}
-								Star Jobs
-								<span data-testid="star-jobs-count" aria-label="{jobs.done} of {jobs.total} done"
-									>{jobs.done}/{jobs.total}</span
-								>
-							{/if}
-						</p>
-						{#if habitsToday.total > 0}
+				{#if !onVacation}
+					<div class="flex flex-col gap-1 tablet:flex-row tablet:items-center tablet:gap-3">
+						<div class="flex flex-wrap items-center gap-3 short:gap-1">
 							<p
-								data-testid="habits"
-								class="flex items-center gap-2 rounded-chip bg-habit-soft px-4 py-1 text-body font-extrabold short:px-2 short:text-caption tablet:px-3 tablet:text-caption"
+								data-testid="star-jobs"
+								class="flex items-center gap-2 rounded-chip bg-job-soft px-4 py-1 text-body font-extrabold short:px-2 short:text-caption tablet:px-3 tablet:text-caption"
 							>
-								<span aria-hidden="true">✅</span>
-								Habits
-								<span
-									data-testid="habits-count"
-									aria-label="{habitsToday.done} of {habitsToday.total} done"
-									>{habitsToday.done}/{habitsToday.total}</span
+								<span aria-hidden="true">⭐</span>
+								{#if jobGroups.length === 0}
+									No Star Jobs today.
+								{:else}
+									Star Jobs
+									<span data-testid="star-jobs-count" aria-label="{jobs.done} of {jobs.total} done"
+										>{jobs.done}/{jobs.total}</span
+									>
+								{/if}
+							</p>
+							{#if habitsToday.total > 0}
+								<p
+									data-testid="habits"
+									class="flex items-center gap-2 rounded-chip bg-habit-soft px-4 py-1 text-body font-extrabold short:px-2 short:text-caption tablet:px-3 tablet:text-caption"
 								>
+									<span aria-hidden="true">✅</span>
+									Habits
+									<span
+										data-testid="habits-count"
+										aria-label="{habitsToday.done} of {habitsToday.total} done"
+										>{habitsToday.done}/{habitsToday.total}</span
+									>
+								</p>
+							{/if}
+						</div>
+						{#if habitsToday.total > 0}
+							<p class="text-caption text-ink-muted" data-testid="habit-week">
+								{#if habitWeek?.starEarned}
+									All done today: you earned a star ⭐
+								{:else}
+									Do them all today for a star ⭐
+								{/if}
+								{#if habitWeek && habitWeek.due > 0}
+									· This week {habitWeek.done} of {habitWeek.due}
+								{/if}
 							</p>
 						{/if}
 					</div>
-					{#if habitsToday.total > 0}
-						<p class="text-caption text-ink-muted" data-testid="habit-week">
-							{#if habitWeek?.starEarned}
-								All done today: you earned a star ⭐
-							{:else}
-								Do them all today for a star ⭐
-							{/if}
-							{#if habitWeek && habitWeek.due > 0}
-								· This week {habitWeek.done} of {habitWeek.due}
-							{/if}
-						</p>
-					{/if}
-				</div>
+				{/if}
 				{#if streak && streak.days > 0 && !onVacation}
 					<div class="ml-auto short:ml-0">
 						<StreakBadge days={streak.days} nextDays={streak.next?.days ?? null} />
