@@ -179,3 +179,65 @@ test('a finger draws when no pen is around @J18.1', async ({ page }, info) => {
 		wipe(kidId);
 	}
 });
+
+/** Largest alpha on the canvas (a highlighter leaves translucent ink). */
+const maxAlpha = (page: Page) =>
+	page.getByTestId('draw-canvas').evaluate((c: HTMLCanvasElement) => {
+		const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+		let m = 0;
+		for (let i = 3; i < d.length; i += 4) m = Math.max(m, d[i]);
+		return m;
+	});
+
+test('more colors, recent colors, brush sizes and the highlighter @J18.3', async ({
+	page
+}, info) => {
+	const kidId = `e2e-draw-kid3-${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, 'Kid Colors');
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		await expect(page.getByTestId('draw-recent')).toHaveCount(0);
+
+		await expectTappable(page.getByTestId('draw-more-colors'), 96);
+		await expectTappable(page.getByTestId('draw-size').first(), 96);
+		await expectTappable(page.getByTestId('draw-highlighter'), 96);
+
+		// The grid opens from More colors, swatches are big, and picking one closes it.
+		await page.getByTestId('draw-more-colors').click();
+		await expect(page.getByTestId('draw-grid')).toBeVisible();
+		await expectTappable(page.getByTestId('draw-grid-color').first(), 96);
+		await page.getByTestId('draw-grid-color').nth(10).click();
+		await expect(page.getByTestId('draw-grid')).toHaveCount(0);
+
+		// Thin vs marker with the same pen pressure: the marker leaves more ink.
+		await page.getByTestId('draw-size').first().click(); // thin
+		await pointerStroke(page, 'pen', 0.6, [0.1, 0.2], [0.8, 0.2], 1);
+		const thin = await inkPixels(page);
+		await page.getByTestId('draw-clear').click();
+		await page.getByTestId('draw-size').last().click(); // marker
+		await pointerStroke(page, 'pen', 0.6, [0.1, 0.2], [0.8, 0.2], 2);
+		expect(await inkPixels(page)).toBeGreaterThan(thin * 2);
+		expect(await maxAlpha(page)).toBe(255);
+
+		// The grid color is now a recent color; picking another ink adds to the row.
+		await expect(page.getByTestId('draw-recent')).toHaveCount(1);
+		await page.getByTestId('draw-color').nth(1).click();
+		await page.getByTestId('draw-clear').click();
+		await pointerStroke(page, 'pen', 0.6, [0.1, 0.4], [0.8, 0.4], 3);
+		await expect(page.getByTestId('draw-recent')).toHaveCount(2);
+		await page.getByTestId('draw-recent').nth(1).click();
+		await expect(page.getByTestId('draw-recent').nth(1)).toBeVisible();
+
+		// The highlighter is translucent.
+		await page.getByTestId('draw-clear').click();
+		await page.getByTestId('draw-highlighter').click();
+		await pointerStroke(page, 'pen', 1, [0.1, 0.6], [0.8, 0.6], 4);
+		await expect(page.getByTestId('draw-canvas')).toHaveAttribute('data-blank', 'false');
+		const alpha = await maxAlpha(page);
+		expect(alpha).toBeGreaterThan(0);
+		expect(alpha).toBeLessThan(200);
+	} finally {
+		wipe(kidId);
+	}
+});

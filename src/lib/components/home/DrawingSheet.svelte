@@ -3,7 +3,16 @@
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import {
+		BRUSH_SIZES,
+		COLOR_GRID,
 		DRAW_COLORS,
+		HIGHLIGHTER_ALPHA,
+		BRUSH_SCALE,
+		FIXED_WIDTH,
+		isInkToken,
+		pushRecent,
+		type BrushSize,
+		type InkColor,
 		createPalmGuard,
 		dataUrlBytes,
 		fitWithin,
@@ -40,13 +49,22 @@
 		'draw-blue': 'bg-draw-blue',
 		'draw-purple': 'bg-draw-purple'
 	};
+	/** Choose an ink: leaves the eraser, keeps a highlighter, and closes the color grid. */
+	function pick(c: InkColor) {
+		color = c;
+		if (tool === 'eraser') tool = 'pen';
+		picking = false;
+	}
 	const memberColor = (c: string): MemberColor => (isMemberColor(c) ? c : 'member-1');
 
 	let canvas: HTMLCanvasElement;
 	let holder: HTMLDivElement;
 	let ctx: CanvasRenderingContext2D;
 	let tool = $state<DrawTool>('pen');
-	let color = $state<DrawColor>('draw-black');
+	let color = $state<InkColor>('draw-black');
+	let size = $state<BrushSize>('medium');
+	let recent = $state<string[]>([]);
+	let picking = $state(false);
 	let count = $state(0); // strokes drawn, for the undo/clear/post enabled state
 	let blank = $state(true);
 	let choosing = $state(false);
@@ -60,6 +78,7 @@
 
 	/** Token color as the browser resolves it (canvas cannot use Tailwind classes). */
 	function token(name: string): string {
+		if (!isInkToken(name)) return name; // a computed oklch color from the grid
 		css[name] ??= getComputedStyle(document.documentElement)
 			.getPropertyValue(`--color-${name}`)
 			.trim();
@@ -70,6 +89,7 @@
 		const to = s.points[i];
 		const from = s.points[Math.max(0, i - 1)];
 		ctx.globalCompositeOperation = s.tool === 'eraser' ? 'destination-out' : 'source-over';
+		ctx.globalAlpha = 1;
 		ctx.strokeStyle = token(s.color);
 		ctx.lineCap = 'round';
 		ctx.lineJoin = 'round';
@@ -80,10 +100,32 @@
 		ctx.stroke();
 	}
 
+	/** A highlighter stroke is one translucent path, so its own overlaps do not darken. */
+	function highlight(s: Stroke) {
+		ctx.globalCompositeOperation = 'source-over';
+		ctx.globalAlpha = HIGHLIGHTER_ALPHA;
+		ctx.strokeStyle = token(s.color);
+		ctx.lineCap = 'round';
+		ctx.lineJoin = 'round';
+		ctx.lineWidth = s.points[0].w;
+		ctx.beginPath();
+		ctx.moveTo(s.points[0].x, s.points[0].y);
+		for (const p of s.points) ctx.lineTo(p.x, p.y);
+		if (s.points.length === 1) ctx.lineTo(s.points[0].x + 0.01, s.points[0].y);
+		ctx.stroke();
+		ctx.globalAlpha = 1;
+	}
+
+	function paint(s: Stroke) {
+		if (s.tool === 'highlighter') highlight(s);
+		else for (let i = 0; i < s.points.length; i++) segment(s, i);
+	}
+
 	function redraw() {
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		for (const s of strokes) for (let i = 0; i < s.points.length; i++) segment(s, i);
+		for (const s of strokes) paint(s);
+		if (current) paint(current);
 	}
 
 	function fit() {
@@ -97,7 +139,7 @@
 	}
 
 	function sample(e: PointerEvent, previous?: number) {
-		const raw = strokeWidth(tool, e.pointerType, e.pressure);
+		const raw = strokeWidth(tool, e.pointerType, e.pressure, size);
 		return {
 			x: e.clientX - rect.left,
 			y: e.clientY - rect.top,
@@ -118,7 +160,8 @@
 		activeId = e.pointerId;
 		rect = canvas.getBoundingClientRect();
 		current = { tool, color, points: [sample(e)] };
-		segment(current, 0);
+		if (tool === 'highlighter') redraw();
+		else segment(current, 0);
 	}
 
 	function move(e: PointerEvent) {
@@ -128,14 +171,16 @@
 		for (const c of events.length ? events : [e]) {
 			const last = current.points[current.points.length - 1];
 			current.points.push(sample(c, last.w));
-			segment(current, current.points.length - 1);
+			if (current.tool !== 'highlighter') segment(current, current.points.length - 1);
 		}
+		if (current.tool === 'highlighter') redraw();
 	}
 
 	function up(e: PointerEvent) {
 		if (e.pointerId !== activeId || !current) return;
 		activeId = -1;
 		strokes.push(current);
+		if (current.tool !== 'eraser') recent = pushRecent(recent, current.color);
 		current = null;
 		count = strokes.length;
 		blank = isBlank(strokes);
@@ -240,51 +285,133 @@
 				>Back</Button
 			>
 		{:else}
-			<div class="flex flex-wrap gap-3" role="group" aria-label="Ink color">
-				{#each DRAW_COLORS as c (c)}
+			{#if picking}
+				<p class="w-full text-body font-extrabold">Pick a color</p>
+				<div
+					class="flex flex-wrap gap-3"
+					role="group"
+					aria-label="All colors"
+					data-testid="draw-grid"
+				>
+					{#each COLOR_GRID as c (c)}
+						<button
+							type="button"
+							class="size-tap-kid rounded-chip border-4 {color === c && tool !== 'eraser'
+								? 'border-accent'
+								: 'border-line'}"
+							style:background-color={c}
+							aria-label="Color"
+							data-testid="draw-grid-color"
+							onclick={() => pick(c)}
+						></button>
+					{/each}
+				</div>
+				<Button variant="ghost" onclick={() => (picking = false)} data-testid="draw-grid-close"
+					>Back</Button
+				>
+			{:else}
+				<div class="flex flex-wrap gap-3" role="group" aria-label="Ink color">
+					{#each DRAW_COLORS as c (c)}
+						<button
+							type="button"
+							class="size-tap-kid rounded-chip border-4 {swatch[c]} {color === c &&
+							tool !== 'eraser'
+								? 'border-accent'
+								: 'border-line'}"
+							aria-label={c.replace('draw-', '')}
+							aria-pressed={color === c && tool !== 'eraser'}
+							data-testid="draw-color"
+							data-color={c}
+							onclick={() => pick(c)}
+						></button>
+					{/each}
 					<button
 						type="button"
-						class="size-tap-kid rounded-chip border-4 {swatch[c]} {color === c && tool === 'pen'
-							? 'border-accent'
-							: 'border-line'}"
-						aria-label={c.replace('draw-', '')}
-						aria-pressed={color === c && tool === 'pen'}
-						data-testid="draw-color"
-						data-color={c}
-						onclick={() => {
-							color = c;
-							tool = 'pen';
-						}}
-					></button>
-				{/each}
-			</div>
-			<button
-				type="button"
-				class="{btn} {tool === 'eraser'
-					? 'border-accent bg-accent-soft'
-					: 'border-line bg-surface'}"
-				aria-pressed={tool === 'eraser'}
-				data-testid="draw-eraser"
-				onclick={() => (tool = tool === 'eraser' ? 'pen' : 'eraser')}>Eraser</button
-			>
-			<button
-				type="button"
-				class="{btn} border-line bg-surface"
-				disabled={count === 0}
-				data-testid="draw-undo"
-				onclick={undo}>Undo</button
-			>
-			<button
-				type="button"
-				class="{btn} border-line bg-surface"
-				disabled={count === 0}
-				data-testid="draw-clear"
-				onclick={clear}>Clear</button
-			>
-			<Button size="kid" disabled={blank} onclick={() => (choosing = true)} data-testid="draw-post">
-				Post to the board
-			</Button>
-			<Button variant="ghost" onclick={onclose} data-testid="draw-close">Close</Button>
+						class="{btn} border-line bg-surface"
+						data-testid="draw-more-colors"
+						onclick={() => (picking = true)}>More colors</button
+					>
+				</div>
+				{#if recent.length}
+					<div class="flex flex-wrap gap-3" role="group" aria-label="Recent colors">
+						{#each recent as c (c)}
+							<button
+								type="button"
+								class="size-tap-kid rounded-chip border-4 {color === c && tool !== 'eraser'
+									? 'border-accent'
+									: 'border-line'} {isInkToken(c) ? swatch[c] : ''}"
+								style:background-color={isInkToken(c) ? undefined : c}
+								aria-label="Recent color"
+								data-testid="draw-recent"
+								onclick={() => pick(c)}
+							></button>
+						{/each}
+					</div>
+				{/if}
+				<div class="flex flex-wrap gap-3" role="group" aria-label="Brush size">
+					{#each BRUSH_SIZES as b (b)}
+						<button
+							type="button"
+							class="{btn} flex-col gap-1 {size === b
+								? 'border-accent bg-accent-soft'
+								: 'border-line bg-surface'}"
+							aria-pressed={size === b}
+							aria-label={b}
+							data-testid="draw-size"
+							data-size={b}
+							onclick={() => (size = b)}
+						>
+							<span
+								class="rounded-full bg-ink"
+								style:width="{FIXED_WIDTH * BRUSH_SCALE[b]}px"
+								style:height="{FIXED_WIDTH * BRUSH_SCALE[b]}px"
+							></span>
+						</button>
+					{/each}
+				</div>
+				<button
+					type="button"
+					class="{btn} {tool === 'highlighter'
+						? 'border-accent bg-accent-soft'
+						: 'border-line bg-surface'}"
+					aria-pressed={tool === 'highlighter'}
+					data-testid="draw-highlighter"
+					onclick={() => (tool = tool === 'highlighter' ? 'pen' : 'highlighter')}
+					>Highlighter</button
+				>
+				<button
+					type="button"
+					class="{btn} {tool === 'eraser'
+						? 'border-accent bg-accent-soft'
+						: 'border-line bg-surface'}"
+					aria-pressed={tool === 'eraser'}
+					data-testid="draw-eraser"
+					onclick={() => (tool = tool === 'eraser' ? 'pen' : 'eraser')}>Eraser</button
+				>
+				<button
+					type="button"
+					class="{btn} border-line bg-surface"
+					disabled={count === 0}
+					data-testid="draw-undo"
+					onclick={undo}>Undo</button
+				>
+				<button
+					type="button"
+					class="{btn} border-line bg-surface"
+					disabled={count === 0}
+					data-testid="draw-clear"
+					onclick={clear}>Clear</button
+				>
+				<Button
+					size="kid"
+					disabled={blank}
+					onclick={() => (choosing = true)}
+					data-testid="draw-post"
+				>
+					Post to the board
+				</Button>
+				<Button variant="ghost" onclick={onclose} data-testid="draw-close">Close</Button>
+			{/if}
 		{/if}
 	</div>
 </div>
