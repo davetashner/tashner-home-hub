@@ -1,0 +1,144 @@
+import { expect, test, type Page } from '@playwright/test';
+import { ensureHousehold, signInAsAdult } from './adult';
+import { gotoHydrated } from './hydrated';
+import { px } from './tap';
+
+test.beforeAll(ensureHousehold);
+
+// The hub's HA routes are stubbed: no real Home Assistant is involved.
+interface Tile {
+	entityId: string;
+	name: string;
+	kind: 'toggle' | 'scene';
+	on: boolean | null;
+	unavailable: boolean;
+}
+const tiles = (): Tile[] => [
+	{
+		entityId: 'light.kitchen',
+		name: 'Kitchen light',
+		kind: 'toggle',
+		on: false,
+		unavailable: false
+	},
+	{ entityId: 'switch.fan', name: 'Porch fan', kind: 'toggle', on: true, unavailable: false },
+	{ entityId: 'scene.movie', name: 'Movie night', kind: 'scene', on: null, unavailable: false }
+];
+
+async function stubTiles(page: Page, state: { reachable: boolean; toggleStatus: number }) {
+	const model = tiles();
+	const posts: string[] = [];
+	await page.route('**/api/home-assistant/tiles', (route) =>
+		route.fulfill({ json: { configured: true, reachable: state.reachable, tiles: model } })
+	);
+	await page.route('**/api/home-assistant/toggle', async (route) => {
+		posts.push(route.request().postDataJSON().entityId);
+		await new Promise((r) => setTimeout(r, 400));
+		if (state.toggleStatus === 200) {
+			const t = model.find((m) => m.entityId === posts.at(-1))!;
+			if (t.on !== null) t.on = !t.on;
+		}
+		await route.fulfill({ status: state.toggleStatus, json: { ok: state.toggleStatus === 200 } });
+	});
+	return posts;
+}
+
+test('Home controls: big tiles flip at once and settle with the server', async ({ page }) => {
+	const posts = await stubTiles(page, { reachable: true, toggleStatus: 200 });
+	await gotoHydrated(page, '/');
+	const lamp = page.getByTestId('ha-tile').filter({ hasText: 'Kitchen light' });
+	await expect(lamp).toHaveAttribute('data-on', 'false');
+	const box = (await lamp.boundingBox())!;
+	expect(px(box.height)).toBeGreaterThanOrEqual(96);
+	expect(px(box.width)).toBeGreaterThanOrEqual(96);
+
+	await lamp.click();
+	// Optimistic: flipped while the stubbed server is still holding the response.
+	await expect(lamp).toHaveAttribute('data-on', 'true', { timeout: 300 });
+	await expect.poll(() => posts).toEqual(['light.kitchen']);
+
+	await page.getByTestId('ha-tile').filter({ hasText: 'Movie night' }).click();
+	await expect.poll(() => posts).toEqual(['light.kitchen', 'scene.movie']);
+	await expect(page.getByTestId('ha-unreachable')).toHaveCount(0);
+});
+
+test('Home controls: a failed tap rolls back and says so', async ({ page }) => {
+	await stubTiles(page, { reachable: true, toggleStatus: 502 });
+	await gotoHydrated(page, '/');
+	const fan = page.getByTestId('ha-tile').filter({ hasText: 'Porch fan' });
+	await expect(fan).toHaveAttribute('data-on', 'true');
+	await fan.click();
+	await expect(fan).toHaveAttribute('data-on', 'false', { timeout: 300 });
+	await expect(fan).toHaveAttribute('data-on', 'true');
+	await expect(page.getByRole('alert')).toContainText('Porch fan');
+});
+
+test('Home controls: shows Home Assistant unreachable gracefully', async ({ page }) => {
+	await stubTiles(page, { reachable: false, toggleStatus: 200 });
+	await gotoHydrated(page, '/');
+	await expect(page.getByTestId('ha-unreachable')).toHaveText('Home Assistant unreachable');
+	await expect(page.getByTestId('ha-tile')).toHaveCount(3);
+});
+
+test('Home controls: hidden when nothing is configured', async ({ page }) => {
+	await page.route('**/api/home-assistant/tiles', (route) =>
+		route.fulfill({ json: { configured: false } })
+	);
+	await gotoHydrated(page, '/');
+	await expect(page.getByTestId('home-controls')).toHaveCount(0);
+});
+
+test('Settings: connect, test, pick, rename and reorder', async ({ page }) => {
+	await signInAsAdult(page, 'e2e-ha-adult');
+	let config = { configured: false, baseUrl: '', hasToken: false, tiles: [] as unknown[] };
+	const puts: unknown[] = [];
+	await page.route('**/api/settings/home-assistant', async (route) => {
+		const m = route.request().method();
+		if (m === 'PUT') {
+			const b = route.request().postDataJSON();
+			config = { ...config, configured: true, baseUrl: b.baseUrl, hasToken: true };
+		}
+		await route.fulfill({ json: config });
+	});
+	await page.route('**/api/settings/home-assistant/test', (route) =>
+		route.fulfill({ json: { message: 'API running.' } })
+	);
+	await page.route('**/api/settings/home-assistant/entities', (route) =>
+		route.fulfill({
+			json: {
+				entities: [
+					{ entityId: 'light.kitchen', name: 'Kitchen light', domain: 'light' },
+					{ entityId: 'switch.fan', name: 'Porch fan', domain: 'switch' },
+					{ entityId: 'scene.movie', name: 'Movie night', domain: 'scene' }
+				]
+			}
+		})
+	);
+	await page.route('**/api/settings/home-assistant/tiles', (route) => {
+		puts.push(route.request().postDataJSON().tiles);
+		return route.fulfill({ json: { tiles: route.request().postDataJSON().tiles } });
+	});
+
+	await gotoHydrated(page, '/settings/home-assistant');
+	await page.getByTestId('ha-url').fill('http://homeassistant.local:8123');
+	await page.getByTestId('ha-token').fill('synthetic-token');
+	await page.getByTestId('ha-test').click();
+	await expect(page.getByTestId('ha-test-result')).toContainText('Connected');
+	await page.getByTestId('ha-save').click();
+
+	const light = page.getByTestId('ha-entity').filter({ hasText: 'Kitchen light' });
+	await light.click();
+	await expect(light).toHaveAttribute('aria-checked', 'true');
+	await page.getByTestId('ha-entity').filter({ hasText: 'Movie night' }).click();
+	await expect(page.getByTestId('ha-pick')).toHaveCount(2);
+
+	await page.getByLabel('Name for Kitchen light').fill('Counter');
+	await page.getByLabel('Name for Kitchen light').blur();
+	await page.getByRole('button', { name: 'Move Movie night up' }).click();
+	await expect
+		.poll(() => puts.at(-1))
+		.toEqual([
+			{ entityId: 'scene.movie', name: '' },
+			{ entityId: 'light.kitchen', name: 'Counter' }
+		]);
+});
