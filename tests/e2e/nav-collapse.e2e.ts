@@ -17,6 +17,13 @@ test.describe('collapsible nav rail', () => {
 		await page.getByTestId('nav-collapse').click();
 		await expect(page.getByTestId('nav-handle')).toBeVisible();
 		await expect.poll(async () => (await main.boundingBox())!.width).toBeCloseTo(viewport.width, 0);
+		// Edge to edge: the top bar left the grid too, so the content covers the full height.
+		await expect
+			.poll(async () => (await main.boundingBox())!.height)
+			.toBeCloseTo(viewport.height, 0);
+		expect((await main.boundingBox())!.y).toBeCloseTo(0, 0);
+		await expect(page.locator('header')).toBeHidden();
+		await expect(page.getByTestId('corner-clock-time')).toBeVisible();
 		const handle = (await page.getByTestId('nav-handle').boundingBox())!;
 		expect(handle.width).toBeGreaterThanOrEqual(96);
 		expect(handle.height).toBeGreaterThanOrEqual(96);
@@ -28,6 +35,8 @@ test.describe('collapsible nav rail', () => {
 
 		await page.getByTestId('nav-handle').click();
 		await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
+		await expect(page.locator('header')).toBeVisible();
+		await expect(page.getByTestId('corner-clock')).toBeHidden();
 		await expect.poll(async () => (await main.boundingBox())!.width).toBeCloseTo(before.width, 0);
 	});
 });

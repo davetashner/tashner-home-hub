@@ -149,21 +149,10 @@
 	class="shell grid h-full portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape short:grid-cols-shell-short"
 >
 	<header
+		inert={collapsed && sideRail}
 		class="shell-header flex items-center justify-between gap-3 pt-safe-4 pr-safe-4 pb-4 pl-safe-4 max-sm:justify-end max-sm:pt-safe-2 max-sm:pr-safe-3 max-sm:pb-2 max-sm:pl-safe-3 sm:flex-wrap sm:gap-8 sm:pt-safe-8 sm:pr-safe-12 sm:pb-8 sm:pl-safe-12 portrait:sm:pr-safe-10 portrait:sm:pl-safe-10 landscape:col-start-2 landscape:row-start-1 landscape:pl-4 landscape:sm:gap-4 landscape:sm:pr-safe-8 landscape:sm:pl-8 short:flex-nowrap short:gap-1 short:pt-safe-2 short:pr-safe-2 short:pb-2 short:pl-2 tablet:flex-nowrap tablet:gap-4 tablet:pt-safe-2 tablet:pb-2 portrait:tablet:pr-safe-6 portrait:tablet:pl-safe-6 landscape:tablet:gap-4 landscape:tablet:pr-safe-6 landscape:tablet:pl-6"
 	>
 		<div class="flex min-w-0 items-center gap-4 landscape:flex-1 landscape:sm:min-w-min">
-			{#if collapsed}
-				<button
-					bind:this={handle}
-					type="button"
-					onclick={expand}
-					aria-label="Show menu"
-					data-testid="nav-handle"
-					class="shell-handle press-link hidden size-tap-kid items-center justify-center rounded-chip border-2 border-line bg-surface-raised/70 text-title text-ink shadow-raised"
-				>
-					<Icon name="menu" />
-				</button>
-			{/if}
 			{#if pathname === '/'}
 				<span class="max-sm:hidden"></span>
 			{:else}
@@ -235,6 +224,33 @@
 		</button>
 	</nav>
 
+	{#if collapsed}
+		<!-- Bottom-left: the calendar keeps its controls along the top and its day headers to the
+		     right, photos keep their centre and top clear; the bottom-left of the calendar is only
+		     the time gutter. The clock is non-interactive so it never swallows a tap. -->
+		<div
+			class="shell-float pointer-events-none fixed bottom-4 left-4 z-30 hidden items-center gap-3"
+		>
+			<button
+				bind:this={handle}
+				type="button"
+				onclick={expand}
+				aria-label="Show menu"
+				data-testid="nav-handle"
+				class="press-link pointer-events-auto inline-flex size-tap-kid items-center justify-center rounded-chip border-2 border-on-frame/40 bg-scrim text-title text-on-frame"
+			>
+				<Icon name="menu" />
+			</button>
+			<div
+				class="rounded-chip bg-scrim px-4 py-2 text-on-frame"
+				data-testid="corner-clock"
+				aria-hidden="true"
+			>
+				<Clock testidPrefix="corner-clock" size="corner" />
+			</div>
+		</div>
+	{/if}
+
 	<!-- The page scrolls here; tabindex lets keyboard users scroll it even when it has no focusable content (axe scrollable-region-focusable). -->
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<main
@@ -256,7 +272,8 @@
 		.shell-collapse {
 			display: inline-flex;
 		}
-		.shell-nav {
+		.shell-nav,
+		.shell-header {
 			transition:
 				transform var(--duration-base) var(--ease-out-soft),
 				opacity var(--duration-base) linear;
@@ -266,18 +283,26 @@
 			opacity: 0;
 			pointer-events: none;
 		}
+		.shell[data-collapsed] .shell-header {
+			transform: translateY(-100%);
+			opacity: 0;
+			pointer-events: none;
+		}
+		/* Both bars have left the grid: the content owns the whole viewport. */
 		.shell[data-gone] {
 			grid-template-columns: minmax(0, 1fr);
+			grid-template-rows: minmax(0, 1fr);
 		}
-		.shell[data-gone] .shell-nav {
+		.shell[data-gone] .shell-nav,
+		.shell[data-gone] .shell-header {
 			display: none;
 		}
-		.shell[data-gone] .shell-header,
 		.shell[data-gone] .shell-main {
 			grid-column-start: 1;
+			grid-row-start: 1;
 		}
-		.shell-handle {
-			display: inline-flex;
+		.shell-float {
+			display: flex;
 		}
 	}
 	.press-link {
