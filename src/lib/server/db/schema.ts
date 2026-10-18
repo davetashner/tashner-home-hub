@@ -341,3 +341,14 @@ export const apiTokens = sqliteTable(
 	},
 	(t) => [uniqueIndex('api_tokens_hash_idx').on(t.tokenHash)]
 );
+
+/** Reusable meals (MEAL-2): a name, an optional emoji and a JSON array of ingredient strings. */
+export const savedMeals = sqliteTable('saved_meals', {
+	id: id(),
+	name: text('name').notNull(),
+	emoji: text('emoji'),
+	ingredients: text('ingredients').notNull().default('[]'),
+	createdAt: integer('created_at')
+		.notNull()
+		.$defaultFn(() => Date.now())
+});
