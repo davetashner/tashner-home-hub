@@ -78,6 +78,12 @@
 			line: 'What stars can be saved up for.'
 		},
 		{
+			href: resolve('/(app)/settings/allowance'),
+			emoji: '💵',
+			title: 'Allowance',
+			line: 'Turn stars into pocket money, and track what is owed.'
+		},
+		{
 			href: resolve('/(app)/settings/countdowns'),
 			emoji: '⏳',
 			title: 'Countdowns',

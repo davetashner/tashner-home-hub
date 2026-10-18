@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import PinPad, { type PinResult } from '#lib/components/PinPad.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import { formatMoney } from '#lib/domain/allowance.js';
 	import { goalEffect, shopCard, type ShopReward } from '#lib/domain/reward-shop.js';
 
 	interface Goal {
@@ -40,11 +41,23 @@
 	let askPin = $state(false);
 	let adults = $state<Adult[]>([]);
 	let adultId = $state<string | null>(null);
+	// Read-only allowance (REW-7); shown only once the kid has some.
+	let allowance = $state<{ balanceCents: number; symbol: string } | null>(null);
 
 	const goalId = $derived(pickedId === undefined ? (goal?.id ?? null) : pickedId);
 	const effect = $derived(buying ? goalEffect(balance, buying, goal) : null);
 
-	onMount(async () => {
+	onMount(() => {
+		void fetch(`/api/members/${memberId}/allowance`).then(
+			async (r) => {
+				if (r.ok) allowance = (await r.json()) as { balanceCents: number; symbol: string };
+			},
+			() => {}
+		);
+		void loadShop();
+	});
+
+	async function loadShop() {
 		try {
 			const [r, m] = await Promise.all([fetch('/api/rewards'), fetch('/api/members')]);
 			if (!r.ok) throw new Error(String(r.status));
@@ -56,7 +69,7 @@
 		} finally {
 			loaded = true;
 		}
-	});
+	}
 
 	const json = { 'content-type': 'application/json' };
 
@@ -134,6 +147,11 @@
 			You have {balance}
 			{balance === 1 ? 'star' : 'stars'}
 		</p>
+		{#if allowance && allowance.balanceCents > 0}
+			<p class="text-lead font-extrabold text-ink-muted" data-testid="shop-allowance">
+				Allowance {formatMoney(allowance.balanceCents, allowance.symbol)}
+			</p>
+		{/if}
 		{#if message}
 			<p role="status" data-testid="shop-message" class="text-lead font-bold">{message}</p>
 		{/if}
