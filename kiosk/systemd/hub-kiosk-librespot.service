@@ -1,0 +1,28 @@
+[Unit]
+Description=Home Hub Spotify Connect device "Hub" (librespot)
+Documentation=https://github.com/librespot-org/librespot/wiki/Options
+# Plays through PipeWire's PulseAudio socket, so it follows the default sink (the Bluetooth speaker).
+Wants=pipewire-pulse.service
+After=pipewire-pulse.service wireplumber.service network-online.target
+
+[Service]
+Type=simple
+# Cache dir holds the cached login (a credential): kiosk-only, mode 700. No audio cache (SD wear).
+ExecStartPre=/usr/bin/install -d -m 700 %h/.local/state/hub-kiosk/librespot
+Environment=LIBRESPOT_NAME=Hub
+Environment=LIBRESPOT_BACKEND=pulseaudio
+Environment=LIBRESPOT_CACHE=%h/.local/state/hub-kiosk/librespot
+Environment=LIBRESPOT_DISABLE_AUDIO_CACHE=
+Environment=LIBRESPOT_ENABLE_VOLUME_NORMALISATION=
+Environment=LIBRESPOT_DEVICE_TYPE=speaker
+Environment=LIBRESPOT_INITIAL_VOLUME=40
+# install.sh writes SPOTIFY_INITIAL_VOLUME from kiosk.conf here (overrides the line above).
+EnvironmentFile=-/etc/hub-kiosk/librespot.env
+UMask=077
+ExecStart=/usr/bin/librespot
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=default.target
