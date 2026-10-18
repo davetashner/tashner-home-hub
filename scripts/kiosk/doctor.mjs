@@ -55,6 +55,13 @@ if [ -n "$AP" ]; then
     echo "dev $d $(cat /sys/class/input/$d/device/name 2>/dev/null)"
   done
 fi
+echo "=== cec"
+if grep -qE '^CEC_MODE="?also' /etc/hub-kiosk/kiosk.conf 2>/dev/null; then
+  CD=$(sed -n 's/^CEC_DEVICE="\\{0,1\\}\\([A-Za-z0-9_./-]*\\).*/\\1/p' /etc/hub-kiosk/kiosk.conf 2>/dev/null | head -1)
+  echo "device \${CD:-/dev/cec0}"
+  [ -e "\${CD:-/dev/cec0}" ] && echo "present yes" || echo "present no"
+  sed -n 's/^CEC_BACKEND="\\{0,1\\}\\([a-z-]*\\).*/backend \\1/p' /etc/hub-kiosk/kiosk.conf 2>/dev/null | head -1
+fi
 echo "=== speaker"
 H=$(getent passwd "\${OWNER:-$(id -un)}" | cut -d: -f6)
 SPK=$(sudo -n cat "$H/.local/state/hub-kiosk/speaker" 2>/dev/null | tr -d '[:space:]')
@@ -109,6 +116,7 @@ export function remoteFacts(text) {
 		units,
 		health: s.health && s.health !== 'none' ? s.health : null,
 		...(s.wake === undefined ? {} : { wake: parseWake(s.wake) }),
+		...(s.cec ? { cec: parseCec(s.cec) } : {}),
 		...(s.speaker === undefined ? {} : { speaker: parseSpeaker(s.speaker) }),
 		...(s.spotify ? { spotify: parseSpotify(s.spotify) } : {})
 	};
@@ -122,6 +130,16 @@ export function parseWake(text) {
 		.filter((l) => l.startsWith('dev '))
 		.map((l) => l.split(' ').slice(2).join(' ') || l.split(' ')[1]);
 	return { input, devices };
+}
+
+/** The `cec` section, present only when kiosk.conf has CEC_MODE=also. */
+export function parseCec(text) {
+	const field = (name) => new RegExp(`^${name} (.*)$`, 'm').exec(text)?.[1]?.trim() ?? '';
+	return {
+		device: field('device') || '/dev/cec0',
+		present: field('present') === 'yes',
+		backend: field('backend') || null
+	};
 }
 
 /** The `speaker` section: the chosen speaker's Bluetooth state and whether it is the default sink. */
@@ -295,6 +313,22 @@ export function diagnose(facts) {
 							: 'plug in the touch screen, or set INPUT="mouse" in kiosk.conf'
 					)
 		);
+
+	if (r.cec) {
+		if (!r.cec.backend)
+			out.push(
+				warn('cec', 'CEC_MODE=also but no CEC_BACKEND', 'set CEC_BACKEND="cec-ctl" in kiosk.conf')
+			);
+		else if (!r.cec.present)
+			out.push(
+				warn(
+					'cec',
+					`CEC_MODE=also but ${r.cec.device} is missing`,
+					'the TV will not get standby: check the HDMI port, "ls /dev/cec*", sudo apt install v4l-utils'
+				)
+			);
+		else out.push(pass('cec', `${r.cec.backend} on ${r.cec.device}, standby sent with HDMI off`));
+	}
 
 	const sp = r.speaker;
 	if (sp) {

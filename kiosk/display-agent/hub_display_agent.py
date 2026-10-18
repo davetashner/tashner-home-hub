@@ -9,7 +9,9 @@ schedule, "sleep now" and the night re-sleep timeout, the agent only obeys:
   POST {HUB_URL}/api/display/wake   -> same body (sent when the screen is touched)
 
 Power is switched with `wlr-randr --output NAME --off|--on` (real HDMI off), with an optional
-CEC fallback (cec-ctl or cec-client) when wlr-randr fails. Touch is read straight from
+CEC fallback (cec-ctl or cec-client) when wlr-randr fails. CEC_MODE=also additionally sends CEC
+standby after HDMI off and CEC power-on + Active Source as HDMI comes back (TVs that ignore a
+blank signal). Touch is read straight from
 /dev/input/event* so it still works while the output is off. With INPUT=mouse (a TV driven by a
 mouse and keyboard) a mouse button or key press wakes the screen too; moving the mouse does not.
 """
@@ -23,6 +25,7 @@ import shlex
 import struct
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -63,6 +66,8 @@ class Config:
     cec_backend: str = ""  # "", "cec-ctl" or "cec-client"
     cec_device: str = "/dev/cec0"
     cec_address: str = "0"  # logical address of the TV/monitor
+    cec_mode: str = "fallback"  # "fallback": CEC only if wlr-randr fails; "also": always, too
+    cec_timeout_seconds: float = 5.0  # per cec-ctl / cec-client call in "also" mode
     offline_hold_seconds: float = 120.0  # touch-wake kept on this long if the hub is unreachable
     wake_repost_seconds: float = 20.0  # re-POST wake on touch while on, to restart the night timeout
 
@@ -100,15 +105,19 @@ def config_from(conf: Dict[str, str]) -> Config:
         cec_backend=conf.get("CEC_BACKEND", d.cec_backend),
         cec_device=conf.get("CEC_DEVICE", d.cec_device),
         cec_address=conf.get("CEC_ADDRESS", d.cec_address),
+        cec_mode="also" if conf.get("CEC_MODE", "") == "also" else "fallback",
+        cec_timeout_seconds=max(1.0, num("CEC_TIMEOUT_SECONDS", d.cec_timeout_seconds)),
         offline_hold_seconds=num("OFFLINE_WAKE_SECONDS", d.offline_hold_seconds),
     )
 
 
-def run_command(argv: Sequence[str], input_text: Optional[str] = None) -> Tuple[int, str]:
+def run_command(
+    argv: Sequence[str], input_text: Optional[str] = None, timeout: float = 10
+) -> Tuple[int, str]:
     """The real command runner: (exit code, combined output). Never raises."""
     try:
         p = subprocess.run(
-            list(argv), input=input_text, capture_output=True, text=True, timeout=10, check=False
+            list(argv), input=input_text, capture_output=True, text=True, timeout=timeout, check=False
         )
         return p.returncode, (p.stdout + p.stderr).strip()
     except (OSError, subprocess.SubprocessError) as e:
@@ -136,6 +145,8 @@ class Screen:
         self.cfg = cfg
         self.run = run
         self.output = ""
+        self.cec_lock = threading.Lock()  # one CEC command sequence at a time
+        self.cec_state: Optional[bool] = None  # last CEC power we sent successfully (also mode)
 
     def _resolve_output(self) -> str:
         rc, out = self.run(["wlr-randr"])
@@ -176,15 +187,68 @@ class Screen:
             log.error("CEC %s failed (%s): %s", "on" if on else "standby", backend, out)
         return rc == 0
 
+    def _cec_commands(self, on: bool) -> List[Tuple[List[str], Optional[str]]]:
+        """CEC mode "also": what to send. Off = standby. On = power the TV on, then claim the
+        input (Active Source) so it wakes onto the Pi rather than the last input it used."""
+        addr = self.cfg.cec_address
+        if self.cfg.cec_backend == "cec-ctl":
+            base = ["cec-ctl", "-d", self.cfg.cec_device]
+            if not on:
+                return [(base + ["--to", addr, "--standby"], None)]
+            return [(base + ["--to", addr, "--image-view-on"], None), (base + ["--active-source"], None)]
+        if self.cfg.cec_backend == "cec-client":
+            cc = ["cec-client", "-s", "-d", "1"]
+            return [(cc, "standby " + addr + "\n")] if not on else [(cc, "on " + addr + "\nas\n")]
+        return []
+
+    def _cec_send(self, on: bool) -> bool:
+        """Send the CEC commands for `on`. Never raises, bounded by cec_timeout_seconds per call;
+        a TV that ignores us only costs a log line. Skipped when the TV already got this state."""
+        with self.cec_lock:
+            if self.cec_state is on:
+                return True
+            ok = False
+            for i, (argv, stdin) in enumerate(self._cec_commands(on)):
+                try:
+                    rc, out = self.run(argv, stdin, timeout=self.cfg.cec_timeout_seconds)
+                except Exception as e:  # noqa: BLE001 - CEC must never take the agent down
+                    rc, out = 1, str(e)
+                if rc != 0:
+                    log.warning("CEC %s failed (%s): %s", "on" if on else "standby", argv[0], out)
+                elif i == 0:
+                    ok = True
+            if ok:
+                self.cec_state = on
+                log.info("CEC %s sent (%s)", "on" if on else "standby", self.cfg.cec_backend)
+            return ok
+
+    def _cec_async(self, on: bool) -> "threading.Thread":
+        t = threading.Thread(target=self._cec_send, args=(on,), name="cec", daemon=True)
+        t.start()
+        return t
+
     def set_power(self, on: bool) -> bool:
+        also = self.cfg.cec_mode == "also" and bool(self.cfg.cec_backend)
+        # Wake: start the CEC power-on first and do not wait for it. A sleeping TV takes seconds
+        # to answer; HDMI comes back immediately and the TV locks on when it is up.
+        waker = self._cec_async(True) if also and on else None
         if not self.output:
             self.output = self._resolve_output()
         rc, out = self.run(["wlr-randr", "--output", self.output, "--on" if on else "--off"])
         if rc == 0:
             log.info("screen %s via wlr-randr (%s)", "on" if on else "off", self.output)
+            if also and not on:
+                self._cec_send(False)  # after the signal is gone, put the TV itself to standby
             return True
         log.error("wlr-randr failed for %s: %s", self.output, out)
         self.output = ""  # find the output again next time
+        if also:
+            if waker is not None:
+                waker.join(self.cfg.cec_timeout_seconds * 2 + 1)
+            ok = self.cec_state is on or (waker is None and self._cec_send(on))
+            if ok:
+                log.info("screen %s via CEC (%s)", "on" if on else "off", self.cfg.cec_backend)
+            return ok
         if self.cfg.cec_backend and self._cec(on):
             log.info("screen %s via CEC (%s)", "on" if on else "off", self.cfg.cec_backend)
             return True
