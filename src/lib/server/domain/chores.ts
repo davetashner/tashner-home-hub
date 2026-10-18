@@ -7,12 +7,14 @@
  * never touches a local clock and cannot drift across a DST change; the time zone is only
  * used to decide what "today" is.
  */
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, gte, inArray, lte } from 'drizzle-orm';
+import { addDays } from '#lib/domain/streaks.js';
 import rrulePkg from 'rrule';
 import type { RRule } from 'rrule';
 import type { Db } from '../db/index.js';
 import { CHORE_KINDS, choreCompletions, chores, members } from '../db/schema.js';
 import { householdTimeZone } from '../household.js';
+import { FLEX_MARK, flexOf, flexPeriod, type FlexEvery } from './flex.js';
 import { LedgerError, createChore as insertChore } from './ledger.js';
 
 export const TIMES_OF_DAY = ['morning', 'afternoon', 'evening', 'anytime'] as const;
@@ -24,13 +26,17 @@ export type ChoreKind = (typeof CHORE_KINDS)[number];
 export const WEEKDAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 
-/** Friendly schedule. `start` is the first local day (YYYY-MM-DD) and anchors weekly/monthly. */
+/**
+ * Friendly schedule. `start` is the first local day (YYYY-MM-DD) and anchors weekly/monthly.
+ * `flex` is once per week (or two), on any day: it has no due day of its own (see ./flex.ts).
+ */
 export type Schedule =
 	| { type: 'once'; start: string }
 	| { type: 'daily'; start: string }
 	| { type: 'weekdays'; start: string; days: Weekday[] }
 	| { type: 'weekly'; start: string }
-	| { type: 'monthly'; start: string };
+	| { type: 'monthly'; start: string }
+	| { type: 'flex'; start: string; every: FlexEvery };
 
 export type CompletionState = 'none' | 'pending' | 'approved' | 'rejected' | 'undone';
 
@@ -62,10 +68,15 @@ export interface ChoreInput {
 export interface DueChore extends ChoreView {
 	status: CompletionState;
 	completionId: string | null;
+	/** Flexible to-dos only: the last day of the period, and which of its weeks today is in. */
+	flex?: { dueBy: string; week: number; weeks: FlexEvery };
 }
 
+/** Flexible to-dos open this period show in their own group, after the times of day. */
+export type DueGroup = TimeOfDay | 'week';
+
 export interface TimeGroup {
-	timeOfDay: TimeOfDay;
+	timeOfDay: DueGroup;
 	chores: DueChore[];
 }
 
@@ -171,13 +182,19 @@ export function validSchedule(input: ChoreInput['schedule'], today: string): Sch
 			const unique = WEEKDAYS.filter((d) => (days as unknown[]).includes(d));
 			return { type: 'weekdays', start, days: unique };
 		}
+		case 'flex': {
+			const every = (raw as { every?: unknown }).every;
+			if (every !== 1 && every !== 2) throw invalid('schedule.every must be 1 or 2 (weeks)');
+			return { type: 'flex', start, every };
+		}
 		default:
-			throw invalid('schedule.type must be once, daily, weekdays, weekly or monthly');
+			throw invalid('schedule.type must be once, daily, weekdays, weekly, monthly or flex');
 	}
 }
 
 export function scheduleToRRule(s: Schedule): string {
 	const dtstart = `DTSTART:${s.start.replaceAll('-', '')}T000000Z`;
+	if (s.type === 'flex') return `${dtstart}\nRRULE:FREQ=WEEKLY;INTERVAL=${s.every}\n${FLEX_MARK}`;
 	const rule = {
 		once: 'FREQ=DAILY;COUNT=1',
 		daily: 'FREQ=DAILY',
@@ -191,6 +208,8 @@ export function scheduleToRRule(s: Schedule): string {
 /** Reads stored schedule text back into a friendly schedule. Unset means daily from `fallback`. */
 export function parseSchedule(text: string | null, fallback: string): Schedule {
 	if (!text) return { type: 'daily', start: fallback };
+	const flex = flexOf(text, fallback);
+	if (flex) return { type: 'flex', ...flex };
 	const m = /DTSTART:(\d{4})(\d{2})(\d{2})T/.exec(text);
 	const start = m ? `${m[1]}-${m[2]}-${m[3]}` : fallback;
 	const rule = /RRULE:(.*)$/m.exec(text)?.[1] ?? text;
@@ -205,9 +224,12 @@ export function parseSchedule(text: string | null, fallback: string): Schedule {
 	return { type: 'daily', start };
 }
 
-/** Whether the schedule has an occurrence on the calendar day `date` (YYYY-MM-DD). */
+/**
+ * Whether the schedule has an occurrence on the calendar day `date` (YYYY-MM-DD). A flexible to-do
+ * never does: it is due once per period, on no particular day.
+ */
 export function isDueOn(schedule: Schedule, date: string): boolean {
-	if (date < schedule.start) return false;
+	if (schedule.type === 'flex' || date < schedule.start) return false;
 	const dayStart = anchor(date);
 	const dayEnd = new Date(dayStart.getTime() + 86_399_999);
 	const rule = rrulePkg.rrulestr(scheduleToRRule(schedule)) as RRule;
@@ -244,13 +266,15 @@ export function createChore(db: Db, input: ChoreInput, clock: Clock = {}): Chore
 	const today = todayOf(db, clock);
 	const kind = input.kind === undefined ? 'star_job' : validKind(input.kind);
 	const habit = kind === 'habit';
+	const schedule = validSchedule(input.schedule, today);
+	if (habit && schedule.type === 'flex') throw invalid('Habits are daily checks, not any-day jobs');
 	const row = insertChore(db, {
 		title: validTitle(input.title),
 		kind,
 		icon: validIcon(input.icon),
 		memberIds: validMembers(db, input.memberIds ?? []),
 		stars: habit ? 0 : input.stars === undefined ? 1 : validStars(input.stars),
-		schedule: scheduleToRRule(validSchedule(input.schedule, today)),
+		schedule: scheduleToRRule(schedule),
 		timeOfDay: input.timeOfDay === undefined ? 'anytime' : validTimeOfDay(input.timeOfDay),
 		requiresApproval: habit ? false : input.requiresApproval
 	});
@@ -285,7 +309,10 @@ export function updateChore(
 	if (patch.schedule !== undefined) {
 		// Keep the existing start day when only the shape changes.
 		const prior = parseSchedule(current.schedule, today);
-		set.schedule = scheduleToRRule(validSchedule({ start: prior.start, ...patch.schedule }, today));
+		const next = validSchedule({ start: prior.start, ...patch.schedule }, today);
+		if (current.kind === 'habit' && next.type === 'flex')
+			throw invalid('Habits are daily checks, not any-day jobs');
+		set.schedule = scheduleToRRule(next);
 	}
 	if (Object.keys(set).length === 0) return toView(current, today);
 	return toView(db.update(chores).set(set).where(eq(chores.id, id)).returning().get(), today);
@@ -321,7 +348,11 @@ const STATE_RANK: Record<CompletionState, number> = {
 	approved: 4
 };
 
-/** Chores due for a member on a local day, grouped morning > afternoon > evening > anytime. */
+/**
+ * Chores due for a member on a local day, grouped morning > afternoon > evening > anytime, then
+ * the flexible to-dos still open this period ('week'). One checked off on an earlier day of its
+ * period is gone until the next period; one checked off today stays, showing its status.
+ */
 export function choresForDay(
 	db: Db,
 	memberId: string,
@@ -330,30 +361,60 @@ export function choresForDay(
 ): TimeGroup[] {
 	validDate(date);
 	localDateIn(0, timeZone); // validates the zone
-	const due = db
+	const mine = db
 		.select()
 		.from(chores)
 		.where(eq(chores.archived, false))
 		.all()
 		.map((r) => toView(r, date))
-		.filter((c) => c.memberIds.includes(memberId) && isDueOn(c.schedule, date));
+		.filter((c) => c.memberIds.includes(memberId));
 
+	// Two weeks back covers the longest flexible period.
+	const from = addDays(date, -13);
 	const done = db
 		.select()
 		.from(choreCompletions)
-		.where(and(eq(choreCompletions.memberId, memberId), eq(choreCompletions.date, date)))
+		.where(
+			and(
+				eq(choreCompletions.memberId, memberId),
+				gte(choreCompletions.date, from),
+				lte(choreCompletions.date, date)
+			)
+		)
 		.all();
-
-	const groups = new Map<TimeOfDay, DueChore[]>(TIMES_OF_DAY.map((t) => [t, []]));
-	for (const chore of due) {
-		let best: { status: CompletionState; id: string | null } = { status: 'none', id: null };
+	/** The most settled completion of a chore from `first` through `date`. */
+	const best = (choreId: string, first: string) => {
+		let top = { status: 'none' as CompletionState, id: null as string | null, date };
 		for (const c of done) {
-			if (c.choreId === chore.id && STATE_RANK[c.status] > STATE_RANK[best.status])
-				best = { status: c.status, id: c.id };
+			if (c.choreId === choreId && c.date >= first && STATE_RANK[c.status] > STATE_RANK[top.status])
+				top = { status: c.status, id: c.id, date: c.date };
 		}
-		groups.get(chore.timeOfDay)!.push({ ...chore, status: best.status, completionId: best.id });
-	}
-	return TIMES_OF_DAY.map((t) => ({ timeOfDay: t, chores: groups.get(t)! })).filter(
-		(g) => g.chores.length > 0
+		return top;
+	};
+
+	const groups = new Map<DueGroup, DueChore[]>(
+		[...TIMES_OF_DAY, 'week' as const].map((t) => [t, []])
 	);
+	for (const chore of mine) {
+		const s = chore.schedule;
+		if (s.type === 'flex') {
+			const period = flexPeriod(s.start, s.every, date);
+			if (!period) continue;
+			const top = best(chore.id, period.start);
+			const checked = top.status === 'pending' || top.status === 'approved';
+			if (checked && top.date !== date) continue;
+			groups.get('week')!.push({
+				...chore,
+				status: checked ? top.status : 'none',
+				completionId: checked ? top.id : null,
+				flex: { dueBy: period.end, week: period.week, weeks: period.weeks }
+			});
+		} else if (isDueOn(s, date)) {
+			const top = best(chore.id, date);
+			groups.get(chore.timeOfDay)!.push({ ...chore, status: top.status, completionId: top.id });
+		}
+	}
+	return [...groups]
+		.map(([timeOfDay, list]) => ({ timeOfDay, chores: list }))
+		.filter((g) => g.chores.length > 0);
 }

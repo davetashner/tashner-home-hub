@@ -5,12 +5,25 @@ import { householdTimeZone } from '#lib/server/household.js';
 import { readAppearanceData } from '#lib/server/appearance.js';
 import { readWeatherLocation } from '#lib/server/weather.js';
 import { readWaveBackground } from '#lib/server/wave-background.js';
+import { members } from '#lib/server/db/schema.js';
+import { todoLabel } from '#lib/domain/nav.js';
+import { eq } from 'drizzle-orm';
 import type { LayoutServerLoad } from './$types';
 
 /** Only the coordinates leave the server for the sun maths (no name, no network). */
 function waveLocation() {
 	const loc = readWeatherLocation(getDb());
 	return loc ? { lat: loc.lat, lon: loc.lon } : null;
+}
+
+/** The to-do list is named after the household's child when there is exactly one. */
+function todoName() {
+	const kids = getDb()
+		.select({ name: members.name })
+		.from(members)
+		.where(eq(members.role, 'child'))
+		.all();
+	return todoLabel(kids.map((k) => k.name));
 }
 
 const forcedDim = (v: string | undefined) => {
@@ -26,6 +39,7 @@ export const load: LayoutServerLoad = (event) => ({
 	adult: isAdult(event),
 	displayRole: displayRole(event),
 	timeZone: householdTimeZone(getDb()),
+	todoLabel: todoName(),
 	waveBackground: readWaveBackground(),
 	waveLocation: waveLocation(),
 	appearance: readAppearanceData(),

@@ -93,8 +93,8 @@ describe('photo-sources API', () => {
 		expect(res.status).toBe(201);
 		id = res.body.id;
 		expect(res.body.albums).toEqual([
-			{ name: 'a', count: 2, selected: true },
-			{ name: 'b', count: 1, selected: true }
+			{ name: 'a', count: 2, selected: true, window: null },
+			{ name: 'b', count: 1, selected: true, window: null }
 		]);
 		expect(res.body.lastScan.count).toBe(3);
 		expect((await run(list.GET)).body).toHaveLength(1);
@@ -121,6 +121,28 @@ describe('photo-sources API', () => {
 			(await run(hide.POST, { params: { id: target }, body: { hidden: false } })).body.hidden
 		).toBe(false);
 		expect((await run(hide.POST, { params: { id: 'nope' } })).status).toBe(404);
+	});
+
+	it('sets yearly album windows that take over the slideshow', async () => {
+		const { slideshow } = await import('#lib/server/photo-source/service.js');
+		const patch = (body: unknown) => run(one.PATCH, { params: { id }, body });
+		await patch({ albums: [] });
+		const set = await patch({ windows: { b: { from: '06-01', to: '06-10' } } });
+		expect(set.status).toBe(200);
+		expect(set.body.albums[1].window).toMatchObject({ from: '06-01', to: '06-10' });
+		expect(typeof set.body.albums[1].window.open).toBe('boolean');
+		expect(set.body.albums[0].window).toBeNull();
+		expect((await patch({ windows: { b: { from: '06-01', to: '06-31' } } })).status).toBe(400);
+		expect((await patch({ windows: ['b'] })).status).toBe(400);
+
+		const albums = (today: string) => [
+			...new Set(slideshow(db, 10, '', today).map((p) => p.album))
+		];
+		expect(albums('06-05')).toEqual(['b']);
+		expect(albums('03-01')).toEqual(['a']);
+
+		expect((await patch({ windows: { b: null } })).body.albums[1].window).toBeNull();
+		expect(albums('06-05').sort()).toEqual(['a', 'b']);
 	});
 
 	it('scans on demand and deletes without touching files', async () => {

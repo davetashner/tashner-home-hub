@@ -1,6 +1,16 @@
 import { eq, sql } from 'drizzle-orm';
 import { schema, type Db } from '../db/index.js';
+import {
+	albumShows,
+	anyWindowOpen,
+	isWindowOpen,
+	type AlbumRules,
+	type AlbumWindow,
+	type MonthDay
+} from '../domain/album-window.js';
+import { localDateIn } from '../domain/chores.js';
 import { parseConfig, ROOT_ALBUM, isAlbumSelected, stableShuffle } from '../domain/photo-folder.js';
+import { householdTimeZone } from '../household.js';
 import { lastScan, scanSource, type ScanResult } from './folder.js';
 import { enqueuePrerender } from './prerender.js';
 
@@ -9,7 +19,13 @@ export interface SourceView {
 	kind: string;
 	label: string;
 	root: string;
-	albums: { name: string; count: number; selected: boolean }[];
+	albums: {
+		name: string;
+		count: number;
+		selected: boolean;
+		/** Shows only between these days each year; `open` = inside the window today. */
+		window: (AlbumWindow & { open: boolean }) | null;
+	}[];
 	photoCount: number;
 	lastScan: { at: number; count: number } | null;
 }
@@ -20,7 +36,12 @@ export async function scanAndPrerender(db: Db, sourceId: string): Promise<ScanRe
 	return result;
 }
 
-export function viewSource(db: Db, id: string): SourceView | undefined {
+/** Today's `MM-DD` in the household time zone. */
+export function todayMonthDay(db: Db, now = Date.now()): MonthDay {
+	return localDateIn(now, householdTimeZone(db)).slice(5);
+}
+
+export function viewSource(db: Db, id: string, today = todayMonthDay(db)): SourceView | undefined {
 	const s = db.select().from(schema.photoSources).where(eq(schema.photoSources.id, id)).get();
 	if (!s) return undefined;
 	const config = parseConfig(s.config);
@@ -33,7 +54,14 @@ export function viewSource(db: Db, id: string): SourceView | undefined {
 	const albums = counts
 		.map((c) => ({ name: c.album ?? ROOT_ALBUM, count: c.n }))
 		.sort((a, b) => a.name.localeCompare(b.name))
-		.map((a) => ({ ...a, selected: isAlbumSelected(a.name, config.albums) }));
+		.map((a) => {
+			const w = config.windows[a.name];
+			return {
+				...a,
+				selected: isAlbumSelected(a.name, config.albums),
+				window: w ? { ...w, open: isWindowOpen(w, today) } : null
+			};
+		});
 	return {
 		id: s.id,
 		kind: s.kind,
@@ -54,15 +82,26 @@ export function listSourceViews(db: Db): SourceView[] {
 		.map((r) => viewSource(db, r.id)!);
 }
 
-/** Visible photos in selected albums, in a stable shuffled order. */
-export function slideshow(db: Db, limit: number, seed = '') {
-	const configs = new Map(
+/**
+ * Visible photos in selected albums, in a stable shuffled order. While an album's yearly window
+ * is open, only windowed albums show.
+ */
+export function slideshow(db: Db, limit: number, seed = '', today = todayMonthDay(db)) {
+	const rules = new Map<string, AlbumRules>(
 		db
 			.select()
 			.from(schema.photoSources)
 			.all()
-			.map((s) => [s.id, parseConfig(s.config).albums])
+			.map((s) => {
+				const c = parseConfig(s.config);
+				return [
+					s.id,
+					{ selected: (album) => isAlbumSelected(album, c.albums), windows: c.windows }
+				];
+			})
 	);
+	const takeover = anyWindowOpen([...rules.values()], today);
+	const unknownSource: AlbumRules = { selected: () => true, windows: {} };
 	const rows = db
 		.select({
 			id: schema.photos.id,
@@ -75,7 +114,9 @@ export function slideshow(db: Db, limit: number, seed = '') {
 		.from(schema.photos)
 		.where(eq(schema.photos.hidden, false))
 		.all()
-		.filter((p) => isAlbumSelected(p.album, configs.get(p.sourceId) ?? []));
+		.filter((p) =>
+			albumShows(p.album ?? ROOT_ALBUM, rules.get(p.sourceId) ?? unknownSource, today, takeover)
+		);
 	return stableShuffle(rows, seed)
 		.slice(0, limit)
 		.map((p) => ({ id: p.id, w: p.w, h: p.h, takenAt: p.takenAt, album: p.album }));
