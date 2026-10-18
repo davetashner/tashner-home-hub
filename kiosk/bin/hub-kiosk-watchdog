@@ -5,6 +5,10 @@
 #  2. If the page is a Chromium error page (server was down at boot) and /healthz now answers,
 #     open the hub URL in a new tab and close the error tab. Never restarts Chromium for an
 #     unreachable server, so a server outage cannot cause a restart loop.
+#  3. If the page is the hub's own server error page (title like "500 Internal Error", seen when
+#     the kiosk booted mid-redeploy) and /healthz answers, reopen the URL the same way. The
+#     decision (with exponential backoff, so a hub that keeps erroring is not reload-looped) is
+#     in hub_watchdog_logic.py.
 set -uo pipefail
 
 CONF="${HUB_KIOSK_CONF:-/etc/hub-kiosk/kiosk.conf}"
@@ -16,6 +20,8 @@ BASE="http://127.0.0.1:$PORT"
 STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/hub-kiosk"
 FAILS_FILE="$STATE_DIR/watchdog-fails"
 MAX_FAILS=3
+LOGIC="${HUB_WATCHDOG_LOGIC:-/usr/local/lib/hub-kiosk/hub_watchdog_logic.py}"
+ERR_STATE_FILE="$STATE_DIR/watchdog-error-page"
 mkdir -p "$STATE_DIR"
 
 log() { echo "hub-kiosk-watchdog: $*"; }
@@ -46,15 +52,36 @@ err_id=$(printf '%s' "$targets" | tr -d '\n' | sed 's/},/}\n/g' |
   grep '"type": *"page"' | grep '"url": *"chrome-error://' |
   sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' | head -n 1)
 
+reopen() {
+  # Same wall-display launch URL as hub-kiosk-launch (the role cookie may not be set yet).
+  case "$HUB_URL" in *\?*) SEP='&' ;; *) SEP='?' ;; esac
+  curl -fsS --max-time 5 -X PUT "$BASE/json/new?${HUB_URL}${SEP}display=wall" >/dev/null &&
+    curl -fsS --max-time 5 "$BASE/json/close/$1" >/dev/null
+}
+
+healthy() { curl -fsS --max-time 5 -o /dev/null "${HUB_HEALTH_URL:-$HUB_URL}"; }
+
 if [ -n "$err_id" ]; then
-  if curl -fsS --max-time 5 -o /dev/null "${HUB_HEALTH_URL:-$HUB_URL}"; then
+  if healthy; then
     log "server reachable again; reopening $HUB_URL"
-    # Same wall-display launch URL as hub-kiosk-launch (the role cookie may not be set yet).
-    case "$HUB_URL" in *\?*) SEP='&' ;; *) SEP='?' ;; esac
-    curl -fsS --max-time 5 -X PUT "$BASE/json/new?${HUB_URL}${SEP}display=wall" >/dev/null &&
-      curl -fsS --max-time 5 "$BASE/json/close/$err_id" >/dev/null
+    reopen "$err_id"
   else
     log "server still unreachable; will retry"
+  fi
+  exit 0
+fi
+
+# Hub error page: first http(s) page entry's id and title.
+entry=$(printf '%s' "$targets" | tr -d '\n' | sed 's/},/}\n/g' | grep '"type": *"page"' | head -n 1)
+page_id=$(printf '%s' "$entry" | sed -n 's/.*"id": *"\([^"]*\)".*/\1/p')
+page_title=$(printf '%s' "$entry" | sed -n 's/.*"title": *"\([^"]*\)".*/\1/p')
+if [ -n "$page_id" ] && [ -f "$LOGIC" ]; then
+  h=0
+  healthy && h=1
+  action=$(python3 "$LOGIC" decide "$ERR_STATE_FILE" "$page_title" "$h" 2>/dev/null || echo wait)
+  if [ "$action" = reload ]; then
+    log "hub error page ('$page_title') and /healthz answers; reopening $HUB_URL"
+    reopen "$page_id"
   fi
 fi
 exit 0
