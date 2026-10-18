@@ -50,6 +50,54 @@ registry does not have, or when the tables below are out of date. It is not part
 yet; wiring it into CI is bead hub-ed6.3 (the scripts section of `package.json` and `.github/` are
 protected).
 
+## Journey videos
+
+Local tool, not part of CI. It records each journey on a device as a video from the tagged tests:
+
+```bash
+node scripts/journey-videos/record.mjs [--only J1,J4] [--device wall-landscape|wall-portrait|ipad|iphone|all]
+```
+
+`--device` defaults to `wall-landscape`; `ipad` records both orientations (`ipad-landscape` and
+`ipad-portrait` pick one); `--skip-build` reuses `build/`; `--port` picks the server port (default
+4400, or `E2E_PORT`). The iPhone and iPad runs use the WebKit projects from `playwright.config.ts`
+and so only cover the `IOS_SPECS` tests.
+
+For each device it builds the app, starts it on a fresh data dir, runs the step-tagged tests one at
+a time in one browser with Playwright video on, and (with ffmpeg) assembles one video per journey:
+a title card, a clip per test, and an end card with the pass and fail counts. Without ffmpeg the
+per-test `.webm` clips and the report are kept.
+
+Output goes to `reports/journeys/<timestamp>/`: `index.html` lists every step with its result and
+links the videos. `/reports` is gitignored. Never commit or attach the videos: the data is
+synthetic, but the repo is public. `node --test scripts/journey-videos/` runs the tool's tests.
+
+## Journey videos
+
+Local tool, not part of CI. It records each journey on a device as a video from the tagged tests:
+
+```bash
+node scripts/journey-videos/record.mjs [--only J1,J4] [--device wall-landscape|wall-portrait|ipad|iphone|all]
+```
+
+`--device` defaults to `wall-landscape`; `ipad` records both orientations (`ipad-landscape` and
+`ipad-portrait` pick one); `--skip-build` reuses `build/`; `--port` picks the server port (default
+4400, or `E2E_PORT`). The iPhone and iPad runs use the WebKit projects from `playwright.config.ts`
+and so only cover the `IOS_SPECS` tests.
+
+For each device it builds the app, starts it on a fresh data dir, runs the step-tagged tests one at
+a time in one browser with Playwright video on, and (with ffmpeg) assembles one video per journey:
+a title card, a clip per test, and an end card with the pass and fail counts. Without ffmpeg the
+per-test `.webm` clips and the report are kept. Each page gets a caption banner (step id, the
+registry's text, test file and name, Running then Passed, or Failed in red with the assertion), a
+drawn cursor and a tap ripple. The overlay comes from a fixture that stands in for
+`@playwright/test` through `scripts/journey-videos/tsconfig.json`, so the specs run unchanged and
+the app is never touched. The banner is drawn over the top of the page and does not move the layout.
+
+Output goes to `reports/journeys/<timestamp>/`: `index.html` lists every step with its result and
+links the videos. `/reports` is gitignored. Never commit or attach the videos: the data is
+synthetic, but the repo is public. `node --test scripts/journey-videos/` runs the tool's tests.
+
 ## When the journeys run
 
 Ordinary PRs run the normal e2e suite (`pnpm test:e2e`), which already contains these tagged tests.
