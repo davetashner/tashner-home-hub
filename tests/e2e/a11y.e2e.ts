@@ -27,12 +27,12 @@ function discoverRoutes(dir = routesDir, urlPath = ''): string[] {
 
 const routes = discoverRoutes();
 
-test('route discovery finds the home page', () => {
+test('route discovery finds the home page @J16.4', () => {
 	expect(routes).toContain('/');
 });
 
 for (const route of routes) {
-	test(`a11y: ${route} has no serious or critical violations`, async ({ page }) => {
+	test(`a11y: ${route} has no serious or critical violations @J16.4`, async ({ page }) => {
 		await gotoHydrated(page, route);
 		await page.waitForLoadState('networkidle');
 		const { violations } = await new AxeBuilder({ page })

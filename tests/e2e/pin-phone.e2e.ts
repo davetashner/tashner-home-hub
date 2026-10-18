@@ -52,7 +52,7 @@ async function openPad(page: Page, name: string) {
 }
 
 for (const { w, h, landscape } of screens) {
-	test(`PIN pad fits ${w}x${h}`, async ({ page }, info) => {
+	test(`PIN pad fits ${w}x${h} @J9.3`, async ({ page }, info) => {
 		await page.setViewportSize({ width: w, height: h });
 		await openPad(page, `Phone ${w}x${h} ${info.project.name}`);
 		const buttons = page.locator('[data-testid="pinpad"] button');

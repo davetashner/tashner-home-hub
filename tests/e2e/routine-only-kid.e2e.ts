@@ -4,7 +4,7 @@ import { PIN } from './adult';
 import { trackMember } from './cleanup';
 import { gotoHydrated } from './hydrated';
 
-test('a kid with a routine but no chores shows in the switcher and can open the routine', async ({
+test('a kid with a routine but no chores shows in the switcher and can open the routine @J2.1', async ({
 	page
 }, info) => {
 	const seed = await seedKid(page, `routine-only-${info.project.name}`);

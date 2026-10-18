@@ -4,7 +4,7 @@ import { gotoHydrated } from './hydrated';
 
 // hub-7az.13: /api/events pushes list changes; the 60 s fallback poll must not be what delivers them.
 
-test('an item added in one browser shows up in another within a second', async ({
+test('an item added in one browser shows up in another within a second @J6.3', async ({
 	browser
 }, info) => {
 	ensureHousehold();

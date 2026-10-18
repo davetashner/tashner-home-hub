@@ -16,7 +16,7 @@ const PROJECTS = [
 ];
 const JSON_HEADERS = { 'content-type': 'application/json' };
 
-test('plan a dinner, see it in Meals and the calendar week, edit it, delete it', async ({
+test('plan a dinner, see it in Meals and the calendar week, edit it, delete it @J7.1 @J7.2', async ({
 	page
 }, info) => {
 	ensureHousehold();
@@ -76,7 +76,7 @@ test('plan a dinner, see it in Meals and the calendar week, edit it, delete it',
 	}
 });
 
-test('meals fits a 390px phone with no sideways scroll', async ({ page }) => {
+test('meals fits a 390px phone with no sideways scroll @J7.5', async ({ page }) => {
 	ensureHousehold();
 	await page.setViewportSize({ width: 390, height: 844 });
 	await gotoHydrated(page, '/meals');
@@ -101,7 +101,7 @@ for (const { w, h, perRow } of [
 	{ w: 1728, h: 1117, perRow: 0 },
 	{ w: 2560, h: 1440, perRow: 7 }
 ]) {
-	test(`meal slot labels fit on one line at ${w}x${h}`, async ({ page }) => {
+	test(`meal slot labels fit on one line at ${w}x${h} @J7.5`, async ({ page }) => {
 		ensureHousehold();
 		await page.setViewportSize({ width: w, height: h });
 		await gotoHydrated(page, '/meals');
@@ -123,7 +123,7 @@ for (const { w, h, perRow } of [
 	});
 }
 
-test('wall: plan a meal with the on-screen keyboard, it survives a reload', async ({
+test('wall: plan a meal with the on-screen keyboard, it survives a reload @J7.1', async ({
 	page,
 	context
 }, info) => {

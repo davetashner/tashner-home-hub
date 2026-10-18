@@ -52,7 +52,7 @@ const card = (page: Page) =>
 		.getByTestId('chore-card')
 		.filter({ has: page.getByRole('heading', { name: 'Water plants' }) });
 
-test('screens render from saved copies offline and a queued tap is delivered once', async ({
+test('screens render from saved copies offline and a queued tap is delivered once @J0.5', async ({
 	page,
 	context
 }, info) => {
@@ -99,7 +99,7 @@ test('screens render from saved copies offline and a queued tap is delivered onc
 	expect(((await again.json()) as { pending: number }).pending).toBe(3);
 });
 
-test('one child whose chores will not load does not blank the other kids', async ({
+test('one child whose chores will not load does not blank the other kids @J0.5', async ({
 	page
 }, info) => {
 	const s = await seed(page, `${info.project.name}-partial`);
@@ -129,7 +129,7 @@ test('one child whose chores will not load does not blank the other kids', async
 	await expect(page.getByTestId('partial-note')).toBeVisible();
 });
 
-test('a routine step tapped offline survives a reload and is saved once back online', async ({
+test('a routine step tapped offline survives a reload and is saved once back online @J2.3', async ({
 	page,
 	context
 }, info) => {
@@ -199,7 +199,7 @@ test('a routine step tapped offline survives a reload and is saved once back onl
 	await expect.poll(savedSteps).toBe(1); // delivered, and once
 });
 
-test('a meal edited offline survives a reload and is saved once back online', async ({
+test('a meal edited offline survives a reload and is saved once back online @J7.4', async ({
 	page,
 	context
 }, info) => {

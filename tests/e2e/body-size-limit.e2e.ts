@@ -82,20 +82,20 @@ async function postImport(base: string, adultId: string): Promise<number> {
 }
 
 test.describe('BODY_SIZE_LIMIT', () => {
-	test('the Dockerfile sets a limit of at least 10 MB', () => {
+	test('the Dockerfile sets a limit of at least 10 MB @J16.6', () => {
 		expect(dockerLimit).toBeDefined();
 		const mb = /^(\d+)M$/.exec(dockerLimit ?? '');
 		expect(Number(mb?.[1])).toBeGreaterThanOrEqual(10);
 	});
 
-	test('without the limit a 1 MB import is rejected (400, never reaches validation)', async () => {
+	test('without the limit a 1 MB import is rejected (400, never reaches validation) @J16.6', async () => {
 		await withServer(undefined, async (base) => {
 			// The oversized stream errors inside request.json(), which the route reports as 400.
 			expect(await postImport(base, adultFor())).toBe(400);
 		});
 	});
 
-	test('with the Dockerfile limit a 1 MB import reaches validation (422)', async () => {
+	test('with the Dockerfile limit a 1 MB import reaches validation (422) @J16.6', async () => {
 		await withServer(dockerLimit, async (base) => {
 			expect(await postImport(base, adultFor())).toBe(422);
 		});

@@ -4,7 +4,7 @@ import { trackMember } from './cleanup';
 import { choreCard, stubAudio } from './kid';
 import { gotoHydrated } from './hydrated';
 
-test('earning the first badge celebrates once and fills the sticker book', async ({
+test('earning the first badge celebrates once and fills the sticker book @J4.6', async ({
 	page
 }, info) => {
 	await stubAudio(page);

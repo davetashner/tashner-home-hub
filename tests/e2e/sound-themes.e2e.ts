@@ -38,18 +38,22 @@ async function kidDay(page: Page, label: string, at: string) {
 	await expect(page.getByTestId('flying-star')).toHaveCount(1);
 }
 
-test('quiet hours in the household zone keep a celebration silent', async ({ page }, info) => {
+test('quiet hours in the household zone keep a celebration silent @J9.6', async ({
+	page
+}, info) => {
 	await kidDay(page, `quiet ${info.project.name}`, '2026-10-17T14:30:00Z'); // 23:30 in Tokyo
 	await page.waitForTimeout(300);
 	expect(await played(page)).toEqual([]);
 });
 
-test('outside quiet hours the chosen theme and volume play', async ({ page }, info) => {
+test('outside quiet hours the chosen theme and volume play @J9.6', async ({ page }, info) => {
 	await kidDay(page, `loud ${info.project.name}`, '2026-10-17T03:00:00Z'); // noon in Tokyo
 	await expect.poll(() => played(page)).toEqual([{ theme: 'arcade', kind: 'tap', volume: 60 }]);
 });
 
-test('grown-ups pick a theme and volume, preview it, and it persists', async ({ page }, info) => {
+test('grown-ups pick a theme and volume, preview it, and it persists @J9.6', async ({
+	page
+}, info) => {
 	await hook(page);
 	await signInAsAdult(page, `e2e-theme-adult-${info.project.name}`);
 	await gotoHydrated(page, '/settings/sound');

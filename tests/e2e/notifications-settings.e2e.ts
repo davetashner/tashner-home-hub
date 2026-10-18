@@ -7,7 +7,7 @@ import { gotoHydrated, reloadHydrated } from './hydrated';
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
 
-test('grown-ups save notification settings and send a test', async ({ page }, info) => {
+test('grown-ups save notification settings and send a test @J9.8', async ({ page }, info) => {
 	let state: Record<string, unknown> = {
 		enabled: false,
 		serverUrl: 'https://ntfy.sh',

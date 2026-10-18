@@ -112,7 +112,7 @@ async function fontPx(page: Page, testid: string): Promise<number> {
 
 test.beforeAll(ensureHousehold);
 
-test('route discovery finds the home page, chores and settings sub-pages', () => {
+test('route discovery finds the home page, chores and settings sub-pages @J16.2', () => {
 	expect(routes).toContain('/');
 	expect(routes).toContain('/chores');
 	expect(routes).toContain('/settings/family');
@@ -120,7 +120,7 @@ test('route discovery finds the home page, chores and settings sub-pages', () =>
 
 test.describe('all visible text is at least 24px on the wall', () => {
 	for (const route of routes) {
-		test(`${route}`, async ({ page }, testInfo) => {
+		test(`${route} @J16.2`, async ({ page }, testInfo) => {
 			const seed = await seedKid(page, `leg ${testInfo.project.name}`);
 			await page.request.post(`/api/chores/${seed.chores['Brush teeth']}/complete`, {
 				data: { memberId: seed.memberId }
@@ -148,7 +148,7 @@ test.describe('all visible text is at least 24px on the wall', () => {
 });
 
 test.describe('clock and date are at least their token sizes', () => {
-	test('header clock and date', async ({ page }) => {
+	test('header clock and date @J16.2', async ({ page }) => {
 		await gotoHydrated(page, '/chores');
 		await settle(page);
 		const vp = page.viewportSize()!;
@@ -163,7 +163,7 @@ test.describe('clock and date are at least their token sizes', () => {
 		).toBeGreaterThanOrEqual(await tokenPx(page, '--text-lead'));
 	});
 
-	test('hero clock and date on home', async ({ page }) => {
+	test('hero clock and date on home @J16.2', async ({ page }) => {
 		await gotoHydrated(page, '/');
 		await settle(page);
 		const vp = page.viewportSize()!;

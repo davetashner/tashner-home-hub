@@ -20,7 +20,7 @@ async function countPolls(page: import('@playwright/test').Page, ms: number): Pr
 	return count;
 }
 
-test('a wall display polls the display power about once a second, not twice', async ({
+test('a wall display polls the display power about once a second, not twice @J8.5', async ({
 	page,
 	context
 }) => {
@@ -30,6 +30,6 @@ test('a wall display polls the display power about once a second, not twice', as
 	expect(polls).toBeLessThanOrEqual(7);
 });
 
-test('a personal device never polls the display power', async ({ page }) => {
+test('a personal device never polls the display power @J8.5', async ({ page }) => {
 	expect(await countPolls(page, 3000)).toBe(0);
 });

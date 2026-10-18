@@ -284,18 +284,20 @@ async function runFlow(page: Page, info: TestInfo): Promise<void> {
 	}
 }
 
-test('add a link, map it, see health, and reconnect Google', async ({ page }, info) => {
+test('add a link, map it, see health, and reconnect Google @J5.6', async ({ page }, info) => {
 	await runFlow(page, info);
 });
 
 test.describe('phone', () => {
 	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
-	test('phone: the same guided flow fits with no sideways scrolling', async ({ page }, info) => {
+	test('phone: the same guided flow fits with no sideways scrolling @J5.6', async ({
+		page
+	}, info) => {
 		await runFlow(page, info);
 	});
 });
 
-test('iCloud: shows how to get the password and a friendly rejection inline', async ({
+test('iCloud: shows how to get the password and a friendly rejection inline @J5.6', async ({
 	page
 }, info) => {
 	const tag = `e2e-cs-${info.project.name}-icloud`;
@@ -327,7 +329,7 @@ test('iCloud: shows how to get the password and a friendly rejection inline', as
 	await expect(page.getByLabel('Apple ID')).toHaveValue('jane@example.com');
 });
 
-test('Outlook: shows how to publish the link and adds it as a read-only feed', async ({
+test('Outlook: shows how to publish the link and adds it as a read-only feed @J5.6', async ({
 	page
 }, info) => {
 	const tag = `e2e-cs-${info.project.name}-outlook`;

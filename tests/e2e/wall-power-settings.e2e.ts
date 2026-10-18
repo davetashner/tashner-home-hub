@@ -6,7 +6,7 @@ import { gotoHydrated } from './hydrated';
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
 
-test('Wake the wall and Sleep now show the wall power state', async ({ page }, info) => {
+test('Wake the wall and Sleep now show the wall power state @J8.5', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wall-power-${info.project.name}`);
 	let state = { power: 'off', reason: 'sleep-now', mode: 'off', until: '2099-01-01T13:00:00.000Z' };
 	const posts: string[] = [];
@@ -33,7 +33,7 @@ test('Wake the wall and Sleep now show the wall power state', async ({ page }, i
 	expect(posts).toEqual(['POST', 'POST']);
 });
 
-test('a failed wake restores the state and says why', async ({ page }, info) => {
+test('a failed wake restores the state and says why @J8.5', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wall-power-fail-${info.project.name}`);
 	await page.route('**/api/display/power', (route) =>
 		route.fulfill({ json: { power: 'off', reason: 'sleep-now', mode: 'off' } })

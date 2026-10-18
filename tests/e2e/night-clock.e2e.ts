@@ -24,7 +24,9 @@ async function power(page: Page, mode: string, until?: string) {
 	return wakes;
 }
 
-test('the night clock is a dim, warm, large clock; a touch wakes the app', async ({ page }) => {
+test('the night clock is a dim, warm, large clock; a touch wakes the app @J8.6', async ({
+	page
+}) => {
 	const wakes = await power(page, 'night-clock');
 	await page.clock.install({ time: FROZEN });
 	await gotoHydrated(page, '/');
@@ -58,7 +60,7 @@ test('the night clock is a dim, warm, large clock; a touch wakes the app', async
 	expect(wakes).toEqual(['POST']);
 });
 
-test('the night clock names the morning first event, dim and warm', async ({ page }) => {
+test('the night clock names the morning first event, dim and warm @J8.6', async ({ page }) => {
 	// Wake 06:30 UTC on the frozen night; the household zone can shift the displayed hour, so the
 	// event time is asserted loosely and the title and "Today" wording exactly.
 	const wake = Date.parse('2026-10-20T06:30:00Z');
@@ -113,7 +115,7 @@ test('the night clock names the morning first event, dim and warm', async ({ pag
 	expect(lineBox.x + lineBox.width).toBeLessThanOrEqual(view.width);
 });
 
-test('with no event the night clock shows no event line', async ({ page }) => {
+test('with no event the night clock shows no event line @J8.6', async ({ page }) => {
 	await power(page, 'night-clock', new Date('2026-10-20T06:30:00Z').toISOString());
 	await page.route('**/api/calendar/events**', (route) => route.fulfill({ json: [] }));
 	await page.clock.install({ time: FROZEN });
@@ -122,7 +124,7 @@ test('with no event the night clock shows no event line', async ({ page }) => {
 	await expect(page.getByTestId('night-clock-event')).toHaveCount(0);
 });
 
-test('normal and off modes show no night clock', async ({ page }) => {
+test('normal and off modes show no night clock @J8.6', async ({ page }) => {
 	for (const mode of ['normal', 'off']) {
 		await power(page, mode);
 		await gotoHydrated(page, '/');
@@ -135,7 +137,7 @@ test('normal and off modes show no night clock', async ({ page }) => {
 	}
 });
 
-test('a personal device never shows the night clock', async ({ page, context }) => {
+test('a personal device never shows the night clock @J8.6', async ({ page, context }) => {
 	await context.clearCookies();
 	await power(page, 'night-clock');
 	await gotoHydrated(page, '/');
@@ -143,7 +145,7 @@ test('a personal device never shows the night clock', async ({ page, context }) 
 	await expect(page.getByTestId('night-clock')).toHaveCount(0);
 });
 
-test('grown-ups turn the night clock on and off', async ({ page }, info) => {
+test('grown-ups turn the night clock on and off @J8.6', async ({ page }, info) => {
 	// The setting is shared by every test on this server, so the API is answered here.
 	const saved: unknown[] = [];
 	await page.route('**/api/settings/night-clock', (route) => {

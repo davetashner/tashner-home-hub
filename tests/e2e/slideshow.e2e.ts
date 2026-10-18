@@ -59,7 +59,7 @@ const isPortrait = (page: Page) => {
 	return v.height > v.width;
 };
 
-test('the slideshow plays on the interval, preloads, and fills both photo shapes', async ({
+test('the slideshow plays on the interval, preloads, and fills both photo shapes @J8.2', async ({
 	page
 }, info) => {
 	const tall = { id: `${info.project.name}-tall`, w: 360, h: 640 };
@@ -98,7 +98,7 @@ test('the slideshow plays on the interval, preloads, and fills both photo shapes
 	await expect(page).toHaveURL(/\/calendar$/);
 });
 
-test('each start reshuffles, so the frame does not always open on the same photo', async ({
+test('each start reshuffles, so the frame does not always open on the same photo @J8.2', async ({
 	page
 }, info) => {
 	const a = { id: `${info.project.name}-first`, w: 640, h: 360 };
@@ -112,7 +112,9 @@ test('each start reshuffles, so the frame does not always open on the same photo
 	);
 });
 
-test('the idle photo frame covers the whole screen; a touch goes back', async ({ page }, info) => {
+test('the idle photo frame covers the whole screen; a touch goes back @J8.1', async ({
+	page
+}, info) => {
 	await stubFrame(page, [{ id: `${info.project.name}-idle`, w: 640, h: 360 }], {
 		intervalSeconds: 30,
 		transition: 'fade'
@@ -145,13 +147,13 @@ test('the idle photo frame covers the whole screen; a touch goes back', async ({
 	await expect(page).toHaveURL(/\/lists$/);
 });
 
-test('an empty library explains how to add photos', async ({ page }) => {
+test('an empty library explains how to add photos @J8.7', async ({ page }) => {
 	await stubFrame(page, []);
 	await gotoHydrated(page, '/photos');
 	await expect(page.getByText('No photos to show yet')).toBeVisible();
 });
 
-test('grown-ups set the photo interval and transition', async ({ page }) => {
+test('grown-ups set the photo interval and transition @J8.7', async ({ page }) => {
 	await page.route('**/api/settings/slideshow', (route) =>
 		route.request().method() === 'GET'
 			? route.fulfill({ json: { intervalSeconds: 30, transition: 'fade' } })
@@ -190,7 +192,9 @@ async function longPress(page: Page, holdMs = 800) {
 	await page.mouse.up();
 }
 
-test('a grown-up long-presses a photo to hide it from the slideshow', async ({ page }, info) => {
+test('a grown-up long-presses a photo to hide it from the slideshow @J8.7', async ({
+	page
+}, info) => {
 	const a = { id: `${info.project.name}-keep`, w: 640, h: 360 };
 	const b = { id: `${info.project.name}-hide`, w: 640, h: 360 };
 	await stubFrame(page, [b, a], { intervalSeconds: 600, transition: 'fade' });
@@ -229,7 +233,9 @@ test('a grown-up long-presses a photo to hide it from the slideshow', async ({ p
 		.toEqual([[expect.stringContaining(`/${b.id}/hide`), { hidden: true }]]);
 });
 
-test('long-pressing without an adult session asks for the PIN first', async ({ page }, info) => {
+test('long-pressing without an adult session asks for the PIN first @J8.7', async ({
+	page
+}, info) => {
 	await stubFrame(page, [{ id: `${info.project.name}-locked`, w: 640, h: 360 }], {
 		intervalSeconds: 600,
 		transition: 'fade'
@@ -248,7 +254,7 @@ const takenNear = (years: number, days = 0) => {
 	return Date.UTC(d.getFullYear() - years, d.getMonth(), d.getDate() + days, 12);
 };
 
-test('on this day: favor puts past-year photos every third slide with a caption', async ({
+test('on this day: favor puts past-year photos every third slide with a caption @J8.4', async ({
 	page
 }, info) => {
 	const p = info.project.name;
@@ -284,7 +290,7 @@ test('on this day: favor puts past-year photos every third slide with a caption'
 	}
 });
 
-test('on this day: only shows the matches', async ({ page }, info) => {
+test('on this day: only shows the matches @J8.4', async ({ page }, info) => {
 	const p = info.project.name;
 	const matches = Array.from({ length: 10 }, (_, i) => ({
 		id: `${p}-day${i}`,
@@ -310,7 +316,7 @@ test('on this day: only shows the matches', async ({ page }, info) => {
 	expect(requested).not.toContain(other.id);
 });
 
-test('on this day: too few matches falls back to every photo', async ({ page }, info) => {
+test('on this day: too few matches falls back to every photo @J8.4', async ({ page }, info) => {
 	const p = info.project.name;
 	const match = { id: `${p}-few-match`, w: 640, h: 360, takenAt: takenNear(2, 0) };
 	const other = { id: `${p}-few-other`, w: 640, h: 360, takenAt: takenNear(2, 60) };
@@ -329,7 +335,7 @@ test('on this day: too few matches falls back to every photo', async ({ page }, 
 	await expect(front.getByTestId('on-this-day-caption')).toHaveText('2 years ago today');
 });
 
-test('grown-ups choose the on this day mode', async ({ page }) => {
+test('grown-ups choose the on this day mode @J8.4', async ({ page }) => {
 	await page.route('**/api/settings/slideshow', (route) =>
 		route.request().method() === 'GET'
 			? route.fulfill({

@@ -88,7 +88,7 @@ async function stubFrame(page: Page, id: string) {
 	return saved;
 }
 
-test('the idle frame shows clock, date, weather and next event; a touch still exits', async ({
+test('the idle frame shows clock, date, weather and next event; a touch still exits @J8.3', async ({
 	page
 }, info) => {
 	await stubFrame(page, `${info.project.name}-overlay`);
@@ -117,7 +117,9 @@ test('the idle frame shows clock, date, weather and next event; a touch still ex
 	}).toPass();
 });
 
-test('a grown-up turns an overlay off and the frame leaves it out', async ({ page }, info) => {
+test('a grown-up turns an overlay off and the frame leaves it out @J8.3', async ({
+	page
+}, info) => {
 	const saved = await stubFrame(page, `${info.project.name}-toggle`);
 	await signInAsAdult(page, `e2e-overlay-adult-${info.project.name}`);
 	await gotoHydrated(page, '/settings/screen');

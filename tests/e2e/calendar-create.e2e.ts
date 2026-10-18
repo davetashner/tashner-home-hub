@@ -36,7 +36,10 @@ test.beforeEach(async ({ page }, info) => {
 	await mockApple(page);
 });
 
-test('the wall adds an event: shown as pending, then confirmed', async ({ page, context }) => {
+test('the wall adds an event: shown as pending, then confirmed @J5.4', async ({
+	page,
+	context
+}) => {
 	await asWallDisplay(context);
 	let body: Record<string, unknown> = {};
 	let release: () => void = () => {};
@@ -69,7 +72,7 @@ test('the wall adds an event: shown as pending, then confirmed', async ({ page, 
 	await expect(page.getByTestId('add-event-error')).toBeHidden();
 });
 
-test('a phone types into the form; a refusal rolls the pending event back with a message', async ({
+test('a phone types into the form; a refusal rolls the pending event back with a message @J5.4', async ({
 	page
 }) => {
 	await page.route('**/api/calendar/events', (route) =>

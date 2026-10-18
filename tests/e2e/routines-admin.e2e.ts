@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { seedKid } from './kid';
 import { gotoHydrated } from './hydrated';
 
-test('an adult creates, edits, reorders and deletes a routine; the kid sees it', async ({
+test('an adult creates, edits, reorders and deletes a routine; the kid sees it @J9.4', async ({
 	page
 }, info) => {
 	const seed = await seedKid(page, `routines-admin-${info.project.name}`);

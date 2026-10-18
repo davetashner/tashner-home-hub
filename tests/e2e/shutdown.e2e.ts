@@ -9,7 +9,7 @@ const PORT = 4991;
 
 // Boots the BUILT server on its own port and data dir, holds a long-lived connection open,
 // sends SIGTERM and checks the process exits 0 quickly (docker stop gives it only 10 s).
-test('server exits 0 within 3 s of SIGTERM with a long-lived connection open', async () => {
+test('server exits 0 within 3 s of SIGTERM with a long-lived connection open @J16.6', async () => {
 	const dir = mkdtempSync(join(tmpdir(), 'hub-shutdown-'));
 	const port = PORT + test.info().parallelIndex;
 	const child = spawn('node', ['build'], {

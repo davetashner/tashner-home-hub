@@ -79,14 +79,14 @@ for (const phone of phones) {
 		});
 
 		for (const route of ['/', '/chores', '/calendar']) {
-			test(`shell on ${route} clears the insets`, async ({ page }) => {
+			test(`shell on ${route} clears the insets @J16.3`, async ({ page }) => {
 				await gotoHydrated(page, route);
 				await page.waitForLoadState('networkidle');
 				await expectInsideSafeArea(page, phone);
 			});
 		}
 
-		test('the header and nav pad past the insets', async ({ page }) => {
+		test('the header and nav pad past the insets @J16.3', async ({ page }) => {
 			await gotoHydrated(page, '/chores');
 			await page.waitForLoadState('networkidle');
 			const pad = (selector: string, side: 'Right' | 'Bottom' | 'Left') =>
@@ -102,14 +102,14 @@ for (const phone of phones) {
 			);
 		});
 
-		test('settings clear the insets for an adult', async ({ page }, info) => {
+		test('settings clear the insets for an adult @J16.3', async ({ page }, info) => {
 			await signInAsAdult(page, `e2e-safe-${phone.name}-${info.project.name}`);
 			await gotoHydrated(page, '/settings');
 			await page.waitForLoadState('networkidle');
 			await expectInsideSafeArea(page, phone);
 		});
 
-		test('the unlock page clears the insets', async ({ page }) => {
+		test('the unlock page clears the insets @J16.3', async ({ page }) => {
 			await gotoHydrated(page, '/unlock');
 			await page.waitForLoadState('networkidle');
 			await expectInsideSafeArea(page, phone);
@@ -117,7 +117,7 @@ for (const phone of phones) {
 	});
 }
 
-test('the wall has no insets, so the header padding is even', async ({ page }) => {
+test('the wall has no insets, so the header padding is even @J16.3', async ({ page }) => {
 	await gotoHydrated(page, '/chores');
 	await page.waitForLoadState('networkidle');
 	const { top, bottom } = await page

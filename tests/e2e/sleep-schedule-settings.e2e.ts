@@ -13,7 +13,9 @@ const defaults = {
 	resleepMinutes: 2
 };
 
-test('grown-ups change a school-night time and the re-sleep timeout', async ({ page }, info) => {
+test('grown-ups change a school-night time and the re-sleep timeout @J8.5', async ({
+	page
+}, info) => {
 	await signInAsAdult(page, `e2e-sleep-settings-${info.project.name}`);
 	// Both projects share one server and one schedule: both write the same values, assert on their
 	// own request's response and on the page, and put the defaults back at the end.
@@ -57,7 +59,7 @@ test('grown-ups change a school-night time and the re-sleep timeout', async ({ p
 	}
 });
 
-test('a failed save puts the setting back', async ({ page }, info) => {
+test('a failed save puts the setting back @J8.5', async ({ page }, info) => {
 	await page.route('**/api/settings/sleep-schedule', (route) =>
 		route.request().method() === 'GET'
 			? route.fulfill({ json: defaults })

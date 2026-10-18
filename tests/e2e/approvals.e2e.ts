@@ -61,7 +61,7 @@ async function unlockAndOpen(page: Page, s: Seed) {
 	await expect(card(page, s)).toBeVisible();
 }
 
-test('badge shows pending and leads to unlock, then approve makes the star gold', async ({
+test('badge shows pending and leads to unlock, then approve makes the star gold @J3.1 @J3.2', async ({
 	page
 }, info) => {
 	const s = await seed(page, `ok ${info.project.name}`);
@@ -85,7 +85,7 @@ test('badge shows pending and leads to unlock, then approve makes the star gold'
 	expect(await balance(page, s)).toBe(before + 2);
 });
 
-test('not yet with a note sends it back without stars', async ({ page }, info) => {
+test('not yet with a note sends it back without stars @J3.3', async ({ page }, info) => {
 	const s = await seed(page, `no ${info.project.name}`);
 	await unlockAndOpen(page, s);
 	const before = await balance(page, s);
@@ -98,7 +98,7 @@ test('not yet with a note sends it back without stars', async ({ page }, info) =
 	await expect(rowFor(page, s, 'Water plants')).toBeVisible();
 });
 
-test('approve all, then a link opens Settings > Stars with the child preselected', async ({
+test('approve all, then a link opens Settings > Stars with the child preselected @J3.2', async ({
 	page
 }, info) => {
 	const s = await seed(page, `all ${info.project.name}`);
@@ -117,7 +117,7 @@ test('approve all, then a link opens Settings > Stars with the child preselected
 	).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('a failed approve puts the row back with a toast', async ({ page }, info) => {
+test('a failed approve puts the row back with a toast @J3.7', async ({ page }, info) => {
 	const s = await seed(page, `fail ${info.project.name}`);
 	await unlockAndOpen(page, s);
 	await page.route('**/api/completions/*/approve', (route) => route.fulfill({ status: 500 }));
@@ -126,7 +126,7 @@ test('a failed approve puts the row back with a toast', async ({ page }, info) =
 	await expect(rowFor(page, s, 'Tidy toys')).toBeVisible();
 });
 
-test('works on a phone', async ({ page }, info) => {
+test('works on a phone @J3.2', async ({ page }, info) => {
 	const s = await seed(page, `phone ${info.project.name}`);
 	await page.setViewportSize({ width: 390, height: 844 });
 	await unlockAndOpen(page, s);
@@ -141,7 +141,7 @@ test('works on a phone', async ({ page }, info) => {
 	await expect(row).toHaveCount(0);
 });
 
-test('phone shell: compact header, nav clear of content, long names truncate', async ({
+test('phone shell: compact header, nav clear of content, long names truncate @J3.2', async ({
 	page
 }, info) => {
 	const s = await seed(page, `shell ${info.project.name}`, ' Wigglesworth-Featherstone');
@@ -169,7 +169,7 @@ test('phone shell: compact header, nav clear of content, long names truncate', a
 	expect(overflow).toBeLessThanOrEqual(0);
 });
 
-test('a grown-up can undo an approved chore any time later', async ({ page }, info) => {
+test('a grown-up can undo an approved chore any time later @J3.5', async ({ page }, info) => {
 	const s = await seed(page, `undo ${info.project.name}`);
 	await unlockAndOpen(page, s);
 	const before = await balance(page, s);

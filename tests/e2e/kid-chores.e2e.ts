@@ -59,7 +59,7 @@ async function open(page: Page, s: Seed) {
 const card = (page: Page, title: string) =>
 	page.getByTestId('chore-card').filter({ has: page.getByRole('heading', { name: title }) });
 
-test('tap shows pending instantly, even while the network is slow; undo restores', async ({
+test('tap shows pending instantly, even while the network is slow; undo restores @J1.2', async ({
 	page
 }, info) => {
 	const s = await seed(page, `tap ${info.project.name}`);
@@ -88,7 +88,7 @@ test('tap shows pending instantly, even while the network is slow; undo restores
 	await expect(card(page, 'Brush teeth')).toHaveAttribute('data-status', 'undone');
 });
 
-test('a tap the server refuses reverts with a gentle message', async ({ page }, info) => {
+test('a tap the server refuses reverts with a gentle message @J1.5', async ({ page }, info) => {
 	const s = await seed(page, `fail ${info.project.name}`);
 	await open(page, s);
 	await page.route('**/api/chores/*/complete', async (route) => {
@@ -103,7 +103,7 @@ test('a tap the server refuses reverts with a gentle message', async ({ page }, 
 });
 
 for (const theme of ['day', 'night']) {
-	test(`no serious accessibility problems (${theme})`, async ({ page }, info) => {
+	test(`no serious accessibility problems (${theme}) @J16.4`, async ({ page }, info) => {
 		const s = await seed(page, `axe ${theme} ${info.project.name}`);
 		await gotoHydrated(page, `/chores?member=${s.memberId}`);
 		await card(page, 'Feed the fish').getByTestId('did-it').click();
@@ -115,7 +115,7 @@ for (const theme of ['day', 'night']) {
 	});
 }
 
-test('a chore without approval can be undone in its 10 seconds, taking the gold star back', async ({
+test('a chore without approval can be undone in its 10 seconds, taking the gold star back @J1.4', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `adult-kc-noappr${info.project.name.replace(/\W/g, '')}`);
@@ -151,7 +151,7 @@ test('a chore without approval can be undone in its 10 seconds, taking the gold 
 	await expect(card(page, 'Water cress')).toHaveAttribute('data-status', 'undone');
 });
 
-test('an any-day job shows under This week until done, then stays done today', async ({
+test('an any-day job shows under This week until done, then stays done today @J1.9', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `adult-kc-flex${info.project.name.replace(/\W/g, '')}`);
@@ -184,7 +184,7 @@ test('an any-day job shows under This week until done, then stays done today', a
 	await expect(card(page, 'Tidy my room')).toHaveAttribute('data-status', 'pending');
 });
 
-test('a new to-do is self-serve by default: gold at once, star flies, nothing waits', async ({
+test('a new to-do is self-serve by default: gold at once, star flies, nothing waits @J1.2', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `adult-kc-self${info.project.name.replace(/\W/g, '')}`);
@@ -213,7 +213,7 @@ test('a new to-do is self-serve by default: gold at once, star flies, nothing wa
 	await expect(page.getByTestId('jar-counts')).toContainText('0 waiting');
 });
 
-test('six Star Jobs and six habits fit the wall without page scrolling (hub-3yg)', async ({
+test('six Star Jobs and six habits fit the wall without page scrolling (hub-3yg) @J1.10', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `adult-kc-fold${info.project.name.replace(/\W/g, '')}`);

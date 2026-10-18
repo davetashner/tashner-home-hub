@@ -16,7 +16,7 @@ async function pngSize(request: APIRequestContext, href: string) {
 	return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
 }
 
-test('the page links the manifest, touch icon and Home Screen title', async ({ page }) => {
+test('the page links the manifest, touch icon and Home Screen title @J16.6', async ({ page }) => {
 	await gotoHydrated(page, '/');
 	const head = page.locator('head');
 	// Compare resolved paths: the browser may report a link's href as an absolute URL.
@@ -33,7 +33,7 @@ test('the page links the manifest, touch icon and Home Screen title', async ({ p
 	await expect(head.locator('meta[name="theme-color"]')).toHaveCount(1);
 });
 
-test('the manifest opens standalone with any and maskable icons', async ({ request }) => {
+test('the manifest opens standalone with any and maskable icons @J16.6', async ({ request }) => {
 	const res = await request.get('/manifest.webmanifest');
 	expect(res.ok()).toBe(true);
 	const manifest = await res.json();
@@ -52,12 +52,14 @@ test('the manifest opens standalone with any and maskable icons', async ({ reque
 	}
 });
 
-test('the touch icon is the 180px size iOS asks for', async ({ request }) => {
+test('the touch icon is the 180px size iOS asks for @J16.6', async ({ request }) => {
 	expect(await pngSize(request, '/apple-touch-icon.png')).toEqual({ width: 180, height: 180 });
 });
 
 // TMR-1: phone, tablet and short layouts have no header Timers button; Home carries the entry.
-test('every layout has one way to open Timers from Home and start a timer', async ({ page }) => {
+test('every layout has one way to open Timers from Home and start a timer @J11.1', async ({
+	page
+}) => {
 	const timers: KitchenTimer[] = [];
 	await fakeTimerApi(page, timers);
 	await gotoHydrated(page, '/');

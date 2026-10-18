@@ -99,7 +99,7 @@ async function openWall(wall: Page, s: KidSeed, asWall = false) {
 	await expect(wall.getByTestId('jar-counts')).toContainText('2 gold stars, 0 waiting');
 }
 
-test('chore to gold star: kid taps, parent approves on a phone, the wall shows the star', async ({
+test('chore to gold star: kid taps, parent approves on a phone, the wall shows the star @J1.2 @J3.2', async ({
 	page: wall,
 	browser
 }, info) => {
@@ -134,7 +134,7 @@ test('chore to gold star: kid taps, parent approves on a phone, the wall shows t
 	}
 });
 
-test('reward redemption: earn the last star, then a parent redeems with the PIN', async ({
+test('reward redemption: earn the last star, then a parent redeems with the PIN @J4.3 @J4.4', async ({
 	page: wall,
 	browser
 }, info) => {
@@ -201,7 +201,9 @@ test('reward redemption: earn the last star, then a parent redeems with the PIN'
 	}
 });
 
-test('calendar: agenda, week and month each show the seeded events', async ({ page }) => {
+test('calendar: agenda, week and month each show the seeded events @J5.1 @J5.2', async ({
+	page
+}) => {
 	seedCalendar();
 	await gotoHydrated(page, '/calendar');
 	await page.waitForLoadState('networkidle');
@@ -235,7 +237,7 @@ test('calendar: agenda, week and month each show the seeded events', async ({ pa
 	await expect(pane.getByText('Dentist').first()).toBeVisible();
 });
 
-test('photo frame: idle goes home, then the frame shows a photo; a touch leaves it', async ({
+test('photo frame: idle goes home, then the frame shows a photo; a touch leaves it @J8.1', async ({
 	page
 }, info) => {
 	await asWallDisplay(page.context()); // idle behaviour is for wall displays (DEV-1)
@@ -277,7 +279,7 @@ test('photo frame: idle goes home, then the frame shows a photo; a touch leaves 
 	await expect(page).toHaveURL(/:\d+\/$/);
 });
 
-test('sleep now, then the touch that wakes the display does not press the chore under it', async ({
+test('sleep now, then the touch that wakes the display does not press the chore under it @J0.1', async ({
 	page: wall
 }, info) => {
 	const s = await seedKid(wall, `flow-wake ${info.project.name}`);

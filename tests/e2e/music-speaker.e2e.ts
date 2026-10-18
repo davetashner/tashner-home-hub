@@ -7,7 +7,7 @@ test.beforeAll(ensureHousehold);
 
 const MAC = 'AA:BB:CC:DD:EE:01';
 
-test('Settings > Music > Speaker explains the setup when the hub cannot reach the Pi', async ({
+test('Settings > Music > Speaker explains the setup when the hub cannot reach the Pi @J10.5', async ({
 	page
 }) => {
 	await signInAsAdult(page, 'e2e-speaker-adult');
@@ -20,7 +20,9 @@ test('Settings > Music > Speaker explains the setup when the hub cannot reach th
 	await expect(page.getByTestId('speaker-scan')).toHaveCount(0);
 });
 
-test('Change speaker scans, pairs the picked speaker and plays a test sound', async ({ page }) => {
+test('Change speaker scans, pairs the picked speaker and plays a test sound @J10.5', async ({
+	page
+}) => {
 	let status: object = { state: 'none', mac: null, name: null, defaultSink: false };
 	await page.route('**/api/music/speaker', (r) => r.fulfill({ json: status }));
 	await page.route('**/api/music/speaker/scan', (r) =>

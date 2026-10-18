@@ -32,7 +32,7 @@ async function holdVacation(): Promise<() => void> {
 
 const INSIDE = new Date('2031-06-10T12:00:00Z');
 
-test('vacation mode pauses the kid board and clearing it restores the to-dos', async ({
+test('vacation mode pauses the kid board and clearing it restores the to-dos @J13.1', async ({
 	page
 }, info) => {
 	test.setTimeout(120_000);
@@ -97,7 +97,7 @@ test('vacation mode pauses the kid board and clearing it restores the to-dos', a
 	}
 });
 
-test('a grown-up sets and ends vacation from Settings', async ({ page }, info) => {
+test('a grown-up sets and ends vacation from Settings @J13.2', async ({ page }, info) => {
 	test.setTimeout(120_000);
 	const release = await holdVacation();
 	await signInAsAdult(page, `adult-vacation-ui-${info.project.name.replace(/\W/g, '')}`);

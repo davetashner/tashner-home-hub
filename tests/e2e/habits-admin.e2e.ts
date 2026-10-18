@@ -4,7 +4,7 @@ import { signInAsAdult } from './adult';
 import { trackMember } from './cleanup';
 import { gotoHydrated } from './hydrated';
 
-test('a grown-up adds a daily habit: no stars, no approval, kept apart from chores', async ({
+test('a grown-up adds a daily habit: no stars, no approval, kept apart from chores @J9.4', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `e2e-habits-${info.project.name}`);

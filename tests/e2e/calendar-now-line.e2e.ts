@@ -21,7 +21,9 @@ test.beforeEach(async ({ page }) => {
 	await page.waitForLoadState('networkidle');
 });
 
-test('week grid draws the now line and moves it down as the minutes pass', async ({ page }) => {
+test('week grid draws the now line and moves it down as the minutes pass @J5.7', async ({
+	page
+}) => {
 	const pane = page.getByTestId('calendar-pane');
 	await chooseView(page, 'Week');
 	await expect(pane.locator('.week')).toBeVisible();
@@ -36,7 +38,9 @@ test('week grid draws the now line and moves it down as the minutes pass', async
 	await expect.poll(top).toBeGreaterThan(before + 10);
 });
 
-test('agenda marks now between the events that have and have not started', async ({ page }) => {
+test('agenda marks now between the events that have and have not started @J5.7', async ({
+	page
+}) => {
 	const pane = page.getByTestId('calendar-pane');
 	const line = pane.getByTestId('now-line').first();
 	await expect(line).toBeVisible();

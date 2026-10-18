@@ -17,7 +17,7 @@ async function pinZone(page: Page, timeZone: string, saved: unknown[] = []) {
 	});
 }
 
-test('grown-ups find and pick the household time zone', async ({ page }) => {
+test('grown-ups find and pick the household time zone @J9.7', async ({ page }) => {
 	const saved: unknown[] = [];
 	await pinZone(page, 'America/Chicago', saved);
 	await signInAsAdult(page, 'e2e-tz-adult');
@@ -44,7 +44,7 @@ test('grown-ups find and pick the household time zone', async ({ page }) => {
 	await expect(zones).toContainText('No time zone matches');
 });
 
-test('a failed save puts the old zone back', async ({ page }) => {
+test('a failed save puts the old zone back @J9.7', async ({ page }) => {
 	await pinZone(page, 'Europe/London');
 	await page.route('**/api/settings/household', (route) =>
 		route.request().method() === 'PUT' ? route.fulfill({ status: 500 }) : route.fallback()
@@ -60,7 +60,7 @@ test('a failed save puts the old zone back', async ({ page }) => {
 	await expect(page.getByTestId('tz-current')).toHaveText('London');
 });
 
-test('the time zone page fits a phone without sideways scrolling', async ({ page }) => {
+test('the time zone page fits a phone without sideways scrolling @J9.7', async ({ page }) => {
 	await pinZone(page, 'America/Chicago');
 	await page.setViewportSize({ width: 390, height: 844 });
 	await signInAsAdult(page, 'e2e-tz-adult');

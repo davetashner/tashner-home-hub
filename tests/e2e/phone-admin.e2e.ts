@@ -22,13 +22,13 @@ function discover(dir = settingsDir, urlPath = '/settings'): string[] {
 
 const routes = discover();
 
-test('settings discovery finds the admin pages', () => {
+test('settings discovery finds the admin pages @J9.10', () => {
 	expect(routes).toContain('/settings/chores');
 	expect(routes).toContain('/settings/sleep-schedule');
 });
 
 for (const route of routes) {
-	test(`phone: ${route} fits 390px with short headings`, async ({ page }, info) => {
+	test(`phone: ${route} fits 390px with short headings @J9.10`, async ({ page }, info) => {
 		await signInAsAdult(page, `e2e-phone-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
 		await gotoHydrated(page, route);
@@ -68,7 +68,7 @@ const forms = [
 ];
 
 for (const f of forms) {
-	test(`phone: the ${f.name} form fits the screen width`, async ({ page }, info) => {
+	test(`phone: the ${f.name} form fits the screen width @J9.10`, async ({ page }, info) => {
 		await signInAsAdult(page, `e2e-phone-form-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
 		await gotoHydrated(page, f.path);
@@ -108,7 +108,7 @@ async function expectInViewport(locator: Locator, page: Page) {
 test.describe('phone flows', () => {
 	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
-	test('phone: the calendar connection forms fit and use the right keyboards', async ({
+	test('phone: the calendar connection forms fit and use the right keyboards @J9.10', async ({
 		page
 	}, info) => {
 		await signInAsAdult(page, `e2e-phone-cal-${info.project.name}`);
@@ -166,7 +166,7 @@ test.describe('phone flows', () => {
 		await expectInViewport(page.getByRole('button', { name: 'Add', exact: true }), page);
 	});
 
-	test('phone: the reconnect warning wraps a long calendar name', async ({ page }, info) => {
+	test('phone: the reconnect warning wraps a long calendar name @J9.10', async ({ page }, info) => {
 		const id = `e2e-phone-reauth-${info.project.name}`;
 		await signInAsAdult(page, `${id}-adult`);
 		const db = new Database(DB_PATH);
@@ -211,7 +211,7 @@ test.describe('phone flows', () => {
 		}
 	});
 
-	test('phone: the add-folder form fits and the path gets a URL-style keyboard', async ({
+	test('phone: the add-folder form fits and the path gets a URL-style keyboard @J9.10', async ({
 		page
 	}, info) => {
 		await signInAsAdult(page, `e2e-phone-photo-${info.project.name}`);
@@ -227,7 +227,9 @@ test.describe('phone flows', () => {
 		await expectInViewport(page.getByRole('button', { name: 'Add folder' }), page);
 	});
 
-	test('phone: the reject and redeem sheets stay on screen and scroll', async ({ page }, info) => {
+	test('phone: the reject and redeem sheets stay on screen and scroll @J9.10', async ({
+		page
+	}, info) => {
 		await signInAsAdult(page, `e2e-phone-sheets-${info.project.name}`);
 		const request = page.request;
 		const stamp = Date.now() % 1e9;

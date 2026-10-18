@@ -8,7 +8,7 @@ import { choreCard, openKid, seedKid, stubAudio } from './kid';
  */
 test(
 	'celebration starts in the tapped frame and its scripting fits a frame, at 4x CPU throttle',
-	{ tag: '@perf' },
+	{ tag: ['@perf', '@J16.5'] },
 	async ({ page }, info) => {
 		await stubAudio(page); // deterministic: no quiet hours, and we can time the first note
 		const s = await seedKid(page, `perf ${info.project.name}`, ['Tidy toys']);

@@ -14,7 +14,7 @@ test.beforeEach(({ page }) =>
 // page), so it shows the still gradient here; on a real GPU the canvas must have drawn.
 const drawn = (bg: Locator) => bg.locator('canvas[data-drawn=false]');
 
-test('the wave layer sits behind the home screen and never takes a tap', async ({ page }) => {
+test('the wave layer sits behind the home screen and never takes a tap @J0.2', async ({ page }) => {
 	await gotoHydrated(page, '/');
 	const bg = page.getByTestId('wave-background');
 	await expect(bg).toBeAttached();
@@ -26,7 +26,7 @@ test('the wave layer sits behind the home screen and never takes a tap', async (
 	await expect(page.locator('body')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 });
 
-test('reduced motion still shows the background', async ({ page }) => {
+test('reduced motion still shows the background @J0.2', async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await gotoHydrated(page, '/');
 	const bg = page.getByTestId('wave-background');
@@ -34,7 +34,7 @@ test('reduced motion still shows the background', async ({ page }) => {
 	await expect(drawn(bg)).toHaveCount(0);
 });
 
-test('a grown-up turns the background off and back on', async ({ page }, info) => {
+test('a grown-up turns the background off and back on @J9.6', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wave-adult-${info.project.name}`);
 	await gotoHydrated(page, '/settings/background');
 	const bg = page.getByTestId('wave-background');
@@ -47,7 +47,7 @@ test('a grown-up turns the background off and back on', async ({ page }, info) =
 
 // The sunset windows are unit-tested on the pure functions; seeding a location here would change
 // a setting shared with the other specs.
-test('Auto draws a valid palette, and a picked palette applies and resets', async ({
+test('Auto draws a valid palette, and a picked palette applies and resets @J9.6', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `e2e-wave-auto-${info.project.name}`);
@@ -63,7 +63,7 @@ test('Auto draws a valid palette, and a picked palette applies and resets', asyn
 });
 
 // The calendar is unit-tested; `?season=` pins a holiday the way a preview does (hub-6pv.6).
-test('a pinned holiday takes over Auto', async ({ page }) => {
+test('a pinned holiday takes over Auto @J9.6', async ({ page }) => {
 	await gotoHydrated(page, '/?season=halloween');
 	const bg = page.getByTestId('wave-background');
 	await expect(bg).toHaveAttribute('data-season', 'halloween');
@@ -74,7 +74,9 @@ test('a pinned holiday takes over Auto', async ({ page }) => {
 });
 
 // hub-6pv.6.2: holiday pictures ride on the wave layer and never take a tap.
-test('Halloween brings pumpkins, bats and a ghost; a plain day brings none', async ({ page }) => {
+test('Halloween brings pumpkins, bats and a ghost; a plain day brings none @J0.2', async ({
+	page
+}) => {
 	await gotoHydrated(page, '/?season=halloween');
 	const layer = page.getByTestId('seasonal-layer');
 	await expect(layer).toHaveAttribute('data-season', 'halloween');
@@ -96,7 +98,7 @@ test('Halloween brings pumpkins, bats and a ghost; a plain day brings none', asy
 });
 
 // hub-6pv.6.3: one reindeer joins the herd each day from Dec 16; Rudolph comes last.
-test('the reindeer countdown shows one reindeer per day so far', async ({ page }) => {
+test('the reindeer countdown shows one reindeer per day so far @J0.2', async ({ page }) => {
 	await gotoHydrated(page, '/?season=christmas&reindeer=3');
 	const layer = page.getByTestId('seasonal-layer');
 	await expect(layer.locator('[data-sprite^="reindeer-"]')).toHaveCount(3);
@@ -113,7 +115,7 @@ test('the reindeer countdown shows one reindeer per day so far', async ({ page }
 });
 
 // hub-6pv.6.4: Christmas Eve snows, and Santa's whole team crosses the sky.
-test('Christmas Eve brings snow, pines and the sleigh with all nine', async ({ page }) => {
+test('Christmas Eve brings snow, pines and the sleigh with all nine @J0.2', async ({ page }) => {
 	await gotoHydrated(page, '/?season=christmas-eve');
 	const layer = page.getByTestId('seasonal-layer');
 	await expect(layer.getByTestId('snow')).toHaveCount(1);
@@ -124,7 +126,7 @@ test('Christmas Eve brings snow, pines and the sleigh with all nine', async ({ p
 });
 
 // hub-6pv.6.6: Christmas Day is the tree and presents by the fire.
-test('Christmas Day shows the tree and the fire', async ({ page }) => {
+test('Christmas Day shows the tree and the fire @J0.2', async ({ page }) => {
 	await gotoHydrated(page, '/?season=christmasday');
 	const layer = page.getByTestId('seasonal-layer');
 	await expect(layer).toHaveAttribute('data-season', 'christmasday');
@@ -134,7 +136,7 @@ test('Christmas Day shows the tree and the fire', async ({ page }) => {
 });
 
 // hub-6pv.6.5: St Patrick's rainbow, pot of gold and dancing leprechauns.
-test("St Patrick's Day shows a rainbow, a pot of gold and leprechauns", async ({ page }) => {
+test("St Patrick's Day shows a rainbow, a pot of gold and leprechauns @J0.2", async ({ page }) => {
 	await gotoHydrated(page, '/?season=stpatricks');
 	const layer = page.getByTestId('seasonal-layer');
 	for (const id of ['rainbow', 'pot-of-gold', 'leprechaun-1', 'leprechaun-2']) {
@@ -142,7 +144,7 @@ test("St Patrick's Day shows a rainbow, a pot of gold and leprechauns", async ({
 	}
 });
 
-test('this device can hide the waves and remembers it', async ({ page }, info) => {
+test('this device can hide the waves and remembers it @J9.6', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wave-device-${info.project.name}`);
 	await gotoHydrated(page, '/settings/background');
 	const bg = page.getByTestId('wave-background');

@@ -124,7 +124,7 @@ let kidId = '';
 
 test.beforeAll(ensureHousehold);
 
-test('route discovery finds the home page, chores and settings sub-pages', () => {
+test('route discovery finds the home page, chores and settings sub-pages @J16.1', () => {
 	expect(routes).toContain('/');
 	expect(routes).toContain('/chores');
 	expect(routes).toContain('/settings/family');
@@ -133,7 +133,7 @@ test('route discovery finds the home page, chores and settings sub-pages', () =>
 
 test.describe('every interactive element meets the tap-target minimum', () => {
 	for (const route of routes) {
-		test(`${route}`, async ({ page }, testInfo) => {
+		test(`${route} @J16.1`, async ({ page }, testInfo) => {
 			// Adult signed in, with a kid who has chores (one pending approval) and a goal reward.
 			const seed = await seedKid(page, `tap ${testInfo.project.name}`);
 			kidId = seed.memberId;

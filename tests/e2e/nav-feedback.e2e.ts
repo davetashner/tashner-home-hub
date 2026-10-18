@@ -8,7 +8,9 @@ test.beforeAll(ensureHousehold);
  * hub-ugl.4.9: a pressed nav item looks active the moment the press starts (data-selected), while
  * aria-current stays on the real route. If the press never becomes a tap, the nav rolls back.
  */
-test('a press that slides off the item rolls the nav back to the real route', async ({ page }) => {
+test('a press that slides off the item rolls the nav back to the real route @J0.3', async ({
+	page
+}) => {
 	await gotoHydrated(page, '/');
 	await page.waitForLoadState('networkidle');
 	const nav = page.getByRole('navigation', { name: 'Main' });
@@ -36,7 +38,9 @@ test('a press that slides off the item rolls the nav back to the real route', as
 	await expect(page).toHaveURL(/\/lists$/);
 });
 
-test('tapping a destination marks it selected and lands with aria-current', async ({ page }) => {
+test('tapping a destination marks it selected and lands with aria-current @J0.3', async ({
+	page
+}) => {
 	await gotoHydrated(page, '/');
 	await page.waitForLoadState('networkidle');
 	const nav = page.getByRole('navigation', { name: 'Main' });

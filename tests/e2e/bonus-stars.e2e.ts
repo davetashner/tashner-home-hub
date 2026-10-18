@@ -54,17 +54,17 @@ async function giveAndRemove(page: Page, label: string) {
 	await expect.poll(() => balance(page, s.memberId)).toBe(0);
 }
 
-test('a grown-up gives and removes stars with notes', async ({ page }, info) => {
+test('a grown-up gives and removes stars with notes @J3.4', async ({ page }, info) => {
 	await giveAndRemove(page, info.project.name);
 });
 
-test('the API refuses a removal without a note', async ({ page }, info) => {
+test('the API refuses a removal without a note @J3.4', async ({ page }, info) => {
 	const s = await seedKid(page, `bonusapi ${info.project.name}`);
 	const res = await page.request.post(`/api/members/${s.memberId}/bonus`, { data: { delta: -1 } });
 	expect(res.status()).toBe(400);
 });
 
-test('the kid sees a bonus celebration with the note, a deduction stays quiet', async ({
+test('the kid sees a bonus celebration with the note, a deduction stays quiet @J3.4', async ({
 	page
 }, info) => {
 	const notes = await stubAudio(page);

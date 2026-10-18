@@ -12,7 +12,9 @@ test.beforeEach(async ({ page }) => {
 	await page.waitForLoadState('networkidle');
 });
 
-test('on a phone the whole page scrolls, not a short inner calendar pane', async ({ page }) => {
+test('on a phone the whole page scrolls, not a short inner calendar pane @J5.8', async ({
+	page
+}) => {
 	for (const view of ['Agenda', 'Week', 'Month']) {
 		await page.getByRole('group', { name: 'View' }).getByRole('button', { name: view }).click();
 		const pane = page.getByTestId('calendar-pane');
