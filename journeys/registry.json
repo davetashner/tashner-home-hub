@@ -1,0 +1,738 @@
+{
+	"devices": {
+		"wall": ["wall-landscape-1440p", "wall-portrait-1440p"],
+		"iphone": ["iphone-webkit"],
+		"ipad": ["ipad-portrait-webkit", "ipad-landscape-webkit"]
+	},
+	"personas": [
+		"Kid at the wall",
+		"Parent at the wall",
+		"Parent on a phone or iPad",
+		"The wall unattended",
+		"Everyone"
+	],
+	"journeys": [
+		{
+			"id": "J0",
+			"name": "Wake the screen and see Home",
+			"persona": "Everyone",
+			"critical": true,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J0.1",
+					"text": "Touch the sleeping screen: it wakes, and the touch does not press the button under it.",
+					"status": "built"
+				},
+				{
+					"id": "J0.2",
+					"text": "Home shows the clock, date, weather, next event and the wave background.",
+					"status": "built",
+					"devices": ["wall", "iphone", "ipad"]
+				},
+				{
+					"id": "J0.3",
+					"text": "Move between destinations by tap or swipe; collapse the nav rail for a full-screen view.",
+					"status": "built"
+				},
+				{
+					"id": "J0.4",
+					"text": "Count down to a family date on Home.",
+					"status": "built"
+				},
+				{
+					"id": "J0.5",
+					"text": "Every screen still renders from saved copies when the network drops.",
+					"status": "built"
+				}
+			]
+		},
+		{
+			"id": "J1",
+			"name": "Kid does a Star Job and a habit, earns stars, undoes a mistake",
+			"persona": "Kid at the wall",
+			"critical": true,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J1.1",
+					"text": "Pick my name with the avatar switcher.",
+					"status": "built"
+				},
+				{
+					"id": "J1.2",
+					"text": "Tap a Star Job: it shows pending at once and a star flies to the jar, with sound.",
+					"status": "built"
+				},
+				{
+					"id": "J1.3",
+					"text": "Tap a habit; finishing every habit earns a star.",
+					"status": "built"
+				},
+				{
+					"id": "J1.4",
+					"text": "Undo a mistaken tap within 10 seconds and the star comes back off.",
+					"status": "built"
+				},
+				{
+					"id": "J1.5",
+					"text": "A tap the server refuses reverts with a gentle message.",
+					"status": "built"
+				},
+				{
+					"id": "J1.6",
+					"text": "Finish everything: the all-done banner shows once per day.",
+					"status": "built"
+				},
+				{
+					"id": "J1.7",
+					"text": "Watch the goal jar fill toward the reward I picked.",
+					"status": "built"
+				},
+				{
+					"id": "J1.8",
+					"text": "Games and Music wait until today's jobs are done, or a grown-up unlocks them.",
+					"status": "built"
+				},
+				{
+					"id": "J1.9",
+					"text": "An any-day job sits under This week until done.",
+					"status": "built"
+				},
+				{
+					"id": "J1.10",
+					"text": "Six Star Jobs and six habits fit the wall without scrolling the page.",
+					"status": "built"
+				}
+			]
+		},
+		{
+			"id": "J2",
+			"name": "Kid runs a routine",
+			"persona": "Kid at the wall",
+			"critical": true,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J2.1",
+					"text": "Open a routine from the kid's board, including a kid who has only routines.",
+					"status": "built"
+				},
+				{
+					"id": "J2.2",
+					"text": "Step through it, reload to resume, and see the celebration at the end.",
+					"status": "built"
+				},
+				{
+					"id": "J2.3",
+					"text": "A step tapped offline survives a reload and is saved once back online.",
+					"status": "built"
+				}
+			]
+		},
+		{
+			"id": "J3",
+			"name": "Parent approves and adjusts stars",
+			"persona": "Parent at the wall",
+			"critical": true,
+			"devices": ["wall", "iphone", "ipad"],
+			"steps": [
+				{
+					"id": "J3.1",
+					"text": "The header badge shows pending Star Jobs and leads to the PIN, then Approvals.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J3.2",
+					"text": "Approve one or all; the star turns gold on the wall.",
+					"status": "built"
+				},
+				{
+					"id": "J3.3",
+					"text": "Send a job back with a note, and no stars are paid.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J3.4",
+					"text": "Give or remove bonus stars with a note; the kid sees the bonus celebration.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J3.5",
+					"text": "Undo an approved job any time later.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J3.6",
+					"text": "Read the weekly summary for each child.",
+					"status": "built"
+				},
+				{
+					"id": "J3.7",
+					"text": "A failed approve puts the row back with a message.",
+					"status": "built",
+					"devices": ["wall"]
+				}
+			]
+		},
+		{
+			"id": "J4",
+			"name": "Kid spends stars in the reward shop",
+			"persona": "Kid at the wall",
+			"critical": false,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J4.1",
+					"text": "Browse the shop and make a reward my goal.",
+					"status": "built"
+				},
+				{
+					"id": "J4.2",
+					"text": "Reach the goal: the header badge counts it for grown-ups.",
+					"status": "built"
+				},
+				{
+					"id": "J4.3",
+					"text": "Get it now: preview, then the PIN.",
+					"status": "built",
+					"devices": ["wall", "iphone", "ipad"]
+				},
+				{
+					"id": "J4.4",
+					"text": "A grown-up redeems; the stars come off and it is logged.",
+					"status": "built",
+					"devices": ["wall", "iphone", "ipad"]
+				},
+				{
+					"id": "J4.5",
+					"text": "A failed redeem puts the stars back.",
+					"status": "built"
+				},
+				{
+					"id": "J4.6",
+					"text": "Earn a badge: it celebrates once and fills the kid's sticker book.",
+					"status": "built"
+				},
+				{
+					"id": "J4.7",
+					"text": "A grown-up sets an allowance rate; the kid cashes out and the parent marks it paid.",
+					"status": "built"
+				}
+			]
+		},
+		{
+			"id": "J5",
+			"name": "Family calendar: today, week, add an event",
+			"persona": "Parent at the wall",
+			"critical": true,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J5.1",
+					"text": "Agenda shows today with members and location; a tap opens details.",
+					"status": "built",
+					"devices": ["wall", "iphone", "ipad"]
+				},
+				{
+					"id": "J5.2",
+					"text": "Week and month views show timed, spanning and all-day events; swipe changes the period.",
+					"status": "built"
+				},
+				{
+					"id": "J5.3",
+					"text": "Filter the calendar by member.",
+					"status": "built",
+					"devices": ["wall", "iphone", "ipad"]
+				},
+				{
+					"id": "J5.4",
+					"text": "Add an event from the wall or a phone; it shows pending, then confirmed.",
+					"status": "built",
+					"devices": ["wall", "iphone"]
+				},
+				{
+					"id": "J5.5",
+					"text": "Edit or delete an event; a conflict rolls back.",
+					"status": "built"
+				},
+				{
+					"id": "J5.6",
+					"text": "Connect a calendar link or Google and see its health.",
+					"status": "built",
+					"devices": ["wall", "iphone"]
+				},
+				{
+					"id": "J5.7",
+					"text": "The now line follows the time; the view is remembered.",
+					"status": "built"
+				},
+				{
+					"id": "J5.8",
+					"text": "The calendar fits phone and tablet screens.",
+					"status": "built",
+					"devices": ["iphone", "ipad"]
+				}
+			]
+		},
+		{
+			"id": "J6",
+			"name": "Lists: add, check off, offline replay",
+			"persona": "Everyone",
+			"critical": false,
+			"devices": ["wall", "iphone"],
+			"steps": [
+				{
+					"id": "J6.1",
+					"text": "Add an item with the wall keyboard, check it off, clear checked.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J6.2",
+					"text": "Add an item from a phone.",
+					"status": "built",
+					"devices": ["iphone"]
+				},
+				{
+					"id": "J6.3",
+					"text": "An item added in one browser shows in another within a second.",
+					"status": "built"
+				},
+				{
+					"id": "J6.4",
+					"text": "A check made before its add returns still lands once the network is back.",
+					"status": "built"
+				},
+				{
+					"id": "J6.5",
+					"text": "Long-press an item to delete it; create and delete a list.",
+					"status": "built"
+				},
+				{
+					"id": "J6.6",
+					"text": "Assign a list to a grown-up or the House; group and filter lists by owner.",
+					"status": "built"
+				}
+			]
+		},
+		{
+			"id": "J7",
+			"name": "Meals plan and saved meals to grocery",
+			"persona": "Parent at the wall",
+			"critical": false,
+			"devices": ["wall", "iphone"],
+			"steps": [
+				{
+					"id": "J7.1",
+					"text": "Plan a dinner; it shows in Meals and on the calendar week.",
+					"status": "built"
+				},
+				{
+					"id": "J7.2",
+					"text": "Edit or delete a planned meal.",
+					"status": "built"
+				},
+				{
+					"id": "J7.3",
+					"text": "Save a meal, add its ingredients to Grocery, plan a day from it.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J7.4",
+					"text": "A meal edited offline is saved once back online.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J7.5",
+					"text": "Meals fit a phone with no sideways scroll.",
+					"status": "built",
+					"devices": ["iphone"]
+				},
+				{
+					"id": "J7.6",
+					"text": "Saved meal writes need a grown-up; reading and adding to Grocery do not.",
+					"status": "built",
+					"devices": ["wall"]
+				}
+			]
+		},
+		{
+			"id": "J8",
+			"name": "Photo frame slideshow and sleep schedule",
+			"persona": "The wall unattended",
+			"critical": true,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J8.1",
+					"text": "When idle the wall returns Home, then starts the photo frame; a touch leaves it.",
+					"status": "built"
+				},
+				{
+					"id": "J8.2",
+					"text": "The slideshow plays on its interval, preloads, and fills both photo shapes.",
+					"status": "built"
+				},
+				{
+					"id": "J8.3",
+					"text": "The frame overlay shows the clock, date, weather and next event.",
+					"status": "built"
+				},
+				{
+					"id": "J8.4",
+					"text": "On this day favors past-year photos.",
+					"status": "built"
+				},
+				{
+					"id": "J8.5",
+					"text": "The sleep schedule and Sleep now power the display down and back.",
+					"status": "built",
+					"simulated": "the screen-power calls are proven against the API; the real panel is only checked on the Pi (hub-xcr)"
+				},
+				{
+					"id": "J8.6",
+					"text": "At night the dim, warm clock names the morning's first event; a touch wakes the app.",
+					"status": "built"
+				},
+				{
+					"id": "J8.7",
+					"text": "A grown-up adds photo folders, hides a photo, and sets the interval.",
+					"status": "built"
+				},
+				{
+					"id": "J8.8",
+					"text": "A grown-up connects Google and imports photos with the Google Photos picker.",
+					"status": "built"
+				},
+				{
+					"id": "J8.9",
+					"text": "The photo frame plays Live Photo clips.",
+					"status": "planned"
+				}
+			]
+		},
+		{
+			"id": "J9",
+			"name": "Parent sets up the household",
+			"persona": "Parent on a phone or iPad",
+			"critical": true,
+			"devices": ["wall", "iphone", "ipad"],
+			"steps": [
+				{
+					"id": "J9.1",
+					"text": "A fresh hub shows setup, creates the first grown-up and PIN, then guards the routes.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J9.2",
+					"text": "Add and edit family members.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J9.3",
+					"text": "Unlock with the PIN; five wrong attempts lock it; Lock ends the session.",
+					"status": "built"
+				},
+				{
+					"id": "J9.4",
+					"text": "Create, edit and archive chores, habits, routines and rewards.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J9.5",
+					"text": "Choose wall or personal device, screen direction, idle timers and the sleep schedule.",
+					"status": "built"
+				},
+				{
+					"id": "J9.6",
+					"text": "Choose appearance, sounds, quiet hours and the wave palette.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J9.7",
+					"text": "Pick the household time zone and weather location.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J9.8",
+					"text": "Set up notifications and send a test.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J9.9",
+					"text": "Export all data as JSON; a bad import is refused.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J9.10",
+					"text": "Every admin page and form fits a phone without sideways scroll.",
+					"status": "built",
+					"devices": ["iphone", "ipad"]
+				}
+			]
+		},
+		{
+			"id": "J10",
+			"name": "Music",
+			"persona": "Kid at the wall",
+			"critical": false,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J10.1",
+					"text": "Pick a playlist; it plays with big controls and pause.",
+					"status": "built",
+					"simulated": "Spotify and the Pi speaker are fakes in the tests"
+				},
+				{
+					"id": "J10.2",
+					"text": "Volume stops at the parent cap.",
+					"status": "built"
+				},
+				{
+					"id": "J10.3",
+					"text": "An asleep speaker shows a sheet and Try again starts the music.",
+					"status": "built"
+				},
+				{
+					"id": "J10.4",
+					"text": "A grown-up connects Spotify, curates playlists and sets limits.",
+					"status": "built"
+				},
+				{
+					"id": "J10.5",
+					"text": "A grown-up changes the speaker: scan, pair, test sound.",
+					"status": "built"
+				}
+			]
+		},
+		{
+			"id": "J11",
+			"name": "Timers",
+			"persona": "Everyone",
+			"critical": false,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J11.1",
+					"text": "Open Timers from Home and start one.",
+					"status": "built",
+					"devices": ["wall", "iphone", "ipad"]
+				},
+				{
+					"id": "J11.2",
+					"text": "Pause, add a minute, cancel; the pill follows along.",
+					"status": "built"
+				},
+				{
+					"id": "J11.3",
+					"text": "A finished timer shows a banner and sounds the alarm until dismissed.",
+					"status": "built"
+				}
+			]
+		},
+		{
+			"id": "J12",
+			"name": "Family notes and message board",
+			"persona": "Everyone",
+			"critical": false,
+			"devices": ["wall", "iphone"],
+			"steps": [
+				{
+					"id": "J12.1",
+					"text": "A kid posts a sticky note without a PIN; an adult pins it; anyone dismisses it.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J12.2",
+					"text": "A note that has expired is gone.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J12.3",
+					"text": "The same flow works on a phone.",
+					"status": "built",
+					"devices": ["iphone"]
+				}
+			]
+		},
+		{
+			"id": "J13",
+			"name": "Vacation mode and streaks",
+			"persona": "Parent at the wall",
+			"critical": false,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J13.1",
+					"text": "Set vacation: the kid board pauses, and ending it restores the jobs.",
+					"status": "built"
+				},
+				{
+					"id": "J13.2",
+					"text": "A grown-up sets and ends vacation from Settings.",
+					"status": "built"
+				},
+				{
+					"id": "J13.3",
+					"text": "The kid sees a streak badge and a milestone banner paid exactly once.",
+					"status": "built"
+				}
+			]
+		},
+		{
+			"id": "J14",
+			"name": "Games",
+			"persona": "Kid at the wall",
+			"critical": false,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J14.1",
+					"text": "A grown-up adds a game; it shows on the Games tab, opens in a frame, and Back returns.",
+					"status": "built"
+				},
+				{
+					"id": "J14.2",
+					"text": "A game that cannot load shows a friendly message.",
+					"status": "built"
+				},
+				{
+					"id": "J14.3",
+					"text": "The game form warns about home-network addresses but still saves.",
+					"status": "built"
+				}
+			]
+		},
+		{
+			"id": "J15",
+			"name": "Siri shortcuts API",
+			"persona": "Parent on a phone or iPad",
+			"critical": false,
+			"devices": ["iphone"],
+			"steps": [
+				{
+					"id": "J15.1",
+					"text": "A grown-up makes a Siri token, sees it once, then revokes it.",
+					"status": "built",
+					"devices": ["wall"]
+				},
+				{
+					"id": "J15.2",
+					"text": "Siri adds a list item and does a Star Job with the token.",
+					"status": "built",
+					"tests": ["src/routes/api/siri.spec.ts"],
+					"simulated": "the Shortcuts app on a real iPhone is not driven; the API is covered by unit tests"
+				}
+			]
+		},
+		{
+			"id": "J16",
+			"name": "Every screen fits every device",
+			"persona": "Everyone",
+			"critical": true,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J16.1",
+					"text": "Every tap target meets 60 px (96 px on kid screens) and nothing sits behind hover.",
+					"status": "built"
+				},
+				{
+					"id": "J16.2",
+					"text": "All wall text is legible and the layout has no overflow in portrait.",
+					"status": "built"
+				},
+				{
+					"id": "J16.3",
+					"text": "Phones and iPads in both orientations fit the shell, clear the safe areas, and avoid input zoom.",
+					"status": "built",
+					"devices": ["iphone", "ipad"]
+				},
+				{
+					"id": "J16.4",
+					"text": "Pages have no serious accessibility violations.",
+					"status": "built"
+				},
+				{
+					"id": "J16.5",
+					"text": "Taps and celebrations stay fast.",
+					"status": "built"
+				},
+				{
+					"id": "J16.6",
+					"text": "The hub installs to the Home Screen and the container serves health and shuts down cleanly.",
+					"status": "built",
+					"devices": ["wall", "iphone", "ipad"]
+				}
+			]
+		},
+		{
+			"id": "J17",
+			"name": "Home controls (Home Assistant)",
+			"persona": "Everyone",
+			"critical": false,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J17.1",
+					"text": "Tap a big Home controls tile: it flips at once and settles with the server.",
+					"status": "built"
+				},
+				{
+					"id": "J17.2",
+					"text": "A failed tap rolls back and says so.",
+					"status": "built"
+				},
+				{
+					"id": "J17.3",
+					"text": "Unreachable Home Assistant is handled gracefully, and the card is hidden when nothing is configured.",
+					"status": "built"
+				},
+				{
+					"id": "J17.4",
+					"text": "A grown-up connects Home Assistant, tests it, picks, renames and reorders entities.",
+					"status": "built",
+					"simulated": "Home Assistant is a fake server in the tests"
+				}
+			]
+		},
+		{
+			"id": "J18",
+			"name": "Drawing board",
+			"persona": "Kid at the wall",
+			"critical": false,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J18.1",
+					"text": "Draw with a pen or finger on the Home notes card and post it to the board.",
+					"status": "planned",
+					"beads": ["hub-fkp"]
+				},
+				{
+					"id": "J18.2",
+					"text": "Tap a drawing to enlarge it; anyone dismisses it.",
+					"status": "planned",
+					"beads": ["hub-fkp"]
+				}
+			]
+		}
+	]
+}
