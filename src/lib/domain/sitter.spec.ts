@@ -14,6 +14,9 @@ import {
 	pinUsable,
 	sessionStatus,
 	sitterCan,
+	sitterLocks,
+	isFunPath,
+	backAroundLabel,
 	splitCard,
 	validateSitterPin,
 	validateWindow
@@ -206,5 +209,57 @@ describe('check-ins', () => {
 		});
 		expect(decideCheckin(session, 'in-bed', history, 70_000)).toMatchObject({ ok: true });
 		expect(decideCheckin(session, 'call-me', history, 11_000)).toMatchObject({ ok: true });
+	});
+});
+
+describe('wall locks (hub-7pj.2)', () => {
+	const base = {
+		id: 's',
+		sitterName: null,
+		hasPin: false,
+		startAt: 1000,
+		endAt: 5000,
+		endedAt: null,
+		approveJobs: false,
+		funAllowed: true
+	};
+
+	it('holds nothing before the start or after the end', () => {
+		expect(sitterLocks(null, 2000, false).adultLocked).toBe(false);
+		expect(sitterLocks(base, 500, false).sitterView).toBe(false);
+		expect(sitterLocks(base, 5000, false).sitterView).toBe(false);
+		expect(sitterLocks({ ...base, endedAt: 2000 }, 3000, false).adultLocked).toBe(false);
+	});
+
+	it('locks adult parts while active, but never for an adult', () => {
+		expect(sitterLocks(base, 2000, false)).toMatchObject({ sitterView: true, adultLocked: true });
+		expect(sitterLocks(base, 2000, true)).toMatchObject({ sitterView: true, adultLocked: false });
+	});
+
+	it('hides Games and Music only when fun is off', () => {
+		expect(sitterLocks(base, 2000, false).funHidden).toBe(false);
+		expect(sitterLocks({ ...base, funAllowed: false }, 2000, false).funHidden).toBe(true);
+		expect(sitterLocks({ ...base, funAllowed: false }, 2000, true).funHidden).toBe(false);
+	});
+
+	it('lets the sitter approve only when the parents allowed it', () => {
+		expect(sitterLocks(base, 2000, false).canApprove).toBe(false);
+		expect(sitterLocks({ ...base, approveJobs: true }, 2000, false).canApprove).toBe(true);
+		expect(sitterLocks({ ...base, approveJobs: true }, 9000, false).canApprove).toBe(false);
+	});
+
+	it('knows the fun paths', () => {
+		expect(isFunPath('/games')).toBe(true);
+		expect(isFunPath('/music/queue')).toBe(true);
+		expect(isFunPath('/gamesx')).toBe(false);
+		expect(isFunPath('/chores')).toBe(false);
+	});
+
+	it('labels the end time, with the weekday only on another day', () => {
+		const tz = 'UTC';
+		const now = Date.UTC(2026, 9, 17, 18, 0);
+		expect(backAroundLabel(Date.UTC(2026, 9, 17, 21, 0), now, tz)).toBe('9 PM');
+		expect(backAroundLabel(Date.UTC(2026, 9, 17, 21, 30), now, tz)).toBe('9:30 PM');
+		expect(backAroundLabel(Date.UTC(2026, 9, 18, 1, 0), now, tz)).toBe('Sun 1 AM');
 	});
 });

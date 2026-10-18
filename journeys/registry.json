@@ -763,9 +763,8 @@
 				},
 				{
 					"id": "J19.5",
-					"text": "The wall shows tonight's plan and the emergency info to the sitter and locks the parent-only parts.",
-					"status": "planned",
-					"beads": ["hub-7pj.2"]
+					"text": "The sitter always has the Emergency info button (behind the sitter PIN when one is set), and the parent-only parts of the wall are locked while a session runs.",
+					"status": "built"
 				},
 				{
 					"id": "J19.6",

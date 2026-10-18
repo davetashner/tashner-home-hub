@@ -281,3 +281,58 @@ export function joinCard(plain: PlainCard, sensitive: SensitiveCard): SitterCard
 		tonight: plain.tonight
 	};
 }
+
+// ---- The wall's view of a session (hub-7pj.2) ----
+
+/** Poison Control (US): shown on the Emergency sheet whether or not the sitter PIN was entered. */
+export const POISON_CONTROL = '1-800-222-1222';
+
+/** What GET /api/sitter/current sends for a session. */
+export type WallSession = SessionTimes &
+	SitterPermissions & { id: string; sitterName: string | null; hasPin: boolean };
+
+export interface SitterLocks {
+	/** A session is running right now. */
+	active: boolean;
+	/** The wall shows the sitter view and the Emergency button. */
+	sitterView: boolean;
+	/** Settings and every adult-only action stay shut until a parent unlocks with their PIN. */
+	adultLocked: boolean;
+	/** Games and Music are hidden (the parents turned fun off for this session). */
+	funHidden: boolean;
+	/** The sitter PIN may approve Star Jobs. */
+	canApprove: boolean;
+}
+
+/** An adult at the wall can always override: the locks only hold for everyone else. */
+export function sitterLocks(s: WallSession | null, now: number, adult: boolean): SitterLocks {
+	const active = s !== null && sessionStatus(s, now) === 'active';
+	return {
+		active,
+		sitterView: active,
+		adultLocked: active && !adult,
+		funHidden: active && !adult && !sitterCan(s, 'funAllowed', now),
+		canApprove: sitterCan(s, 'approveJobs', now)
+	};
+}
+
+/** Paths that need the fun lock lifted: Games and Music. */
+export function isFunPath(pathname: string): boolean {
+	return /^\/(games|music)(\/|$)/.test(pathname);
+}
+
+/** "9 PM" for tonight, "Sat 9 PM" when the end is on another day. */
+export function backAroundLabel(endAt: number, now: number, timeZone?: string): string {
+	const day = (ms: number) =>
+		new Intl.DateTimeFormat('en-CA', { timeZone, dateStyle: 'short' }).format(ms);
+	const time = new Intl.DateTimeFormat('en-US', {
+		timeZone,
+		hour: 'numeric',
+		minute: '2-digit'
+	})
+		.format(endAt)
+		.replace(':00', '');
+	if (day(endAt) === day(now)) return time;
+	const weekday = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(endAt);
+	return `${weekday} ${time}`;
+}

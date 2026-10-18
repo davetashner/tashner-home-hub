@@ -1,0 +1,143 @@
+import { expect, test, type Page } from '@playwright/test';
+import { signInAsAdult } from './adult';
+import { trackMember } from './cleanup';
+import { asWallDisplay } from './display';
+import { gotoHydrated } from './hydrated';
+import { endSession, holdSitter, startSession, testCard } from './sitter';
+
+const HOUR = 3_600_000;
+
+/** The wall as the sitter sees it: a display-role browser with no adult session. */
+async function sitterWall(page: Page) {
+	const context = await page.context().browser()!.newContext({
+		baseURL: test.info().project.use.baseURL,
+		viewport: test.info().project.use.viewport
+	});
+	await asWallDisplay(context);
+	return context;
+}
+
+test(
+	'the wall shows Emergency info and locks parent-only parts during a session',
+	{ tag: '@J19.5' },
+	async ({ page }, info) => {
+		test.setTimeout(120_000);
+		const release = await holdSitter();
+		const tag = info.project.name.replace(/\W/g, '');
+		try {
+			await signInAsAdult(page, `adult-sitter-wall-${tag}`);
+			const kid = (await (
+				await page.request.post('/api/members', {
+					data: {
+						name: `Kid A ${Date.now() % 1e9}`,
+						role: 'child',
+						color: 'member-4',
+						avatar: '🦊'
+					}
+				})
+			).json()) as { id: string };
+			trackMember(kid.id);
+			expect((await page.request.put('/api/sitter/card', { data: testCard(kid.id) })).ok()).toBe(
+				true
+			);
+			const sessionId = await startSession(page.request, {
+				endAt: Date.now() + 3 * HOUR,
+				sitterName: `Sam Sitter ${tag}`,
+				pin: '4812',
+				funAllowed: false
+			});
+
+			const sitterCtx = await sitterWall(page);
+			const wall = await sitterCtx.newPage();
+			await wall.clock.install({ time: Date.now() });
+			await gotoHydrated(wall, '/');
+
+			await test.step('J19.5 the Emergency button is always there, with a PIN-gated sheet', async () => {
+				await expect(wall.getByTestId('emergency-open')).toBeVisible();
+				const box = (await wall.getByTestId('emergency-open').boundingBox())!;
+				expect(box.height).toBeGreaterThanOrEqual(60);
+				// It follows the sitter to other pages.
+				await gotoHydrated(wall, '/lists');
+				await expect(wall.getByTestId('emergency-open')).toBeVisible();
+				await wall.getByTestId('emergency-open').click();
+				await expect(wall.getByTestId('emergency-911')).toContainText('Call 911');
+				await expect(wall.getByTestId('emergency-poison')).toContainText(
+					'Poison Control 1-800-222-1222'
+				);
+				// 911 and Poison Control are never behind the PIN; the household card is.
+				await expect(wall.getByTestId('emergency-card')).toHaveCount(0);
+				await expect(wall.getByTestId('emergency-address')).not.toContainText('Test Lane');
+				for (const d of '0000')
+					await wall.getByTestId('pinpad').getByRole('button', { name: d, exact: true }).click();
+				await wall.getByRole('button', { name: 'Enter PIN' }).click();
+				await expect(wall.getByTestId('pin-message')).toHaveText('Wrong PIN.');
+				for (const d of '4812')
+					await wall.getByTestId('pinpad').getByRole('button', { name: d, exact: true }).click();
+				await wall.getByRole('button', { name: 'Enter PIN' }).click();
+				await expect(wall.getByTestId('emergency-address')).toHaveText('1 Test Lane');
+				await expect(wall.getByTestId('emergency-contact')).toContainText('555-0101');
+				await expect(wall.getByTestId('emergency-kid')).toContainText('Peanuts');
+				await expect(wall.getByTestId('emergency-kid')).toContainText('19:30');
+				await expect(wall.getByTestId('emergency-wifi')).toContainText('TestNet');
+				// Entered once: closing and reopening shows the card straight away.
+				await wall.getByTestId('emergency-close').click();
+				await expect(wall.getByTestId('emergency-sheet')).toHaveCount(0);
+				await wall.getByTestId('emergency-open').click();
+				await expect(wall.getByTestId('emergency-card')).toBeVisible();
+				await wall.getByTestId('emergency-close').click();
+			});
+
+			await test.step('J19.5 settings are locked and Games and Music are hidden', async () => {
+				await expect(wall.getByTestId('settings-link')).toHaveAttribute('data-locked', '');
+				// The note shows in the side rail; the portrait bar has no room for it.
+				await expect(wall.getByTestId('sitter-lock-note')).toBeAttached();
+				await expect(wall.locator('nav[aria-label="Main"] a[href="/games"]')).toHaveCount(0);
+				await expect(wall.locator('nav[aria-label="Main"] a[href="/music"]')).toHaveCount(0);
+				await wall.goto('/games');
+				await expect(wall).toHaveURL(/\/$/);
+				// Settings still ask for a parent PIN.
+				await wall.getByTestId('settings-link').click();
+				await expect(wall).toHaveURL(/\/unlock/);
+			});
+
+			await test.step('J19.5 a parent signed in at the wall is not locked out', async () => {
+				const parent = await page.context().newPage();
+				await asWallDisplay(page.context());
+				await gotoHydrated(parent, '/');
+				await expect(parent.getByTestId('emergency-open')).toBeVisible();
+				await expect(parent.getByTestId('settings-link')).not.toHaveAttribute('data-locked', '');
+				await expect(parent.locator('nav[aria-label="Main"] a[href="/games"]')).toHaveCount(1);
+				await parent.close();
+			});
+
+			await test.step('J19.5 ending the session gives the wall back', async () => {
+				await gotoHydrated(wall, '/');
+				await endSession(page.request, sessionId);
+				await wall.clock.fastForward(20_000);
+				await expect(wall.getByTestId('emergency-open')).toHaveCount(0);
+				await expect(wall.getByTestId('settings-link')).not.toHaveAttribute('data-locked', '');
+			});
+
+			await test.step('J19.5 without a PIN the sheet shows the card at once, and the session ends itself', async () => {
+				await startSession(page.request, { endAt: Date.now() + HOUR, sitterName: 'Sam Sitter' });
+				await wall.clock.fastForward(20_000);
+				await expect(wall.getByTestId('emergency-open')).toBeVisible();
+				await wall.getByTestId('emergency-open').click();
+				await expect(wall.getByTestId('emergency-address')).toHaveText('1 Test Lane');
+				await expect(wall.getByTestId('emergency-pin')).toHaveCount(0);
+				await wall.getByTestId('emergency-close').click();
+				// The clock alone ends it: the server still says active, the wall's time says over.
+				await wall.clock.fastForward(2 * HOUR);
+				await expect(wall.getByTestId('emergency-open')).toHaveCount(0);
+			});
+
+			await sitterCtx.close();
+		} finally {
+			const cur = (await (await page.request.get('/api/sitter/current')).json()) as {
+				session: { id: string } | null;
+			};
+			if (cur.session) await endSession(page.request, cur.session.id);
+			release();
+		}
+	}
+);
