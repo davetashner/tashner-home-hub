@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import FunGate from '#lib/components/kid/FunGate.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Icon from '#lib/components/shell/Icon.svelte';
 
@@ -151,12 +152,18 @@
 		const p = playlists.find((x) => x.id === retryId);
 		if (p) void pick(p);
 	}
+	/** Games and Music wait while this kid still has jobs to finish (hub-ruz). */
+	let funLocked = $state(false);
 </script>
 
 <svelte:head><title>Music · Home Hub</title></svelte:head>
 <svelte:window onkeydown={(e) => asleep && e.key === 'Escape' && (asleep = false)} />
 
-<section class="mx-auto flex w-full max-w-7xl flex-col gap-6 p-8 max-sm:p-3 short:gap-3 short:p-3">
+<FunGate onlock={(locked) => (funLocked = locked)} />
+<section
+	style:display={funLocked ? 'none' : undefined}
+	class="mx-auto flex w-full max-w-7xl flex-col gap-6 p-8 max-sm:p-3 short:gap-3 short:p-3"
+>
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<h1 class="text-headline leading-none font-extrabold">Pick your shower music</h1>
 		{#if music}

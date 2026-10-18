@@ -194,6 +194,23 @@ export const missedJudgments = sqliteTable(
 	]
 );
 
+/** A grown-up unlocking Games and Music for a kid for one local day (hub-ruz): who and when. */
+export const funUnlocks = sqliteTable(
+	'fun_unlocks',
+	{
+		id: id(),
+		memberId: text('member_id')
+			.notNull()
+			.references(() => members.id, { onDelete: 'cascade' }),
+		/** The local day it applies to, YYYY-MM-DD. */
+		day: text('day').notNull(),
+		unlockedBy: text('unlocked_by').notNull(),
+		unlockedByName: text('unlocked_by_name').notNull(),
+		unlockedAt: ms('unlocked_at').notNull()
+	},
+	(t) => [index('fun_unlocks_member_day_idx').on(t.memberId, t.day)]
+);
+
 export const rewards = sqliteTable('rewards', {
 	id: id(),
 	title: text('title').notNull(),
