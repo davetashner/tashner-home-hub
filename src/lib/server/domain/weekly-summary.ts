@@ -18,6 +18,7 @@ import { choreCompletions, chores, members, starTransactions } from '../db/schem
 import { householdTimeZone } from '../household.js';
 import { addDays } from '#lib/domain/streaks.js';
 import { isDueOn, localDateIn, parseSchedule, type Schedule } from './chores.js';
+import { flexPeriod } from './flex.js';
 import { LedgerError } from './ledger.js';
 import { streakFor } from './streaks.js';
 
@@ -166,6 +167,24 @@ export function buildWeeklySummary(input: {
 				else if (state === 'pending') pending += 1;
 				else if (date < today) missed.push({ date, choreId: chore.id, title: chore.title });
 			}
+		}
+		// A flexible to-do counts once, in the week its period ends, done on any day of the period.
+		for (const chore of input.chores) {
+			const s = chore.schedule;
+			if (s.type !== 'flex' || !chore.memberIds.includes(child.id)) continue;
+			const period = flexPeriod(s.start, s.every, end);
+			if (!period || period.end !== end) continue;
+			due += 1;
+			let state: string | undefined;
+			for (const c of input.completions) {
+				if (c.memberId !== child.id || c.choreId !== chore.id) continue;
+				if (c.date < period.start || c.date > period.end) continue;
+				if (c.status === 'approved' || (c.status === 'pending' && state !== 'approved'))
+					state = c.status;
+			}
+			if (state === 'approved') done += 1;
+			else if (state === 'pending') pending += 1;
+			else if (end < today) missed.push({ date: end, choreId: chore.id, title: chore.title });
 		}
 		missed.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
 		return {

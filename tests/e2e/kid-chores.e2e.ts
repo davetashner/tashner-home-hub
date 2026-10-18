@@ -144,3 +144,35 @@ test('a chore without approval can be undone in its 10 seconds, taking the gold 
 	await page.reload();
 	await expect(card(page, 'Water cress')).toHaveAttribute('data-status', 'undone');
 });
+
+test('an any-day job shows under This week until done, then stays done today', async ({
+	page
+}, info) => {
+	await signInAsAdult(page, `adult-kc-flex${info.project.name.replace(/\W/g, '')}`);
+	const member = await (
+		await page.request.post('/api/members', {
+			data: { name: `Pip ${Date.now() % 1e9}`, role: 'child', color: 'member-3', avatar: '🦉' }
+		})
+	).json();
+	await page.request.post('/api/chores', {
+		data: {
+			title: 'Tidy my room',
+			icon: '🧹',
+			stars: 2,
+			memberIds: [member.id],
+			schedule: { type: 'flex', every: 1 }
+		}
+	});
+	await page.context().clearCookies();
+	await page.goto(`/chores?member=${member.id}`);
+	await expect(page.getByRole('heading', { name: /This week · any day/ })).toBeAttached();
+	const room = card(page, 'Tidy my room');
+	await expect(room.getByTestId('flex-due')).toHaveText('Due by Sunday');
+	await expectTappable(room.getByTestId('did-it'), 96);
+	const saved = page.waitForResponse((r) => r.url().includes('/complete'));
+	await room.getByTestId('did-it').click();
+	await expect(room).toHaveAttribute('data-status', 'pending');
+	expect((await saved).ok()).toBe(true);
+	await page.reload();
+	await expect(card(page, 'Tidy my room')).toHaveAttribute('data-status', 'pending');
+});

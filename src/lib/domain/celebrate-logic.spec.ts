@@ -39,6 +39,11 @@ describe('isAllDone', () => {
 		expect(isAllDone(board(chore('a', 'pending'), chore('b', 'none')))).toBe(false);
 		expect(isAllDone(board(chore('a', 'rejected')))).toBe(false);
 	});
+	it('is not held up by an any-day to-do still open this week', () => {
+		const week: KidGroup = { timeOfDay: 'week', chores: [chore('room', 'none')] };
+		expect(isAllDone([...board(chore('a', 'approved')), week])).toBe(true);
+		expect(isAllDone([week])).toBe(false);
+	});
 });
 
 describe('quiet hours', () => {

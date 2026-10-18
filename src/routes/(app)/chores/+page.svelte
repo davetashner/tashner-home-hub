@@ -37,6 +37,7 @@
 	import type { MemberColor } from '#lib/domain/member-colors.js';
 	import {
 		GROUP_HEADINGS,
+		isDoable,
 		localDate,
 		setStatus,
 		UNDO_WINDOW_MS,
@@ -112,7 +113,14 @@
 	const goal = $derived(selectedId ? (goals[selectedId] ?? null) : null);
 	// Star Jobs and habits share one board; each section counts its own (hub-esf).
 	const jobGroups = $derived(starJobGroups(groups));
-	const jobs = $derived(doneCount(jobGroups.flatMap((g) => g.chores)));
+	// Today's count; any-day to-dos ('week') are counted once done, not while still open.
+	const jobs = $derived(
+		doneCount(
+			jobGroups.flatMap((g) =>
+				g.timeOfDay === 'week' ? g.chores.filter((c) => !isDoable(c.status)) : g.chores
+			)
+		)
+	);
 	const habits = $derived(habitChores(groups));
 	const habitsToday = $derived(habitCount(habits, routines));
 	// Week tally (Monday to today) and today's habit star, from the server.
