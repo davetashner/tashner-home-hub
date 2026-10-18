@@ -9,8 +9,14 @@
 		event: CalEvent;
 		tz: string;
 		onclose: () => void;
+		/** Adults on a hub-editable iCloud event get Edit and Delete. */
+		onedit?: () => void;
+		ondelete?: () => void;
+		/** An iCloud event the hub cannot change (repeating, overnight): point to the phone. */
+		phoneOnly?: boolean;
 	}
-	let { event, tz, onclose }: Props = $props();
+	let { event, tz, onclose, onedit, ondelete, phoneOnly = false }: Props = $props();
+	let confirming = $state(false);
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
@@ -48,7 +54,30 @@
 		{#if event.notes}
 			<p class="text-body whitespace-pre-line text-ink-muted">{event.notes}</p>
 		{/if}
-		<Button onclick={onclose} variant="secondary" class="self-end">Close</Button>
+		{#if phoneOnly}
+			<p class="text-body font-extrabold text-ink-muted" data-testid="edit-on-phone">
+				Edit this on your phone
+			</p>
+		{/if}
+		{#if confirming}
+			<p class="text-lead font-extrabold" role="alert">Delete this event from the calendar?</p>
+			<div class="flex justify-end gap-4">
+				<Button variant="secondary" onclick={() => (confirming = false)}>Keep it</Button>
+				<Button variant="danger" data-testid="delete-confirm" onclick={ondelete}>Delete</Button>
+			</div>
+		{:else}
+			<div class="flex flex-wrap justify-end gap-4">
+				{#if ondelete}
+					<Button variant="secondary" data-testid="delete-event" onclick={() => (confirming = true)}
+						>Delete</Button
+					>
+				{/if}
+				{#if onedit}
+					<Button variant="secondary" data-testid="edit-event" onclick={onedit}>Edit</Button>
+				{/if}
+				<Button onclick={onclose} variant="secondary">Close</Button>
+			</div>
+		{/if}
 	</div>
 </div>
 
