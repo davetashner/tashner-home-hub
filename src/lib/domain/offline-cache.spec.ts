@@ -13,6 +13,7 @@ describe('routeKind', () => {
 		expect(kind('/api/calendar/events?start=1&end=2')).toBe('api');
 		expect(kind('/api/calendar/status')).toBe('api');
 		expect(kind('/api/approvals/count')).toBe('api');
+		expect(kind('/api/routines')).toBe('api');
 	});
 
 	it('keeps photos separate', () => {

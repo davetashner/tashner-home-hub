@@ -4,7 +4,8 @@ import {
 	WriteQueue,
 	type DropReason,
 	type NewWrite,
-	type QueuedWrite
+	type QueuedWrite,
+	type WriteMethod
 } from '#lib/domain/write-queue.js';
 import { idbStorage } from './idb.js';
 import { isOffline, offline } from './state.svelte.js';
@@ -20,16 +21,21 @@ export function onWriteDropped(fn: typeof dropHandler) {
 
 async function send(write: QueuedWrite) {
 	try {
-		const res = await post(write.url, write.body, write.key);
+		const res = await post(write.url, write.body, write.key, write.method);
 		return classifyStatus(res.status);
 	} catch {
 		return 'retry' as const;
 	}
 }
 
-function post(url: string, body: unknown, key: string): Promise<Response> {
+function post(
+	url: string,
+	body: unknown,
+	key: string,
+	method: WriteMethod = 'POST'
+): Promise<Response> {
 	return fetch(url, {
-		method: 'POST',
+		method,
 		headers: { 'content-type': 'application/json', 'idempotency-key': key },
 		body: JSON.stringify(body),
 		signal: AbortSignal.timeout(SEND_TIMEOUT_MS)
@@ -65,7 +71,7 @@ export type Delivery<T> =
 export async function deliver<T>(write: NewWrite): Promise<Delivery<T>> {
 	try {
 		if ((await writeQueue.size()) === 0) {
-			const res = await post(write.url, write.body, crypto.randomUUID());
+			const res = await post(write.url, write.body, crypto.randomUUID(), write.method);
 			if (res.ok) return { sent: true, data: (await res.json()) as T };
 			if (classifyStatus(res.status) !== 'retry')
 				return { sent: false, queued: false, status: res.status };
