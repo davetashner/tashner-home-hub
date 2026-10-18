@@ -18,6 +18,10 @@ const SKIP = [/^pnpm-lock\.yaml$/, /\.(woff2?|ttf|otf|ico)$/i];
 const EMAIL = /[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
 // North American numbers; 555-0100..0199 are reserved for fiction and allowed.
 const PHONE = /\(?\b\d{3}\)?[-. ]\d{3}[-. ]\d{4}\b/g;
+// Public US hotlines shown on the sitter emergency sheet (not anyone's private number).
+const PUBLIC_HOTLINES = new Set([
+	'8002221222' // Poison Control
+]);
 
 const problems = [];
 const files = trackedFiles();
@@ -42,6 +46,7 @@ for (const file of files) {
 	for (const [phone] of text.matchAll(PHONE)) {
 		const digits = phone.replace(/\D/g, '');
 		if (/^\d{3}55501\d\d$/.test(digits)) continue;
+		if (PUBLIC_HOTLINES.has(digits)) continue;
 		problems.push(`${file}: real-looking phone number "${phone}" (use 555-01xx)`);
 	}
 }
