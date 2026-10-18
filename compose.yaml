@@ -2,7 +2,7 @@
 # Config comes from an optional .env next to this file (see .env.example).
 services:
   hub:
-    image: ghcr.io/davetashner/tashner-home-hub:${HUB_TAG:-latest}
+    image: ghcr.io/davetashner/tashner-home-hub:${HUB_TAG:-main}
     build: . # fallback when the image is not published/pulled
     init: true
     labels:

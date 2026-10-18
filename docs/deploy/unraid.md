@@ -79,11 +79,21 @@ Point the kiosk at `http://192.168.1.10:3000` (or a hostname such as `hub.local`
 
 ## Updating
 
+The image is built by GitHub Actions (`.github/workflows/publish.yml`) on every push to `main` and
+pushed to `ghcr.io/davetashner/tashner-home-hub` as `main` and `sha-<short>`. The tower never builds:
+
 ```sh
-docker compose pull && docker compose up -d
+git pull && docker compose -p home-hub pull && docker compose -p home-hub up -d
 ```
 
-Pin a release with `HUB_TAG=<version>` in `.env` to avoid surprise upgrades.
+One-time setup after the first publish succeeds (pick one):
+
+- Make the package public: GitHub > profile > Packages > `tashner-home-hub` > Package settings >
+  Change visibility > Public.
+- Or keep it private and run `docker login ghcr.io` on the tower with a read-only classic PAT
+  (`read:packages` scope).
+
+Pin a build with `HUB_TAG=sha-<short>` in `.env` to avoid surprise upgrades.
 
 ## Troubleshooting
 

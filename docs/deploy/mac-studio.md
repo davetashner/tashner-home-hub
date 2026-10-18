@@ -59,7 +59,7 @@ Use the Mac's LAN name or a reserved IP (for example `http://hub.local:3000` or 
 ## Updating
 
 ```sh
-docker compose pull && docker compose up -d
+docker compose pull && docker compose up -d   # the image is built by CI; see unraid.md for GHCR access
 ```
 
 ## Backups
