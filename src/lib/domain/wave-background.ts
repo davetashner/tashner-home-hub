@@ -5,7 +5,9 @@
 export const WAVE_SETTING_KEY = 'wave.background';
 export const WAVE_CHOICES = ['auto', 'dusk', 'seafoam', 'sorbet', 'night', 'off'] as const;
 export type WaveChoice = (typeof WAVE_CHOICES)[number];
-export type WavePalette = 'dusk' | 'seafoam' | 'sorbet' | 'night';
+import type { Season } from './season.js';
+
+export type WavePalette = 'dusk' | 'seafoam' | 'sorbet' | 'night' | Season | `${Season}-night`;
 export type Rgb = [number, number, number];
 
 export const WAVE_LABELS: Record<WaveChoice, string> = {
@@ -144,9 +146,17 @@ export function autoPalette(
 	return now >= from && now < sun.sunset + SUNSET_WINDOW_MS ? 'sorbet' : 'dusk';
 }
 
+/** Dark palettes: the only ones the night theme draws, and never drawn under the day theme. */
+export const isDarkPalette = (p: WavePalette) => p === 'night' || p.endsWith('-night');
+
+/** A holiday's look (hub-6pv.6): the light one by day, its dark twin under the night theme. */
+export const seasonPalette = (season: Season, theme: 'light' | 'night'): WavePalette =>
+	theme === 'night' ? `${season}-night` : season;
+
 /**
- * The palette to draw, or null for none. `auto` is what Auto wants right now (see autoPalette).
- * The night theme always gets Night and the day theme never does (see autoPalette for why).
+ * The palette to draw, or null for none. `auto` is what Auto wants right now (autoPalette, or
+ * seasonPalette on a holiday). The night theme always gets a dark palette and the day theme never
+ * does (see autoPalette for why): anything of the wrong lightness falls back to Night or Dusk.
  */
 export function resolvePalette(
 	choice: WaveChoice,
@@ -154,9 +164,9 @@ export function resolvePalette(
 	auto: WavePalette = theme === 'night' ? 'night' : 'dusk'
 ): WavePalette | null {
 	if (choice === 'off') return null;
-	if (theme === 'night') return 'night';
 	const wanted = choice === 'auto' ? auto : choice;
-	return wanted === 'night' ? 'dusk' : wanted;
+	if (theme === 'night') return choice === 'auto' && isDarkPalette(wanted) ? wanted : 'night';
+	return isDarkPalette(wanted) ? 'dusk' : wanted;
 }
 
 export const PALETTE_SLOTS = [
@@ -186,7 +196,20 @@ export const PALETTE_LOOK: Record<WavePalette, PaletteLook> = {
 	dusk: { sheetAlpha: 0.34, lineAlpha: 0.55, dotAlpha: 0.9, vignette: 0.18 },
 	seafoam: { sheetAlpha: 0.32, lineAlpha: 0.55, dotAlpha: 0.9, vignette: 0.16 },
 	sorbet: { sheetAlpha: 0.32, lineAlpha: 0.5, dotAlpha: 0.9, vignette: 0.16 },
-	night: { sheetAlpha: 0.16, lineAlpha: 0.35, dotAlpha: 0.75, vignette: 0.35 }
+	night: { sheetAlpha: 0.16, lineAlpha: 0.35, dotAlpha: 0.75, vignette: 0.35 },
+	// Holidays (hub-6pv.6): day looks tint their sheets (white ones wash the colour out).
+	halloween: { sheetAlpha: 0.32, lineAlpha: 0.55, dotAlpha: 0.7, vignette: 0.2 },
+	'halloween-night': { sheetAlpha: 0.2, lineAlpha: 0.42, dotAlpha: 0.85, vignette: 0.4 },
+	autumn: { sheetAlpha: 0.3, lineAlpha: 0.5, dotAlpha: 0.9, vignette: 0.18 },
+	'autumn-night': { sheetAlpha: 0.18, lineAlpha: 0.38, dotAlpha: 0.8, vignette: 0.35 },
+	christmas: { sheetAlpha: 0.3, lineAlpha: 0.5, dotAlpha: 0.9, vignette: 0.18 },
+	'christmas-night': { sheetAlpha: 0.18, lineAlpha: 0.38, dotAlpha: 0.85, vignette: 0.35 },
+	christmasday: { sheetAlpha: 0.3, lineAlpha: 0.5, dotAlpha: 0.95, vignette: 0.16 },
+	'christmasday-night': { sheetAlpha: 0.2, lineAlpha: 0.4, dotAlpha: 0.9, vignette: 0.3 },
+	stpatricks: { sheetAlpha: 0.32, lineAlpha: 0.5, dotAlpha: 0.9, vignette: 0.16 },
+	'stpatricks-night': { sheetAlpha: 0.18, lineAlpha: 0.38, dotAlpha: 0.85, vignette: 0.35 },
+	july4: { sheetAlpha: 0.3, lineAlpha: 0.55, dotAlpha: 0.9, vignette: 0.16 },
+	'july4-night': { sheetAlpha: 0.18, lineAlpha: 0.4, dotAlpha: 0.9, vignette: 0.4 }
 };
 
 /** Chosen defaults: speed 1.15x, wave height 150%, density 105, dot size 0.4x. */
