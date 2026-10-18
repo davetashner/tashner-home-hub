@@ -11,6 +11,7 @@
 	import ApprovalsBadge from './ApprovalsBadge.svelte';
 	import Clock from './Clock.svelte';
 	import Icon from './Icon.svelte';
+	import { frameOverlay } from './frame-overlay-state.svelte.js';
 	import IdleWatcher from './IdleWatcher.svelte';
 	import NavItem from './NavItem.svelte';
 	import NightClock from './NightClock.svelte';
@@ -225,11 +226,13 @@
 	</nav>
 
 	{#if collapsed}
-		<!-- Bottom-left: the calendar keeps its controls along the top and its day headers to the
+		<!-- Bottom-left (top-left while the photo overlay is up, since it owns the bottom edge): the calendar keeps its controls along the top and its day headers to the
 		     right, photos keep their centre and top clear; the bottom-left of the calendar is only
 		     the time gutter. The clock is non-interactive so it never swallows a tap. -->
 		<div
-			class="shell-float pointer-events-none fixed bottom-4 left-4 z-30 hidden items-center gap-3"
+			class="shell-float pointer-events-none fixed left-4 z-30 hidden items-center gap-3 {frameOverlay.any
+				? 'top-4'
+				: 'bottom-4'}"
 		>
 			<button
 				bind:this={handle}
@@ -241,13 +244,15 @@
 			>
 				<Icon name="menu" />
 			</button>
-			<div
-				class="rounded-chip bg-scrim px-4 py-2 text-on-frame"
-				data-testid="corner-clock"
-				aria-hidden="true"
-			>
-				<Clock testidPrefix="corner-clock" size="corner" />
-			</div>
+			{#if !frameOverlay.clock}
+				<div
+					class="rounded-chip bg-scrim px-4 py-2 text-on-frame"
+					data-testid="corner-clock"
+					aria-hidden="true"
+				>
+					<Clock testidPrefix="corner-clock" size="corner" />
+				</div>
+			{/if}
 		</div>
 	{/if}
 

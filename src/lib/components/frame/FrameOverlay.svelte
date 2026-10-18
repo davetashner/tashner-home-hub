@@ -18,6 +18,7 @@
 		pickNextEvent,
 		type OverlaySettings
 	} from '#lib/domain/frame-overlay.js';
+	import { frameOverlay } from '#lib/components/shell/frame-overlay-state.svelte.js';
 	import { defaultTimeZone, isTimeZone } from '#lib/domain/time-zone.js';
 	import type { WeatherCurrent, WeatherUnit } from '#lib/domain/weather.js';
 
@@ -33,6 +34,16 @@
 	const next = $derived(show.nextEvent ? pickNextEvent(events, now, zone) : null);
 	const line = $derived(weather ? formatWeatherLine(weather.current, weather.unit) : null);
 	const nudge = $derived(overlayNudge(now));
+
+	// Tell the shell what is on screen; cleared when the overlay goes away.
+	$effect(() => {
+		frameOverlay.any = show.any;
+		frameOverlay.clock = show.any && show.clock;
+		return () => {
+			frameOverlay.any = false;
+			frameOverlay.clock = false;
+		};
+	});
 
 	async function getJson(url: string): Promise<unknown> {
 		const res = await fetch(url).catch(() => null);
