@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { showSprites, snowsOn, spriteStyle, spritesFor } from './season-sprites.js';
+import { navClearance, showSprites, snowsOn, spriteStyle, spritesFor } from './season-sprites.js';
 import { NO_SEASON, REINDEER, SEASONS, type Season } from './season.js';
 
 const on = (season: Season | null, more: { reindeer?: number; christmasEve?: boolean } = {}) => ({
@@ -135,5 +135,41 @@ describe('spriteStyle', () => {
 		expect(style).toContain(`height: ${s!.size}vmin`);
 		expect(style).toContain(`--period: ${s!.period}s`);
 		expect(style).toContain(`--delay: ${s!.delay}s`);
+	});
+});
+
+describe('navClearance', () => {
+	const bar = (top: number, height: number, width = 393) => ({
+		top,
+		bottom: top + height,
+		width,
+		height
+	});
+
+	it('keeps clear of a bottom tab bar', () => {
+		expect(navClearance(bar(562, 290), 852)).toEqual({ top: 0, bottom: 290 });
+	});
+
+	it('keeps clear of a top bar', () => {
+		expect(navClearance(bar(0, 58, 734), 393)).toEqual({ top: 58, bottom: 0 });
+	});
+
+	it('ignores a side rail, a hidden nav, and a bar slid off screen', () => {
+		expect(navClearance({ top: 0, bottom: 1440, width: 330, height: 1440 }, 1440)).toEqual({
+			top: 0,
+			bottom: 0
+		});
+		expect(navClearance(null, 800)).toEqual({ top: 0, bottom: 0 });
+		expect(navClearance({ top: 0, bottom: 0, width: 0, height: 0 }, 800)).toEqual({
+			top: 0,
+			bottom: 0
+		});
+		expect(navClearance(bar(900, 100), 852)).toEqual({ top: 0, bottom: 0 });
+		expect(navClearance(bar(-80, 58), 393)).toEqual({ top: 0, bottom: 0 });
+	});
+
+	it('only counts the part of a bar that is on screen', () => {
+		expect(navClearance(bar(800, 100), 852)).toEqual({ top: 0, bottom: 52 });
+		expect(navClearance(bar(-20, 58), 393)).toEqual({ top: 38, bottom: 0 });
 	});
 });

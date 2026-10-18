@@ -317,3 +317,27 @@ export function spriteStyle(s: Sprite): string {
 		`--delay: ${s.delay}s`
 	].join('; ');
 }
+
+interface Box {
+	top: number;
+	bottom: number;
+	width: number;
+	height: number;
+}
+
+/**
+ * How far the sprite layer keeps clear of the nav when it's a bar across the screen (hub-6pv.6.8):
+ * the bottom tab bar in portrait, or the phone's top bar in landscape. A side rail needs nothing,
+ * since resting sprites already stay on the right. Pixels, clamped to the viewport.
+ */
+export function navClearance(
+	nav: Box | null,
+	viewportHeight: number
+): { top: number; bottom: number } {
+	const none = { top: 0, bottom: 0 };
+	if (!nav || nav.width <= nav.height || nav.height <= 0) return none;
+	if (nav.bottom <= 0 || nav.top >= viewportHeight) return none;
+	return nav.top + nav.height / 2 > viewportHeight / 2
+		? { top: 0, bottom: Math.round(viewportHeight - Math.max(0, nav.top)) }
+		: { top: Math.round(Math.min(viewportHeight, nav.bottom)), bottom: 0 };
+}
