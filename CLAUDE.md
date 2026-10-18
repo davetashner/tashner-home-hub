@@ -84,6 +84,8 @@ pnpm gates            # everything CI runs in Tier 1, locally
 pnpm build            # production build
 ```
 
+**Colliding Drizzle migration number:** on the feature branch run `node scripts/db/rebase-migration.mjs` (rebases onto origin/main, regenerates the branch's migration with the next free number and the same name, fixes the journal `when` and the db.spec table count, and prints any hand edits to the old SQL to re-apply; it never pushes). Its tests: `node --test scripts/db/`.
+
 Run `pnpm gates` before opening a PR. A red CI is never merged.
 
 **Parallel e2e:** each checkout can run `pnpm test:e2e` side by side: set `E2E_PORT` to a free port (e.g. `E2E_PORT=4231 pnpm test:e2e`). The default is 4173. Playwright never reuses a running server, so a stale one on your port fails fast instead of testing someone else's build.
