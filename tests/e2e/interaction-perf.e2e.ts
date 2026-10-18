@@ -278,7 +278,7 @@ test(
 		// Tap through the destinations in turn (not Photos: its slideshow never goes quiet).
 		for (const [label, href] of [
 			['Calendar', '/calendar'],
-			['To-Do List', '/chores'],
+			['To-Dos', '/chores'],
 			['Lists', '/lists'],
 			['Meals', '/meals'],
 			['Calendar', '/calendar']

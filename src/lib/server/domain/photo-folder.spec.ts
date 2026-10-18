@@ -96,12 +96,16 @@ describe('stableShuffle', () => {
 
 describe('parseConfig', () => {
 	it('tolerates junk', () => {
-		expect(parseConfig('nope')).toEqual({ root: '', albums: [], recursive: true });
+		expect(parseConfig('nope')).toEqual({ root: '', albums: [], windows: {}, recursive: true });
 		expect(parseConfig('{"root":"/r","albums":["a",1]}')).toEqual({
 			root: '/r',
 			albums: ['a'],
+			windows: {},
 			recursive: true
 		});
+		expect(
+			parseConfig('{"windows":{"a":{"from":"06-01","to":"06-10"},"b":{"from":"13-01"}}}').windows
+		).toEqual({ a: { from: '06-01', to: '06-10' } });
 		expect(parseConfig('{}').root).toBe('');
 	});
 });

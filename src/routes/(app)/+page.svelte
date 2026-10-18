@@ -3,12 +3,14 @@
 	import WeatherWidget from '#lib/components/weather/WeatherWidget.svelte';
 	import Clock from '#lib/components/shell/Clock.svelte';
 	import HomeCountdowns from '#lib/components/home/HomeCountdowns.svelte';
+	import { page } from '$app/state';
+	import { TODO_FALLBACK } from '#lib/domain/nav.js';
 
-	const tiles = [
+	const tiles = $derived([
 		{ title: 'Today', line: 'Events and reminders will appear here.' },
-		{ title: 'To-Do List', line: 'Who has what, and the stars earned.' },
+		{ title: page.data.todoLabel ?? TODO_FALLBACK, line: 'Who has what, and the stars earned.' },
 		{ title: 'Dinner', line: "Tonight's plan at a glance." }
-	];
+	]);
 </script>
 
 <svelte:head>

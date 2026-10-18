@@ -4,7 +4,7 @@ import {
 	DEFAULT_OVERLAY,
 	eventsWindow,
 	formatNextEvent,
-	formatWeatherLine,
+	formatOverlayWeather,
 	isOverlayField,
 	msToNextMinute,
 	overlayNudge,
@@ -187,16 +187,44 @@ describe('formatting', () => {
 		);
 	});
 
-	it('formats the weather line', () => {
-		expect(formatWeatherLine({ temp: 72, code: 0, isDay: true }, 'F')).toEqual({
-			icon: 'sun',
-			temp: '72°F',
-			label: 'Clear'
+	describe('formatOverlayWeather', () => {
+		const days = [
+			{ date: '2026-10-16', code: 0, high: 72, low: 51 },
+			{ date: '2026-10-17', code: 63, high: 65, low: 48 }
+		];
+		const sunny = { temp: 58, code: 0, isDay: true };
+		const local = (hhmm: string, day = '16') => at(`2026-10-${day}T${hhmm}:00-05:00`);
+
+		it('always leads with the current temperature and icon', () => {
+			expect(formatOverlayWeather(sunny, days, NOW, TZ).current).toEqual({
+				icon: 'sun',
+				temp: '58°'
+			});
+			expect(
+				formatOverlayWeather({ temp: -3, code: 0, isDay: false }, [], NOW, TZ).current
+			).toEqual({ icon: 'moon', temp: '-3°' });
 		});
-		expect(formatWeatherLine({ temp: -3, code: 0, isDay: false }, 'C')).toEqual({
-			icon: 'moon',
-			temp: '-3°C',
-			label: 'Clear'
+
+		it("shows today's high and low from midnight until 11:59 AM", () => {
+			const today = { label: 'Today', icon: 'sun', high: '72°', low: '51°' };
+			expect(formatOverlayWeather(sunny, days, local('00:00'), TZ).day).toEqual(today);
+			expect(formatOverlayWeather(sunny, days, local('11:59'), TZ).day).toEqual(today);
+		});
+
+		it("shows tomorrow's high and low from noon until 11:59 PM", () => {
+			const tomorrow = { label: 'Tomorrow', icon: 'rain', high: '65°', low: '48°' };
+			expect(formatOverlayWeather(sunny, days, local('12:00'), TZ).day).toEqual(tomorrow);
+			expect(formatOverlayWeather(sunny, days, local('23:59'), TZ).day).toEqual(tomorrow);
+		});
+
+		it('flips back to Today at midnight, on the household calendar', () => {
+			const day = formatOverlayWeather(sunny, days, local('00:00', '17'), TZ).day;
+			expect(day).toEqual({ label: 'Today', icon: 'rain', high: '65°', low: '48°' });
+		});
+
+		it('hides the second row when that day is missing', () => {
+			expect(formatOverlayWeather(sunny, [], local('09:00'), TZ).day).toBeNull();
+			expect(formatOverlayWeather(sunny, days.slice(0, 1), local('15:00'), TZ).day).toBeNull();
 		});
 	});
 

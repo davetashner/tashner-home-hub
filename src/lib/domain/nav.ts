@@ -19,13 +19,27 @@ export const DESTINATIONS: readonly Destination[] = [
 		href: '/calendar',
 		icon: 'calendar'
 	},
-	{ id: 'chores', label: 'To-Do List', href: '/chores', icon: 'chores' },
+	{ id: 'chores', label: 'To-Dos', href: '/chores', icon: 'chores' },
 	{ id: 'photos', label: 'Photos', href: '/photos', icon: 'photos' },
 	{ id: 'lists', label: 'Lists', href: '/lists', icon: 'lists' },
 	{ id: 'meals', label: 'Meals', href: '/meals', icon: 'meals' },
 	{ id: 'games', label: 'Games', href: '/games', icon: 'games' },
 	{ id: 'music', label: 'Music', href: '/music', icon: 'music' }
 ];
+
+/** The to-do list's name when the household has no single child to name it after. */
+export const TODO_FALLBACK = 'To-Dos';
+
+/** "<Name>'s To-Dos" when exactly one child is in the household, else plain "To-Dos". */
+export function todoLabel(childNames: readonly string[]): string {
+	const names = childNames.map((n) => n.trim()).filter(Boolean);
+	return names.length === 1 ? `${names[0]}'s To-Dos` : TODO_FALLBACK;
+}
+
+/** The destinations with the to-do list named for this household. */
+export function destinationsFor(todo: string): Destination[] {
+	return DESTINATIONS.map((d) => (d.id === 'chores' ? { ...d, label: todo } : d));
+}
 
 export function isActive(href: string, pathname: string): boolean {
 	return pathname === href || pathname.startsWith(`${href}/`);
