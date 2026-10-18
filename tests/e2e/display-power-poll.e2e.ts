@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold } from './adult';
 import { asWallDisplay } from './display';
+import { gotoHydrated } from './hydrated';
 
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
@@ -12,7 +13,7 @@ async function countPolls(page: import('@playwright/test').Page, ms: number): Pr
 		count++;
 		return route.fulfill({ json: { power: 'on', reason: 'schedule', mode: 'normal' } });
 	});
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await page.waitForLoadState('networkidle');
 	count = 0;
 	await page.waitForTimeout(ms);

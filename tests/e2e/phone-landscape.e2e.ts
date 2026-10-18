@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { expectTappable } from './tap';
 import { ensureHousehold } from './adult';
+import { gotoHydrated } from './hydrated';
 
 // DEV-1/UI-8: an iPhone turned sideways gets a compact top bar, not the wall's side rail.
 test.beforeAll(ensureHousehold);
@@ -20,7 +21,7 @@ for (const phone of phones) {
 
 		for (const route of routes) {
 			test(`${route} does not overflow the width`, async ({ page }) => {
-				await page.goto(route);
+				await gotoHydrated(page, route);
 				await page.waitForLoadState('networkidle');
 				const { scrollWidth, innerWidth } = await page.evaluate(() => ({
 					scrollWidth: document.documentElement.scrollWidth,
@@ -31,7 +32,7 @@ for (const phone of phones) {
 		}
 
 		test('a Home control returns to the home page', async ({ page }) => {
-			await page.goto('/chores');
+			await gotoHydrated(page, '/chores');
 			await page.waitForLoadState('networkidle');
 			const home = page.getByRole('link', { name: 'Home' });
 			await expect(home).toBeVisible();
@@ -41,7 +42,7 @@ for (const phone of phones) {
 		});
 
 		test('the shell fits on screen with 60px tap targets', async ({ page }) => {
-			await page.goto('/chores');
+			await gotoHydrated(page, '/chores');
 			await page.waitForLoadState('networkidle');
 			// Only the shell's own bar: page content may carry its own headers.
 			const shell = page.locator('nav[aria-label="Main"]').locator('xpath=..');

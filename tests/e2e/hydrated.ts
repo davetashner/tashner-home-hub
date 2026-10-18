@@ -15,3 +15,13 @@ export async function gotoHydrated(
 	await expect(page.locator('html[data-hydrated]')).toBeAttached();
 	return response;
 }
+
+/** `page.reload()` that waits for hydration again; the fresh document has no marker until then. */
+export async function reloadHydrated(
+	page: Page,
+	options?: Parameters<Page['reload']>[0]
+): Promise<Response | null> {
+	const response = await page.reload(options);
+	await expect(page.locator('html[data-hydrated]')).toBeAttached();
+	return response;
+}

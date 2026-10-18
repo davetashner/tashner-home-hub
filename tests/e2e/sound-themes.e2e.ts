@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { choreCard, openKid, seedKid, stubAudio } from './kid';
 import { expectTappable } from './tap';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
@@ -51,12 +52,10 @@ test('outside quiet hours the chosen theme and volume play', async ({ page }, in
 test('grown-ups pick a theme and volume, preview it, and it persists', async ({ page }, info) => {
 	await hook(page);
 	await signInAsAdult(page, `e2e-theme-adult-${info.project.name}`);
-	await page.goto('/settings/sound');
+	await gotoHydrated(page, '/settings/sound');
 	const arcade = page.getByRole('button', { name: 'Arcade', exact: true });
-	await expect(async () => {
-		await arcade.click();
-		await expect(arcade).toHaveAttribute('aria-pressed', 'true', { timeout: 500 });
-	}).toPass();
+	await arcade.click();
+	await expect(arcade).toHaveAttribute('aria-pressed', 'true');
 	await expectTappable(arcade);
 	const slider = page.getByRole('slider', { name: 'Volume' });
 	await slider.fill('35');
@@ -70,7 +69,7 @@ test('grown-ups pick a theme and volume, preview it, and it persists', async ({ 
 	await expect
 		.poll(async () => (await (await page.request.get('/api/settings/sound')).json()).volume)
 		.toBe(35);
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(page.getByRole('button', { name: 'Arcade', exact: true })).toHaveAttribute(
 		'aria-pressed',
 		'true'

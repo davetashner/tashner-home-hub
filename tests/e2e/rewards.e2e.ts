@@ -44,7 +44,7 @@ test('emoji picker tap targets and free-entry validation', async ({ page }, info
 
 test('saving a reward while the hub is unreachable says so', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-rewards-502-${info.project.name}`);
-	await page.goto('/settings/rewards');
+	await gotoHydrated(page, '/settings/rewards');
 	await page.route('**/api/rewards', (route) =>
 		route.request().method() === 'POST'
 			? route.fulfill({ status: 502, body: '' })

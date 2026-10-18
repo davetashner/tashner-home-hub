@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { px } from './tap';
 import { ensureHousehold, signInAsAdult } from './adult';
+import { gotoHydrated } from './hydrated';
 
 // DEV-3: nothing tappable or readable sits under an iPhone notch, Dynamic Island or home indicator.
 test.beforeAll(ensureHousehold);
@@ -79,14 +80,14 @@ for (const phone of phones) {
 
 		for (const route of ['/', '/chores', '/calendar']) {
 			test(`shell on ${route} clears the insets`, async ({ page }) => {
-				await page.goto(route);
+				await gotoHydrated(page, route);
 				await page.waitForLoadState('networkidle');
 				await expectInsideSafeArea(page, phone);
 			});
 		}
 
 		test('the header and nav pad past the insets', async ({ page }) => {
-			await page.goto('/chores');
+			await gotoHydrated(page, '/chores');
 			await page.waitForLoadState('networkidle');
 			const pad = (selector: string, side: 'Right' | 'Bottom' | 'Left') =>
 				page
@@ -103,13 +104,13 @@ for (const phone of phones) {
 
 		test('settings clear the insets for an adult', async ({ page }, info) => {
 			await signInAsAdult(page, `e2e-safe-${phone.name}-${info.project.name}`);
-			await page.goto('/settings');
+			await gotoHydrated(page, '/settings');
 			await page.waitForLoadState('networkidle');
 			await expectInsideSafeArea(page, phone);
 		});
 
 		test('the unlock page clears the insets', async ({ page }) => {
-			await page.goto('/unlock');
+			await gotoHydrated(page, '/unlock');
 			await page.waitForLoadState('networkidle');
 			await expectInsideSafeArea(page, phone);
 		});
@@ -117,7 +118,7 @@ for (const phone of phones) {
 }
 
 test('the wall has no insets, so the header padding is even', async ({ page }) => {
-	await page.goto('/chores');
+	await gotoHydrated(page, '/chores');
 	await page.waitForLoadState('networkidle');
 	const { top, bottom } = await page
 		.locator('header')

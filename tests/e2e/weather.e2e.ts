@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
@@ -26,7 +27,7 @@ async function mockWeather(page: Page, body: unknown) {
 
 test('the home widget shows temperature, condition and forecast', async ({ page }) => {
 	await mockWeather(page, snapshot(NOW));
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	const widget = page.getByTestId('weather-widget');
 	await expect(widget).toBeVisible();
 	await expect(page.getByTestId('weather-temp')).toHaveText('68°F');
@@ -40,13 +41,13 @@ test('the home widget shows temperature, condition and forecast', async ({ page 
 
 test('stale data carries an out-of-date note', async ({ page }) => {
 	await mockWeather(page, snapshot(NOW - 4 * 60 * 60 * 1000));
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await expect(page.getByText('Weather may be out of date.')).toBeVisible();
 });
 
 test('with no location the widget is absent and home still renders', async ({ page }) => {
 	await mockWeather(page, { enabled: false });
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await expect(page.getByTestId('weather-widget')).toHaveCount(0);
 	await expect(page.locator('main')).toBeVisible();
 });
@@ -60,7 +61,7 @@ test('the widget does not overflow at phone and tablet sizes', async ({ page }) 
 		[1180, 820]
 	]) {
 		await page.setViewportSize({ width, height });
-		await page.goto('/');
+		await gotoHydrated(page, '/');
 		const widget = page.getByTestId('weather-widget');
 		await expect(widget).toBeVisible();
 		const over = await page.evaluate(() => {
@@ -87,7 +88,7 @@ test('grown-ups search, pick, save and remove a weather location', async ({ page
 		const mounted = page.waitForResponse(
 			(r) => r.request().method() === 'GET' && r.url().endsWith('/api/settings/weather')
 		);
-		await page.goto('/settings/weather');
+		await gotoHydrated(page, '/settings/weather');
 		await mounted;
 		await expect(async () => {
 			await page.getByRole('searchbox', { name: 'City or postal code' }).fill('Springfield');

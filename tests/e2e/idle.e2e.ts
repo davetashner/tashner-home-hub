@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 // Page routes must see every request; a service worker would answer some from the real server.
 test.use({ serviceWorkers: 'block' });
@@ -26,7 +27,7 @@ test('idle returns home, then starts the photo frame; a touch goes back home', a
 	// An empty library keeps the nav visible under the frame (slideshow.e2e.ts covers the fullscreen frame).
 	await page.route('**/api/photo/slideshow?**', (route) => route.fulfill({ json: [] }));
 	await page.clock.install();
-	await page.goto('/meals');
+	await gotoHydrated(page, '/meals');
 	await page.waitForLoadState('networkidle');
 
 	await page.clock.fastForward(MIN);
@@ -53,7 +54,7 @@ test('the photo frame returns to the screen it interrupted when going home is of
 }) => {
 	await idleSettings(page, 0, 1);
 	await page.clock.install();
-	await page.goto('/lists');
+	await gotoHydrated(page, '/lists');
 	await page.waitForLoadState('networkidle');
 	await page.clock.fastForward(MIN);
 	await expect(page).toHaveURL(/\/photos$/);
@@ -70,7 +71,7 @@ test('grown-ups set the idle timers on the Screen settings page', async ({ page 
 		return route.fulfill({ json: { homeMinutes: 3, frameMinutes: 5 } });
 	});
 	await signInAsAdult(page, 'e2e-idle-adult');
-	await page.goto('/settings');
+	await gotoHydrated(page, '/settings');
 	await page.getByRole('link', { name: /Screen/ }).click();
 	await expect(page.getByTestId('homeMinutes')).toHaveText('2 minutes');
 	await expect(page.getByTestId('frameMinutes')).toHaveText('5 minutes');

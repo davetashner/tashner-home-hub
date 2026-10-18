@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { choreCard, openKid, seedKid, stubAudio } from './kid';
+import { reloadHydrated } from './hydrated';
 
 const outlineStars = (page: import('@playwright/test').Page) =>
 	page.getByTestId('jar-glass').locator('[data-star="outline"]');
@@ -25,7 +26,7 @@ test('all done: banner after the last chore, once per day', async ({ page }, inf
 	await choreCard(page, 'Feed the fish').getByTestId('did-it').click();
 	await expect(page.getByTestId('all-done')).toContainText('All done today!');
 	await expect(page.getByTestId('all-done')).toHaveCount(0, { timeout: 5000 });
-	await page.reload(); // remembered in localStorage: no second party
+	await reloadHydrated(page); // remembered in localStorage: no second party
 	await expect(page.getByTestId('star-jar')).toBeVisible();
 	await page.waitForTimeout(500);
 	await expect(page.getByTestId('all-done')).toHaveCount(0);

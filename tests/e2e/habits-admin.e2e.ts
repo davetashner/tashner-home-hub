@@ -34,11 +34,11 @@ test('a grown-up adds a daily habit: no stars, no approval, kept apart from chor
 	await expect(row).toBeVisible();
 	await expect(row.getByText('Every day · anytime · no stars')).toBeVisible();
 
-	await page.goto('/settings/chores');
+	await gotoHydrated(page, '/settings/chores');
 	await expect(page.getByTestId('chore-list')).toBeVisible();
 	await expect(page.getByText(title)).toHaveCount(0);
 
-	await page.goto('/settings/habits');
+	await gotoHydrated(page, '/settings/habits');
 	await row.getByRole('button', { name: `Archive ${title}` }).click();
 	await page.getByRole('button', { name: 'Yes, archive' }).click();
 	await expect(page.getByText(title)).toHaveCount(0);

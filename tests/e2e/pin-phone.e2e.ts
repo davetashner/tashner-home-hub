@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { hashPin } from '../../src/lib/server/domain/pin';
+import { gotoHydrated } from './hydrated';
 
 // The PIN pad on phone screens: keys never overlap, and the whole unlock flow fits. Only reads
 // the unlock page; the two adults are synthetic and removed afterwards.
@@ -44,11 +45,9 @@ async function openPad(page: Page, name: string) {
 				.run(id, id, hashPin('4817'))
 		);
 	}
-	await page.goto('/unlock');
-	await expect(async () => {
-		await page.getByRole('button', { name, exact: true }).click();
-		await expect(page.getByTestId('pinpad')).toBeVisible({ timeout: 1000 });
-	}).toPass();
+	await gotoHydrated(page, '/unlock');
+	await page.getByRole('button', { name, exact: true }).click();
+	await expect(page.getByTestId('pinpad')).toBeVisible();
 }
 
 for (const { w, h, landscape } of screens) {

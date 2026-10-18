@@ -1,19 +1,18 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
+import { gotoHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 
 test('an adult makes a Siri token, sees it once, then revokes it', async ({ page }, info) => {
 	await signInAsAdult(page, 'e2e-siri-adult');
 	const name = `Test Phone ${info.project.name.slice(5, 9)}${Date.now().toString(36)}`;
-	await page.goto('/settings');
+	await gotoHydrated(page, '/settings');
 	await page.getByRole('link', { name: /Siri and Shortcuts/ }).click();
 	await page.waitForLoadState('networkidle');
 	const add = page.getByTestId('new-token');
-	await expect(async () => {
-		await add.click();
-		await expect(page.getByTestId('token-form')).toBeVisible({ timeout: 1000 });
-	}).toPass();
+	await add.click();
+	await expect(page.getByTestId('token-form')).toBeVisible();
 	await page.getByTestId('token-name').fill(name);
 	await page.getByTestId('token-create').click();
 

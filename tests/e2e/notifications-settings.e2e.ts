@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 // The API is faked in the browser so nothing reaches the internet or the shared server's settings.
 test.use({ serviceWorkers: 'block' });
@@ -28,7 +29,7 @@ test('grown-ups save notification settings and send a test', async ({ page }, in
 		return route.fulfill({ json: method === 'POST' ? state.last : state });
 	});
 	await signInAsAdult(page, `e2e-notify-adult-${info.project.name}`);
-	await page.goto('/settings');
+	await gotoHydrated(page, '/settings');
 	await page.getByRole('link', { name: /Notifications/ }).click();
 	await expect(page.getByRole('heading', { level: 1, name: 'Notifications' })).toBeVisible();
 
@@ -45,7 +46,7 @@ test('grown-ups save notification settings and send a test', async ({ page }, in
 	await page.getByTestId('notify-test').click();
 	await expect(page.getByTestId('notify-last')).toContainText('Last send: Sent');
 
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(page.getByTestId('notify-topic')).toHaveValue('synthetic-topic');
 	await expect(page.getByTestId('notify-enabled')).toHaveAttribute('aria-pressed', 'true');
 });

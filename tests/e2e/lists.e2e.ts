@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
 import { expectTappable } from './tap';
-import { gotoHydrated } from './hydrated';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 // LST-1 / LST-2: shared lists. The wall types with its own on-screen keyboard; phones use the input.
 
@@ -168,7 +168,7 @@ test('create a list from the wall keyboard, keep it across reload, adult deletes
 		await expect(tab()).toHaveAttribute('aria-selected', 'true');
 		await expect(page).toHaveURL(/list=[0-9a-f-]{36}/);
 
-		await page.reload();
+		await reloadHydrated(page);
 		await expect(tab()).toHaveAttribute('aria-selected', 'true');
 
 		await expectTappable(page.getByTestId('list-delete'));
@@ -182,7 +182,7 @@ test('create a list from the wall keyboard, keep it across reload, adult deletes
 		await page.getByTestId('list-confirm-delete').click();
 		expect((await deleted).ok()).toBe(true);
 		await expect(tab()).toHaveCount(0);
-		await page.reload();
+		await reloadHydrated(page);
 		await expect(tab()).toHaveCount(0);
 		created = false;
 	} finally {

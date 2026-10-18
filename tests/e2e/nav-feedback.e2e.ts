@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold } from './adult';
+import { gotoHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 
@@ -8,7 +9,7 @@ test.beforeAll(ensureHousehold);
  * aria-current stays on the real route. If the press never becomes a tap, the nav rolls back.
  */
 test('a press that slides off the item rolls the nav back to the real route', async ({ page }) => {
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await page.waitForLoadState('networkidle');
 	const nav = page.getByRole('navigation', { name: 'Main' });
 	const lists = nav.getByRole('link', { name: 'Lists' });
@@ -36,7 +37,7 @@ test('a press that slides off the item rolls the nav back to the real route', as
 });
 
 test('tapping a destination marks it selected and lands with aria-current', async ({ page }) => {
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await page.waitForLoadState('networkidle');
 	const nav = page.getByRole('navigation', { name: 'Main' });
 	const meals = nav.getByRole('link', { name: 'Meals' });

@@ -40,10 +40,8 @@ test('shop cards, make it my goal, and get it now with a preview then the PIN', 
 
 		await openKid(page, kid);
 		const shop = page.getByTestId('reward-shop');
-		await expect(async () => {
-			await page.getByTestId('open-shop').click();
-			await expect(shop).toBeVisible({ timeout: 1500 });
-		}).toPass();
+		await page.getByTestId('open-shop').click();
+		await expect(shop).toBeVisible();
 
 		const card = (r: Reward) => shop.locator(`[data-reward="${r.id}"]`);
 		await expect(card(small)).toContainText('You have enough!');

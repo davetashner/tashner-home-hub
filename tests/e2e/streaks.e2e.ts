@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { trackMember } from './cleanup';
 import { stubAudio } from './kid';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 /** Household "today" comes from the server; step back from it with plain date math. */
 function daysBefore(date: string, n: number): string {
@@ -89,7 +90,7 @@ test('the kid sees the streak badge, then a 3-day milestone banner paid exactly 
 	await approvedOn(page, choreId, member.id, daysBefore(todayDate, 2));
 	await approvedOn(page, choreId, member.id, daysBefore(todayDate, 1));
 
-	await page.goto(`/chores?member=${member.id}`);
+	await gotoHydrated(page, `/chores?member=${member.id}`);
 	await expect(page.getByTestId('star-jar')).toBeVisible();
 	const badge = page.getByTestId('streak-badge');
 	await expect(badge).toContainText('2 days in a row!');
@@ -116,7 +117,7 @@ test('the kid sees the streak badge, then a 3-day milestone banner paid exactly 
 	let rows = await streakRows(page, member.id);
 	expect(rows).toHaveLength(1);
 	expect(rows[0]).toMatchObject({ delta: 2, status: 'approved' });
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(page.getByTestId('star-jar')).toBeVisible();
 	await expect(page.getByTestId('streak-badge')).toContainText('3 days in a row!');
 	await expect(page.getByTestId('streak-milestone')).toHaveCount(0);

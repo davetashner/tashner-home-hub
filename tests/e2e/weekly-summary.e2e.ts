@@ -101,6 +101,6 @@ test('an adult sees a child card with the week numbers, on a phone', async ({ pa
 test('the summary needs a grown-up', async ({ page }) => {
 	const res = await page.request.get('/api/summary/weekly');
 	expect(res.status()).toBe(401);
-	await page.goto('/settings/weekly-summary');
+	await gotoHydrated(page, '/settings/weekly-summary');
 	await expect(page).toHaveURL(/\/unlock/);
 });

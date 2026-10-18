@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 interface Seed {
 	memberId: string;
@@ -35,7 +36,7 @@ const balance = async (page: Page, s: Seed) =>
 
 test('a grown-up redeems the goal, stars come off, and it is logged', async ({ page }, info) => {
 	const s = await seed(page, `ok ${info.project.name}`);
-	await page.goto('/settings/approvals');
+	await gotoHydrated(page, '/settings/approvals');
 	const redeem = card(page, s).getByTestId('redeem');
 	await expect(redeem).toBeVisible();
 	await expectTappable(redeem);
@@ -62,7 +63,7 @@ test('a grown-up redeems the goal, stars come off, and it is logged', async ({ p
 
 test('a failed redeem puts the stars back', async ({ page }, info) => {
 	const s = await seed(page, `fail ${info.project.name}`);
-	await page.goto('/settings/approvals');
+	await gotoHydrated(page, '/settings/approvals');
 	await page.route('**/api/redemptions', (route) => route.fulfill({ status: 500 }));
 	await card(page, s).getByTestId('redeem').click();
 	await page.getByTestId('redeem-confirm').click();
@@ -83,6 +84,6 @@ test('without a grown-up, nothing can be redeemed or read', async ({ page }, inf
 	expect(res.status()).toBe(401);
 	expect((await page.request.get('/api/redemptions')).status()).toBe(401);
 	expect(await balance(page, s)).toBe(7);
-	await page.goto('/settings/redemptions');
+	await gotoHydrated(page, '/settings/redemptions');
 	await expect(page).toHaveURL(/\/unlock/);
 });

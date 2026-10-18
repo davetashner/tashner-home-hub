@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
+import { gotoHydrated } from './hydrated';
 
 // ADR 0002 Tier 2: every screen must have no serious/critical axe violations (incl. WCAG AA contrast).
 const routesDir = path.resolve('src/routes');
@@ -32,7 +33,7 @@ test('route discovery finds the home page', () => {
 
 for (const route of routes) {
 	test(`a11y: ${route} has no serious or critical violations`, async ({ page }) => {
-		await page.goto(route);
+		await gotoHydrated(page, route);
 		await page.waitForLoadState('networkidle');
 		const { violations } = await new AxeBuilder({ page })
 			.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 // First-run needs an EMPTY database, which the shared server (and its seeded adults) can never be.
 // So each project boots its own production server on a private port with a throwaway DATA_DIR.
@@ -49,7 +50,7 @@ async function pad(page: import('@playwright/test').Page, pin: string) {
 test('fresh hub: setup, session, then guards', async ({ page }) => {
 	const url = (path: string) => `${baseURL}${path}`;
 
-	await page.goto(url('/'));
+	await gotoHydrated(page, url('/'));
 	await expect(page).toHaveURL(/\/setup$/);
 	await expect(page.getByRole('heading', { name: 'Welcome to your hub' })).toBeVisible();
 
@@ -83,7 +84,7 @@ test('fresh hub: setup, session, then guards', async ({ page }) => {
 	await expect(page.getByText('Test Parent').first()).toBeVisible();
 
 	// Setup is closed for good.
-	await page.goto(url('/setup'));
+	await gotoHydrated(page, url('/setup'));
 	await expect(page).toHaveURL(url('/'));
 	expect(
 		(
@@ -96,7 +97,7 @@ test('fresh hub: setup, session, then guards', async ({ page }) => {
 	// Signed out, settings ask for the PIN and come back after.
 	const out = await page.request.post(url('/api/auth/logout'), { data: {} });
 	expect(out.ok()).toBe(true);
-	await page.goto(url('/settings'));
+	await gotoHydrated(page, url('/settings'));
 	await expect(page).toHaveURL(/\/unlock\?next=%2Fsettings$/);
 	await pad(page, '4817');
 	await expect(page).toHaveURL(url('/settings'));

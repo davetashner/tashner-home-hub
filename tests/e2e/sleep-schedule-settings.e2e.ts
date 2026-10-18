@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
@@ -17,7 +18,7 @@ test('grown-ups change a school-night time and the re-sleep timeout', async ({ p
 	// Both projects share one server and one schedule: both write the same values, assert on their
 	// own request's response and on the page, and put the defaults back at the end.
 	try {
-		await page.goto('/settings');
+		await gotoHydrated(page, '/settings');
 		await page.getByRole('link', { name: /Sleep schedule/ }).click();
 		await expect(page.getByRole('heading', { level: 1, name: 'Sleep schedule' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Weekend nights (Fri–Sat)' })).toBeVisible();
@@ -64,7 +65,7 @@ test('a failed save puts the setting back', async ({ page }, info) => {
 	);
 	await signInAsAdult(page, `e2e-sleep-settings-fail-${info.project.name}`);
 	const loaded = page.waitForResponse('**/api/settings/sleep-schedule');
-	await page.goto('/settings/sleep-schedule');
+	await gotoHydrated(page, '/settings/sleep-schedule');
 	await loaded;
 	await page.getByRole('button', { name: 'Weekend nights (Fri–Sat) Wake up: later' }).click();
 	await expect(page.getByRole('alert')).toHaveText('Could not save. Try again.');

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 
@@ -20,7 +21,7 @@ test('grown-ups find and pick the household time zone', async ({ page }) => {
 	const saved: unknown[] = [];
 	await pinZone(page, 'America/Chicago', saved);
 	await signInAsAdult(page, 'e2e-tz-adult');
-	await page.goto('/settings');
+	await gotoHydrated(page, '/settings');
 	await page.getByRole('link', { name: /Time zone/ }).click();
 	await expect(page.getByRole('heading', { level: 1, name: 'Time zone' })).toBeVisible();
 	await expect(page.getByTestId('tz-current')).toHaveText('Chicago');
@@ -49,7 +50,7 @@ test('a failed save puts the old zone back', async ({ page }) => {
 		route.request().method() === 'PUT' ? route.fulfill({ status: 500 }) : route.fallback()
 	);
 	await signInAsAdult(page, 'e2e-tz-adult');
-	await page.goto('/settings/time-zone');
+	await gotoHydrated(page, '/settings/time-zone');
 	await expect(page.getByTestId('tz-current')).toHaveText('London');
 	await page
 		.getByRole('list', { name: 'Time zones' })
@@ -63,7 +64,7 @@ test('the time zone page fits a phone without sideways scrolling', async ({ page
 	await pinZone(page, 'America/Chicago');
 	await page.setViewportSize({ width: 390, height: 844 });
 	await signInAsAdult(page, 'e2e-tz-adult');
-	await page.goto('/settings/time-zone');
+	await gotoHydrated(page, '/settings/time-zone');
 	await expect(page.getByTestId('tz-current')).toHaveText('Chicago');
 	const overflow = await page.evaluate(
 		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
