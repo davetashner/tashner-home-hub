@@ -7,6 +7,7 @@
 	import OnScreenKeyboard from '#lib/components/lists/OnScreenKeyboard.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import { LIST_TITLE_MAX, sortItems, withDone, type ListItem } from '#lib/domain/lists.js';
+	import { createLiveChannel } from '#lib/domain/live-events.js';
 	import { deliver } from '#lib/offline/client.js';
 
 	interface SharedList {
@@ -15,7 +16,8 @@
 		items: ListItem[];
 	}
 
-	const POLL_MS = 5_000;
+	/** Safety net only: live changes arrive over /api/events. */
+	const POLL_MS = 60_000;
 	const wall = $derived(page.data.displayRole === 'wall');
 
 	let lists = $state<SharedList[]>([]);
@@ -85,6 +87,19 @@
 
 	onMount(() => {
 		void refresh();
+		const channel = createLiveChannel({
+			url: '/api/events',
+			topics: ['lists'],
+			create: (url) => new EventSource(url),
+			onEvent: () => {
+				if (pending === 0) void refresh();
+			},
+			// Events missed while the stream was down: catch up on (re)connect.
+			onOpen: () => {
+				if (pending === 0) void refresh();
+			}
+		});
+		channel.start();
 		let timer: ReturnType<typeof setInterval> | null = null;
 		const stop = () => {
 			if (timer !== null) clearInterval(timer);
@@ -97,6 +112,7 @@
 		// No polling while the tab is hidden; coming back refreshes at once and restarts it.
 		const onVisibility = () => {
 			if (document.visibilityState === 'visible') {
+				channel.resume();
 				void refresh();
 				start();
 			} else stop();
@@ -104,6 +120,7 @@
 		if (document.visibilityState === 'visible') start();
 		document.addEventListener('visibilitychange', onVisibility);
 		return () => {
+			channel.stop();
 			stop();
 			document.removeEventListener('visibilitychange', onVisibility);
 		};
@@ -119,7 +136,7 @@
 		replaceState(`${base}?list=${encodeURIComponent(id)}`, {});
 	}
 
-	async function createNew(title: string) {
+	async function createNewRaw(title: string) {
 		naming = false;
 		error = '';
 		const temp: SharedList = { id: `temp-${crypto.randomUUID()}`, title, items: [] };
@@ -148,7 +165,7 @@
 		await refresh();
 	}
 
-	async function removeList() {
+	async function removeListRaw() {
 		if (!current) return;
 		const gone = current;
 		confirming = false;
@@ -196,7 +213,7 @@
 		if (r.sent || (!r.queued && r.status >= 400)) delete intent[item.id];
 	}
 
-	async function add(text: string) {
+	async function addRaw(text: string) {
 		if (!current) return;
 		const listId = current.id;
 		const temp: ListItem = {
@@ -221,7 +238,7 @@
 		await refresh(() => (placeholders = placeholders.filter((p) => p.id !== temp.id)));
 	}
 
-	async function clearChecked() {
+	async function clearCheckedRaw() {
 		if (!current) return;
 		const listId = current.id;
 		const gone = current.items.filter((i) => i.done).map((i) => i.id);
@@ -240,7 +257,7 @@
 		await refresh(() => gone.forEach((id) => delete removing[id]));
 	}
 
-	async function remove(item: ListItem) {
+	async function removeRaw(item: ListItem) {
 		armed = null;
 		error = '';
 		removing[item.id] = true;
@@ -265,6 +282,24 @@
 		generation++;
 		await refresh();
 	}
+
+	/** Local mutations in flight. Their own refresh follows, so an echoed event must not race it. */
+	let pending = 0;
+	const guard =
+		<A extends unknown[]>(fn: (...args: A) => Promise<void>) =>
+		async (...args: A) => {
+			pending++;
+			try {
+				await fn(...args);
+			} finally {
+				pending--;
+			}
+		};
+	const createNew = guard(createNewRaw);
+	const removeList = guard(removeListRaw);
+	const add = guard(addRaw);
+	const clearChecked = guard(clearCheckedRaw);
+	const remove = guard(removeRaw);
 
 	/** Tapping anywhere outside the revealed row dismisses its Delete action. */
 	function dismissArmed(event: PointerEvent) {

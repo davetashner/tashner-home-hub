@@ -12,6 +12,7 @@ import {
 } from '#lib/domain/lists.js';
 import type { Db } from '../db/index.js';
 import { listItems, lists, settings } from '../db/schema.js';
+import { publish } from './events.js';
 import { LedgerError } from './ledger.js';
 
 export interface SharedList {
@@ -60,19 +61,22 @@ export function listAll(db: Db): SharedList[] {
 export function createList(db: Db, title: unknown): { id: string; title: string } {
 	const t = cleanText(title, LIST_TITLE_MAX);
 	if (!t) throw invalid(`name must be 1-${LIST_TITLE_MAX} characters`);
-	return db.insert(lists).values({ id: randomUUID(), title: t }).returning().get();
+	const row = db.insert(lists).values({ id: randomUUID(), title: t }).returning().get();
+	publish('lists', { kind: 'list', listId: row.id });
+	return row;
 }
 
 export function deleteList(db: Db, id: string): { id: string } {
 	const gone = db.delete(lists).where(eq(lists.id, id)).returning().all();
 	if (gone.length === 0) throw new LedgerError('not_found', 'List not found');
+	publish('lists', { kind: 'list', listId: id });
 	return { id };
 }
 
 export function addItem(db: Db, listId: string, text: unknown): ListItem {
 	const t = cleanText(text, ITEM_TEXT_MAX);
 	if (!t) throw invalid(`text must be 1-${ITEM_TEXT_MAX} characters`);
-	return db.transaction((tx) => {
+	const row = db.transaction((tx) => {
 		if (!tx.select().from(lists).where(eq(lists.id, listId)).get())
 			throw new LedgerError('not_found', 'List not found');
 		const existing = tx.select().from(listItems).where(eq(listItems.listId, listId)).all();
@@ -82,6 +86,8 @@ export function addItem(db: Db, listId: string, text: unknown): ListItem {
 			.returning()
 			.get();
 	});
+	publish('lists', { kind: 'item', listId, itemId: row.id });
+	return row;
 }
 
 /** Sets (not toggles) the checked state, so a replayed offline write is harmless. */
@@ -89,12 +95,14 @@ export function setDone(db: Db, id: string, done: unknown): ListItem {
 	if (typeof done !== 'boolean') throw invalid('done must be true or false');
 	const row = db.update(listItems).set({ done }).where(eq(listItems.id, id)).returning().get();
 	if (!row) throw new LedgerError('not_found', 'Item not found');
+	publish('lists', { kind: 'item', listId: row.listId, itemId: id });
 	return row;
 }
 
 /** Deleting an item that is already gone succeeds: the other device got there first. */
 export function deleteItem(db: Db, id: string): { id: string } {
-	db.delete(listItems).where(eq(listItems.id, id)).run();
+	const gone = db.delete(listItems).where(eq(listItems.id, id)).returning().all();
+	if (gone[0]) publish('lists', { kind: 'item', listId: gone[0].listId, itemId: id });
 	return { id };
 }
 
@@ -104,5 +112,6 @@ export function clearChecked(db: Db, listId: string): { removed: number } {
 		.where(and(eq(listItems.listId, listId), eq(listItems.done, true)))
 		.returning()
 		.all();
+	if (gone.length > 0) publish('lists', { kind: 'items', listId });
 	return { removed: gone.length };
 }
