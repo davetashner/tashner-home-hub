@@ -122,6 +122,13 @@ describe('weeklySummary', () => {
 		});
 	});
 
+	it('still calls the week in progress on its Sunday', () => {
+		const sunday = Date.parse('2026-03-15T12:00:00Z');
+		const s = weeklySummary(db, { week: '2026-03-15', now: sunday, timeZone: TZ });
+		expect(s).toMatchObject({ start: '2026-03-09', through: '2026-03-15', partial: true });
+		expect(s.next).toBeNull();
+	});
+
 	it('counts the current week so far and never misses today', () => {
 		done(dishes, '2026-03-09');
 		const s = weeklySummary(db, { week: '2026-03-11', now: NOW, timeZone: TZ });
