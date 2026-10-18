@@ -4,6 +4,7 @@ import { getDb } from '#lib/server/db/index.js';
 import { householdTimeZone } from '#lib/server/household.js';
 import { readAppearanceData } from '#lib/server/appearance.js';
 import { readWeatherLocation } from '#lib/server/weather.js';
+import { readVacation } from '#lib/server/domain/vacation.js';
 import { readWaveBackground } from '#lib/server/wave-background.js';
 import { members } from '#lib/server/db/schema.js';
 import { todoLabel } from '#lib/domain/nav.js';
@@ -40,6 +41,8 @@ export const load: LayoutServerLoad = (event) => ({
 	displayRole: displayRole(event),
 	timeZone: householdTimeZone(getDb()),
 	todoLabel: todoName(),
+	/** Household vacation range (hub-k0w); the kid board shows a paused card inside it. */
+	vacation: readVacation(getDb()),
 	waveBackground: readWaveBackground(),
 	waveLocation: waveLocation(),
 	appearance: readAppearanceData(),
