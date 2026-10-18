@@ -44,8 +44,12 @@
 		['daily', 'Every day'],
 		['weekdays', 'Certain days'],
 		['weekly', 'Weekly'],
-		['monthly', 'Monthly']
+		['monthly', 'Monthly'],
+		['flex1', 'Once a week, any day'],
+		['flex2', 'Every 2 weeks, any day']
 	] as const;
+	// Any-day jobs are Star Jobs only: a habit is an everyday check.
+	const kinds = $derived(habit ? KINDS.filter(([v]) => !v.startsWith('flex')) : KINDS);
 	const DAYS: [Weekday, string][] = [
 		['SU', 'Sun'],
 		['MO', 'Mon'],
@@ -68,7 +72,11 @@
 	/* svelte-ignore state_referenced_locally */
 	let timeOfDay = $state<string>(chore?.timeOfDay ?? 'anytime');
 	/* svelte-ignore state_referenced_locally */
-	let kind = $state<string>(chore?.schedule.type ?? 'daily');
+	let kind = $state<string>(
+		chore?.schedule.type === 'flex'
+			? `flex${chore.schedule.every}`
+			: (chore?.schedule.type ?? 'daily')
+	);
 	/* svelte-ignore state_referenced_locally */
 	let days = $state<Weekday[]>(chore?.schedule.type === 'weekdays' ? chore.schedule.days : []);
 	/* svelte-ignore state_referenced_locally */
@@ -87,7 +95,9 @@
 				? { type: 'weekdays', days }
 				: kind === 'once'
 					? { type: 'once', ...(onceDate ? { start: onceDate } : {}) }
-					: { type: kind };
+					: kind.startsWith('flex')
+						? { type: 'flex', every: kind === 'flex2' ? 2 : 1 }
+						: { type: kind };
 		const common = {
 			title,
 			icon: icon || null,
@@ -174,7 +184,7 @@
 
 	<fieldset class="flex min-w-0 flex-wrap gap-3">
 		<legend class="mb-2 text-caption text-ink-muted">How often</legend>
-		{#each KINDS as [value, label] (value)}
+		{#each kinds as [value, label] (value)}
 			<label class="relative">
 				<input type="radio" name="kind" {value} bind:group={kind} class="peer sr-only" />
 				<span class="{choice} min-h-tap rounded-chip bg-surface-raised px-6">{label}</span>

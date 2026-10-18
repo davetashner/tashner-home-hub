@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	flexNote,
 	isDoable,
 	jarSlots,
 	localDate,
@@ -162,5 +163,17 @@ describe('Star Jobs and habits (hub-esf)', () => {
 			total: 4
 		});
 		expect(habitCount([], [])).toEqual({ done: 0, total: 0 });
+	});
+});
+
+describe('flexNote', () => {
+	it('names the day the period ends', () => {
+		expect(flexNote({ dueBy: '2026-03-08', week: 1, weeks: 1 })).toBe('Due by Sunday');
+		expect(flexNote({ dueBy: '2026-03-15', week: 1, weeks: 2 })).toBe(
+			'Week 1 of 2 · due by next Sunday'
+		);
+		expect(flexNote({ dueBy: '2026-03-15', week: 2, weeks: 2 })).toBe(
+			'Week 2 of 2 · due by Sunday'
+		);
 	});
 });

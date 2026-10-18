@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		flexNote,
 		isDoable,
 		undoSecondsLeft,
 		UNDO_WINDOW_MS,
@@ -72,6 +73,14 @@
 			>
 				{chore.title}
 			</h3>
+			{#if chore.flex}
+				<p
+					class="text-lead font-bold text-ink-muted short:text-caption tablet:text-body"
+					data-testid="flex-due"
+				>
+					{flexNote(chore.flex)}
+				</p>
+			{/if}
 			{#if habit}
 				<!-- A habit earns no stars itself; it counts toward the day's habit star. -->
 				<p

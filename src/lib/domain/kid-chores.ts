@@ -12,10 +12,21 @@ export interface KidChore {
 	stars: number;
 	status: Status;
 	completionId: string | null;
+	/** Any-day to-dos (hub-it5): the period's last day and which of its weeks today is in. */
+	flex?: KidFlex;
 }
 
+export interface KidFlex {
+	dueBy: string;
+	week: number;
+	weeks: number;
+}
+
+/** 'week' holds the any-day to-dos still open this week (or two). */
+export type KidGroupKey = TimeOfDay | 'week';
+
 export interface KidGroup {
-	timeOfDay: TimeOfDay;
+	timeOfDay: KidGroupKey;
 	chores: KidChore[];
 }
 
@@ -23,12 +34,31 @@ export interface KidGroup {
 export const UNDO_WINDOW_MS = 10_000;
 export const MAX_JAR_SLOTS = 24;
 
-export const GROUP_HEADINGS: Record<TimeOfDay, { emoji: string; label: string }> = {
+export const GROUP_HEADINGS: Record<KidGroupKey, { emoji: string; label: string }> = {
 	morning: { emoji: '🌅', label: 'This morning' },
 	afternoon: { emoji: '☀️', label: 'This afternoon' },
 	evening: { emoji: '🌙', label: 'Tonight' },
-	anytime: { emoji: '⭐', label: 'Anytime today' }
+	anytime: { emoji: '⭐', label: 'Anytime today' },
+	week: { emoji: '📅', label: 'This week · any day' }
 };
+
+const WEEKDAY_NAMES = [
+	'Sunday',
+	'Monday',
+	'Tuesday',
+	'Wednesday',
+	'Thursday',
+	'Friday',
+	'Saturday'
+];
+
+/** "Due by Sunday", or for a two-week job "Week 1 of 2 · due by next Sunday". */
+export function flexNote(flex: KidFlex): string {
+	const day = WEEKDAY_NAMES[new Date(`${flex.dueBy}T00:00:00Z`).getUTCDay()];
+	if (flex.weeks < 2) return `Due by ${day}`;
+	const next = flex.week < flex.weeks ? 'next ' : '';
+	return `Week ${flex.week} of ${flex.weeks} · due by ${next}${day}`;
+}
 
 /** The local calendar day (YYYY-MM-DD) for an instant in an IANA time zone. */
 export function localDate(now: number, timeZone: string): string {
