@@ -76,7 +76,8 @@
 	}
 	/* Portrait puts the nav along the bottom: the pumpkins sit just above it. */
 	@media (orientation: portrait) {
-		.rest {
+		.rest,
+		.glow {
 			margin-bottom: 9vh;
 		}
 	}
@@ -97,6 +98,9 @@
 		animation-name: team;
 		animation-timing-function: linear;
 		opacity: 0;
+	}
+	.glow {
+		animation-name: glow;
 	}
 	.flicker {
 		animation: flicker 2.3s ease-in-out infinite;
@@ -210,6 +214,17 @@
 		100% {
 			transform: translate(calc(100vw + 115vmin), 1vh);
 			opacity: 0;
+		}
+	}
+	@keyframes glow {
+		0%,
+		100% {
+			opacity: 0.8;
+			transform: translateX(0);
+		}
+		50% {
+			opacity: 1;
+			transform: translateX(0.5vmin);
 		}
 	}
 	@keyframes flicker {
