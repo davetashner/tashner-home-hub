@@ -218,7 +218,9 @@
 		></canvas>
 	</div>
 
-	<div class="flex flex-wrap content-start gap-3 landscape:w-1/4 landscape:overflow-y-auto">
+	<div
+		class="flex flex-wrap content-start gap-3 overflow-y-auto portrait:max-h-1/2 landscape:w-1/4"
+	>
 		{#if choosing}
 			<p class="w-full text-body font-extrabold">Who drew it?</p>
 			<div class="flex flex-wrap gap-3" data-testid="draw-authors">
