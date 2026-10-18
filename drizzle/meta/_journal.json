@@ -85,6 +85,13 @@
 			"when": 1792900000002,
 			"tag": "20261018202345_live_photo_motion",
 			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "6",
+			"when": 1792900000003,
+			"tag": "20261018204041_sitter_sessions",
+			"breakpoints": true
 		}
 	]
 }
