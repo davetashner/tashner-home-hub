@@ -28,6 +28,7 @@ export const EXPORT_TABLES = [
 	'fun_unlocks',
 	'rewards',
 	'star_transactions',
+	'allowance_transactions',
 	'goals',
 	'redemptions',
 	'lists',
