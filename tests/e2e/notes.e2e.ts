@@ -134,3 +134,69 @@ test('a note that has expired is gone @J12.2', async ({ page }, info) => {
 		wipe(tag);
 	}
 });
+
+async function postNote(page: Page, kidName: string, text: string) {
+	await page.getByTestId('note-add').click();
+	await page.getByTestId('note-author').filter({ hasText: kidName }).click();
+	await page.getByTestId('note-body').fill(text);
+	await page.getByTestId('note-post').click();
+}
+
+test('a posted note keeps its card when the server id arrives @J12.1', async ({ page }, info) => {
+	const tag = `k${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(`e2e-notes-kid-${tag}`, `Kid ${tag}`, '🦊');
+	try {
+		let release!: () => void;
+		const gate = new Promise<void>((r) => (release = r));
+		await page.route('**/api/notes', async (route) => {
+			if (route.request().method() === 'POST') await gate;
+			await route.continue();
+		});
+		await gotoHydrated(page, '/');
+		await postNote(page, `Kid ${tag}`, `Stay put ${tag}`);
+		const mine = page.getByTestId('note').filter({ hasText: tag });
+		await expect(mine).toHaveCount(1);
+		await mine.evaluate((el) => ((el as HTMLElement & { mark?: string }).mark = 'same'));
+		release();
+		await expect
+			.poll(async () => (await page.request.get('/api/notes')).text())
+			.toContain(`Stay put ${tag}`);
+		await expect(mine).toHaveCount(1);
+		await expect
+			.poll(() => mine.evaluate((el) => (el as HTMLElement & { mark?: string }).mark), {
+				timeout: 2_000
+			})
+			.toBe('same');
+	} finally {
+		wipe(tag);
+	}
+});
+
+test('dismissing a note before the server answers keeps it gone @J12.1', async ({ page }, info) => {
+	const tag = `q${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(`e2e-notes-kid-${tag}`, `Kid ${tag}`, '🦊');
+	try {
+		let release!: () => void;
+		const gate = new Promise<void>((r) => (release = r));
+		await page.route('**/api/notes', async (route) => {
+			if (route.request().method() === 'POST') await gate;
+			await route.continue();
+		});
+		await gotoHydrated(page, '/');
+		await postNote(page, `Kid ${tag}`, `Oops ${tag}`);
+		const mine = page.getByTestId('note').filter({ hasText: tag });
+		await mine.getByTestId('note-dismiss').click();
+		await expect(mine).toHaveCount(0);
+		release();
+		// The server row must end up deleted, and the card must not come back.
+		await expect
+			.poll(async () => (await page.request.get('/api/notes')).text())
+			.not.toContain(`Oops ${tag}`);
+		await page.waitForTimeout(500);
+		await expect(mine).toHaveCount(0);
+		await gotoHydrated(page, '/');
+		await expect(mine).toHaveCount(0);
+	} finally {
+		wipe(tag);
+	}
+});

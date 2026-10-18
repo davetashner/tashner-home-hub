@@ -133,3 +133,14 @@ export function untilLabel(expiresAt: number | null, now: number, zone: string):
 		? 'Until tonight'
 		: `Until ${fmt(expiresAt - 60_000)}`;
 }
+
+/**
+ * Gives each server note the render key its optimistic twin had. `keys` maps a server id to the
+ * temp key it was posted under, so the card keeps its DOM across the temp-to-server id swap.
+ */
+export function withStableKeys<T extends { id: string }>(
+	notes: readonly T[],
+	keys: ReadonlyMap<string, string>
+): (T & { key: string })[] {
+	return notes.map((n) => ({ ...n, key: keys.get(n.id) ?? n.id }));
+}

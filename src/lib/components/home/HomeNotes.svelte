@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { page } from '$app/state';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
@@ -15,6 +16,7 @@
 		expiryFor,
 		untilLabel,
 		visibleNotes,
+		withStableKeys,
 		type NoteColor,
 		type Until
 	} from '#lib/domain/notes.js';
@@ -22,6 +24,8 @@
 
 	interface Note {
 		id: string;
+		/** Stable render key: a posted note keeps its optimistic key after the server id arrives. */
+		key: string;
 		body: string;
 		color: string;
 		pinned: boolean;
@@ -66,6 +70,10 @@
 	let color = $state<NoteColor>('note-yellow');
 	let until = $state<Until | null>(null);
 	let tempSeq = 0;
+	// server id -> the temp key the card was first rendered under.
+	const keys = new SvelteMap<string, string>();
+	// Temp ids dismissed before the POST returned; deleted once the server id is known.
+	const dismissedEarly = new SvelteSet<string>();
 
 	const zone = $derived(isTimeZone(page.data.timeZone) ? page.data.timeZone : runtimeZone());
 	const adult = $derived(page.data.adult === true);
@@ -76,17 +84,19 @@
 	async function refresh() {
 		try {
 			const r = await fetch('/api/notes');
-			if (r.ok && pending === 0) all = (await r.json()) as Note[];
+			if (r.ok && pending === 0)
+				all = withStableKeys((await r.json()) as Omit<Note, 'key'>[], keys);
 		} catch {
 			// Offline: keep what is on screen.
 		}
 	}
 
-	async function mutate(send: () => Promise<Response>) {
+	async function mutate(send: () => Promise<Response>, onOk?: (r: Response) => Promise<void>) {
 		pending++;
 		try {
 			const r = await send();
 			if (!r.ok) throw new Error(String(r.status));
+			await onOk?.(r);
 		} catch {
 			// Roll back by reloading the truth once nothing else is in flight.
 		} finally {
@@ -101,10 +111,12 @@
 		if (!who || clean === null) return;
 		const t = Date.now();
 		const payload = { authorId: who.id, body: clean, color, until };
+		const tempId = `temp-${++tempSeq}`;
 		all = [
 			...all,
 			{
-				id: `temp-${++tempSeq}`,
+				id: tempId,
+				key: tempId,
 				body: clean,
 				color,
 				pinned: false,
@@ -120,18 +132,36 @@
 		until = null;
 		composing = false;
 		showEmoji = false;
-		void mutate(() =>
-			fetch('/api/notes', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(payload)
-			})
+		void mutate(
+			() =>
+				fetch('/api/notes', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify(payload)
+				}),
+			async (r) => {
+				const { id } = (await r.json()) as { id: string };
+				keys.set(id, tempId);
+				if (dismissedEarly.delete(tempId)) {
+					// Dismissed while still optimistic: delete the real row now that it has an id.
+					await fetch(`/api/notes/${id}`, {
+						method: 'DELETE',
+						headers: { 'content-type': 'application/json' },
+						body: '{}'
+					});
+				} else {
+					all = all.map((x) => (x.id === tempId ? { ...x, id } : x));
+				}
+			}
 		);
 	}
 
 	function dismiss(n: Note) {
 		all = all.filter((x) => x.id !== n.id);
-		if (n.id.startsWith('temp-')) return;
+		if (n.id.startsWith('temp-')) {
+			dismissedEarly.add(n.id);
+			return;
+		}
 		void mutate(() =>
 			fetch(`/api/notes/${n.id}`, {
 				method: 'DELETE',
@@ -329,7 +359,7 @@
 
 	{#if shown.length > 0}
 		<ul class="grid grid-cols-3 gap-8 portrait:grid-cols-1 short:gap-3" data-testid="note-list">
-			{#each shown as n (n.id)}
+			{#each shown as n (n.key)}
 				{@const hint = untilLabel(n.expiresAt, now, zone)}
 				<li
 					class="flex min-w-0 flex-col gap-3 rounded-card p-6 text-ink shadow-raised short:p-3 {paper[
