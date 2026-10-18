@@ -23,6 +23,17 @@ test('an adult makes a Siri token, sees it once, then revokes it', async ({ page
 	expect(copy.height).toBeGreaterThanOrEqual(60);
 	await expect(page.getByTestId('token-secret-card')).toContainText("You'll paste this");
 
+	const guide = page.getByTestId('siri-guide');
+	await expect(guide).toContainText('Add to the hub list');
+	await expect(guide).toContainText('New Star Job');
+	const copies = guide.getByTestId('guide-copy');
+	const values = await copies.evaluateAll((els) => els.map((e) => e.getAttribute('data-value')));
+	expect(values).toContain(`${new URL(page.url()).origin}/api/siri/lists`);
+	expect(values).toContain(`${new URL(page.url()).origin}/api/siri/star-job`);
+	expect(values).toContain(`Bearer ${secret}`);
+	const urlBtn = copies.first();
+	expect((await urlBtn.boundingBox())!.height).toBeGreaterThanOrEqual(60);
+
 	const row = page.getByTestId('token-row').filter({ hasText: name });
 	await expect(row).toBeVisible();
 	await expect(row).toContainText('never used');
