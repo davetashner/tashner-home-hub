@@ -1,0 +1,137 @@
+/**
+ * Seasonal sprites over the wave background (hub-6pv.6.2): which pictures a season shows and how
+ * each one moves. Data only: the layer turns each entry into an image with a CSS animation.
+ * Later seasons (reindeer, Christmas Eve, St Patrick's, July 4th) add entries here.
+ */
+import type { WaveChoice } from './wave-background.js';
+import type { Season } from './season.js';
+
+/**
+ * How a sprite moves. Every motion is transform/opacity only and never rests in one exact spot
+ * for hours (burn-in): `rest` sways a little, `float` bobs, `fly` crosses the screen now and then.
+ */
+export type SpriteMotion = 'rest' | 'float' | 'fly';
+
+export interface Sprite {
+	id: string;
+	/** Image under /static. */
+	src: string;
+	/** A second frame crossfaded with the first (a bat's wing flap). */
+	flap?: string;
+	motion: SpriteMotion;
+	/** Height as a share of the screen's shorter side (vmin), so both orientations fit. */
+	size: number;
+	/**
+	 * Anchor: distance from one horizontal edge in vmin (so a cluster keeps its spacing in both
+	 * orientations) and from one vertical edge in % of the screen. Resting sprites stay on the
+	 * right: the nav rail covers the left edge in landscape.
+	 */
+	x: { edge: 'left' | 'right'; vmin: number };
+	y: { edge: 'top' | 'bottom'; pct: number };
+	/** One full cycle of the motion, in seconds. */
+	period: number;
+	/** Where in its cycle the sprite starts, in seconds (spreads sprites out). */
+	delay: number;
+	/** Faces left: flipped horizontally (a bat flying right to left). */
+	flip?: boolean;
+}
+
+const HALLOWEEN = '/seasons/halloween';
+
+/** Halloween: pumpkins in the bottom corners, bats crossing the top now and then, a bobbing ghost. */
+const halloween: Sprite[] = [
+	{
+		id: 'jack-tall',
+		src: `${HALLOWEEN}/jack-tall.webp`,
+		motion: 'rest',
+		size: 12,
+		x: { edge: 'right', vmin: 2 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 300,
+		delay: 0
+	},
+	{
+		id: 'pumpkin',
+		src: `${HALLOWEEN}/pumpkin.webp`,
+		motion: 'rest',
+		size: 7,
+		x: { edge: 'right', vmin: 26 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 360,
+		delay: -120
+	},
+	{
+		id: 'jack-round',
+		src: `${HALLOWEEN}/jack-round.webp`,
+		motion: 'rest',
+		size: 10,
+		x: { edge: 'right', vmin: 14 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 330,
+		delay: -200
+	},
+	{
+		id: 'ghost',
+		src: `${HALLOWEEN}/ghost.webp`,
+		motion: 'float',
+		size: 11,
+		x: { edge: 'right', vmin: 3 },
+		y: { edge: 'top', pct: 34 },
+		period: 9,
+		delay: 0
+	},
+	{
+		id: 'bat-1',
+		src: `${HALLOWEEN}/bat-glide.webp`,
+		flap: `${HALLOWEEN}/bat-flap.webp`,
+		motion: 'fly',
+		size: 8,
+		x: { edge: 'left', vmin: 0 },
+		y: { edge: 'top', pct: 9 },
+		period: 70,
+		delay: -4
+	},
+	{
+		id: 'bat-2',
+		src: `${HALLOWEEN}/bat-glide.webp`,
+		flap: `${HALLOWEEN}/bat-flap.webp`,
+		motion: 'fly',
+		size: 6,
+		x: { edge: 'left', vmin: 0 },
+		y: { edge: 'top', pct: 18 },
+		period: 95,
+		delay: -50,
+		flip: true
+	}
+];
+
+const SPRITES: Partial<Record<Season, readonly Sprite[]>> = { halloween };
+
+/** The sprites a season shows; none for a plain day or a season without pictures yet. */
+export function spritesFor(season: Season | null): readonly Sprite[] {
+	return season ? (SPRITES[season] ?? []) : [];
+}
+
+/**
+ * Sprites belong to the holiday look, so they show only when Auto lets the holiday take over,
+ * the background is on for this device, and the photo frame isn't covering the screen.
+ */
+export function showSprites(o: {
+	choice: WaveChoice;
+	season: Season | null;
+	covered: boolean;
+	deviceOff: boolean;
+}): boolean {
+	return o.choice === 'auto' && !o.covered && !o.deviceOff && spritesFor(o.season).length > 0;
+}
+
+/** The inline position and timing for a sprite: anchored to its edges, sized in vmin. */
+export function spriteStyle(s: Sprite): string {
+	return [
+		`${s.x.edge}: ${s.x.vmin}vmin`,
+		`${s.y.edge}: ${s.y.pct}%`,
+		`height: ${s.size}vmin`,
+		`--period: ${s.period}s`,
+		`--delay: ${s.delay}s`
+	].join('; ');
+}

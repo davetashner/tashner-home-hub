@@ -5,12 +5,13 @@
 	import { page } from '$app/state';
 	import { swipe } from '#lib/actions/swipe.js';
 	import Button from '#lib/components/ui/Button.svelte';
-	import { DESTINATIONS, isActive, swipeTarget } from '#lib/domain/nav.js';
+	import { TODO_FALLBACK, destinationsFor, isActive, swipeTarget } from '#lib/domain/nav.js';
 	import { DESTINATION_URLS } from './urls.js';
 	import OfflineBadge from './OfflineBadge.svelte';
 	import ApprovalsBadge from './ApprovalsBadge.svelte';
 	import Clock from './Clock.svelte';
 	import Icon from './Icon.svelte';
+	import { frameOverlay } from './frame-overlay-state.svelte.js';
 	import IdleWatcher from './IdleWatcher.svelte';
 	import NavItem from './NavItem.svelte';
 	import NightClock from './NightClock.svelte';
@@ -87,6 +88,7 @@
 	let { children }: { children: Snippet } = $props();
 
 	const pathname = $derived(page.url.pathname);
+	const destinations = $derived(destinationsFor(page.data.todoLabel ?? TODO_FALLBACK));
 
 	// The saved background choice comes with the page data; the settings page edits it optimistically.
 	$effect(() => {
@@ -149,21 +151,10 @@
 	class="shell grid h-full portrait:grid-cols-1 portrait:grid-rows-shell-portrait landscape:grid-cols-shell-landscape landscape:grid-rows-shell-landscape short:grid-cols-shell-short"
 >
 	<header
+		inert={collapsed && sideRail}
 		class="shell-header flex items-center justify-between gap-3 pt-safe-4 pr-safe-4 pb-4 pl-safe-4 max-sm:justify-end max-sm:pt-safe-2 max-sm:pr-safe-3 max-sm:pb-2 max-sm:pl-safe-3 sm:flex-wrap sm:gap-8 sm:pt-safe-8 sm:pr-safe-12 sm:pb-8 sm:pl-safe-12 portrait:sm:pr-safe-10 portrait:sm:pl-safe-10 landscape:col-start-2 landscape:row-start-1 landscape:pl-4 landscape:sm:gap-4 landscape:sm:pr-safe-8 landscape:sm:pl-8 short:flex-nowrap short:gap-1 short:pt-safe-2 short:pr-safe-2 short:pb-2 short:pl-2 tablet:flex-nowrap tablet:gap-4 tablet:pt-safe-2 tablet:pb-2 portrait:tablet:pr-safe-6 portrait:tablet:pl-safe-6 landscape:tablet:gap-4 landscape:tablet:pr-safe-6 landscape:tablet:pl-6"
 	>
 		<div class="flex min-w-0 items-center gap-4 landscape:flex-1 landscape:sm:min-w-min">
-			{#if collapsed}
-				<button
-					bind:this={handle}
-					type="button"
-					onclick={expand}
-					aria-label="Show menu"
-					data-testid="nav-handle"
-					class="shell-handle press-link hidden size-tap-kid items-center justify-center rounded-chip border-2 border-line bg-surface-raised/70 text-title text-ink shadow-raised"
-				>
-					<Icon name="menu" />
-				</button>
-			{/if}
 			{#if pathname === '/'}
 				<span class="max-sm:hidden"></span>
 			{:else}
@@ -220,7 +211,7 @@
 		inert={collapsed && sideRail}
 		class="shell-nav flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5 short:col-start-1 short:row-span-1 short:w-auto short:min-w-0 short:scrollbar-none short:flex-row short:gap-0 short:overflow-x-auto short:border-r-0 short:bg-surface short:pt-safe-2 short:pr-2 short:pb-2 short:pl-safe-2 portrait:tablet:gap-2 portrait:tablet:pt-1 portrait:tablet:pr-safe-4 portrait:tablet:pb-safe-1 portrait:tablet:pl-safe-4 landscape:tablet:w-rail-tablet landscape:tablet:gap-2 landscape:tablet:overflow-y-auto landscape:tablet:pt-safe-4 landscape:tablet:pr-2 landscape:tablet:pb-safe-4 landscape:tablet:pl-safe-2"
 	>
-		{#each DESTINATIONS as destination (destination.id)}
+		{#each destinations as destination (destination.id)}
 			<NavItem {destination} active={isActive(destination.href, pathname)} />
 		{/each}
 		<button
@@ -234,6 +225,37 @@
 			<span class="tablet:sr-only">Hide menu</span>
 		</button>
 	</nav>
+
+	{#if collapsed}
+		<!-- Bottom-left (top-left while the photo overlay is up, since it owns the bottom edge): the calendar keeps its controls along the top and its day headers to the
+		     right, photos keep their centre and top clear; the bottom-left of the calendar is only
+		     the time gutter. The clock is non-interactive so it never swallows a tap. -->
+		<div
+			class="shell-float pointer-events-none fixed left-4 z-30 hidden items-center gap-3 {frameOverlay.any
+				? 'top-4'
+				: 'bottom-4'}"
+		>
+			<button
+				bind:this={handle}
+				type="button"
+				onclick={expand}
+				aria-label="Show menu"
+				data-testid="nav-handle"
+				class="press-link pointer-events-auto inline-flex size-tap-kid items-center justify-center rounded-chip border-2 border-on-frame/40 bg-scrim text-title text-on-frame"
+			>
+				<Icon name="menu" />
+			</button>
+			{#if !frameOverlay.clock}
+				<div
+					class="rounded-chip bg-scrim px-4 py-2 text-on-frame"
+					data-testid="corner-clock"
+					aria-hidden="true"
+				>
+					<Clock testidPrefix="corner-clock" size="corner" />
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- The page scrolls here; tabindex lets keyboard users scroll it even when it has no focusable content (axe scrollable-region-focusable). -->
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -256,7 +278,8 @@
 		.shell-collapse {
 			display: inline-flex;
 		}
-		.shell-nav {
+		.shell-nav,
+		.shell-header {
 			transition:
 				transform var(--duration-base) var(--ease-out-soft),
 				opacity var(--duration-base) linear;
@@ -266,18 +289,26 @@
 			opacity: 0;
 			pointer-events: none;
 		}
+		.shell[data-collapsed] .shell-header {
+			transform: translateY(-100%);
+			opacity: 0;
+			pointer-events: none;
+		}
+		/* Both bars have left the grid: the content owns the whole viewport. */
 		.shell[data-gone] {
 			grid-template-columns: minmax(0, 1fr);
+			grid-template-rows: minmax(0, 1fr);
 		}
-		.shell[data-gone] .shell-nav {
+		.shell[data-gone] .shell-nav,
+		.shell[data-gone] .shell-header {
 			display: none;
 		}
-		.shell[data-gone] .shell-header,
 		.shell[data-gone] .shell-main {
 			grid-column-start: 1;
+			grid-row-start: 1;
 		}
-		.shell-handle {
-			display: inline-flex;
+		.shell-float {
+			display: flex;
 		}
 	}
 	.press-link {

@@ -1,4 +1,5 @@
 import { isAbsolute, join, relative } from 'node:path';
+import { parseWindows, type AlbumWindows } from './album-window.js';
 
 export const ROOT_ALBUM = '(root)';
 export const SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.avif'];
@@ -72,6 +73,8 @@ export function stableShuffle<T extends { id: string }>(items: T[], seed = ''): 
 export interface SourceConfig {
 	root: string;
 	albums: string[];
+	/** Albums that only show between two days each year. */
+	windows: AlbumWindows;
 	recursive: true;
 }
 
@@ -81,9 +84,10 @@ export function parseConfig(raw: string): SourceConfig {
 		return {
 			root: typeof c.root === 'string' ? c.root : '',
 			albums: Array.isArray(c.albums) ? c.albums.filter((a) => typeof a === 'string') : [],
+			windows: parseWindows(c.windows),
 			recursive: true
 		};
 	} catch {
-		return { root: '', albums: [], recursive: true };
+		return { root: '', albums: [], windows: {}, recursive: true };
 	}
 }

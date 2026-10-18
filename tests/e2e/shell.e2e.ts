@@ -6,7 +6,7 @@ test.beforeAll(ensureHousehold);
 
 const destinations = [
 	['Calendar', 'calendar'],
-	['To-Do List', 'chores'],
+	['To-Dos', 'chores'],
 	['Photos', 'photos'],
 	['Lists', 'lists'],
 	['Meals', 'meals'],
