@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
+	import SpeakerSettings from '#lib/components/music/SpeakerSettings.svelte';
 
 	type Status =
 		| { state: 'not_configured' }
@@ -270,4 +271,6 @@
 			{#if saveError}<p class="text-danger" role="alert">{saveError}</p>{/if}
 		{/if}
 	{/if}
+
+	<SpeakerSettings />
 </section>
