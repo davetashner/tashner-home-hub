@@ -37,6 +37,8 @@
 	let balances = $state<Record<string, number>>({});
 	let goals = $state<Record<string, Goal | null>>({});
 	let loaded = $state(false);
+	/** Kids whose Games and Music are waiting on missed jobs (hub-ruz). */
+	let held = $state<Record<string, boolean>>({});
 	let now = $state(Date.now());
 	let toast = $state('');
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -89,6 +91,30 @@
 		);
 	}
 
+	async function loadHeld() {
+		const res = await fetch('/api/fun-lock').catch(() => null);
+		if (res?.ok)
+			held = Object.fromEntries(
+				((await res.json()) as { memberId: string; locked: boolean }[]).map((l) => [
+					l.memberId,
+					l.locked
+				])
+			);
+	}
+
+	/** A grown-up lets the kid into Games and Music for today (logged on the server). */
+	async function unlockFun(child: Child) {
+		held[child.id] = false;
+		const res = await api(`/api/members/${child.id}/fun-lock/unlock`, { method: 'POST' }).catch(
+			() => null
+		);
+		if (res?.ok) say(`${child.name} can use Games and Music today.`);
+		else {
+			held[child.id] = true;
+			say("That didn't go through. Please try again.");
+		}
+	}
+
 	async function load() {
 		const [approvals, members, done] = await Promise.all([
 			api('/api/approvals'),
@@ -100,6 +126,7 @@
 		if (members.ok)
 			children = ((await members.json()) as Child[]).filter((m) => m.role === 'child');
 		await loadBalances();
+		await loadHeld();
 		now = Date.now();
 		loaded = true;
 	}
@@ -244,6 +271,23 @@
 							{balances[child.id] ?? 0} ⭐
 						</span>
 					</div>
+
+					{#if held[child.id]}
+						<div
+							class="flex flex-wrap items-center gap-4 rounded-control bg-surface-sunken p-4"
+							data-testid="fun-held-{child.id}"
+						>
+							<p class="min-w-48 flex-1 text-lead font-bold">
+								Games and Music are waiting for {child.name} to finish today's jobs.
+							</p>
+							<Button
+								class="w-full sm:w-auto"
+								variant="secondary"
+								data-testid="fun-unlock-{child.id}"
+								onclick={() => void unlockFun(child)}>Unlock for today</Button
+							>
+						</div>
+					{/if}
 
 					{@const goal = goals[child.id]}
 					{#if goal && (balances[child.id] ?? 0) >= goal.cost}

@@ -104,6 +104,16 @@
 	const busy = () => Object.keys(inflight).length > 0;
 	let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
+	// Games and Music hold back the kid shown here until their jobs are done (hub-ruz).
+	$effect(() => {
+		if (!selectedId) return;
+		try {
+			localStorage.setItem('hub.kid', selectedId);
+		} catch {
+			// Storage unavailable: the fun tabs fall back to the first held-back kid.
+		}
+	});
+
 	const selected = $derived(members.find((m) => m.id === selectedId) ?? null);
 	const groups = $derived(selectedId ? (boards[selectedId] ?? []) : []);
 	const kids = $derived(kidsToShow(members, boards, routinesBy, nowMinutes));
