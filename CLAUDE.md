@@ -118,7 +118,7 @@ Run `pnpm gates` before opening a PR. A red CI is never merged.
 - Colors, type sizes, radii, and tap sizes come from the `@theme` tokens in `src/routes/layout.css`. Tailwind's default palette is disabled on purpose.
 - E2E tests live in `tests/e2e/*.e2e.ts` and run in landscape and portrait wall viewports.
 - **Mutations use JSON `fetch` to `src/routes/api/**`, never SvelteKit form actions.** adapter-node 6 has no runtime `ORIGIN` setting and assumes `https`, so form POSTs over the plain-http LAN fail SvelteKit's CSRF check. JSON requests are safe here: browsers block cross-origin JSON POSTs (no CORS headers are ever sent), access is LAN-only, and session cookies are `SameSite=Strict`. Never disable `csrf.checkOrigin`.
-- Adult-only API routes call `requireAdult(event)` from `src/lib/server/auth.ts`; create chores through `createChore` so approval defaults to on.
+- Adult-only API routes call `requireAdult(event)` from `src/lib/server/auth.ts`; create chores through `createChore` (`src/lib/server/domain/chores.ts`) so approval follows the household setting (`chores.approval`, default off: kids self-serve).
 
 ### PR labels (humans only)
 

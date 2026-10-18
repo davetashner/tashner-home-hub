@@ -318,7 +318,14 @@ test(
 		for (const title of titles) {
 			const chore = await (
 				await page.request.post('/api/chores', {
-					data: { title, icon: '🪴', stars: 2, memberIds: [member.id], schedule: { type: 'daily' } }
+					data: {
+						title,
+						icon: '🪴',
+						stars: 2,
+						memberIds: [member.id],
+						schedule: { type: 'daily' },
+						requiresApproval: true
+					}
 				})
 			).json();
 			await page.request.post(`/api/chores/${chore.id}/complete`, {

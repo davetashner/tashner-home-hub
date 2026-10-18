@@ -26,7 +26,14 @@ async function seed(page: Page, label: string, suffix = ''): Promise<Seed> {
 	] as const) {
 		const chore = await (
 			await request.post('/api/chores', {
-				data: { title, icon, stars, memberIds: [member.id], schedule: { type: 'daily' } }
+				data: {
+					title,
+					icon,
+					stars,
+					memberIds: [member.id],
+					schedule: { type: 'daily' },
+					requiresApproval: true
+				}
 			})
 		).json();
 		await request.post(`/api/chores/${chore.id}/complete`, { data: { memberId: member.id } });
