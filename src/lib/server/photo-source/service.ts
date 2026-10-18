@@ -108,6 +108,7 @@ export function slideshow(db: Db, limit: number, seed = '', today = todayMonthDa
 			w: schema.photos.width,
 			h: schema.photos.height,
 			takenAt: schema.photos.takenAt,
+			motion: schema.photos.motionPath,
 			album: schema.photos.album,
 			sourceId: schema.photos.sourceId
 		})
@@ -119,5 +120,12 @@ export function slideshow(db: Db, limit: number, seed = '', today = todayMonthDa
 		);
 	return stableShuffle(rows, seed)
 		.slice(0, limit)
-		.map((p) => ({ id: p.id, w: p.w, h: p.h, takenAt: p.takenAt, album: p.album }));
+		.map((p) => ({
+			id: p.id,
+			w: p.w,
+			h: p.h,
+			takenAt: p.takenAt,
+			album: p.album,
+			motion: p.motion !== null
+		}));
 }

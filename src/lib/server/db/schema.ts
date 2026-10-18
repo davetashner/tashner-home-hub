@@ -104,7 +104,9 @@ export const photos = sqliteTable(
 		width: integer('width'),
 		height: integer('height'),
 		takenAt: ms('taken_at'),
-		hidden: integer('hidden', { mode: 'boolean' }).notNull().default(false)
+		hidden: integer('hidden', { mode: 'boolean' }).notNull().default(false),
+		/** Live Photo companion clip (same folder, same basename), relative like `filePath` (PHO-10). */
+		motionPath: text('motion_path')
 	},
 	(t) => [uniqueIndex('photos_source_path_idx').on(t.sourceId, t.filePath)]
 );

@@ -78,6 +78,13 @@
 			"when": 1792900000001,
 			"tag": "20261018185317_drawing_image",
 			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "6",
+			"when": 1792900000002,
+			"tag": "20261018202345_live_photo_motion",
+			"breakpoints": true
 		}
 	]
 }

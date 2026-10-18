@@ -5,6 +5,9 @@ import {
 	hasChanged,
 	isAlbumSelected,
 	isInside,
+	isMotionFile,
+	pairMotion,
+	parseRange,
 	isSupportedFile,
 	parseConfig,
 	safeJoin,
@@ -107,5 +110,57 @@ describe('parseConfig', () => {
 			parseConfig('{"windows":{"a":{"from":"06-01","to":"06-10"},"b":{"from":"13-01"}}}').windows
 		).toEqual({ a: { from: '06-01', to: '06-10' } });
 		expect(parseConfig('{}').root).toBe('');
+	});
+});
+
+describe('Live Photo pairs', () => {
+	it('pairs a still with the clip of the same basename in the same folder', () => {
+		const pairs = pairMotion(
+			['IMG_1.HEIC', 'Trip/IMG_2.jpg', 'Trip/IMG_3.jpg', 'img_4.jpg'],
+			['IMG_1.MOV', 'Trip/IMG_2.mov', 'Other/IMG_3.mov', 'IMG_4.mp4']
+		);
+		expect([...pairs]).toEqual([
+			['IMG_1.HEIC', 'IMG_1.MOV'],
+			['Trip/IMG_2.jpg', 'Trip/IMG_2.mov'],
+			['img_4.jpg', 'IMG_4.mp4']
+		]);
+	});
+	it('prefers a .mov over a .mp4 and lets sibling stills share a clip', () => {
+		const pairs = pairMotion(['a.jpg', 'a.heic'], ['a.mp4', 'a.mov']);
+		expect(pairs.get('a.jpg')).toBe('a.mov');
+		expect(pairs.get('a.heic')).toBe('a.mov');
+	});
+	it('leaves photos without a clip, and standalone clips, alone', () => {
+		expect(pairMotion(['a.jpg'], ['b.mov']).size).toBe(0);
+		expect(pairMotion([], ['b.mov']).size).toBe(0);
+	});
+	it('only counts visible .mov/.mp4 files as clips', () => {
+		expect(isMotionFile('IMG_1.MOV')).toBe(true);
+		expect(isMotionFile('x.mp4')).toBe(true);
+		expect(isMotionFile('._IMG_1.mov')).toBe(false);
+		expect(isMotionFile('.hidden.mov')).toBe(false);
+		expect(isMotionFile('x.jpg')).toBe(false);
+		expect(isMotionFile('mov')).toBe(false);
+	});
+});
+
+describe('parseRange', () => {
+	it('serves everything when there is no usable header', () => {
+		expect(parseRange(null, 100)).toBeNull();
+		expect(parseRange('bytes=0-1,5-6', 100)).toBeNull();
+		expect(parseRange('items=0-1', 100)).toBeNull();
+		expect(parseRange('bytes=-', 100)).toBeNull();
+	});
+	it('parses closed, open-ended and suffix ranges, clamped to the file', () => {
+		expect(parseRange('bytes=0-9', 100)).toEqual({ start: 0, end: 9 });
+		expect(parseRange('bytes=90-', 100)).toEqual({ start: 90, end: 99 });
+		expect(parseRange('bytes=90-500', 100)).toEqual({ start: 90, end: 99 });
+		expect(parseRange('bytes=-10', 100)).toEqual({ start: 90, end: 99 });
+		expect(parseRange('bytes=-500', 100)).toEqual({ start: 0, end: 99 });
+	});
+	it('rejects ranges outside the file', () => {
+		expect(parseRange('bytes=100-', 100)).toBe('unsatisfiable');
+		expect(parseRange('bytes=9-2', 100)).toBe('unsatisfiable');
+		expect(parseRange('bytes=-0', 100)).toBe('unsatisfiable');
 	});
 });

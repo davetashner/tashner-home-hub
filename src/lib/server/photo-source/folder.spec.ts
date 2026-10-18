@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import { openDb, schema, type Db } from '../db/index.js';
 import { syntheticJpeg } from '../photo-cache/fixtures.js';
 import { forgetSource, lastScan, scanSource } from './folder.js';
-import { PhotoSourceError, resolvePhotoPath, validateRoot } from './paths.js';
+import { PhotoSourceError, resolveMotionPath, resolvePhotoPath, validateRoot } from './paths.js';
 import { prerenderTargets } from './prerender.js';
 import { listSourceViews, slideshow, viewSource } from './service.js';
 
@@ -141,6 +141,44 @@ describe('slideshow and views', () => {
 	it('forgetSource clears the status', () => {
 		forgetSource(db, 's');
 		expect(lastScan(db, 's')).toBeNull();
+	});
+});
+
+describe('Live Photo pairing in the scanner', () => {
+	const motionOf = (path: string) =>
+		db.select().from(schema.photos).where(eq(schema.photos.filePath, path)).get()?.motionPath;
+	it('stores the clip beside a still, and follows it coming and going', async () => {
+		put('Live/IMG_1.HEIC.jpg', jpg);
+		put('Live/IMG_9.jpg');
+		put('Live/IMG_9.MOV', 'x');
+		put('Live/solo.mov', 'x');
+		await scanSource(db, 's');
+		expect(motionOf('Live/IMG_9.jpg')).toBe('Live/IMG_9.MOV');
+		expect(motionOf('Live/IMG_1.HEIC.jpg')).toBeNull();
+		expect(motionOf('top.jpg')).toBeNull();
+		expect(paths()).not.toContain('Live/solo.mov');
+		db.update(schema.photoSources)
+			.set({ config: JSON.stringify({ root, albums: [] }) })
+			.run();
+		expect(slideshow(db, 100).filter((p) => p.motion)).toHaveLength(1);
+
+		rmSync(join(root, 'Live/IMG_9.MOV'));
+		put('top.mp4', 'x');
+		await scanSource(db, 's');
+		expect(motionOf('Live/IMG_9.jpg')).toBeNull();
+		expect(motionOf('top.jpg')).toBe('top.mp4');
+	});
+	it('resolves a clip under the root and refuses traversal', () => {
+		const photo = (motionPath: string | null) =>
+			({
+				id: 'p',
+				sourceId: 's',
+				filePath: 'x.jpg',
+				motionPath
+			}) as typeof schema.photos.$inferSelect;
+		expect(resolveMotionPath(db, photo('Live/a.mov'))).toBe(join(root, 'Live/a.mov'));
+		expect(resolveMotionPath(db, photo(null))).toBeNull();
+		expect(() => resolveMotionPath(db, photo('../../secret/x.mov'))).toThrow(PhotoSourceError);
 	});
 });
 

@@ -8,16 +8,33 @@ import { isOnThisDayMode, type OnThisDayMode } from './on-this-day.js';
 export const TRANSITIONS = ['fade', 'kenburns'] as const;
 export type Transition = (typeof TRANSITIONS)[number];
 
+export const LIVE_PHOTO_MODES = ['off', 'on'] as const;
+export type LivePhotoMode = (typeof LIVE_PHOTO_MODES)[number];
+
+export function isLivePhotoMode(v: unknown): v is LivePhotoMode {
+	return typeof v === 'string' && (LIVE_PHOTO_MODES as readonly string[]).includes(v);
+}
+
+/** A Live Photo clip never plays longer than this; the still stays up after it (PHO-10). */
+export const MAX_CLIP_SECONDS = 4;
+/** Give up and hold on the still if playback is stuck this long. */
+export const CLIP_STALL_MS = 1000;
+/** The still shows alone for this long before its clip starts. */
+export const CLIP_DELAY_MS = 600;
+
 export interface SlideshowSettings {
 	intervalSeconds: number;
 	transition: Transition;
 	onThisDay: OnThisDayMode;
+	/** Play a Live Photo's motion clip once, muted, over its still. */
+	livePhotos: LivePhotoMode;
 }
 
 export const DEFAULT_SLIDESHOW: SlideshowSettings = {
 	intervalSeconds: 30,
 	transition: 'fade',
-	onThisDay: 'off'
+	onThisDay: 'off',
+	livePhotos: 'off'
 };
 
 /** The intervals a grown-up can pick, in seconds. */
@@ -38,7 +55,8 @@ export function parseSlideshowSettings(raw: Record<string, unknown>): SlideshowS
 			? raw.intervalSeconds
 			: DEFAULT_SLIDESHOW.intervalSeconds,
 		transition: isTransition(raw.transition) ? raw.transition : DEFAULT_SLIDESHOW.transition,
-		onThisDay: isOnThisDayMode(raw.onThisDay) ? raw.onThisDay : DEFAULT_SLIDESHOW.onThisDay
+		onThisDay: isOnThisDayMode(raw.onThisDay) ? raw.onThisDay : DEFAULT_SLIDESHOW.onThisDay,
+		livePhotos: isLivePhotoMode(raw.livePhotos) ? raw.livePhotos : DEFAULT_SLIDESHOW.livePhotos
 	};
 }
 
@@ -87,6 +105,8 @@ export interface SlidePhoto {
 	h: number | null;
 	/** EXIF time as epoch ms (local clock read as UTC); null when unknown. */
 	takenAt?: number | null;
+	/** True when a Live Photo clip exists at /api/photo/[id]/motion. */
+	motion?: boolean;
 }
 
 /** Bars thinner than this share of the screen are not worth a backdrop. */
@@ -108,6 +128,10 @@ export function photoSrc(id: string, target: Size, part: 'main' | 'bg' = 'main')
 	const q = new URLSearchParams({ w: `${target.width}`, h: `${target.height}`, fmt: 'avif' });
 	if (part === 'bg') q.set('part', 'bg');
 	return `/api/photo/${encodeURIComponent(id)}?${q}`;
+}
+
+export function motionSrc(id: string): string {
+	return `/api/photo/${encodeURIComponent(id)}/motion`;
 }
 
 export interface Playlist {

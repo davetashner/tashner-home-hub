@@ -41,6 +41,69 @@ export function isSupportedFile(name: string): boolean {
 	return dot > 0 && SUPPORTED_EXTENSIONS.includes(name.slice(dot).toLowerCase());
 }
 
+export const MOTION_EXTENSIONS = ['.mov', '.mp4'];
+
+/** Companion clips of Live Photos: visible .mov/.mp4 files, never dotfiles or AppleDouble sidecars. */
+export function isMotionFile(name: string): boolean {
+	if (name.startsWith('.') || name.startsWith('._')) return false;
+	const dot = name.lastIndexOf('.');
+	return dot > 0 && MOTION_EXTENSIONS.includes(name.slice(dot).toLowerCase());
+}
+
+const stem = (rel: string) => rel.slice(0, rel.lastIndexOf('.')).toLowerCase();
+
+/**
+ * Live Photo pairs: IMG_1234.HEIC plus IMG_1234.MOV in the same folder (basename compared
+ * case-insensitively). Returns photo path -> clip path. A .mov is preferred over a .mp4, and when
+ * several photos share a stem (IMG_1.jpg and IMG_1.heic) each pairs with the same clip.
+ */
+export function pairMotion(photos: Iterable<string>, clips: Iterable<string>): Map<string, string> {
+	const byStem = new Map<string, string>();
+	for (const clip of [...clips].sort()) {
+		const key = stem(clip);
+		const have = byStem.get(key);
+		if (!have || (!have.toLowerCase().endsWith('.mov') && clip.toLowerCase().endsWith('.mov')))
+			byStem.set(key, clip);
+	}
+	const pairs = new Map<string, string>();
+	for (const photo of photos) {
+		const clip = byStem.get(stem(photo));
+		if (clip) pairs.set(photo, clip);
+	}
+	return pairs;
+}
+
+export interface ByteRange {
+	start: number;
+	end: number;
+}
+
+/**
+ * A single `bytes=` range against a file of `size` bytes. `null` = no (or unusable multi-range)
+ * header, serve the whole file; 'unsatisfiable' = answer 416.
+ */
+export function parseRange(
+	header: string | null,
+	size: number
+): ByteRange | null | 'unsatisfiable' {
+	if (!header) return null;
+	const m = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+	if (!m || (m[1] === '' && m[2] === '')) return null;
+	let start: number;
+	let end: number;
+	if (m[1] === '') {
+		const n = Number(m[2]);
+		if (n === 0) return 'unsatisfiable';
+		start = Math.max(0, size - n);
+		end = size - 1;
+	} else {
+		start = Number(m[1]);
+		end = m[2] === '' ? size - 1 : Math.min(Number(m[2]), size - 1);
+	}
+	if (start >= size || start > end) return 'unsatisfiable';
+	return { start, end };
+}
+
 export interface FileSig {
 	size: number;
 	mtimeMs: number;

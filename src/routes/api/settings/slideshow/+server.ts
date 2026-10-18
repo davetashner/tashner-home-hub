@@ -6,6 +6,7 @@ import { readJson } from '#lib/server/api.js';
 import {
 	INTERVAL_STEPS,
 	isIntervalSeconds,
+	isLivePhotoMode,
 	isTransition,
 	parseSlideshowSettings,
 	type SlideshowSettings
@@ -14,7 +15,7 @@ import { isOnThisDayMode } from '#lib/domain/on-this-day.js';
 import type { RequestHandler } from './$types';
 
 const PREFIX = 'slideshow.';
-const KEYS = ['intervalSeconds', 'transition', 'onThisDay'].map((f) => PREFIX + f);
+const KEYS = ['intervalSeconds', 'transition', 'onThisDay', 'livePhotos'].map((f) => PREFIX + f);
 
 function read(): SlideshowSettings {
 	const rows = getDb()
@@ -36,7 +37,7 @@ function read(): SlideshowSettings {
 /** Open to the LAN like the slideshow itself (PHO-3): 30 s fades unless a grown-up changed them. */
 export const GET: RequestHandler = () => json(read());
 
-/** Adult only. Body: { intervalSeconds?, transition?, onThisDay? }. */
+/** Adult only. Body: { intervalSeconds?, transition?, onThisDay?, livePhotos? }. */
 export const PUT: RequestHandler = async (event) => {
 	requireAdult(event);
 	const body = await readJson(event.request);
@@ -46,8 +47,10 @@ export const PUT: RequestHandler = async (event) => {
 		error(400, 'transition must be fade or kenburns');
 	if (body.onThisDay !== undefined && !isOnThisDayMode(body.onThisDay))
 		error(400, 'onThisDay must be off, favor or only');
+	if (body.livePhotos !== undefined && !isLivePhotoMode(body.livePhotos))
+		error(400, 'livePhotos must be off or on');
 	const db = getDb();
-	for (const field of ['intervalSeconds', 'transition', 'onThisDay'] as const) {
+	for (const field of ['intervalSeconds', 'transition', 'onThisDay', 'livePhotos'] as const) {
 		if (body[field] === undefined) continue;
 		const value = JSON.stringify(body[field]);
 		db.insert(schema.settings)

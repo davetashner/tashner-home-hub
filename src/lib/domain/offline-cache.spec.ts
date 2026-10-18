@@ -20,6 +20,8 @@ describe('routeKind', () => {
 	it('keeps photos separate', () => {
 		expect(kind('/api/photo/abc')).toBe('photo');
 		expect(kind('/api/photo/slideshow?seed=x')).toBe('api');
+		// Live Photo clips are large: never kept in the offline cache.
+		expect(kind('/api/photo/abc/motion')).toBe('other');
 		expect(kind('/api/settings/slideshow')).toBe('api');
 	});
 

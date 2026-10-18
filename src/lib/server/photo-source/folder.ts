@@ -5,7 +5,9 @@ import { schema, type Db } from '../db/index.js';
 import {
 	albumOf,
 	hasChanged,
+	isMotionFile,
 	isSupportedFile,
+	pairMotion,
 	parseConfig,
 	type FileSig
 } from '../domain/photo-folder.js';
@@ -43,8 +45,9 @@ export function lastScan(db: Db, sourceId: string): ScanStatus | null {
 }
 
 /** Walks `root` iteratively (symlinks are never followed), yielding to the event loop regularly. */
-async function walk(root: string): Promise<Map<string, FileSig>> {
+async function walk(root: string): Promise<{ found: Map<string, FileSig>; clips: string[] }> {
 	const found = new Map<string, FileSig>();
+	const clips: string[] = [];
 	const dirs = [root];
 	let n = 0;
 	for (let dir = dirs.pop(); dir !== undefined; dir = dirs.pop()) {
@@ -56,11 +59,11 @@ async function walk(root: string): Promise<Map<string, FileSig>> {
 			else if (e.isFile() && isSupportedFile(e.name)) {
 				const st = await lstat(full).catch(() => null);
 				if (st?.isFile()) found.set(relative(root, full), { size: st.size, mtimeMs: st.mtimeMs });
-			}
+			} else if (e.isFile() && isMotionFile(e.name)) clips.push(relative(root, full));
 			if (++n % YIELD_EVERY === 0) await tick();
 		}
 	}
-	return found;
+	return { found, clips };
 }
 
 function chunk<T>(items: T[], size = BATCH): T[][] {
@@ -79,10 +82,15 @@ async function scan(db: Db, sourceId: string): Promise<ScanResult> {
 	const config = parseConfig(source.config);
 	// Re-validate on every scan so a swapped symlink or changed HUB_PHOTO_ROOTS cannot widen access.
 	const root = await validateRoot(config.root);
-	const found = await walk(root);
+	const { found, clips } = await walk(root);
+	const motion = pairMotion(found.keys(), clips);
 	const prev = signatures.get(sourceId) ?? new Map<string, FileSig>();
 	const rows = db
-		.select({ id: schema.photos.id, filePath: schema.photos.filePath })
+		.select({
+			id: schema.photos.id,
+			filePath: schema.photos.filePath,
+			motionPath: schema.photos.motionPath
+		})
 		.from(schema.photos)
 		.where(eq(schema.photos.sourceId, sourceId))
 		.all();
@@ -91,6 +99,9 @@ async function scan(db: Db, sourceId: string): Promise<ScanResult> {
 	const added: string[] = [];
 	const changed: string[] = [];
 	const toInsert: { id: string; path: string }[] = [];
+	const repaired = rows.filter(
+		(r) => found.has(r.filePath) && (motion.get(r.filePath) ?? null) !== r.motionPath
+	);
 	for (const [path, sig] of found) {
 		const id = existing.get(path);
 		if (id === undefined) toInsert.push({ id: crypto.randomUUID(), path });
@@ -102,7 +113,13 @@ async function scan(db: Db, sourceId: string): Promise<ScanResult> {
 		db.transaction((tx) => {
 			for (const { id, path } of batch)
 				tx.insert(schema.photos)
-					.values({ id, sourceId, filePath: path, album: albumOf(path) })
+					.values({
+						id,
+						sourceId,
+						filePath: path,
+						album: albumOf(path),
+						motionPath: motion.get(path) ?? null
+					})
 					.onConflictDoNothing()
 					.run();
 		});
@@ -111,6 +128,17 @@ async function scan(db: Db, sourceId: string): Promise<ScanResult> {
 	}
 	for (const batch of chunk(gone)) {
 		db.delete(schema.photos).where(inArray(schema.photos.id, batch)).run();
+		await tick();
+	}
+	// Clips appear, go or are renamed independently of their stills.
+	for (const batch of chunk(repaired)) {
+		db.transaction((tx) => {
+			for (const r of batch)
+				tx.update(schema.photos)
+					.set({ motionPath: motion.get(r.filePath) ?? null })
+					.where(eq(schema.photos.id, r.id))
+					.run();
+		});
 		await tick();
 	}
 	// Changed files: forget dimensions/date so the cache re-reads them (hidden is untouched).

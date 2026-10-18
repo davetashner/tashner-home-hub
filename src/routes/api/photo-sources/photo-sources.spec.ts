@@ -109,7 +109,14 @@ describe('photo-sources API', () => {
 
 		const show = await run(slide.GET, { adult: false, qs: '?limit=10&seed=q' });
 		expect(show.body).toHaveLength(2);
-		expect(Object.keys(show.body[0]).sort()).toEqual(['album', 'h', 'id', 'takenAt', 'w']);
+		expect(Object.keys(show.body[0]).sort()).toEqual([
+			'album',
+			'h',
+			'id',
+			'motion',
+			'takenAt',
+			'w'
+		]);
 		expect((await run(slide.GET, { adult: false, qs: '?limit=1' })).body).toHaveLength(1);
 
 		const grid = await run(imagesList.GET, { params: { id }, qs: '?limit=2' });
