@@ -98,3 +98,21 @@ test('a game that cannot load shows a friendly message', async ({ page }, info) 
 		await page.request.delete(`/api/games/${id}`, { headers: JSON_HEADERS, data: {} });
 	}
 });
+
+test('the game form warns about home-network addresses but still lets them save', async ({
+	page
+}) => {
+	await signInAsAdult(page, 'e2e-games-adult');
+	await page.goto('/settings/games');
+	await page.waitForLoadState('networkidle');
+	const add = page.getByTestId('add-game');
+	await expect(async () => {
+		await add.click();
+		await expect(page.getByTestId('game-form')).toBeVisible({ timeout: 1000 });
+	}).toPass();
+	const warning = page.getByTestId('game-lan-warning');
+	await page.getByTestId('game-url').fill('https://192.168.1.50/game');
+	await expect(warning).toContainText('home network');
+	await page.getByTestId('game-url').fill('https://games.example.com/');
+	await expect(warning).toHaveCount(0);
+});

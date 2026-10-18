@@ -37,6 +37,51 @@ export function cleanHttpsUrl(v: unknown): string | null {
 	}
 }
 
+function isPrivateIPv4(a: number, b: number): boolean {
+	return (
+		a === 10 ||
+		a === 127 ||
+		(a === 172 && b >= 16 && b <= 31) ||
+		(a === 192 && b === 168) ||
+		(a === 169 && b === 254) ||
+		(a === 100 && b >= 64 && b <= 127)
+	);
+}
+
+/**
+ * Whether a host is on the home network or this machine: loopback, RFC 1918, link-local,
+ * carrier-grade NAT (100.64/10), IPv6 loopback / unique-local / link-local (bracketed or not),
+ * `localhost` and `*.local`. Such a game is allowed, but the adult is warned.
+ */
+export function isPrivateHost(hostname: string): boolean {
+	let h = hostname.trim().toLowerCase();
+	if (h.startsWith('[') && h.endsWith(']')) h = h.slice(1, -1);
+	if (h.endsWith('.')) h = h.slice(0, -1);
+	if (!h) return false;
+	if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local')) return true;
+	const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+	if (v4) return isPrivateIPv4(Number(v4[1]), Number(v4[2]));
+	if (!h.includes(':')) return false;
+	if (h === '::1') return true;
+	// IPv4-mapped (::ffff:a.b.c.d or the hex form the URL parser produces).
+	const mappedDot = /^::ffff:(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(h);
+	if (mappedDot) return isPrivateIPv4(Number(mappedDot[1]), Number(mappedDot[2]));
+	const mappedHex = /^::ffff:([0-9a-f]{1,4}):[0-9a-f]{1,4}$/.exec(h);
+	if (mappedHex) {
+		const hi = parseInt(mappedHex[1]!, 16);
+		return isPrivateIPv4(hi >> 8, hi & 0xff);
+	}
+	const first = parseInt(h.split(':')[0] || '0', 16);
+	if (Number.isNaN(first)) return false;
+	return (first & 0xfe00) === 0xfc00 || (first & 0xffc0) === 0xfe80;
+}
+
+/** Whether free-typed text is an https URL whose host is private (drives the Settings warning). */
+export function isPrivateGameUrl(raw: string): boolean {
+	const u = cleanHttpsUrl(raw);
+	return u !== null && isPrivateHost(new URL(u).hostname);
+}
+
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string };
 
 /**
