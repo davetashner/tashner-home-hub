@@ -237,7 +237,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J19.2 | Start a sitter session now or on a schedule, with an optional sitter name, 4-digit PIN and permissions. | built | wall | untested: undefined |
 | J19.3 | Extend a session or end it early; it ends itself at its end time. | built | wall | untested: undefined |
 | J19.4 | The wall gets the info card only during an active session, and with a PIN only after the sitter enters it. | built | wall | untested: undefined |
-| J19.5 | The wall shows tonight's plan and the emergency info to the sitter and locks the parent-only parts. | planned | wall | planned |
+| J19.5 | The sitter always has the Emergency info button (behind the sitter PIN when one is set), and the parent-only parts of the wall are locked while a session runs. | built | wall | `sitter-wall` |
 | J19.6 | A parent starts, extends and ends a session from their phone, and the sitter can check in (kids in bed, all good, call me). | built | wall | untested: undefined |
 | J19.7 | After a session, the parents read a short log of the check-ins and when they happened. | built | wall | untested: undefined |
 

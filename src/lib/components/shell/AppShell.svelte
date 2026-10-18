@@ -22,6 +22,9 @@
 	import WaveBackground from './WaveBackground.svelte';
 	import { wave } from './wave-state.svelte.js';
 	import { parseWaveChoice } from '#lib/domain/wave-background.js';
+	import { isFunPath, sitterLocks } from '#lib/domain/sitter.js';
+	import SitterEmergency from './SitterEmergency.svelte';
+	import { sitter, watchSitter } from './sitter-state.svelte.js';
 
 	const NAV_KEY = 'hub.nav.collapsed';
 	// Slide-out length: matches --duration-base (240ms) plus a little slack.
@@ -36,6 +39,9 @@
 	let collapseButton = $state<HTMLButtonElement>();
 	let sideRail = $state(false);
 	let goneTimer: ReturnType<typeof setTimeout> | undefined;
+
+	// Sitter mode (hub-7pj.2): only the wall display follows a sitter session.
+	onMount(() => (page.data.displayRole === 'wall' ? watchSitter() : undefined));
 
 	onMount(() => {
 		const media = matchMedia('(orientation: landscape) and (min-height: 32.01rem)');
@@ -91,7 +97,25 @@
 	let { children }: { children: Snippet } = $props();
 
 	const pathname = $derived(page.url.pathname);
-	const destinations = $derived(destinationsFor(page.data.todoLabel ?? TODO_FALLBACK));
+	const locks = $derived(
+		sitterLocks(
+			page.data.displayRole === 'wall' ? sitter.session : null,
+			sitter.now,
+			page.data.adult === true
+		)
+	);
+	const destinations = $derived(
+		destinationsFor(page.data.todoLabel ?? TODO_FALLBACK).filter(
+			(d) => !(locks.funHidden && isFunPath(d.href))
+		)
+	);
+	// Games and Music are hidden for the session: a typed or swiped address goes home instead.
+	$effect(() => {
+		if (locks.funHidden && isFunPath(pathname)) void goto(resolve('/(app)'));
+	});
+	$effect(() => {
+		if (!locks.sitterView) sitter.emergencyOpen = false;
+	});
 
 	// The saved background choice comes with the page data; the settings page edits it optimistically.
 	$effect(() => {
@@ -178,9 +202,10 @@
 		<div
 			class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4 portrait:sm:gap-2 landscape:sm:gap-2 short:flex-nowrap short:gap-0.5 tablet:flex-nowrap tablet:gap-3 portrait:tablet:gap-3 landscape:tablet:gap-3"
 		>
+			{#if locks.sitterView}{@render emergencyButton()}{/if}
 			{#if !(collapsed && sideRail)}<TimerPills />{/if}
 			<OfflineBadge />
-			<ApprovalsBadge />
+			{#if !locks.adultLocked}<ApprovalsBadge />{/if}
 			<button
 				type="button"
 				onclick={() => (timerState.panel = true)}
@@ -211,11 +236,13 @@
 			{/if}
 			<a
 				href={resolve('/(app)/settings')}
-				aria-label="Settings"
+				aria-label={locks.adultLocked ? 'Settings (locked while a sitter is here)' : 'Settings'}
+				data-testid="settings-link"
+				data-locked={locks.adultLocked ? '' : undefined}
 				data-sveltekit-preload-data="tap"
 				class="press-link inline-flex size-tap-kid items-center justify-center rounded-chip border-2 border-line bg-surface-raised text-title text-ink shadow-raised max-sm:!size-tap short:!size-tap tablet:text-lead tablet:max-md:!size-tap tablet:md:!size-tap-tablet"
 			>
-				<Icon name="settings" />
+				<Icon name={locks.adultLocked ? 'lock' : 'settings'} />
 			</a>
 		</div>
 	</header>
@@ -228,6 +255,15 @@
 		{#each destinations as destination (destination.id)}
 			<NavItem {destination} active={isActive(destination.href, pathname)} />
 		{/each}
+		{#if locks.adultLocked}
+			<p
+				data-testid="sitter-lock-note"
+				class="mt-auto flex items-center gap-2 rounded-control bg-surface-raised p-3 text-caption text-ink-muted max-sm:hidden portrait:hidden short:hidden"
+			>
+				<span class="text-body"><Icon name="lock" /></span>
+				Settings and approvals are locked. A parent can unlock with their PIN.
+			</p>
+		{/if}
 		<button
 			bind:this={collapseButton}
 			type="button"
@@ -259,6 +295,7 @@
 			>
 				<Icon name="menu" />
 			</button>
+			{#if locks.sitterView}<div class="pointer-events-auto">{@render emergencyButton()}</div>{/if}
 			<div class="pointer-events-auto"><TimerPills /></div>
 			{#if !frameOverlay.clock}
 				<div
@@ -286,6 +323,23 @@
 		{/key}
 	</main>
 </div>
+
+{#if sitter.emergencyOpen && locks.sitterView}
+	<SitterEmergency onclose={() => (sitter.emergencyOpen = false)} />
+{/if}
+
+{#snippet emergencyButton()}
+	<!-- Always visible while a sitter session runs, on every page: one tap opens the Emergency info. -->
+	<button
+		type="button"
+		onclick={() => (sitter.emergencyOpen = true)}
+		data-testid="emergency-open"
+		class="press-link inline-flex min-h-tap-kid shrink-0 items-center justify-center gap-3 rounded-chip bg-emergency px-6 text-body font-extrabold text-on-emergency shadow-raised max-sm:!min-h-tap short:!min-h-tap short:px-3 short:text-caption tablet:max-md:!min-h-tap"
+	>
+		<span aria-hidden="true">🚨</span>
+		<span>Emergency info</span>
+	</button>
+{/snippet}
 
 <style>
 	/* Side-rail layouts only: landscape and not a short phone-sideways screen. */

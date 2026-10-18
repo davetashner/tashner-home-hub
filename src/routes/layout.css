@@ -31,6 +31,10 @@
 	--color-success-soft: oklch(93% 0.05 155);
 	--color-danger: oklch(55% 0.2 27);
 	--color-danger-soft: oklch(94% 0.04 25);
+	/* Sitter mode (hub-7pj): the always-visible Emergency info button and its 911 strip. */
+	--color-emergency: oklch(48% 0.21 27);
+	--color-emergency-soft: oklch(94% 0.04 25);
+	--color-on-emergency: oklch(99% 0.01 85);
 	/* To-Do kinds (hub-3yg): Star Jobs are pink, habits are purple. Soft = row fill, line = outline. */
 	--color-job: oklch(62% 0.2 355);
 	--color-job-soft: oklch(94% 0.045 355);
@@ -284,6 +288,9 @@
 	--color-success-soft: oklch(30% 0.05 155);
 	--color-danger: oklch(70% 0.17 27);
 	--color-danger-soft: oklch(30% 0.06 25);
+	--color-emergency: oklch(52% 0.21 27);
+	--color-emergency-soft: oklch(30% 0.06 25);
+	--color-on-emergency: oklch(99% 0.01 85);
 	--color-job: oklch(72% 0.17 355);
 	--color-job-soft: oklch(30% 0.06 355);
 	--color-job-line: oklch(50% 0.1 355);
