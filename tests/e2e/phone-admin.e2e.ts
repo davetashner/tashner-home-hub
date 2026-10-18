@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { signInAsAdult } from './adult';
+import { gotoHydrated } from './hydrated';
 
 // ADM-1: every admin page must be usable from a phone (390x844). Pages are discovered from the
 // settings subtree so new ones are covered automatically.
@@ -69,13 +70,10 @@ for (const f of forms) {
 	test(`phone: the ${f.name} form fits the screen width`, async ({ page }, info) => {
 		await signInAsAdult(page, `e2e-phone-form-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
-		await page.goto(f.path);
+		await gotoHydrated(page, f.path);
 		const form = page.locator(`[data-testid="${f.form}"], form`).first();
-		// A tap before hydration is lost (slow WebKit runs): retry it, as critical-flows and pin do.
-		await expect(async () => {
-			await page.getByRole('button', { name: f.open }).click();
-			await expect(form).toBeVisible({ timeout: 1000 });
-		}).toPass();
+		await page.getByRole('button', { name: f.open }).click();
+		await expect(form).toBeVisible();
 		const offenders = await form.evaluate((el) =>
 			[...el.querySelectorAll('*')]
 				.filter((c) => c.getBoundingClientRect().right > window.innerWidth + 1)
@@ -116,15 +114,12 @@ test.describe('phone flows', () => {
 		await page.route('**/api/calendar/google/start', (route) =>
 			route.fulfill({ json: { url: new URL('/healthz', page.url()).href, state: 's' } })
 		);
-		await page.goto('/settings/calendars');
+		await gotoHydrated(page, '/settings/calendars');
 		const sheet = page.getByTestId('add-connection');
 		const open = async (name: RegExp) => {
-			// A tap before hydration is lost: retry the opening tap until the choices show.
-			await expect(async () => {
-				if (!(await page.getByRole('button', { name }).isVisible()))
-					await page.getByRole('button', { name: 'Add connection' }).click();
-				await expect(page.getByRole('button', { name })).toBeVisible({ timeout: 1000 });
-			}).toPass();
+			if (!(await page.getByRole('button', { name }).isVisible()))
+				await page.getByRole('button', { name: 'Add connection' }).click();
+			await expect(page.getByRole('button', { name })).toBeVisible();
 			await page.getByRole('button', { name }).click();
 			await expect(sheet).toBeVisible();
 		};

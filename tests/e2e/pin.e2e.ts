@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { px } from './tap';
 import Database from 'better-sqlite3';
 import { hashPin } from '../../src/lib/server/domain/pin';
+import { gotoHydrated } from './hydrated';
 
 // Synthetic adults with a synthetic PIN, written straight into the server's SQLite file.
 // Each test gets its own member (lockout is tracked per client address and member).
@@ -47,12 +48,9 @@ async function openPad(page: Page, name: string, next = '/') {
 	// A second adult keeps the member picker visible regardless of test ordering.
 	seedAdult(name);
 	seedAdult(`${name} Partner`);
-	await page.goto(`/unlock?next=${encodeURIComponent(next)}`);
-	// A tap before the page hydrates is lost, so retry the pick until the pad shows.
-	await expect(async () => {
-		await page.getByRole('button', { name, exact: true }).click();
-		await expect(page.getByTestId('pinpad')).toBeVisible({ timeout: 1000 });
-	}).toPass();
+	await gotoHydrated(page, `/unlock?next=${encodeURIComponent(next)}`);
+	await page.getByRole('button', { name, exact: true }).click();
+	await expect(page.getByTestId('pinpad')).toBeVisible();
 }
 
 test('keys are at least 96px', async ({ page }, info) => {
