@@ -14,6 +14,7 @@ Provisions a Raspberry Pi 5 as the wall display: Chromium in kiosk mode on labwc
 | Crash recovery | user unit `hub-kiosk.service`, `Restart=always`, `RestartSec=5`, no start limit |
 | Hang recovery | `hub-kiosk-watchdog.timer` every 30 s checks Chromium's DevTools endpoint (127.0.0.1 only); 3 misses in a row restarts the service |
 | Server down at boot | Chromium still opens `HUB_URL` (service worker serves cache if it has one). If it lands on an error page, the watchdog reopens the URL once `HUB_HEALTH_URL` answers. A server outage never restarts Chromium |
+| Hub error page | If the page is the hub's own server error page (tab title like `500 Internal Error`, e.g. the kiosk booted mid-redeploy), the watchdog reopens the URL once `HUB_HEALTH_URL` answers. Repeats back off 30 s, 60 s, ... up to 10 min, and a normal page resets it, so a hub that keeps erroring never reload-loops. Logic and tests: `kiosk/watchdog/` (`python3 -m unittest`) |
 | Full freeze | `RuntimeWatchdogSec=15` in `/etc/systemd/system.conf.d/10-hub-watchdog.conf` (hardware watchdog) |
 | Rotation | `wlr-randr --output <OUTPUT> --mode <RESOLUTION> --transform <ORIENTATION>` plus a libinput calibration matrix and `mapToOutput` in labwc `rc.xml` |
 | Hidden cursor | invisible Xcursor theme `hub-blank` set in labwc `environment`; `INPUT="mouse"` shows a normal pointer and makes Esc minimize the hub |
@@ -183,3 +184,7 @@ node scripts/kiosk/kioskctl.mjs reload | restart | sw status | sw reset | logs -
 ## Offline caching and automation flags
 
 The hub's service worker (offline tolerance, NFR-6) stays on in headed Chromium, including with `--remote-debugging-port`. It switches itself off only for headless automation (`HeadlessChrome` user agent). Do not launch the kiosk with `--enable-automation`, which sets `navigator.webdriver` and is meant for test drivers, not the wall. Set `localStorage['hub.sw']` to `on` or `off` to force the worker either way.
+
+## Scrollbars
+
+`hub-kiosk-launch` passes `--hide-scrollbars`, so the thin overlay scrollbar no longer shows at the right edge of the wall (the content area scrolls). Scrolling still works by touch. The flag is still a valid Chromium content switch on Pi OS trixie, so the app CSS is unchanged. It only affects the kiosk's Chromium; phones and other browsers keep normal scrollbars. Re-run `sudo ./install.sh` and restart the kiosk to apply.
