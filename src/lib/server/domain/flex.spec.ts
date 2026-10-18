@@ -140,7 +140,12 @@ describe('choresForDay with flexible to-dos', () => {
 	it('stays today once done, is gone the rest of the period, and starts fresh next period', () => {
 		const room = createChore(
 			db,
-			{ title: 'Room', memberIds: ['kid'], schedule: { type: 'flex', every: 1 } },
+			{
+				title: 'Room',
+				memberIds: ['kid'],
+				schedule: { type: 'flex', every: 1 },
+				requiresApproval: true
+			},
 			clock
 		);
 		const c = done(room.id, '2026-03-05').completion;
@@ -152,7 +157,12 @@ describe('choresForDay with flexible to-dos', () => {
 	it('comes back after an undo or a rejection', () => {
 		const room = createChore(
 			db,
-			{ title: 'Room', memberIds: ['kid'], schedule: { type: 'flex', every: 1 } },
+			{
+				title: 'Room',
+				memberIds: ['kid'],
+				schedule: { type: 'flex', every: 1 },
+				requiresApproval: true
+			},
 			clock
 		);
 		undoCompletion(db, done(room.id, '2026-03-04').completion.id, {
@@ -203,7 +213,12 @@ describe('weekly summary with flexible to-dos', () => {
 		);
 		const play = createChore(
 			db,
-			{ title: 'Playroom', memberIds: ['kid'], schedule: { type: 'flex', every: 2 } },
+			{
+				title: 'Playroom',
+				memberIds: ['kid'],
+				schedule: { type: 'flex', every: 2 },
+				requiresApproval: true
+			},
 			clock
 		);
 		done(room.id, '2026-03-05');

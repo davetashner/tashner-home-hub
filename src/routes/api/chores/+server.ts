@@ -1,11 +1,6 @@
 import { getDb } from '#lib/server/db/index.js';
 import { requireAdult } from '#lib/server/auth.js';
-import {
-	createChore,
-	listChores,
-	type ChoreInput,
-	type ChoreKind
-} from '#lib/server/domain/chores.js';
+import { createChore, listChores, validKind, type ChoreInput } from '#lib/server/domain/chores.js';
 import { handle, readJson } from '#lib/server/api.js';
 import type { RequestHandler } from './$types';
 
@@ -14,7 +9,7 @@ export const GET: RequestHandler = ({ url }) =>
 	handle(() =>
 		listChores(getDb(), {
 			includeArchived: url.searchParams.get('archived') === '1',
-			kind: (url.searchParams.get('kind') as ChoreKind | null) ?? undefined
+			kind: url.searchParams.has('kind') ? validKind(url.searchParams.get('kind')) : undefined
 		})
 	);
 

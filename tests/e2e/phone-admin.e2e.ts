@@ -242,7 +242,8 @@ test.describe('phone flows', () => {
 					icon: '🪴',
 					stars: 2,
 					memberIds: [member.id],
-					schedule: { type: 'daily' }
+					schedule: { type: 'daily' },
+					requiresApproval: true
 				}
 			})
 		).json();

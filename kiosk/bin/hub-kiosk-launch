@@ -48,6 +48,7 @@ exec "$CHROMIUM" \
   --touch-events=enabled \
   --overscroll-history-navigation=0 \
   --disable-pinch \
+  --hide-scrollbars \
   --disable-translate \
   --disable-features=Translate,TranslateUI \
   --check-for-update-interval=31536000 \

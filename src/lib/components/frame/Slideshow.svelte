@@ -14,6 +14,7 @@
 		parseSlideshowSettings,
 		photoSrc,
 		pickTarget,
+		shuffle,
 		type Motion,
 		type Playlist,
 		type SlidePhoto,
@@ -53,8 +54,11 @@
 	/** Latest list wins: an older response never replaces a newer one. */
 	async function fetchList(): Promise<SlidePhoto[] | null> {
 		const mine = ++listRequest;
-		const res = await fetch(`/api/photo/slideshow?seed=${daySeed(new Date())}`).catch(() => null);
-		const list = res?.ok ? ((await res.json()) as SlidePhoto[]) : null;
+		// The whole library (the server caps it), reshuffled here so no start or pass repeats.
+		const res = await fetch(`/api/photo/slideshow?limit=2000&seed=${daySeed(new Date())}`).catch(
+			() => null
+		);
+		const list = res?.ok ? shuffle((await res.json()) as SlidePhoto[]) : null;
 		return mine === listRequest ? list : null;
 	}
 

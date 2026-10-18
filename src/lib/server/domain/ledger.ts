@@ -5,9 +5,9 @@
  * - Ledger rows are never deleted. Undo/reject mark the transaction `rejected` for audit.
  * - Only `approved` transactions count toward a balance.
  * - Every multi-row write runs in a single DB transaction.
- * - Parent approval is ON by default: chores created without an explicit
- *   `requiresApproval` require it (see {@link createChore}). The schema default is
- *   false and is frozen, so the default is applied here, in the creation code path.
+ * - This low-level insert keeps approval ON when `requiresApproval` is omitted. The app's
+ *   createChore (domain/chores.ts) always passes it, following the household setting
+ *   (domain/approval-setting.ts, default off: kids self-serve).
  */
 import { and, desc, eq, gte, lt, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
