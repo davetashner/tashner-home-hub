@@ -10,7 +10,7 @@
  * - Star balance is NEVER stored; it is computed from `star_transactions`.
  */
 import { sql } from 'drizzle-orm';
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { blob, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 const id = () => text('id').primaryKey();
 const createdAt = () =>
@@ -320,7 +320,9 @@ export const notes = sqliteTable(
 		pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
 		createdAt: createdAt(),
 		/** Epoch ms after which the note is gone, or null to stay until dismissed. */
-		expiresAt: ms('expires_at')
+		expiresAt: ms('expires_at'),
+		/** A drawing (small PNG) posted as the note. Lives and dies with the row: dismissing or expiring it frees the bytes. */
+		image: blob('image', { mode: 'buffer' })
 	},
 	(t) => [index('notes_created_idx').on(t.createdAt)]
 );

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDb, type Db } from '../db/index.js';
 import { members } from '../db/schema.js';
 import { subscribe } from './events.js';
-import { createNote, dismissNote, listNotes, pinNote } from './notes.js';
+import { createNote, dismissNote, listNotes, noteImage, pinNote } from './notes.js';
 
 let db: Db;
 beforeEach(() => {
@@ -74,5 +74,39 @@ describe('note storage', () => {
 		expect(seen).toHaveBeenCalledTimes(2);
 		off();
 		expect(listNotes(db)).toEqual([]);
+	});
+});
+
+describe('drawing notes', () => {
+	const PNG =
+		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+	it('posts a drawing with no caption and serves its bytes', () => {
+		const n = createNote(db, { authorId: 'kid', body: '', image: PNG }, 1000);
+		expect(n.body).toBe('');
+		expect(n.imageUrl).toBe(`/api/notes/${n.id}/image?v=1000`);
+		const bytes = noteImage(db, n.id);
+		expect(bytes?.[1]).toBe(0x50);
+		expect(listNotes(db, 2000)[0].imageUrl).toBe(n.imageUrl);
+	});
+	it('keeps a caption when given and leaves text notes imageless', () => {
+		expect(createNote(db, { authorId: 'kid', body: 'Look', image: PNG }).body).toBe('Look');
+		const t = createNote(db, { authorId: 'kid', body: 'text' });
+		expect(t.imageUrl).toBeNull();
+		expect(noteImage(db, t.id)).toBeNull();
+		expect(noteImage(db, 'missing')).toBeNull();
+	});
+	it('rejects a bad image, and a missing body without one', () => {
+		expect(code(() => createNote(db, { authorId: 'kid', body: '', image: 'data:x' }))).toBe(
+			'invalid'
+		);
+		expect(code(() => createNote(db, { authorId: 'kid', body: '' }))).toBe('invalid');
+	});
+	it('frees the image when the note is dismissed or expires', () => {
+		const a = createNote(db, { authorId: 'kid', body: '', image: PNG }, 1000);
+		dismissNote(db, a.id);
+		expect(noteImage(db, a.id)).toBeNull();
+		const b = createNote(db, { authorId: 'kid', body: '', image: PNG, until: 'today' }, 1000);
+		listNotes(db, 1000 + 3 * 86_400_000);
+		expect(noteImage(db, b.id)).toBeNull();
 	});
 });

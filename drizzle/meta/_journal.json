@@ -71,6 +71,13 @@
 			"when": 1792900000000,
 			"tag": "0009_allowance",
 			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "6",
+			"when": 1792900000001,
+			"tag": "0010_faithful_proteus",
+			"breakpoints": true
 		}
 	]
 }
