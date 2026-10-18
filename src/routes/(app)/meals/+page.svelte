@@ -2,7 +2,9 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import OnScreenKeyboard from '#lib/components/lists/OnScreenKeyboard.svelte';
+	import SavedMealsSheet from '#lib/components/meals/SavedMealsSheet.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import { addedMessage, ingredientKey, type SavedMeal } from '#lib/domain/saved-meals.js';
 	import { dayNumber, weekdayShort } from '#lib/domain/calendar-view/format.js';
 	import { dateKeyOf, type DateKey } from '#lib/domain/calendar-view/zone.js';
 	import {
@@ -32,7 +34,12 @@
 	let editing = $state<{ date: DateKey; meal: MealSlot } | null>(null);
 	let draft = $state('');
 	let failed = $state(false);
+	let saved = $state<SavedMeal[]>([]);
+	let showSaved = $state(false);
+	let notice = $state('');
+	let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
+	const adult = $derived(page.data.adult === true);
 	const wall = $derived(page.data.displayRole === 'wall');
 	const days = $derived(weekDays(week));
 	const plan = $derived(cache[week] ?? {});
@@ -59,6 +66,71 @@
 		if (mounted) void load(week);
 	});
 
+	async function loadSaved() {
+		try {
+			const res = await fetch('/api/saved-meals');
+			if (res.ok) saved = (await res.json()) as SavedMeal[];
+		} catch {
+			// Offline: no saved meals to offer.
+		}
+	}
+
+	function toast(message: string) {
+		notice = message;
+		clearTimeout(noticeTimer);
+		noticeTimer = setTimeout(() => (notice = ''), 4000);
+	}
+
+	async function addToGrocery(meal: SavedMeal) {
+		toast(`Adding ${meal.name}…`);
+		try {
+			const res = await fetch(`/api/saved-meals/${meal.id}/grocery`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: '{}'
+			});
+			if (!res.ok) throw new Error(String(res.status));
+			const r = (await res.json()) as { added: number; skipped: number; listTitle: string };
+			toast(addedMessage(r.added, r.skipped, r.listTitle));
+		} catch {
+			toast('Could not reach the list. Try again.');
+		}
+	}
+
+	/** The saved meal whose name matches the slot being edited, if any. */
+	const matchedSaved = $derived(
+		editing
+			? saved.find(
+					(m) =>
+						ingredientKey(m.name) ===
+						ingredientKey(plan[mealKey(editing!.date, editing!.meal)] ?? '')
+				)
+			: undefined
+	);
+
+	function planFrom(m: SavedMeal) {
+		draft = m.name;
+		void save();
+	}
+
+	async function saveThisMeal() {
+		const name = cleanMealText(draft);
+		if (name === null) return;
+		editing = null;
+		try {
+			const res = await fetch('/api/saved-meals', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ name })
+			});
+			if (!res.ok) throw new Error(String(res.status));
+			await loadSaved();
+			toast('Saved. Add its ingredients under Saved meals.');
+		} catch {
+			failed = true;
+		}
+	}
+
 	// Queued edits just reached the server: pick up the real state.
 	$effect(() => {
 		if (offline.synced > 0 && mounted) void load(week);
@@ -73,6 +145,7 @@
 		today = dateKeyOf(Date.now(), tz);
 		week = currentWeek(Date.now(), tz);
 		mounted = true;
+		void loadSaved();
 	});
 
 	function open(date: DateKey, meal: MealSlot) {
@@ -137,10 +210,23 @@
 			data-testid="meals-next"
 			onclick={() => (week = shiftWeek(week, 1))}>›</Button
 		>
+		<Button variant="secondary" data-testid="saved-open" onclick={() => (showSaved = true)}
+			>Saved meals</Button
+		>
 		<Button variant="secondary" onclick={() => (week = currentWeek(Date.now(), tz))}
 			>This week</Button
 		>
 	</header>
+
+	{#if notice}
+		<p
+			class="rounded-control bg-accent-soft p-3 text-body font-bold"
+			role="status"
+			data-testid="meals-toast"
+		>
+			{notice}
+		</p>
+	{/if}
 
 	{#if failed}
 		<p class="rounded-control bg-danger-soft p-3 text-body font-bold" role="alert">
@@ -174,6 +260,16 @@
 		{/each}
 	</div>
 </section>
+
+{#if showSaved}
+	<SavedMealsSheet
+		bind:meals={saved}
+		{adult}
+		onclose={() => (showSaved = false)}
+		onaddgrocery={(m) => void addToGrocery(m)}
+		onerror={() => (failed = true)}
+	/>
+{/if}
 
 {#if editing}
 	<div class="scrim" role="presentation">
@@ -213,7 +309,30 @@
 					bind:value={draft}
 				/>
 			{/if}
+			{#if saved.length > 0}
+				<div class="flex flex-wrap gap-2" data-testid="meal-saved-chips">
+					{#each saved as m (m.id)}
+						<Button variant="secondary" data-testid="meal-saved-chip" onclick={() => planFrom(m)}
+							>{m.emoji ?? ''} {m.name}</Button
+						>
+					{/each}
+				</div>
+			{/if}
 			<div class="flex flex-wrap gap-3">
+				{#if matchedSaved}
+					<Button
+						variant="secondary"
+						data-testid="meal-add-grocery"
+						onclick={() => {
+							void addToGrocery(matchedSaved);
+							editing = null;
+						}}>Add ingredients to Grocery</Button
+					>
+				{:else if adult && cleanMealText(draft) !== null}
+					<Button variant="secondary" data-testid="meal-save-as" onclick={saveThisMeal}
+						>Save this meal</Button
+					>
+				{/if}
 				{#if !wall}<Button type="submit" data-testid="meal-save">Save</Button>{/if}
 				<Button variant="secondary" onclick={() => (editing = null)}>Cancel</Button>
 				<Button variant="danger" data-testid="meal-delete" onclick={remove}>Clear</Button>
