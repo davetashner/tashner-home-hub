@@ -39,3 +39,10 @@ CEC_DEVICE="/dev/cec0"
 CEC_ADDRESS="0"
 # If the hub is unreachable, a touch-woken screen stays on this many seconds.
 OFFLINE_WAKE_SECONDS="120"
+
+# Bluetooth speaker (hub-txj.1). Pick it in the hub's Settings > Music > Speaker; this is only a
+# fallback for a fresh install. MAC of the speaker, e.g. AA:BB:CC:DD:EE:FF. Empty = none yet.
+BT_SPEAKER=""
+# Port of the display agent's speaker API, which the hub server calls. install.sh creates the token.
+SPEAKER_API_PORT="8742"
+SPEAKER_API_TOKEN_FILE="/etc/hub-kiosk/speaker-api.token"

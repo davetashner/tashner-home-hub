@@ -5,6 +5,7 @@
 	import Card from '#lib/components/ui/Card.svelte';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import MemberForm from '#lib/components/MemberForm.svelte';
+	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -22,14 +23,13 @@
 
 	/** Sends a JSON request, refreshes the list, and returns an error message on failure. */
 	async function send(url: string, method: string, body?: MemberInput) {
-		const res = await fetch(url, {
+		const res = await safeFetch(url, {
 			method,
 			headers: { 'content-type': 'application/json' },
 			body: body && JSON.stringify(body)
 		});
 		if (!res.ok) {
-			const err: { message?: string } = await res.json().catch(() => ({}));
-			return err.message ?? 'Something went wrong.';
+			return errorMessage(res);
 		}
 		await invalidateAll();
 		close();
