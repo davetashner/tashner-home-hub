@@ -61,13 +61,14 @@
 			{balance}
 			{balance === 1 ? 'star' : 'stars'}{pending > 0 ? ` · ${pending} waiting` : ''}
 		</p>
-		<div class="flex shrink-0 gap-3">
+		<div class="flex flex-wrap gap-3 short:gap-1">
 			<Button
 				variant="secondary"
 				size="kid"
-				class="short:px-6 tablet:px-6"
+				class="px-4!"
 				data-testid="open-stickers"
-				onclick={() => (stickersOpen = true)}>Stickers</Button
+				aria-label="My stickers"
+				onclick={() => (stickersOpen = true)}><span aria-hidden="true">🏅</span></Button
 			>
 			<Button
 				size="kid"
