@@ -8,8 +8,7 @@
 >
 	<span aria-hidden="true" class="text-title leading-none">🔥</span>
 	<span>
-		{days}
-		{days === 1 ? 'day' : 'days'} in a row!
+		{days}-day habit streak
 		{#if nextDays !== null}
 			<span class="block text-caption font-bold text-ink-muted"
 				>{nextDays - days} more for bonus stars</span

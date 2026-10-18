@@ -163,7 +163,16 @@ describe('weeklySummary', () => {
 
 	it('streak is measured at the end of the week and ties pick the earlier day', () => {
 		db.update(schema.chores).set({ archived: true }).where(eq(schema.chores.id, trash)).run();
-		for (let i = 0; i < 8; i++) done(dishes, `2026-03-0${i + 1}`);
+		const habit = createChore(db, {
+			title: 'Make bed',
+			memberIds: ['kid'],
+			schedule: 'DTSTART:20260301T000000Z\nRRULE:FREQ=DAILY',
+			kind: 'habit'
+		}).id;
+		for (let i = 0; i < 8; i++) {
+			done(dishes, `2026-03-0${i + 1}`);
+			done(habit, `2026-03-0${i + 1}`);
+		}
 		star('kid', 1, 'bonus', at('2026-03-05'));
 		star('kid', 1, 'bonus', at('2026-03-03'));
 		const kid = weeklySummary(db, { week: '2026-03-02', now: NOW, timeZone: TZ }).children.find(

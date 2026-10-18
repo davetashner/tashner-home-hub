@@ -2,7 +2,7 @@
  * Streak data + milestone payouts (requirement CHO-10). The rules live in
  * `#lib/domain/streaks.js`; this module reads chores/completions and writes `streak` ledger rows.
  *
- * Judging history uses today's chore definitions: a chore added or rescheduled later does not
+ * Only habits are judged: Star Jobs never affect a streak. Judging history uses today's chore definitions: a chore added or rescheduled later does not
  * count before its schedule start, but edits to who it is assigned to apply to past days too.
  * Stars already paid are never taken back if a completion is undone later.
  */
@@ -46,7 +46,7 @@ export function streakFor(db: Db, memberId: string, today: string) {
 	const mine = db
 		.select()
 		.from(chores)
-		.where(eq(chores.archived, false))
+		.where(and(eq(chores.archived, false), eq(chores.kind, 'habit')))
 		.all()
 		.filter((c) => (JSON.parse(c.memberIds) as string[]).includes(memberId))
 		.map((c) => ({ id: c.id, schedule: parseSchedule(c.schedule, today) }));
@@ -107,7 +107,7 @@ export function awardStreakMilestones(
 					delta: m.stars,
 					reason: 'streak',
 					refId: streakRef(m.days, streak.runStart as string),
-					note: `${m.days}-day streak`,
+					note: `${m.days}-day habit streak`,
 					status: 'approved',
 					createdAt: now
 				})

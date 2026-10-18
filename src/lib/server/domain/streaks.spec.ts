@@ -24,7 +24,8 @@ function setup(requiresApproval = false) {
 		title: 'Dishes',
 		memberIds: ['kid'],
 		schedule: `DTSTART:20260301T000000Z\nRRULE:FREQ=DAILY`,
-		requiresApproval
+		requiresApproval,
+		kind: 'habit'
 	}).id;
 }
 const finish = (date: string, memberId = 'kid') =>
@@ -41,12 +42,24 @@ describe('streakSummary', () => {
 		expect(s.next?.days).toBe(7);
 	});
 
-	it('does not count pending completions until approved', () => {
+	it('counts a habit as soon as it is checked (habits need no approval)', () => {
 		setup(true);
-		const c = finish(DAY0);
-		expect(streakSummary(db, 'kid', clock(DAY0)).days).toBe(0);
-		approveCompletion(db, c.id);
+		finish(DAY0);
 		expect(streakSummary(db, 'kid', clock(DAY0)).days).toBe(1);
+	});
+
+	it('does not count a Star Job that is still pending approval', () => {
+		db.update(schema.chores).set({ archived: true }).run();
+		const job = createChore(db, {
+			title: 'Wash car',
+			memberIds: ['kid'],
+			schedule: `DTSTART:20260301T000000Z\nRRULE:FREQ=DAILY`,
+			kind: 'star_job',
+			requiresApproval: true
+		}).id;
+		const c = completeChore(db, { choreId: job, memberId: 'kid', date: DAY0, now: at(DAY0) });
+		approveCompletion(db, c.completion.id);
+		expect(streakSummary(db, 'kid', clock(DAY0)).days).toBe(0);
 	});
 
 	it('breaks on a missed day and ignores other kids and archived chores', () => {
@@ -55,6 +68,28 @@ describe('streakSummary', () => {
 		expect(streakSummary(db, 'kid', clock('2026-03-03')).days).toBe(1);
 		expect(streakSummary(db, 'kid2', clock('2026-03-03')).days).toBe(0);
 		db.update(schema.chores).set({ archived: true }).run();
+		expect(streakSummary(db, 'kid', clock('2026-03-03')).days).toBe(0);
+	});
+
+	it('ignores Star Jobs: a missed job does not break a day of done habits', () => {
+		createChore(db, {
+			title: 'Wash car',
+			memberIds: ['kid'],
+			schedule: `DTSTART:20260301T000000Z\nRRULE:FREQ=DAILY`,
+			kind: 'star_job'
+		});
+		for (let i = 0; i < 3; i++) finish(addDays(DAY0, i));
+		expect(streakSummary(db, 'kid', clock('2026-03-03')).days).toBe(3);
+	});
+
+	it('skips days with no habit due, even when a Star Job is due', () => {
+		db.update(schema.chores).set({ archived: true }).run();
+		createChore(db, {
+			title: 'Wash car',
+			memberIds: ['kid'],
+			schedule: `DTSTART:20260301T000000Z\nRRULE:FREQ=DAILY`,
+			kind: 'star_job'
+		});
 		expect(streakSummary(db, 'kid', clock('2026-03-03')).days).toBe(0);
 	});
 
@@ -83,7 +118,7 @@ describe('awardStreakMilestones', () => {
 		expect(awardStreakMilestones(db, 'kid', c)).toEqual([]);
 		const rows = db.select().from(schema.starTransactions).all();
 		expect(rows.filter((r) => r.reason === 'streak')).toHaveLength(1);
-		expect(starBalance(db, 'kid')).toBe(3 + 2);
+		expect(starBalance(db, 'kid')).toBe(2);
 	});
 
 	it('does not pay again when a day is undone and redone', () => {
@@ -93,7 +128,7 @@ describe('awardStreakMilestones', () => {
 		undoCompletion(db, done[2].id, { now: at('2026-03-03'), byAdult: true });
 		finish('2026-03-03');
 		expect(awardStreakMilestones(db, 'kid', clock('2026-03-03'))).toEqual([]);
-		expect(starBalance(db, 'kid')).toBe(5);
+		expect(starBalance(db, 'kid')).toBe(2);
 	});
 
 	it('pays a fresh run after a break', () => {
@@ -109,11 +144,9 @@ describe('awardStreakMilestones', () => {
 });
 
 describe('awardForCompletion', () => {
-	it('pays on approval, not while pending', () => {
-		setup(true);
+	it('pays when the habit that completes the run is checked', () => {
 		const cs = [0, 1, 2].map((i) => finish(addDays(DAY0, i)));
-		expect(awardForCompletion(db, cs[2].id, clock('2026-03-03'))).toEqual([]);
-		cs.forEach((c) => approveCompletion(db, c.id));
+		expect(awardForCompletion(db, cs[1].id, clock('2026-03-02'))).toEqual([]);
 		expect(awardForCompletion(db, cs[2].id, clock('2026-03-03')).map((m) => m.days)).toEqual([3]);
 		expect(awardForCompletion(db, 'missing')).toEqual([]);
 	});
