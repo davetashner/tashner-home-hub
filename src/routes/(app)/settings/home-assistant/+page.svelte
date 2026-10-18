@@ -267,10 +267,10 @@
 		<p class="text-body text-ink-muted">
 			Let a Home Assistant automation wake the wall (a hallway motion sensor) or put it to sleep (a
 			goodnight scene). Make a token, then paste the snippet into Home Assistant's
-			<code>configuration.yaml</code>
-			and call <code>rest_command.hub_wake_screen</code> or
-			<code>rest_command.hub_sleep_screen</code> from an automation. The token only works for the screen.
-			It is shown once; revoke it here at any time.
+			<code class="break-all">configuration.yaml</code>
+			and call <code class="break-all">rest_command.hub_wake_screen</code> or
+			<code class="break-all">rest_command.hub_sleep_screen</code> from an automation. The token only
+			works for the screen. It is shown once; revoke it here at any time.
 		</p>
 		<div class="flex flex-wrap gap-3">
 			<Button onclick={makeScreenToken} data-testid="ha-screen-new">New screen token</Button>
@@ -282,7 +282,7 @@
 			>
 		{/if}
 		<pre
-			class="overflow-x-auto rounded-control border-2 border-line bg-surface p-4 text-caption select-all"
+			class="rounded-control border-2 border-line bg-surface p-4 text-caption break-all whitespace-pre-wrap select-all"
 			data-testid="ha-screen-yaml">{yaml}</pre>
 		<div class="flex flex-wrap gap-3">
 			<button type="button" class={secondary} onclick={copyYaml} data-testid="ha-screen-copy"
