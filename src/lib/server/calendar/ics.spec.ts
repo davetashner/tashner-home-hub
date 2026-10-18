@@ -178,7 +178,11 @@ describe('provider and sync', () => {
 
 	it('runSync expands the feed into events that the events API can read', async () => {
 		addSource(`${base}/feed.ics`);
-		const result = await runSync(db, { now: () => Date.parse('2026-02-01') });
+		// Inject the provider: the registry's default one opens the shared on-disk ./data/hub.db.
+		const result = await runSync(db, {
+			now: () => Date.parse('2026-02-01'),
+			provider: (source) => createIcsProvider(source, { db, keyring })
+		});
 		expect(result.src1!.lastError).toBeNull();
 		const jan = listEvents(db, Date.parse('2026-01-01'), Date.parse('2026-02-01'));
 		const band = jan.filter((e) => e.title.startsWith('Band'));
