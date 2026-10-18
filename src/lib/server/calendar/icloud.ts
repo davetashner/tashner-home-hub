@@ -1,6 +1,12 @@
-import { createDAVClient, fetchCalendarObjects, getBasicAuthHeaders } from 'tsdav';
+import {
+	createCalendarObject,
+	createDAVClient,
+	fetchCalendarObjects,
+	getBasicAuthHeaders
+} from 'tsdav';
 import { getDb } from '../db/index.js';
 import { householdTimeZone } from '../household.js';
+import { buildEventIcs, newUid, type NewEvent } from '../domain/calendar/ics-build.js';
 import { parseIcs } from '../domain/calendar/ics-parse.js';
 import { decryptSecret, encryptSecret, type Keyring } from '../domain/secrets.js';
 import { getKeyring } from '../keys.js';
@@ -146,6 +152,31 @@ export async function fetchIcloudEvents(
 	}
 }
 
+/** PUTs a new VEVENT (`<uid>.ics`) into the calendar. Fails if Apple already has that name. */
+export async function createIcloudEvent(
+	creds: IcloudCredentials,
+	calendarId: string,
+	event: NewEvent,
+	opts: IcloudOptions = {}
+): Promise<{ uid: string }> {
+	const { signal, fetch: f } = guarded(opts);
+	const uid = newUid();
+	try {
+		const res = await createCalendarObject({
+			calendar: { url: calendarId },
+			filename: `${uid}.ics`,
+			iCalString: buildEventIcs(event, { uid, now: Date.now() }),
+			headers: getBasicAuthHeaders({ username: creds.appleId, password: creds.appPassword }),
+			fetch: f
+		});
+		// tsdav returns the response rather than throwing on a refusal.
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		return { uid };
+	} catch (e) {
+		throw friendly(e, signal);
+	}
+}
+
 export function createIcloudProvider(
 	source: CalendarSource,
 	deps: { keyring?: Keyring; options?: IcloudOptions } = {}
@@ -161,7 +192,9 @@ export function createIcloudProvider(
 				window,
 				householdTimeZone(getDb()),
 				options
-			)
+			),
+		createEvent: (calendarId, event) =>
+			createIcloudEvent(openCredentials(keyring, source), calendarId, event, options)
 	};
 }
 
