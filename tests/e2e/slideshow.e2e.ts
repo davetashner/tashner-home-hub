@@ -15,6 +15,7 @@ interface Photo {
 	id: string;
 	w: number;
 	h: number;
+	takenAt?: number | null;
 }
 
 /**
@@ -24,7 +25,7 @@ interface Photo {
 async function stubFrame(
 	page: Page,
 	photos: Photo[],
-	settings = { intervalSeconds: 10, transition: 'kenburns' },
+	settings: Record<string, unknown> = { intervalSeconds: 10, transition: 'kenburns' },
 	random = 0.999
 ) {
 	// The frame reshuffles every list; pinning Math.random fixes that order (0.999 keeps it as served).
@@ -239,4 +240,119 @@ test('long-pressing without an adult session asks for the PIN first', async ({ p
 		await longPress(page);
 		await expect(page).toHaveURL(/\/unlock\?next=%2Fphotos/, { timeout: 1_000 });
 	}).toPass();
+});
+
+/** Taken `years` ago, `days` from today, on the photographer's clock (UTC fields). */
+const takenNear = (years: number, days = 0) => {
+	const d = new Date();
+	return Date.UTC(d.getFullYear() - years, d.getMonth(), d.getDate() + days, 12);
+};
+
+test('on this day: favor puts past-year photos every third slide with a caption', async ({
+	page
+}, info) => {
+	const p = info.project.name;
+	const other = (n: number) => ({
+		id: `${p}-other${n}`,
+		w: 640,
+		h: 360,
+		takenAt: takenNear(1, 90)
+	});
+	const match = (n: number, years: number) => ({
+		id: `${p}-match${n}`,
+		w: 640,
+		h: 360,
+		takenAt: takenNear(years, 2)
+	});
+	const photos = [other(0), other(1), other(2), other(3), match(0, 3), match(1, 1)];
+	await stubFrame(page, photos, { intervalSeconds: 10, transition: 'fade', onThisDay: 'favor' });
+	await page.clock.install();
+	await gotoHydrated(page, '/photos');
+
+	const frame = page.getByTestId('slideshow');
+	const front = frame.locator('[data-front="true"]');
+	const caption = front.getByTestId('on-this-day-caption');
+	const order = [other(0), other(1), match(0, 3), other(2), other(3), match(1, 1)];
+	for (const [i, photo] of order.entries()) {
+		if (i > 0) await page.clock.fastForward(10_000);
+		await expect(front).toHaveAttribute('data-photo-id', photo.id);
+		if (photo.id.includes('match'))
+			await expect(caption).toHaveText(
+				photo.id.endsWith('0') ? '3 years ago this week' : '1 year ago this week'
+			);
+		else await expect(caption).toHaveCount(0);
+	}
+});
+
+test('on this day: only shows the matches', async ({ page }, info) => {
+	const p = info.project.name;
+	const matches = Array.from({ length: 10 }, (_, i) => ({
+		id: `${p}-day${i}`,
+		w: 640,
+		h: 360,
+		takenAt: takenNear(2, 0)
+	}));
+	const other = { id: `${p}-elsewhere`, w: 640, h: 360, takenAt: takenNear(2, 60) };
+	const requested = await stubFrame(page, [other, ...matches], {
+		intervalSeconds: 10,
+		transition: 'fade',
+		onThisDay: 'only'
+	});
+	await page.clock.install();
+	await gotoHydrated(page, '/photos');
+	const front = page.getByTestId('slideshow').locator('[data-front="true"]');
+	await expect(front).toHaveAttribute('data-photo-id', matches[0].id);
+	await expect(front.getByTestId('on-this-day-caption')).toHaveText('2 years ago today');
+	for (const m of matches.slice(1, 4)) {
+		await page.clock.fastForward(10_000);
+		await expect(front).toHaveAttribute('data-photo-id', m.id);
+	}
+	expect(requested).not.toContain(other.id);
+});
+
+test('on this day: too few matches falls back to every photo', async ({ page }, info) => {
+	const p = info.project.name;
+	const match = { id: `${p}-few-match`, w: 640, h: 360, takenAt: takenNear(2, 0) };
+	const other = { id: `${p}-few-other`, w: 640, h: 360, takenAt: takenNear(2, 60) };
+	await stubFrame(page, [other, match], {
+		intervalSeconds: 10,
+		transition: 'fade',
+		onThisDay: 'only'
+	});
+	await page.clock.install();
+	await gotoHydrated(page, '/photos');
+	const front = page.getByTestId('slideshow').locator('[data-front="true"]');
+	await expect(front).toHaveAttribute('data-photo-id', other.id);
+	await expect(front.getByTestId('on-this-day-caption')).toHaveCount(0);
+	await page.clock.fastForward(10_000);
+	await expect(front).toHaveAttribute('data-photo-id', match.id);
+	await expect(front.getByTestId('on-this-day-caption')).toHaveText('2 years ago today');
+});
+
+test('grown-ups choose the on this day mode', async ({ page }) => {
+	await page.route('**/api/settings/slideshow', (route) =>
+		route.request().method() === 'GET'
+			? route.fulfill({
+					json: { intervalSeconds: 30, transition: 'fade', onThisDay: 'off' }
+				})
+			: route.fallback()
+	);
+	const saved: unknown[] = [];
+	await page.route('**/api/settings/slideshow', (route) => {
+		if (route.request().method() !== 'PUT') return route.fallback();
+		saved.push(route.request().postDataJSON());
+		return route.fulfill({ json: {} });
+	});
+	await signInAsAdult(page, 'e2e-on-this-day-adult');
+	await gotoHydrated(page, '/settings/screen');
+	const group = page.getByRole('group', { name: 'On this day' });
+	await expect(group.getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true');
+	for (const name of ['Favor', 'Only']) await expectTappable(group.getByRole('button', { name }));
+	await group.getByRole('button', { name: 'Favor' }).click();
+	await expect(group.getByRole('button', { name: 'Favor' })).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
+	await group.getByRole('button', { name: 'Only' }).click();
+	await expect.poll(() => saved).toEqual([{ onThisDay: 'favor' }, { onThisDay: 'only' }]);
 });

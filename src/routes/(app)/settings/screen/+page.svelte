@@ -34,6 +34,8 @@
 		type Transition
 	} from '#lib/domain/slideshow.js';
 
+	import { type OnThisDayMode } from '#lib/domain/on-this-day.js';
+
 	let settings = $state<IdleSettings>({ ...DEFAULT_IDLE });
 	let slideshow = $state<SlideshowSettings>({ ...DEFAULT_SLIDESHOW });
 	let overlay = $state<OverlaySettings>({ ...DEFAULT_OVERLAY });
@@ -171,6 +173,17 @@
 		{ value: 'kenburns', label: 'Slow zoom' }
 	];
 
+	const onThisDayModes: { value: OnThisDayMode; label: string }[] = [
+		{ value: 'off', label: 'Off' },
+		{ value: 'favor', label: 'Favor' },
+		{ value: 'only', label: 'Only' }
+	];
+	const onThisDayLines: Record<OnThisDayMode, string> = {
+		off: 'Photos play in a random order.',
+		favor: 'About one photo in three is from this time of year in earlier years.',
+		only: 'Only photos from this time of year in earlier years, once there are enough of them.'
+	};
+
 	const rows = [
 		{
 			key: 'homeMinutes',
@@ -305,6 +318,23 @@
 						>
 					{/each}
 				</div>
+			</div>
+			<div class="flex flex-col gap-4">
+				<div class="flex flex-wrap items-center justify-between gap-6">
+					<h2 class="text-title font-bold">On this day</h2>
+					<div class="flex flex-wrap gap-4" role="group" aria-label="On this day">
+						{#each onThisDayModes as m (m.value)}
+							<Button
+								variant={slideshow.onThisDay === m.value ? 'primary' : 'secondary'}
+								aria-pressed={slideshow.onThisDay === m.value}
+								onclick={() => changeSlideshow({ onThisDay: m.value })}>{m.label}</Button
+							>
+						{/each}
+					</div>
+				</div>
+				<p class="text-body text-ink-muted">
+					{onThisDayLines[slideshow.onThisDay]} Within three days of today.
+				</p>
 			</div>
 		</div>
 	</Card>

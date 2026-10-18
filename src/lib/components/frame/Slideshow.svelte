@@ -21,6 +21,7 @@
 		type SlideshowSettings,
 		type Size
 	} from '#lib/domain/slideshow.js';
+	import { arrangePlaylist, calendarDay, onThisDayCaption } from '#lib/domain/on-this-day.js';
 
 	/** Fullscreen over the shell (the idle photo frame) rather than inside the page area. */
 	let { fullscreen = false }: { fullscreen?: boolean } = $props();
@@ -31,6 +32,7 @@
 		main: string;
 		bg: string | null;
 		motion: Motion | null;
+		caption: string | null;
 		ready: boolean;
 	}
 
@@ -51,14 +53,19 @@
 	/** The photo a long-press asked to hide, while its confirmation sheet is open. */
 	let hiding = $state<string | null>(null);
 
+	/** The order for one pass: shuffled, with "on this day" photos favoured or alone if asked. */
+	function arrange(list: SlidePhoto[]): SlidePhoto[] {
+		return arrangePlaylist(list, settings.onThisDay, calendarDay(new Date()), shuffle);
+	}
+
 	/** Latest list wins: an older response never replaces a newer one. */
 	async function fetchList(): Promise<SlidePhoto[] | null> {
 		const mine = ++listRequest;
-		// The whole library (the server caps it), reshuffled here so no start or pass repeats.
+		// The whole library (the server caps it), reshuffled by `arrange` so no start or pass repeats.
 		const res = await fetch(`/api/photo/slideshow?limit=2000&seed=${daySeed(new Date())}`).catch(
 			() => null
 		);
-		const list = res?.ok ? shuffle((await res.json()) as SlidePhoto[]) : null;
+		const list = res?.ok ? ((await res.json()) as SlidePhoto[]) : null;
 		return mine === listRequest ? list : null;
 	}
 
@@ -78,7 +85,11 @@
 		const [mainOk, bgOk] = await Promise.all([decode(main), bg ? decode(bg) : false]);
 		if (!mainOk) return null;
 		const motion = settings.transition === 'kenburns' ? kenBurns(steps) : null;
-		return { key: steps, id: photo.id, main, bg: bgOk ? bg : null, motion, ready: false };
+		const caption =
+			settings.onThisDay === 'off'
+				? null
+				: onThisDayCaption(photo.takenAt, calendarDay(new Date()));
+		return { key: steps, id: photo.id, main, bg: bgOk ? bg : null, motion, caption, ready: false };
 	}
 
 	function preload(photo: SlidePhoto) {
@@ -104,7 +115,7 @@
 				fresh = null;
 				// Pick up added or hidden photos for the following pass.
 				void fetchList().then((list) => {
-					if (list) fresh = list;
+					if (list) fresh = arrange(list);
 				});
 			}
 			playlist = step;
@@ -162,7 +173,7 @@
 		if (res?.status === 401) return unlock();
 		if (!res?.ok) {
 			const list = await fetchList();
-			if (list && alive) fresh = list;
+			if (list && alive) fresh = arrange(list);
 		}
 	}
 
@@ -172,8 +183,10 @@
 			.then((r) => (r.ok ? r.json() : {}))
 			.then((s: Record<string, unknown>) => (settings = parseSlideshowSettings(s)))
 			.catch(() => {});
-		void Promise.all([fetchList(), loadSettings]).then(([list]) => {
+		void Promise.all([fetchList(), loadSettings]).then(([raw]) => {
 			if (!alive) return;
+			// Settings are in by now, so the first pass already honours "on this day".
+			const list = raw && arrange(raw);
 			if (!list || list.length === 0) {
 				status = 'empty';
 				return;
@@ -247,6 +260,14 @@
 								data-part="main"
 							/>
 						</div>
+						{#if slot.caption}
+							<p
+								class="caption absolute top-0 left-0 p-8 text-lead font-bold text-on-frame max-sm:p-4"
+								data-testid="on-this-day-caption"
+							>
+								{slot.caption}
+							</p>
+						{/if}
 					</div>
 				{/key}
 			{/if}
@@ -264,6 +285,9 @@
 <style>
 	.touch-callout-none {
 		-webkit-touch-callout: none;
+	}
+	.caption {
+		text-shadow: var(--shadow-frame-text);
 	}
 	.slide {
 		opacity: 0;

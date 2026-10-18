@@ -3,15 +3,22 @@
  * Pure so the frame component only wires timers and images together.
  */
 
+import { isOnThisDayMode, type OnThisDayMode } from './on-this-day.js';
+
 export const TRANSITIONS = ['fade', 'kenburns'] as const;
 export type Transition = (typeof TRANSITIONS)[number];
 
 export interface SlideshowSettings {
 	intervalSeconds: number;
 	transition: Transition;
+	onThisDay: OnThisDayMode;
 }
 
-export const DEFAULT_SLIDESHOW: SlideshowSettings = { intervalSeconds: 30, transition: 'fade' };
+export const DEFAULT_SLIDESHOW: SlideshowSettings = {
+	intervalSeconds: 30,
+	transition: 'fade',
+	onThisDay: 'off'
+};
 
 /** The intervals a grown-up can pick, in seconds. */
 export const INTERVAL_STEPS = [10, 15, 20, 30, 45, 60, 90, 120, 300, 600] as const;
@@ -30,7 +37,8 @@ export function parseSlideshowSettings(raw: Record<string, unknown>): SlideshowS
 		intervalSeconds: isIntervalSeconds(raw.intervalSeconds)
 			? raw.intervalSeconds
 			: DEFAULT_SLIDESHOW.intervalSeconds,
-		transition: isTransition(raw.transition) ? raw.transition : DEFAULT_SLIDESHOW.transition
+		transition: isTransition(raw.transition) ? raw.transition : DEFAULT_SLIDESHOW.transition,
+		onThisDay: isOnThisDayMode(raw.onThisDay) ? raw.onThisDay : DEFAULT_SLIDESHOW.onThisDay
 	};
 }
 
@@ -77,6 +85,8 @@ export interface SlidePhoto {
 	/** Oriented pixel size; null until the server has read the file. */
 	w: number | null;
 	h: number | null;
+	/** EXIF time as epoch ms (local clock read as UTC); null when unknown. */
+	takenAt?: number | null;
 }
 
 /** Bars thinner than this share of the screen are not worth a backdrop. */

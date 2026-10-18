@@ -16,24 +16,26 @@ const put = (body: unknown, adult = true) =>
 	});
 
 it('defaults to a 30 second fade', async () => {
-	expect(await get()).toEqual({ intervalSeconds: 30, transition: 'fade' });
+	expect(await get()).toEqual({ intervalSeconds: 30, transition: 'fade', onThisDay: 'off' });
 });
 
 it('ignores corrupt rows', async () => {
 	getDb().insert(schema.settings).values({ key: 'slideshow.transition', value: '{oops' }).run();
-	expect(await get()).toEqual({ intervalSeconds: 30, transition: 'fade' });
+	expect(await get()).toEqual({ intervalSeconds: 30, transition: 'fade', onThisDay: 'off' });
 });
 
 it('lets a grown-up change the interval and transition', async () => {
 	expect(await (await put({ intervalSeconds: 60 })).json()).toEqual({
 		intervalSeconds: 60,
-		transition: 'fade'
+		transition: 'fade',
+		onThisDay: 'off'
 	});
-	expect(await (await put({ transition: 'kenburns' })).json()).toEqual({
+	expect(await (await put({ transition: 'kenburns', onThisDay: 'off' })).json()).toEqual({
 		intervalSeconds: 60,
-		transition: 'kenburns'
+		transition: 'kenburns',
+		onThisDay: 'off'
 	});
-	expect(await get()).toEqual({ intervalSeconds: 60, transition: 'kenburns' });
+	expect(await get()).toEqual({ intervalSeconds: 60, transition: 'kenburns', onThisDay: 'off' });
 });
 
 it('rejects bad values without writing anything', async () => {
@@ -41,7 +43,14 @@ it('rejects bad values without writing anything', async () => {
 	await expect(put({ intervalSeconds: 10, transition: 'wipe' })).rejects.toMatchObject({
 		status: 400
 	});
-	expect(await get()).toEqual({ intervalSeconds: 60, transition: 'kenburns' });
+	expect(await get()).toEqual({ intervalSeconds: 60, transition: 'kenburns', onThisDay: 'off' });
+});
+
+it('saves and validates the on-this-day mode', async () => {
+	expect((await (await put({ onThisDay: 'favor' })).json()).onThisDay).toBe('favor');
+	await expect(put({ onThisDay: 'sometimes' })).rejects.toMatchObject({ status: 400 });
+	expect((await get()).onThisDay).toBe('favor');
+	await put({ onThisDay: 'off' });
 });
 
 it('needs an adult', async () => {
