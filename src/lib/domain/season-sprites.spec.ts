@@ -81,6 +81,12 @@ describe('spritesFor', () => {
 		expect(snowsOn(on('christmas', { reindeer: 8 }))).toBe(false);
 	});
 
+	it('sets Christmas Day by the tree and a flickering fire', () => {
+		const ids = spritesFor(on('christmasday')).map((s) => s.id);
+		expect(ids).toEqual(expect.arrayContaining(['tree', 'fireplace']));
+		expect(spritesFor(on('christmasday')).find((s) => s.id === 'fireplace')!.flicker).toBe(true);
+	});
+
 	it('has no sprites yet for seasons whose art is still to come', () => {
 		expect(spritesFor(on('autumn'))).toEqual([]);
 	});
