@@ -10,7 +10,8 @@ schedule, "sleep now" and the night re-sleep timeout, the agent only obeys:
 
 Power is switched with `wlr-randr --output NAME --off|--on` (real HDMI off), with an optional
 CEC fallback (cec-ctl or cec-client) when wlr-randr fails. Touch is read straight from
-/dev/input/event* so it still works while the output is off.
+/dev/input/event* so it still works while the output is off. With INPUT=mouse (a TV driven by a
+mouse and keyboard) a mouse button or key press wakes the screen too; moving the mouse does not.
 """
 
 import errno
@@ -26,13 +27,15 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, FrozenSet, List, Optional, Sequence, Tuple
 
 log = logging.getLogger("hub-display-agent")
 
 # linux/input-event-codes.h
 EV_KEY, EV_ABS = 0x01, 0x03
 BTN_TOUCH = 0x14A
+BTN_LEFT = 0x110
+KEY_A, KEY_Z, KEY_SPACE = 30, 44, 57
 ABS_X, ABS_MT_POSITION_X, ABS_MT_TRACKING_ID = 0x00, 0x35, 0x39
 
 # struct input_event { struct timeval time; __u16 type; __u16 code; __s32 value; } (64-bit Pi OS)
@@ -56,6 +59,7 @@ class Config:
     poll_seconds: float = 1.0  # SLP-2: monitor off within 2 s of "Sleep now"
     max_backoff_seconds: float = 30.0
     touch_device: str = ""  # blank -> scan /dev/input/event*
+    mouse: bool = False  # kiosk.conf INPUT=mouse: mice and keyboards wake the screen too
     cec_backend: str = ""  # "", "cec-ctl" or "cec-client"
     cec_device: str = "/dev/cec0"
     cec_address: str = "0"  # logical address of the TV/monitor
@@ -92,6 +96,7 @@ def config_from(conf: Dict[str, str]) -> Config:
         output=conf.get("OUTPUT", d.output),
         poll_seconds=max(0.5, num("POWER_POLL_SECONDS", d.poll_seconds)),
         touch_device=conf.get("TOUCH_DEVICE", d.touch_device),
+        mouse=conf.get("INPUT", "") == "mouse",
         cec_backend=conf.get("CEC_BACKEND", d.cec_backend),
         cec_device=conf.get("CEC_DEVICE", d.cec_device),
         cec_address=conf.get("CEC_ADDRESS", d.cec_address),
@@ -195,8 +200,12 @@ class HubClient:
         self.timeout = timeout
 
     def _call(self, method: str, path: str) -> Dict[str, object]:
+        # A JSON POST: an empty one goes out as a form, which SvelteKit's CSRF check rejects (403).
         req = urllib.request.Request(
-            self.base + path, method=method, data=b"" if method == "POST" else None
+            self.base + path,
+            method=method,
+            data=b"{}" if method == "POST" else None,
+            headers={"Content-Type": "application/json"} if method == "POST" else {},
         )
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as res:
@@ -315,6 +324,28 @@ def touch_state(buf: bytes, touching: bool) -> bool:
     return touching
 
 
+def parse_key_press(buf: bytes) -> bool:
+    """True if a buffer holds a key or button going down (not auto-repeat, not movement)."""
+    for off in range(0, len(buf) - EVENT_SIZE + 1, EVENT_SIZE):
+        _, _, etype, _, value = struct.unpack_from(EVENT_FORMAT, buf, off)
+        if etype == EV_KEY and value == 1:
+            return True
+    return False
+
+
+def keys_held(buf: bytes, held: FrozenSet[int]) -> FrozenSet[int]:
+    """The keys and buttons still down after this buffer. `held` is the set before."""
+    keys = set(held)
+    for off in range(0, len(buf) - EVENT_SIZE + 1, EVENT_SIZE):
+        _, _, etype, code, value = struct.unpack_from(EVENT_FORMAT, buf, off)
+        if etype == EV_KEY:
+            if value:
+                keys.add(code)
+            else:
+                keys.discard(code)
+    return frozenset(keys)
+
+
 def has_bit(mask: bytes, bit: int) -> bool:
     return bit // 8 < len(mask) and bool(mask[bit // 8] >> (bit % 8) & 1)
 
@@ -324,6 +355,15 @@ def is_touch_device(abs_mask: bytes, key_mask: bytes) -> bool:
     return has_bit(abs_mask, ABS_MT_POSITION_X) or (
         has_bit(abs_mask, ABS_X) and has_bit(key_mask, BTN_TOUCH)
     )
+
+
+def is_wake_device(abs_mask: bytes, key_mask: bytes, mouse: bool) -> bool:
+    """A touchscreen; with INPUT=mouse also a mouse (left button) or a full keyboard. The TV's
+    CEC remote, media keys and the power button have neither, so they never wake the screen."""
+    if is_touch_device(abs_mask, key_mask):
+        return True
+    keyboard = all(has_bit(key_mask, k) for k in (KEY_A, KEY_Z, KEY_SPACE))
+    return mouse and (has_bit(key_mask, BTN_LEFT) or keyboard)
 
 
 def _eviocgbit(ev: int, length: int) -> int:
@@ -339,21 +379,30 @@ def _capability(fd: int, ev: int, length: int) -> bytes:
 
 
 class TouchWatcher:
-    """Opens the touch devices and reports touch-downs. Re-scans so hot-plug and replug work."""
+    """Opens the touch devices (and, with `mouse`, mice and keyboards) and reports touch-downs,
+    clicks and key presses. Re-scans so hot-plug and replug work."""
 
     RESCAN_SECONDS = 10.0
 
-    def __init__(self, device: str = "", ioctl: Optional[Callable[[int, int, int], object]] = None):
+    def __init__(
+        self,
+        device: str = "",
+        ioctl: Optional[Callable[[int, int, int], object]] = None,
+        mouse: bool = False,
+    ):
         self.device = device
+        self.mouse = mouse
         self.sel = selectors.DefaultSelector()
         self.last_scan = float("-inf")
         self._ioctl = ioctl  # injected in tests; the real fcntl.ioctl is imported late (Linux only)
         self.grabbed = False
         self.down: Dict[int, bool] = {}  # fd -> finger currently down
+        self.keys: Dict[int, FrozenSet[int]] = {}  # fd -> keys and buttons held (mouse mode)
 
     @property
     def touching(self) -> bool:
-        return any(self.down.values())
+        """A finger, key or button is down on any device."""
+        return any(self.down.values()) or any(self.keys.values())
 
     def _grab_fd(self, fd: int, on: bool) -> bool:
         try:
@@ -375,7 +424,7 @@ class TouchWatcher:
         for key in list(self.sel.get_map().values()):
             self._grab_fd(key.fd, want)
         self.grabbed = want
-        log.info("touch devices %s", "grabbed" if want else "released")
+        log.info("input devices %s", "grabbed" if want else "released")
 
     def _candidates(self) -> List[str]:
         if self.device:
@@ -396,17 +445,18 @@ class TouchWatcher:
             except OSError:
                 continue
             try:
-                ok = bool(self.device) or is_touch_device(
-                    _capability(fd, EV_ABS, 8), _capability(fd, EV_KEY, 96)
+                ok = bool(self.device) or is_wake_device(
+                    _capability(fd, EV_ABS, 8), _capability(fd, EV_KEY, 96), self.mouse
                 )
             except OSError:
                 ok = False
             if ok:
                 self.sel.register(fd, selectors.EVENT_READ, path)
                 self.down[fd] = False
+                self.keys[fd] = frozenset()
                 if self.grabbed:
                     self._grab_fd(fd, True)
-                log.info("watching touch device %s", path)
+                log.info("watching input device %s", path)
             else:
                 os.close(fd)
 
@@ -425,13 +475,16 @@ class TouchWatcher:
                 data = os.read(key.fd, EVENT_SIZE * 64)
             except OSError as e:
                 if e.errno not in (errno.EAGAIN, errno.EWOULDBLOCK):
-                    log.warning("touch device %s gone: %s", key.data, e)
+                    log.warning("input device %s gone: %s", key.data, e)
                     self.sel.unregister(key.fd)
                     self.down.pop(key.fd, None)
+                    self.keys.pop(key.fd, None)
                     os.close(key.fd)
                 continue
-            touched = parse_touch_down(data) or touched
+            touched = parse_touch_down(data) or (self.mouse and parse_key_press(data)) or touched
             self.down[key.fd] = touch_state(data, self.down.get(key.fd, False))
+            if self.mouse:
+                self.keys[key.fd] = keys_held(data, self.keys.get(key.fd, frozenset()))
         return touched
 
 
@@ -455,7 +508,7 @@ def main(argv: Sequence[str]) -> int:
     except Exception:  # the speaker is optional; screen power must keep working without it
         log.exception("speaker support failed to start")
     agent = Agent(cfg, Screen(cfg), HubClient(cfg.hub_url))
-    touch = TouchWatcher(cfg.touch_device)
+    touch = TouchWatcher(cfg.touch_device, mouse=cfg.mouse)
     next_poll = 0.0
     while True:
         now = time.monotonic()
