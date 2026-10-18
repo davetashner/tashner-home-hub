@@ -6,7 +6,7 @@
 	import { api } from './api.js';
 	import { field, GUIDE_BASE, type Source } from './types.js';
 
-	type Provider = 'google' | 'icloud' | 'ics';
+	type Provider = 'google' | 'icloud' | 'outlook' | 'ics';
 	interface Props {
 		/** Present when reconnecting an existing connection. */
 		reconnect?: Source | null;
@@ -118,7 +118,7 @@
 		{#if !provider}
 			<h2 class="text-title font-extrabold">What kind of calendar?</h2>
 			<ul class="flex flex-col gap-4">
-				{#each [{ id: 'google', emoji: '📅', title: 'Google', line: 'Gmail or Google Workspace calendars.' }, { id: 'icloud', emoji: '☁️', title: 'iCloud', line: 'Apple calendars.' }, { id: 'ics', emoji: '🔗', title: 'Subscription link', line: 'School, sports teams, holidays: any calendar with a link.' }] as c (c.id)}
+				{#each [{ id: 'google', emoji: '📅', title: 'Google', line: 'Gmail or Google Workspace calendars.' }, { id: 'icloud', emoji: '☁️', title: 'iCloud', line: 'Apple calendars.' }, { id: 'outlook', emoji: '📆', title: 'Outlook / Microsoft 365', line: 'Work, school or Outlook.com calendars.' }, { id: 'ics', emoji: '🔗', title: 'Subscription link', line: 'School, sports teams, holidays: any calendar with a link.' }] as c (c.id)}
 					<li>
 						<button type="button" class={choice} onclick={() => (provider = c.id as Provider)}>
 							<span class="text-display leading-none" aria-hidden="true">{c.emoji}</span>
@@ -290,16 +290,52 @@
 				<Button variant="secondary" onclick={back}>Back</Button>
 			</div>
 		{:else}
-			<h2 class="text-title font-extrabold">Add a subscription link</h2>
-			<p class="text-body">
-				Many schools, teams and apps give you a calendar link. Paste it here. Links that start with
-				<strong>webcal://</strong> work too.
-			</p>
+			{#if provider === 'outlook'}
+				<h2 class="text-title font-extrabold">Add an Outlook calendar</h2>
+				<p class="text-body">
+					Outlook can share a calendar as a private link. Get the link first, then paste it below.
+					The Hub only reads the calendar; it never changes it.
+				</p>
+				<details class="rounded-control bg-surface-sunken p-4" open>
+					<summary class="min-h-tap cursor-pointer py-3 text-body font-bold"
+						>How do I get the link?</summary
+					>
+					<ol class="flex list-decimal flex-col gap-2 pl-8 text-body">
+						<li>
+							On a computer, sign in at <strong>outlook.office.com</strong> (work or school) or
+							<strong>outlook.live.com</strong> (personal).
+						</li>
+						<li>Tap the gear icon, then <strong>View all Outlook settings</strong>.</li>
+						<li>
+							Open <strong>Calendar</strong>, then <strong>Shared calendars</strong>.
+						</li>
+						<li>
+							Under <strong>Publish a calendar</strong>, pick the calendar and set permissions to
+							<strong>Can view all details</strong>. Tap <strong>Publish</strong>.
+						</li>
+						<li>
+							Copy the link that ends in <strong>.ics</strong> and paste it below. (The
+							<strong>.html</strong> link works too.)
+						</li>
+					</ol>
+					<p class="{hint} mt-3">
+						Anyone with this link can see the calendar, so keep it private. Some work or school
+						accounts do not allow publishing; ask your IT team if the option is missing.
+					</p>
+				</details>
+			{:else}
+				<h2 class="text-title font-extrabold">Add a subscription link</h2>
+				<p class="text-body">
+					Many schools, teams and apps give you a calendar link. Paste it here. Links that start
+					with
+					<strong>webcal://</strong> work too.
+				</p>
+			{/if}
 			<label class="flex flex-col gap-2 text-caption text-ink-muted">
 				Name this calendar
 				<input
 					bind:value={label}
-					placeholder="School"
+					placeholder={provider === 'outlook' ? "Mom's Outlook" : 'School'}
 					autocomplete="off"
 					class={field}
 					aria-label="Name this calendar"
@@ -313,7 +349,9 @@
 					autocomplete="off"
 					autocapitalize="off"
 					spellcheck="false"
-					placeholder="webcal://example.com/school.ics"
+					placeholder={provider === 'outlook'
+						? 'https://outlook.office365.com/owa/calendar/…/calendar.ics'
+						: 'webcal://example.com/school.ics'}
 					aria-label="Calendar link"
 					class={field}
 				/>
