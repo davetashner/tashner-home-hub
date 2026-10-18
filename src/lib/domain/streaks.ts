@@ -1,15 +1,16 @@
 /**
- * Chore streaks (requirement CHO-10). Pure: no clock, storage or database access.
+ * Habit streaks (requirement CHO-10). Pure: no clock, storage or database access.
  *
  * Rules:
  * - A day is judged in the household time zone (callers pass YYYY-MM-DD strings).
- * - A day is `complete` when the child had at least one chore due and every one of them has an
+ * - Only habits count; Star Jobs never affect a streak (callers pass habit counts).
+ * - A day is `complete` when the child had at least one habit due and every one of them has an
  *   approved completion. A day is `missed` when something was due and not all of it is approved.
- *   A day with nothing due is `none`: it is skipped, neither extending nor breaking a streak.
+ *   A day with no habit due is `none`: it is skipped, neither extending nor breaking a streak.
  * - Today is never a miss: while the day is still open, an unfinished `today` is skipped, so the
  *   streak shows yesterday's run until today is finished and approved.
  * - The streak is the number of `complete` days in an unbroken run ending today (or the latest day
- *   with chores). A `missed` day ends the run.
+ *   with habits). A `missed` day ends the run.
  * - Each milestone pays out once per run, keyed by {@link streakRef}.
  */
 

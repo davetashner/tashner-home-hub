@@ -100,7 +100,7 @@ The main audience is a young child. Completing a chore should feel like an event
 | CHO-7 | P0 | When all of today's chores are done, show a bigger "All done!" celebration. |
 | CHO-8 | P0 | Track history: who completed what, when, and stars earned. |
 | CHO-9 | P0 | **Parent approval (on by default)**: tapping "I did it!" still plays the celebration, but the star appears as a *pending* (outlined/silver) star marked "Waiting for grown-up". An adult approves on the wall (PIN) or from the phone admin UI. Then the star turns gold and flies into the jar with a second, smaller celebration. Adults can reject with an optional note. Approval can be turned off per chore. |
-| CHO-10 | P1 | **Streaks**: count consecutive days with all chores done, with bonus stars at milestones (e.g. 3, 7, 30 days). Configurable. |
+| CHO-10 | P1 | **Streaks**: count consecutive days with all habits done (Star Jobs do not affect it), with bonus stars at milestones (e.g. 3, 7, 30 days). Configurable. |
 | CHO-11 | P1 | Adults can give **bonus stars** ad hoc ("Great job sharing!") with an optional note, and remove stars (with a note). |
 | CHO-12 | P1 | Choose celebration sounds and themes; volume control and a mute schedule (no sounds during quiet hours). |
 | CHO-13 | P1 | **Routines**: ordered checklists (Morning: brush teeth → get dressed → shoes on) shown one step at a time with picture icons for pre-readers. |
