@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { seedCalendar } from './calendar';
+import { gotoHydrated } from './hydrated';
 
 const chooseView = (page: Page, name: string) =>
 	page.getByRole('group', { name: 'View' }).getByRole('button', { name }).click();
@@ -16,17 +17,14 @@ test.beforeEach(async ({ page }) => {
 	seedCalendar({ fresh: false });
 	await signInAsAdult(page, 'e2e-cal-adult');
 	await page.clock.install({ time: noon() });
-	await page.goto('/calendar');
+	await gotoHydrated(page, '/calendar');
 	await page.waitForLoadState('networkidle');
 });
 
 test('week grid draws the now line and moves it down as the minutes pass', async ({ page }) => {
 	const pane = page.getByTestId('calendar-pane');
-	// A tap right after goto can be lost before hydration: retry until the grid is up.
-	await expect(async () => {
-		await chooseView(page, 'Week');
-		await expect(pane.locator('.week')).toBeVisible({ timeout: 1000 });
-	}).toPass();
+	await chooseView(page, 'Week');
+	await expect(pane.locator('.week')).toBeVisible();
 	const line = pane.getByTestId('now-line');
 	await expect(line).toHaveCount(1);
 	// Offset within the grid, not the viewport: the grid scrolls itself to "now" after it mounts,

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
+import { gotoHydrated } from './hydrated';
 
 // Page routes must see every request; a service worker would answer some from the real server.
 test.use({ serviceWorkers: 'block' });
@@ -105,20 +106,19 @@ test('the unlock page remembers by default on a personal device, not on a wall',
 	context
 }) => {
 	const box = () => page.getByRole('checkbox', { name: /stay unlocked/ });
-	// A tap before the page hydrates is lost: retry the pick until the PIN screen shows its checkbox.
-	const pickAdult = () =>
-		expect(async () => {
-			const adult = page.getByRole('button', { name: 'Baseline Adult' });
-			if (await adult.isVisible()) await adult.click();
-			await expect(box()).toBeVisible({ timeout: 1000 });
-		}).toPass();
-	await page.goto('/unlock?next=/settings');
+	// With a single adult the unlock page may skip the picker and show the PIN screen directly.
+	const pickAdult = async () => {
+		const adult = page.getByRole('button', { name: 'Baseline Adult' });
+		if (await adult.isVisible()) await adult.click();
+		await expect(box()).toBeVisible();
+	};
+	await gotoHydrated(page, '/unlock?next=/settings');
 	await expect(page.getByRole('button', { name: 'Baseline Adult' }).or(box())).toBeVisible();
 	await pickAdult();
 	await expect(box()).toBeChecked();
 
 	await asWallDisplay(context);
-	await page.goto('/unlock?next=/settings');
+	await gotoHydrated(page, '/unlock?next=/settings');
 	await pickAdult();
 	await expect(box()).not.toBeChecked();
 });

@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 interface Seed {
 	name: string;
@@ -50,7 +51,7 @@ async function seed(page: Page, label: string): Promise<Seed> {
 }
 
 async function open(page: Page, s: Seed) {
-	await page.goto(`/chores?member=${s.memberId}`);
+	await gotoHydrated(page, `/chores?member=${s.memberId}`);
 	await expect(page.getByTestId('star-jar')).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Brush teeth' })).toBeVisible();
 }
@@ -104,7 +105,7 @@ test('a tap the server refuses reverts with a gentle message', async ({ page }, 
 for (const theme of ['day', 'night']) {
 	test(`no serious accessibility problems (${theme})`, async ({ page }, info) => {
 		const s = await seed(page, `axe ${theme} ${info.project.name}`);
-		await page.goto(`/chores?member=${s.memberId}`);
+		await gotoHydrated(page, `/chores?member=${s.memberId}`);
 		await card(page, 'Feed the fish').getByTestId('did-it').click();
 		await expect(card(page, 'Feed the fish').getByTestId('waiting')).toBeVisible();
 		if (theme === 'night')
@@ -134,7 +135,7 @@ test('a chore without approval can be undone in its 10 seconds, taking the gold 
 		}
 	});
 	await page.context().clearCookies();
-	await page.goto(`/chores?member=${member.id}`);
+	await gotoHydrated(page, `/chores?member=${member.id}`);
 	const cress = card(page, 'Water cress');
 	const saved = page.waitForResponse((r) => r.url().includes('/complete'));
 	await cress.getByTestId('did-it').click();
@@ -170,7 +171,7 @@ test('an any-day job shows under This week until done, then stays done today', a
 		}
 	});
 	await page.context().clearCookies();
-	await page.goto(`/chores?member=${member.id}`);
+	await gotoHydrated(page, `/chores?member=${member.id}`);
 	await expect(page.getByRole('heading', { name: /This week · any day/ })).toBeAttached();
 	const room = card(page, 'Tidy my room');
 	await expect(room.getByTestId('flex-due')).toHaveText('Due by Sunday');

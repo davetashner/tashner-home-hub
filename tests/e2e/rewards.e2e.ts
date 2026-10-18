@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { px } from './tap';
 import { signInAsAdult } from './adult';
+import { gotoHydrated } from './hydrated';
 
 test('add and edit a reward', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-rewards-${info.project.name}`);
 	const name = `Ice cream trip ${Date.now()}`;
-	await page.goto('/settings/rewards');
+	await gotoHydrated(page, '/settings/rewards');
 	await page.getByTestId('add-reward').click();
 	await page.locator('[data-testid="reward-emoji"][data-emoji="🍦"]').click();
 	await page.getByTestId('reward-title').fill(name);
@@ -28,7 +29,7 @@ test('add and edit a reward', async ({ page }, info) => {
 
 test('emoji picker tap targets and free-entry validation', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-rewards-emoji-${info.project.name}`);
-	await page.goto('/settings/rewards');
+	await gotoHydrated(page, '/settings/rewards');
 	await page.getByTestId('add-reward').click();
 	const first = page.getByTestId('reward-emoji').first();
 	const box = await first.boundingBox();

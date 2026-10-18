@@ -52,6 +52,8 @@
 	});
 
 	onMount(() => {
+		// Marks hydration done for e2e (gotoHydrated): children have mounted, handlers are attached.
+		document.documentElement.dataset.hydrated = '';
 		const stopOffline = startOffline();
 		// iOS freezes a backgrounded page: pick up what changed while it was away.
 		const stopResume = onAppResume(() => void invalidateAll());
