@@ -108,6 +108,7 @@
 					<button
 						type="button"
 						class="bar press"
+						class:pending={bar.event.pending}
 						class:one={bar.startCol === bar.endCol}
 						class:cut-l={bar.continuesBefore}
 						class:cut-r={bar.continuesAfter}
@@ -145,6 +146,7 @@
 						<button
 							type="button"
 							class="block-ev press"
+							class:pending={seg.event.pending}
 							style="top: {mins(
 								seg.startMin
 							)}; height: {`calc(${seg.endMin - seg.startMin} * var(--ppm))`}; left: {(seg.lane /
@@ -372,5 +374,11 @@
 	.press:focus-visible {
 		outline: 4px solid var(--color-accent);
 		outline-offset: 2px;
+	}
+	.bar.pending,
+	.block-ev.pending {
+		opacity: 0.6;
+		outline: 3px dashed var(--color-line);
+		outline-offset: -3px;
 	}
 </style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import Button from '#lib/components/ui/Button.svelte';
@@ -73,7 +74,7 @@
 		const before = config;
 		config = { ...config, ...patch };
 		saveError = '';
-		const res = await fetch('/api/music/settings', {
+		const res = await safeFetch('/api/music/settings', {
 			method: 'PUT',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify(patch)
@@ -81,7 +82,7 @@
 		if (res.ok) config = await res.json();
 		else {
 			config = before;
-			saveError = 'Could not save that. Try again.';
+			saveError = res.status < 500 ? 'Could not save that. Try again.' : await errorMessage(res);
 		}
 	}
 

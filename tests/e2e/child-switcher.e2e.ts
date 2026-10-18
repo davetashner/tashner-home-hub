@@ -16,7 +16,14 @@ async function seedTwo(page: Page, project: string) {
 	const b = await make('Moss', 'member-5', '🦉');
 	const chore = (title: string, icon: string, memberIds: string[]) =>
 		page.request.post('/api/chores', {
-			data: { title, icon, stars: 1, memberIds, schedule: { type: 'daily' } }
+			data: {
+				title,
+				icon,
+				stars: 1,
+				memberIds,
+				schedule: { type: 'daily' },
+				requiresApproval: true
+			}
 		});
 	await chore('Tidy toys', '🧸', [a.id, b.id]);
 	await chore('Water plants', '🪴', [a.id]);
