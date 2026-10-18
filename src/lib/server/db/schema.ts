@@ -416,5 +416,22 @@ export const sitterSessions = sqliteTable('sitter_sessions', {
 	endedAt: ms('ended_at'),
 	approveJobs: integer('approve_jobs', { mode: 'boolean' }).notNull().default(false),
 	funAllowed: integer('fun_allowed', { mode: 'boolean' }).notNull().default(true),
+	/** When the parents were told this session began / ended on its own (null = not yet). */
+	startNotifiedAt: ms('start_notified_at'),
+	endNotifiedAt: ms('end_notified_at'),
 	createdAt: createdAt()
 });
+
+/** A sitter's "kids in bed / all good / call me" taps, kept as the session log (hub-7pj.3). */
+export const sitterCheckins = sqliteTable(
+	'sitter_checkins',
+	{
+		id: id(),
+		sessionId: text('session_id')
+			.notNull()
+			.references(() => sitterSessions.id, { onDelete: 'cascade' }),
+		kind: text('kind').notNull(),
+		at: ms('at').notNull()
+	},
+	(t) => [index('sitter_checkins_session_idx').on(t.sessionId, t.at)]
+);

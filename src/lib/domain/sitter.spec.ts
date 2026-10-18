@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+	CHECKIN_KINDS,
+	checkinWaitMs,
+	decideCheckin,
+	isCheckinKind,
 	emptyCard,
 	effectiveEnd,
 	extendedEnd,
@@ -168,5 +172,39 @@ describe('card', () => {
 		const c = joinCard(plain, { phones: [], address: '', kids: [], wifiPassword: '' });
 		expect(c.contacts[0]?.phone).toBe('');
 		expect(c.kids[0]?.allergies).toBe('');
+	});
+});
+
+describe('check-ins', () => {
+	const session = { startAt: 1000, endAt: 100_000, endedAt: null };
+	it('knows the kinds', () => {
+		expect(CHECKIN_KINDS.every(isCheckinKind)).toBe(true);
+		expect(isCheckinKind('nope')).toBe(false);
+		expect(isCheckinKind(3)).toBe(false);
+	});
+	it('rejects unknown kinds before anything else', () => {
+		expect(decideCheckin(null, 'x', [], 5000)).toMatchObject({ ok: false, status: 400 });
+	});
+	it('needs an active session', () => {
+		expect(decideCheckin(null, 'all-good', [], 5000)).toMatchObject({ ok: false, status: 409 });
+		expect(decideCheckin(session, 'all-good', [], 500)).toMatchObject({ status: 409 });
+		expect(decideCheckin(session, 'all-good', [], 100_000)).toMatchObject({ status: 409 });
+		expect(decideCheckin({ ...session, endedAt: 4000 }, 'all-good', [], 5000)).toMatchObject({
+			status: 409
+		});
+		expect(decideCheckin(session, 'all-good', [], 5000)).toEqual({ ok: true, kind: 'all-good' });
+	});
+	it('allows one per kind per minute', () => {
+		const history = [{ kind: 'in-bed' as const, at: 10_000 }];
+		expect(checkinWaitMs(history, 'in-bed', 40_000)).toBe(30_000);
+		expect(checkinWaitMs(history, 'in-bed', 70_000)).toBe(0);
+		expect(checkinWaitMs(history, 'call-me', 11_000)).toBe(0);
+		expect(decideCheckin(session, 'in-bed', history, 40_000)).toMatchObject({
+			ok: false,
+			status: 429,
+			retryAfterMs: 30_000
+		});
+		expect(decideCheckin(session, 'in-bed', history, 70_000)).toMatchObject({ ok: true });
+		expect(decideCheckin(session, 'call-me', history, 11_000)).toMatchObject({ ok: true });
 	});
 });

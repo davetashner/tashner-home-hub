@@ -92,6 +92,13 @@
 			"when": 1792900000003,
 			"tag": "20261018204041_sitter_sessions",
 			"breakpoints": true
+		},
+		{
+			"idx": 13,
+			"version": "6",
+			"when": 1792900000004,
+			"tag": "20261018213608_sitter_checkins",
+			"breakpoints": true
 		}
 	]
 }

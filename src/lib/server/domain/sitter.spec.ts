@@ -11,9 +11,11 @@ import {
 	currentSession,
 	endSession,
 	extendSession,
+	listCheckins,
 	listSessions,
 	readCard,
 	saveCard,
+	submitCheckin,
 	SITTER_CARD_KEY
 } from './sitter.js';
 
@@ -134,5 +136,29 @@ describe('checkSitterPin', () => {
 		createSession(db, { endAt: NOW + H }, NOW);
 		expect(checkSitterPin(db, '', NOW)).toBeNull();
 		expect(checkSitterPin(db, '0000', NOW)).toBeNull();
+	});
+});
+
+describe('check-ins', () => {
+	it('are stored on the active session, once a minute per kind', () => {
+		const s = createSession(db, { endAt: NOW + 2 * H, sitterName: 'Sam' }, NOW);
+		expect(submitCheckin(db, 'in-bed', NOW)).toMatchObject({
+			ok: true,
+			at: NOW,
+			sitterName: 'Sam'
+		});
+		expect(submitCheckin(db, 'in-bed', NOW + 30_000)).toMatchObject({ ok: false, status: 429 });
+		expect(submitCheckin(db, 'call-me', NOW + 30_000)).toMatchObject({ ok: true });
+		expect(submitCheckin(db, 'in-bed', NOW + 61_000)).toMatchObject({ ok: true });
+		expect(listCheckins(db, s.id).map((c) => c.kind)).toEqual(['in-bed', 'call-me', 'in-bed']);
+	});
+	it('are refused without an active session or with a bad kind', () => {
+		expect(submitCheckin(db, 'all-good', NOW)).toMatchObject({ ok: false, status: 409 });
+		const s = createSession(db, { startAt: NOW + H, endAt: NOW + 2 * H }, NOW);
+		expect(submitCheckin(db, 'all-good', NOW)).toMatchObject({ status: 409 });
+		expect(submitCheckin(db, 'bogus', NOW + H + 1)).toMatchObject({ status: 400 });
+		endSession(db, s.id, NOW + H + 1);
+		expect(submitCheckin(db, 'all-good', NOW + H + 2)).toMatchObject({ status: 409 });
+		expect(listCheckins(db, s.id)).toEqual([]);
 	});
 });
