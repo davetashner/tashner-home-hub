@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { ChoreInput, ChoreKind, ChoreView } from '#lib/server/domain/chores.js';
 	import type { Member } from '#lib/server/domain/members.js';
+	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
 	import Button from './ui/Button.svelte';
 	import Card from './ui/Card.svelte';
 	import ChoreForm from './ChoreForm.svelte';
@@ -32,14 +33,13 @@
 
 	/** Sends a JSON request, refreshes the list, and returns an error message on failure. */
 	async function send(url: string, method: string, body?: ChoreInput) {
-		const res = await fetch(url, {
+		const res = await safeFetch(url, {
 			method,
 			headers: { 'content-type': 'application/json' },
 			body: body && JSON.stringify(body)
 		});
 		if (!res.ok) {
-			const err: { message?: string } = await res.json().catch(() => ({}));
-			return err.message ?? 'Something went wrong.';
+			return errorMessage(res);
 		}
 		await invalidateAll();
 		close();

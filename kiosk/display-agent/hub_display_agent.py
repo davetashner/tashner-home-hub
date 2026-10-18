@@ -443,10 +443,17 @@ def main(argv: Sequence[str]) -> int:
     conf_path = os.environ.get("HUB_KIOSK_CONF", "/etc/hub-kiosk/kiosk.conf")
     try:
         with open(conf_path, encoding="utf-8") as f:
-            cfg = config_from(parse_conf(f.read()))
+            conf = parse_conf(f.read())
     except OSError as e:
         log.error("cannot read %s: %s", conf_path, e)
         return 1
+    cfg = config_from(conf)
+    try:
+        import hub_speaker  # installed next to this script
+
+        hub_speaker.start(conf)
+    except Exception:  # the speaker is optional; screen power must keep working without it
+        log.exception("speaker support failed to start")
     agent = Agent(cfg, Screen(cfg), HubClient(cfg.hub_url))
     touch = TouchWatcher(cfg.touch_device)
     next_poll = 0.0
