@@ -186,7 +186,7 @@
 					<label class="flex min-h-tap items-center gap-4">
 						<input
 							type="checkbox"
-							class="size-8"
+							class="size-tap"
 							bind:checked={approveJobs}
 							data-testid="sitter-approve"
 						/>
@@ -195,7 +195,7 @@
 					<label class="flex min-h-tap items-center gap-4">
 						<input
 							type="checkbox"
-							class="size-8"
+							class="size-tap"
 							bind:checked={funAllowed}
 							data-testid="sitter-fun"
 						/>
