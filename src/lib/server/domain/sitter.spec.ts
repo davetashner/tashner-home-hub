@@ -15,6 +15,7 @@ import {
 	listSessions,
 	readCard,
 	saveCard,
+	sessionLog,
 	submitCheckin,
 	SITTER_CARD_KEY
 } from './sitter.js';
@@ -160,5 +161,32 @@ describe('check-ins', () => {
 		endSession(db, s.id, NOW + H + 1);
 		expect(submitCheckin(db, 'all-good', NOW + H + 2)).toMatchObject({ status: 409 });
 		expect(listCheckins(db, s.id)).toEqual([]);
+	});
+});
+
+describe('session log', () => {
+	it('lists finished sessions with check-ins, newest first, capped at ten', () => {
+		const first = createSession(db, { endAt: NOW + H, sitterName: 'Sam' }, NOW);
+		submitCheckin(db, 'all-good', NOW + 1000);
+		endSession(db, first.id, NOW + 2000);
+		createSession(db, { startAt: NOW + 3 * H, endAt: NOW + 4 * H }, NOW);
+		const log = sessionLog(db, NOW + 10 * H);
+		expect(log.map((e) => e.id)).toEqual([expect.any(String), first.id]);
+		expect(log[1]!.checkins).toEqual([{ kind: 'all-good', at: NOW + 1000 }]);
+		expect(log[1]!.sitterName).toBe('Sam');
+	});
+	it('leaves out running and scheduled sessions', () => {
+		createSession(db, { endAt: NOW + H }, NOW);
+		createSession(db, { startAt: NOW + 2 * H, endAt: NOW + 3 * H }, NOW);
+		expect(sessionLog(db, NOW + 1000)).toEqual([]);
+	});
+	it('keeps only the last ten', () => {
+		for (let i = 0; i < 12; i++) {
+			const t = NOW + i * 2 * H;
+			endSession(db, createSession(db, { startAt: t, endAt: t + H }, t - 1).id, t + 1);
+		}
+		const log = sessionLog(db, NOW + 30 * H);
+		expect(log).toHaveLength(10);
+		expect(log[0]!.startAt).toBe(NOW + 11 * 2 * H);
 	});
 });

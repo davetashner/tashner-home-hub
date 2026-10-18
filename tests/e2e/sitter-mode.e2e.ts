@@ -1,31 +1,8 @@
-import { mkdirSync, rmSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { trackMember } from './cleanup';
-import { DATA_DIR } from './data-dir';
 import { gotoHydrated } from './hydrated';
-
-// The info card and the current sitter session are household-wide on a shared server, so projects
-// take turns. All phone numbers and names here are synthetic.
-const LOCK = join(DATA_DIR, '.sitter-lock');
-
-async function holdSitter(): Promise<() => void> {
-	mkdirSync(DATA_DIR, { recursive: true });
-	for (;;) {
-		try {
-			mkdirSync(LOCK);
-			return () => rmSync(LOCK, { recursive: true, force: true });
-		} catch {
-			try {
-				if (Date.now() - statSync(LOCK).mtimeMs > 90_000) rmSync(LOCK, { recursive: true });
-			} catch {
-				// released meanwhile
-			}
-			await new Promise((r) => setTimeout(r, 200));
-		}
-	}
-}
+import { holdSitter } from './sitter-lock';
 
 const local = (ms: number) => {
 	const d = new Date(ms);

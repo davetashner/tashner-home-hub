@@ -769,9 +769,13 @@
 				},
 				{
 					"id": "J19.6",
-					"text": "A parent starts, ends and checks in on a session from their phone.",
-					"status": "planned",
-					"beads": ["hub-7pj.3"]
+					"text": "A parent starts, extends and ends a session from their phone, and the sitter can check in (kids in bed, all good, call me).",
+					"status": "built"
+				},
+				{
+					"id": "J19.7",
+					"text": "After a session, the parents read a short log of the check-ins and when they happened.",
+					"status": "built"
 				}
 			]
 		}

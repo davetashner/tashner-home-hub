@@ -3,8 +3,8 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
-	import { emptyCard, type SitterCard } from '#lib/domain/sitter.js';
-	import type { SitterSessionView } from '#lib/server/domain/sitter.js';
+	import { CHECKIN_LABELS, emptyCard, type SitterCard } from '#lib/domain/sitter.js';
+	import type { SessionLogEntry, SitterSessionView } from '#lib/server/domain/sitter.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -12,6 +12,7 @@
 	let card = $state<SitterCard>(emptyCard());
 	let rulesText = $state('');
 	let sessions = $state<SitterSessionView[]>([]);
+	let log = $state<SessionLogEntry[]>([]);
 	let message = $state('');
 	let saved = $state(false);
 
@@ -32,6 +33,9 @@
 	const when = (ms: number) =>
 		new Date(ms).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 
+	const clock = (ms: number) =>
+		new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
 	const kidName = (id: string) => data.kids.find((k) => k.id === id)?.name ?? 'Child';
 
 	/** One row per current child, keeping what was saved; rows for removed children drop out. */
@@ -49,9 +53,14 @@
 	}
 
 	async function load() {
-		const [c, s] = await Promise.all([fetch('/api/sitter/card'), fetch('/api/sitter/sessions')]);
+		const [c, s, l] = await Promise.all([
+			fetch('/api/sitter/card'),
+			fetch('/api/sitter/sessions'),
+			fetch('/api/sitter/log')
+		]);
 		if (c.ok) card = withKidRows(await c.json());
 		if (s.ok) sessions = await s.json();
+		if (l.ok) log = await l.json();
 		rulesText = card.rules.join('\n');
 	}
 	onMount(load);
@@ -119,27 +128,36 @@
 		<div class="flex flex-col gap-6" data-testid="sitter-session">
 			<h2 class="text-title font-bold">Session</h2>
 			{#each openSessions as open (open.id)}
-				<div class="flex flex-wrap items-center gap-6" data-testid="sitter-session-row">
-					<p class="min-w-48 flex-1 text-lead" data-testid="sitter-status">
+				<div class="flex flex-col gap-4" data-testid="sitter-session-row">
+					<p class="text-lead" data-testid="sitter-status">
 						{open.status === 'active' ? 'Active' : 'Scheduled'}
 						{open.sitterName ? `for ${open.sitterName}` : ''}: {when(open.startAt)} to {when(
 							open.endAt
 						)}
 					</p>
-					<Button
-						variant="secondary"
-						data-testid="sitter-extend"
-						onclick={() => patch(open, { endAt: open.endAt + 3_600_000 })}
-					>
-						Extend 1 hour
-					</Button>
-					<Button
-						variant="danger"
-						data-testid="sitter-end"
-						onclick={() => patch(open, { end: true })}
-					>
-						{open.status === 'active' ? 'End now' : 'Cancel'}
-					</Button>
+					<div class="grid grid-cols-3 gap-4">
+						<Button
+							variant="secondary"
+							data-testid="sitter-extend-30"
+							onclick={() => patch(open, { endAt: open.endAt + 1_800_000 })}
+						>
+							+30 min
+						</Button>
+						<Button
+							variant="secondary"
+							data-testid="sitter-extend"
+							onclick={() => patch(open, { endAt: open.endAt + 3_600_000 })}
+						>
+							+1 h
+						</Button>
+						<Button
+							variant="danger"
+							data-testid="sitter-end"
+							onclick={() => patch(open, { end: true })}
+						>
+							{open.status === 'active' ? 'End now' : 'Cancel'}
+						</Button>
+					</div>
 				</div>
 			{/each}
 			<form class="flex flex-col gap-6" onsubmit={start}>
@@ -206,6 +224,31 @@
 					<Button type="submit" data-testid="sitter-start-btn">Start sitter session</Button>
 				</div>
 			</form>
+		</div>
+	</Card>
+
+	<Card elevation="float">
+		<div class="flex flex-col gap-4" data-testid="sitter-log">
+			<h2 class="text-title font-bold">Recent sessions</h2>
+			{#each log as entry (entry.id)}
+				<div class="flex flex-col gap-1" data-testid="sitter-log-entry">
+					<p class="text-body font-bold">
+						{entry.sitterName ?? 'Sitter'}: {when(entry.startAt)} to {clock(
+							entry.endedAt ?? entry.endAt
+						)}
+					</p>
+					{#each entry.checkins as c (c.at + c.kind)}
+						<p class="text-body text-ink-muted" data-testid="sitter-log-checkin">
+							{clock(c.at)}
+							{CHECKIN_LABELS[c.kind]}
+						</p>
+					{:else}
+						<p class="text-body text-ink-muted">No check-ins.</p>
+					{/each}
+				</div>
+			{:else}
+				<p class="text-body text-ink-muted">No finished sessions yet.</p>
+			{/each}
 		</div>
 	</Card>
 
