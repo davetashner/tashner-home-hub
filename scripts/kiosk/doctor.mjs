@@ -65,6 +65,15 @@ if [ -n "$SPK" ]; then
   asowner bluetoothctl info "$SPK" 2>/dev/null | grep -E '^\\s+(Alias|Paired|Connected):'
   echo "default $(asowner wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -o 'node.name = "[^"]*"')"
 fi
+echo "=== spotify"
+if grep -qE '^SPOTIFY_CONNECT="?on' /etc/hub-kiosk/kiosk.conf 2>/dev/null; then
+  echo "enabled yes"
+  echo "unit $(asowner systemctl --user is-active hub-kiosk-librespot.service 2>/dev/null || true)"
+  sudo -n test -s "$H/.local/state/hub-kiosk/librespot/credentials.json" 2>/dev/null && echo "credentials yes" || echo "credentials no"
+  if command -v avahi-browse >/dev/null 2>&1; then
+    timeout 8 avahi-browse -tpr _spotify-connect._tcp 2>/dev/null | grep -q '^=;[^;]*;[^;]*;Hub;' && echo "advertised yes" || echo "advertised no"
+  else echo "advertised unknown"; fi
+fi
 echo "=== end"`;
 }
 
@@ -100,7 +109,8 @@ export function remoteFacts(text) {
 		units,
 		health: s.health && s.health !== 'none' ? s.health : null,
 		...(s.wake === undefined ? {} : { wake: parseWake(s.wake) }),
-		...(s.speaker === undefined ? {} : { speaker: parseSpeaker(s.speaker) })
+		...(s.speaker === undefined ? {} : { speaker: parseSpeaker(s.speaker) }),
+		...(s.spotify ? { spotify: parseSpotify(s.spotify) } : {})
 	};
 }
 
@@ -125,6 +135,20 @@ export function parseSpeaker(text) {
 		paired: field('Paired') === 'yes',
 		connected: field('Connected') === 'yes',
 		defaultSink: field('default').includes(`bluez_output.${mac.replaceAll(':', '_')}`)
+	};
+}
+
+/**
+ * The `spotify` section (hub-txj.2), present only when kiosk.conf has SPOTIFY_CONNECT=on: whether
+ * the librespot user unit runs, whether a login is cached, and whether "Hub" is advertised by mDNS.
+ */
+export function parseSpotify(text) {
+	const field = (name) => new RegExp(`^${name} (.*)$`, 'm').exec(text)?.[1]?.trim() ?? '';
+	const adv = field('advertised');
+	return {
+		unit: field('unit'),
+		credentials: field('credentials') === 'yes',
+		advertised: adv === 'yes' ? true : adv === 'no' ? false : null
 	};
 }
 
@@ -284,6 +308,32 @@ export function diagnose(facts) {
 				fail('speaker', `${sp.name ?? sp.mac} connected but not the default sink`, 'wpctl status')
 			);
 		else out.push(pass('speaker', `${sp.name ?? sp.mac} connected`));
+	}
+
+	const sc = r.spotify;
+	if (sc) {
+		const logs = 'journalctl --user -u hub-kiosk-librespot (see kiosk/README.md, Spotify Connect)';
+		if (sc.unit !== 'active')
+			out.push(fail('spotify-connect', `service ${sc.unit || 'not installed'}`, logs));
+		else if (sc.credentials)
+			out.push(
+				sc.advertised === false
+					? warn(
+							'spotify-connect',
+							'signed in, but "Hub" is not advertised on the LAN (avahi-daemon?)',
+							logs
+						)
+					: pass('spotify-connect', 'signed in as the Hub device')
+			);
+		else if (sc.advertised)
+			out.push(
+				warn(
+					'spotify-connect',
+					'advertised but not signed in yet',
+					'once: open Spotify on a phone on the same Wi-Fi and pick the speaker "Hub"'
+				)
+			);
+		else out.push(fail('spotify-connect', 'running, but not advertised and not signed in', logs));
 	}
 
 	if (!facts.devtools) {
