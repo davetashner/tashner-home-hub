@@ -52,6 +52,7 @@
 	import { childrenOf, planLoad, type MemberResult } from '#lib/domain/chore-load.js';
 	import { overlayQueued } from '#lib/domain/write-queue.js';
 	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
+	import { TODO_FALLBACK } from '#lib/domain/nav.js';
 
 	interface Member {
 		id: string;
@@ -63,6 +64,7 @@
 	type Completion = { id: string | null; status: KidChore['status'] };
 
 	const tz = $derived(resolveTimeZone(page.data.timeZone, runtimeZone()));
+	const todo = $derived(page.data.todoLabel ?? TODO_FALLBACK);
 
 	let loaded = $state(false);
 	// Children exist but we could not show any (server down, nothing saved yet).
@@ -496,7 +498,7 @@
 </script>
 
 <svelte:head>
-	<title>My To-Do List · Home Hub</title>
+	<title>{todo} · Home Hub</title>
 </svelte:head>
 
 {#if !loaded}
@@ -504,17 +506,17 @@
 {:else if unreachable}
 	<EmptyState
 		icon="chores"
-		title="To-Do List"
-		line="Hmm, we cannot reach the hub right now. Your To-Do List will show up as soon as we can."
+		title={todo}
+		line="Hmm, we cannot reach the hub right now. Your to-dos will show up as soon as we can."
 	/>
 {:else if members.length === 0}
 	<EmptyState
 		icon="chores"
-		title="To-Do List"
+		title={todo}
 		line="No one is here yet. Grown-ups: add your family in Settings, then Family."
 	/>
 {:else if selected}
-	<h1 class="sr-only">To-Do List</h1>
+	<h1 class="sr-only">{todo}</h1>
 	<div
 		class="flex min-h-full flex-col gap-10 p-12 portrait:p-10 landscape:flex-row landscape:items-start short:grid short:grid-cols-kid-short short:items-start short:gap-3 short:p-3 tablet:gap-4 tablet:p-6 portrait:tablet:p-6"
 	>
@@ -552,7 +554,7 @@
 				{/if}
 				{#if kids.length > 1}
 					<nav
-						aria-label="Whose To-Do List?"
+						aria-label="Whose to-dos?"
 						data-testid="child-switcher"
 						class="flex flex-wrap gap-6 short:col-start-1 short:row-span-3 short:row-start-1 short:flex-col short:flex-nowrap short:gap-3 short:p-1 tablet:max-w-3/5 tablet:flex-nowrap tablet:gap-3 tablet:overflow-x-auto tablet:p-1"
 					>
