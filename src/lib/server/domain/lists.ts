@@ -7,17 +7,20 @@ import {
 	ITEM_TEXT_MAX,
 	LIST_TITLE_MAX,
 	nextPosition,
+	parseOwnerId,
 	sortItems,
 	type ListItem
 } from '#lib/domain/lists.js';
 import type { Db } from '../db/index.js';
-import { listItems, lists, settings } from '../db/schema.js';
+import { listItems, lists, members, settings } from '../db/schema.js';
 import { publish } from './events.js';
 import { LedgerError } from './ledger.js';
 
 export interface SharedList {
 	id: string;
 	title: string;
+	/** The adult this list is for; null is House. */
+	ownerId: string | null;
 	items: ListItem[];
 }
 
@@ -53,17 +56,42 @@ export function listAll(db: Db): SharedList[] {
 			.map((l) => ({
 				id: l.id,
 				title: l.title,
+				ownerId: l.ownerId,
 				items: sortItems(items.filter((i) => i.listId === l.id))
 			}));
 	});
 }
 
-export function createList(db: Db, title: unknown): { id: string; title: string } {
+export function createList(
+	db: Db,
+	title: unknown
+): { id: string; title: string; ownerId: string | null } {
 	const t = cleanText(title, LIST_TITLE_MAX);
 	if (!t) throw invalid(`name must be 1-${LIST_TITLE_MAX} characters`);
 	const row = db.insert(lists).values({ id: randomUUID(), title: t }).returning().get();
 	publish('lists', { kind: 'list', listId: row.id });
 	return row;
+}
+
+/**
+ * Sets (not toggles) who a list is for: an adult's member id, or null for House. Grouping and
+ * filtering only; nothing about who may see or change the list depends on it.
+ */
+export function setOwner(
+	db: Db,
+	id: string,
+	ownerId: unknown
+): { id: string; ownerId: string | null } {
+	const owner = parseOwnerId(ownerId);
+	if (owner === undefined) throw invalid('owner must be an adult or house');
+	if (owner !== null) {
+		const m = db.select().from(members).where(eq(members.id, owner)).get();
+		if (!m || m.role !== 'adult') throw invalid('owner must be an adult');
+	}
+	const row = db.update(lists).set({ ownerId: owner }).where(eq(lists.id, id)).returning().get();
+	if (!row) throw new LedgerError('not_found', 'List not found');
+	publish('lists', { kind: 'list', listId: id });
+	return { id, ownerId: row.ownerId };
 }
 
 export function deleteList(db: Db, id: string): { id: string } {

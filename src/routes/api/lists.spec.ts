@@ -8,6 +8,7 @@ process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'hub-lists-api-'));
 const root = await import('./lists/+server.js');
 const one = await import('./lists/[id]/+server.js');
 const items = await import('./lists/[id]/items/+server.js');
+const owner = await import('./lists/[id]/owner/+server.js');
 const clear = await import('./lists/[id]/clear/+server.js');
 const item = await import('./list-items/[id]/+server.js');
 
@@ -70,5 +71,19 @@ describe('lists API', () => {
 		await expect(call(one.DELETE, { params: { id } })).rejects.toMatchObject({ status: 401 });
 		expect((await call(one.DELETE, { params: { id } }, true)).status).toBe(200);
 		await expect(call(one.DELETE, { params: { id } }, true)).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('lets any device reassign a list to House, rejects unknown owners', async () => {
+		const [first] = await (await call(root.GET, {})).json();
+		expect(first.ownerId).toBeNull();
+		const params = { id: first.id };
+		const ok = await call(owner.POST, { params, request: req('POST', { ownerId: null }) });
+		expect(ok.status).toBe(200);
+		await expect(
+			call(owner.POST, { params, request: req('POST', { ownerId: 'nobody' }) })
+		).rejects.toMatchObject({ status: 400 });
+		await expect(
+			call(owner.POST, { params: { id: 'nope' }, request: req('POST', { ownerId: null }) })
+		).rejects.toMatchObject({ status: 404 });
 	});
 });

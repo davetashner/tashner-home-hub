@@ -244,6 +244,8 @@ export const redemptions = sqliteTable('redemptions', {
 export const lists = sqliteTable('lists', {
 	id: id(),
 	title: text('title').notNull(),
+	/** The adult this list is for; null is "House". Grouping and filtering only (hub-niv). */
+	ownerId: text('owner_id').references(() => members.id, { onDelete: 'set null' }),
 	createdAt: createdAt()
 });
 
