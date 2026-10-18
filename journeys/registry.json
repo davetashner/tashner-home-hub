@@ -785,6 +785,11 @@
 					"id": "J19.9",
 					"text": "While a session runs the wall's home is tonight's plan: dinner, evening routines, each child's bedtime and when the parents are back, plus the house rules.",
 					"status": "built"
+				},
+				{
+					"id": "J19.10",
+					"text": "On the sitter's home each child's To-Dos for tonight can be ticked off, and the Kids in bed / All good / Call me buttons tell the parents.",
+					"status": "built"
 				}
 			]
 		}

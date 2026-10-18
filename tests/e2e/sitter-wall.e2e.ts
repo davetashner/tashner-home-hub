@@ -264,6 +264,18 @@ test(
 			expect((await page.request.put('/api/sitter/card', { data: testCard(kid.id) })).ok()).toBe(
 				true
 			);
+			const choreTitle = `Tidy toys ${tag}`;
+			await page.request.post('/api/chores', {
+				data: {
+					title: choreTitle,
+					icon: '🧸',
+					stars: 1,
+					timeOfDay: 'evening',
+					memberIds: [kid.id],
+					schedule: { type: 'daily' },
+					requiresApproval: true
+				}
+			});
 			const routine = await page.request.post('/api/routines', {
 				data: {
 					memberId: kid.id,
@@ -286,6 +298,16 @@ test(
 			const sitterCtx = await sitterWall(page);
 			const wall = await sitterCtx.newPage();
 			await wall.clock.install({ time: Date.now() });
+			// The check-in endpoint belongs to hub-7pj.3: stub its contract here.
+			let checkinStatus = 200;
+			const checkins: unknown[] = [];
+			await wall.route('**/api/sitter/checkin', (route) => {
+				checkins.push(route.request().postDataJSON());
+				return route.fulfill({
+					status: checkinStatus,
+					json: checkinStatus === 200 ? { ok: true, at: Date.now() } : { message: 'No session' }
+				});
+			});
 			await gotoHydrated(wall, '/');
 
 			await test.step("J19.9 the home shows tonight's plan from real data", async () => {
@@ -312,6 +334,21 @@ test(
 					.click();
 				await expect(wall.getByTestId('routine-player')).toBeVisible();
 				await wall.getByTestId('routine-close').click();
+			});
+
+			await test.step('J19.10 To-Dos tick off and check-ins tell the parents', async () => {
+				const row = wall.getByTestId('chore-card').filter({ hasText: choreTitle });
+				await row.getByTestId('did-it').click();
+				await expect(row).toHaveAttribute('data-status', 'pending');
+				await wall.getByTestId('checkin-all-good').click();
+				await expect(wall.getByTestId('checkin-all-good')).toContainText('Sent');
+				expect(checkins).toEqual([{ kind: 'all-good' }]);
+				// A refusal rolls the button back and says so.
+				checkinStatus = 409;
+				await wall.getByTestId('checkin-call-me').click();
+				await expect(wall.getByTestId('checkin-failed')).toBeVisible();
+				await expect(wall.getByTestId('checkin-call-me')).toHaveText('Call me');
+				expect(checkins).toHaveLength(2);
 			});
 
 			await test.step('J19.9 the session ends by the clock and the normal home returns', async () => {

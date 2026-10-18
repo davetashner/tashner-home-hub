@@ -242,5 +242,6 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J19.7 | After a session, the parents read a short log of the check-ins and when they happened. | built | wall | untested: undefined |
 | J19.8 | When the parents allow it, the sitter checks Star Jobs with the sitter PIN; otherwise approving stays with the parents. | built | wall | `sitter-wall` |
 | J19.9 | While a session runs the wall's home is tonight's plan: dinner, evening routines, each child's bedtime and when the parents are back, plus the house rules. | built | wall | `sitter-wall` |
+| J19.10 | On the sitter's home each child's To-Dos for tonight can be ticked off, and the Kids in bed / All good / Call me buttons tell the parents. | built | wall | untested: undefined |
 
 <!-- journeys:end -->
