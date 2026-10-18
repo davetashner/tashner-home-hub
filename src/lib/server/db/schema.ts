@@ -329,6 +329,24 @@ export const notes = sqliteTable(
 	(t) => [index('notes_created_idx').on(t.createdAt)]
 );
 
+/** Unfinished drawings kept to reopen later (hub-cn7.7), a few per member. */
+export const savedDrawings = sqliteTable(
+	'saved_drawings',
+	{
+		id: id(),
+		memberId: text('member_id')
+			.notNull()
+			.references(() => members.id, { onDelete: 'cascade' }),
+		/** The item list as JSON (`#lib/domain/drawing-save.js`). */
+		data: text('data').notNull(),
+		/** A small PNG data URL shown in the My drawings list. */
+		thumb: text('thumb').notNull(),
+		createdAt: createdAt(),
+		updatedAt: ms('updated_at').notNull()
+	},
+	(t) => [index('saved_drawings_member_idx').on(t.memberId)]
+);
+
 export const routines = sqliteTable('routines', {
 	id: id(),
 	memberId: text('member_id')

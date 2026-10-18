@@ -755,6 +755,12 @@
 					"text": "Tap Fill, pick a color, then tap inside a closed area to paint it; Undo takes the fill back.",
 					"status": "built",
 					"beads": ["hub-cn7.6"]
+				},
+				{
+					"id": "J18.6",
+					"text": "Save an unfinished drawing, then reopen or delete it later from My drawings.",
+					"status": "built",
+					"beads": ["hub-cn7.7"]
 				}
 			]
 		},

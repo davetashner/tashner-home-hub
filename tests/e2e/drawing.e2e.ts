@@ -23,6 +23,7 @@ function wipe(authorId: string) {
 	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare('DELETE FROM notes WHERE author_id = ?').run(authorId);
+	db.prepare('DELETE FROM saved_drawings WHERE member_id = ?').run(authorId);
 	db.close();
 }
 
@@ -326,6 +327,53 @@ test('paint bucket fills a closed shape and undo takes it back @J18.5', async ({
 		expect(await inkPixels(page)).toBe(inside);
 		await page.getByTestId('draw-undo').click();
 		expect(await inkPixels(page)).toBe(outline);
+		await page.getByTestId('draw-close').click();
+	} finally {
+		wipe(kidId);
+	}
+});
+
+test('save a drawing, reopen it from My drawings, delete it @J18.6', async ({ page }, info) => {
+	const kidId = `e2e-draw-kid6-${info.workerIndex}${info.repeatEachIndex}`;
+	const name = `Kid Saver ${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, name);
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		const canvas = page.getByTestId('draw-canvas');
+		await expect(page.getByTestId('draw-save')).toBeDisabled();
+		await pointerStroke(page, 'touch', 0.5, [0.1, 0.3], [0.8, 0.6], 1);
+		const ink = await inkPixels(page);
+		await expectTappable(page.getByTestId('draw-save'), 96);
+		await expectTappable(page.getByTestId('draw-browse'), 96);
+
+		// Save as the kid; the board says so at once.
+		await page.getByTestId('draw-save').click();
+		await page.getByTestId('draw-author').filter({ hasText: name }).click();
+		await expect(page.getByTestId('draw-note')).toHaveText('Saved!');
+
+		// Clear the board, then open it again from My drawings.
+		await page.getByTestId('draw-clear').click();
+		expect(await inkPixels(page)).toBe(0);
+		await page.getByTestId('draw-browse').click();
+		const mine = page.getByRole('button', { name: `Open drawing by ${name}` });
+		await expect(mine).toHaveCount(1);
+		await expectTappable(mine, 96);
+		await expectTappable(page.getByRole('button', { name: `Delete drawing by ${name}` }), 96);
+		await mine.click();
+		await expect(canvas).toHaveAttribute('data-strokes', '1');
+		expect(await inkPixels(page)).toBeGreaterThan(ink / 2);
+
+		// Saving the reopened drawing again overwrites it rather than adding a second.
+		await page.getByTestId('draw-save').click();
+		await expect(page.getByTestId('draw-note')).toHaveText('Saved!');
+		await page.getByTestId('draw-browse').click();
+		await expect(page.getByRole('button', { name: `Open drawing by ${name}` })).toHaveCount(1);
+
+		// Delete it.
+		await page.getByRole('button', { name: `Delete drawing by ${name}` }).click();
+		await expect(page.getByRole('button', { name: `Open drawing by ${name}` })).toHaveCount(0);
+		await page.getByTestId('draw-mine-close').click();
 		await page.getByTestId('draw-close').click();
 	} finally {
 		wipe(kidId);

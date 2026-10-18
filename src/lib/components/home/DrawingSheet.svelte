@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import { loadDrawing, serializeDrawing } from '#lib/domain/drawing-save.js';
 	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
 		ALL_SHAPES,
@@ -91,6 +92,21 @@
 	let count = $state(0); // strokes drawn, for the undo/clear/post enabled state
 	let blank = $state(true);
 	let choosing = $state(false);
+	/** What the "Who drew it?" picker is for. */
+	let chooseFor = $state<'post' | 'save'>('post');
+	/** The saved drawing being edited, so Save overwrites it. */
+	let saved = $state<{ id: string; memberId: string } | null>(null);
+	let note = $state('');
+	interface SavedRow {
+		id: string;
+		memberId: string;
+		memberName: string;
+		memberColor: string;
+		memberAvatar: string | null;
+		thumb: string;
+	}
+	let mine = $state<SavedRow[] | null>(null);
+	let browsing = $state(false);
 	let dpr = 1;
 	let strokes: DrawItem[] = [];
 	let current: Stroke | null = null;
@@ -367,7 +383,96 @@
 	}
 
 	function postAs(p: Member) {
+		if (chooseFor === 'save') return saveAs(p.id);
 		onpost(p.id, exportPng());
+	}
+
+	/** A small PNG for the My drawings list. */
+	function thumbnail(): string {
+		const { width, height } = fitWithin(canvas.width, canvas.height, 240);
+		const out = document.createElement('canvas');
+		out.width = width;
+		out.height = height;
+		const o = out.getContext('2d') as CanvasRenderingContext2D;
+		o.fillStyle = token('draw-paper');
+		o.fillRect(0, 0, width, height);
+		o.drawImage(canvas, 0, 0, width, height);
+		return out.toDataURL('image/png');
+	}
+
+	/** Keep the drawing for later. Shown as saved at once; the note changes only if the server refuses. */
+	async function saveAs(memberId: string) {
+		choosing = false;
+		note = 'Saved!';
+		try {
+			const res = await fetch('/api/drawings', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					memberId,
+					id: saved && saved.memberId === memberId ? saved.id : undefined,
+					data: serializeDrawing(strokes, { w: canvas.width / dpr, h: canvas.height / dpr }, dpr),
+					thumb: thumbnail()
+				})
+			});
+			if (!res.ok) throw new Error(String(res.status));
+			const row: { id: string } = await res.json();
+			saved = { id: row.id, memberId };
+		} catch {
+			note = 'Could not save. Try again, or delete an old drawing.';
+		}
+	}
+
+	function save() {
+		if (saved) void saveAs(saved.memberId);
+		else {
+			chooseFor = 'save';
+			choosing = true;
+		}
+	}
+
+	async function browse() {
+		browsing = true;
+		note = '';
+		try {
+			const res = await fetch('/api/drawings');
+			mine = res.ok ? await res.json() : [];
+		} catch {
+			mine = [];
+		}
+	}
+
+	async function reopen(row: SavedRow) {
+		try {
+			const res = await fetch(`/api/drawings/${row.id}`);
+			const items = res.ok
+				? loadDrawing((await res.json()).data, { w: canvas.width / dpr, h: canvas.height / dpr })
+				: null;
+			if (!items) throw new Error('bad drawing');
+			strokes = items;
+			count = items.length;
+			blank = isBlank(items);
+			saved = { id: row.id, memberId: row.memberId };
+			browsing = false;
+			note = '';
+			redraw();
+		} catch {
+			note = 'Could not open that drawing.';
+		}
+	}
+
+	async function remove(row: SavedRow) {
+		mine = (mine ?? []).filter((r) => r.id !== row.id);
+		if (saved?.id === row.id) saved = null;
+		try {
+			await fetch(`/api/drawings/${row.id}`, {
+				method: 'DELETE',
+				headers: { 'content-type': 'application/json' },
+				body: '{}'
+			});
+		} catch {
+			// The list refreshes next time it opens.
+		}
 	}
 
 	onMount(() => {
@@ -429,6 +534,46 @@
 				{/each}
 			</div>
 			<Button variant="ghost" onclick={() => (choosing = false)} data-testid="draw-back"
+				>Back</Button
+			>
+		{:else if browsing}
+			<p class="w-full text-body font-extrabold">My drawings</p>
+			{#if mine === null}
+				<p class="w-full text-body text-ink-muted">Loading...</p>
+			{:else if mine.length === 0}
+				<p class="w-full text-body text-ink-muted" data-testid="draw-mine-empty">
+					No saved drawings yet.
+				</p>
+			{/if}
+			<ul class="flex w-full flex-wrap gap-3" data-testid="draw-mine">
+				{#each mine ?? [] as row (row.id)}
+					<li class="flex items-center gap-2" data-testid="draw-mine-item">
+						<button
+							type="button"
+							class="flex min-h-tap-kid min-w-tap-kid flex-col items-center gap-1 rounded-control border-2 border-line bg-surface-raised p-2 active:scale-95"
+							aria-label="Open drawing by {row.memberName}"
+							data-testid="draw-open"
+							onclick={() => reopen(row)}
+						>
+							<img src={row.thumb} alt="" class="h-24 rounded-chip bg-draw-paper" />
+							<MemberAvatar
+								name={row.memberName}
+								color={memberColor(row.memberColor)}
+								avatar={row.memberAvatar}
+								size="kid"
+							/>
+						</button>
+						<button
+							type="button"
+							class="{btn} border-line bg-surface"
+							aria-label="Delete drawing by {row.memberName}"
+							data-testid="draw-delete"
+							onclick={() => remove(row)}>✕</button
+						>
+					</li>
+				{/each}
+			</ul>
+			<Button variant="ghost" onclick={() => (browsing = false)} data-testid="draw-mine-close"
 				>Back</Button
 			>
 		{:else}
@@ -628,10 +773,31 @@
 					data-testid="draw-clear"
 					onclick={clear}>Clear</button
 				>
+				<button
+					type="button"
+					class="{btn} border-line bg-surface"
+					disabled={blank}
+					data-testid="draw-save"
+					onclick={save}>Save</button
+				>
+				<button
+					type="button"
+					class="{btn} border-line bg-surface"
+					data-testid="draw-browse"
+					onclick={browse}>My drawings</button
+				>
+				{#if note}
+					<p class="w-full text-body font-extrabold" role="status" data-testid="draw-note">
+						{note}
+					</p>
+				{/if}
 				<Button
 					size="kid"
 					disabled={blank}
-					onclick={() => (choosing = true)}
+					onclick={() => {
+						chooseFor = 'post';
+						choosing = true;
+					}}
 					data-testid="draw-post"
 				>
 					Post to the board
