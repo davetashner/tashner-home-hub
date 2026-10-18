@@ -55,3 +55,71 @@ test('the kid steps through a routine, a reload resumes, and it celebrates at th
 	await expect(page.getByTestId('routine-player')).toHaveCount(0);
 	await expect(page.getByTestId('routine-button')).toHaveCount(0);
 });
+
+// On tablet and short layouts the routine buttons sit at the bottom of the chore column, so the
+// kid scrolls to them; the player must still fit the screen with its controls in reach.
+const smallScreens = [
+	{ name: 'iPad portrait', width: 834, height: 1194 },
+	{ name: 'iPad landscape', width: 1194, height: 834 },
+	{ name: 'iPhone landscape', width: 852, height: 393 }
+];
+
+test('a kid scrolls to and opens a routine at tablet and phone-landscape sizes', async ({
+	page
+}, info) => {
+	const seed = await seedKid(page, `routine-sizes-${info.project.name}`);
+	const name = `Wind down ${Date.now() % 1e9}`;
+	const made = await page.request.post('/api/routines', {
+		data: {
+			memberId: seed.memberId,
+			name,
+			steps: [
+				{ label: 'Pajamas on', icon: 'shirt' },
+				{ label: 'Brush teeth', icon: 'toothbrush' }
+			]
+		}
+	});
+	expect(made.status()).toBe(201);
+	await page.context().clearCookies();
+
+	for (const screen of smallScreens) {
+		await test.step(screen.name, async () => {
+			await page.setViewportSize({ width: screen.width, height: screen.height });
+			await page.goto(`/chores?member=${seed.memberId}`);
+			await expect(page.getByTestId('star-jar')).toBeVisible();
+
+			const button = page.getByTestId('routine-button').filter({ hasText: name });
+			await button.scrollIntoViewIfNeeded();
+			await expect(button).toBeInViewport();
+			await expectTappable(button, 96);
+			await expect(async () => {
+				await button.click();
+				await expect(page.getByTestId('routine-player')).toBeVisible();
+			}).toPass();
+
+			const player = page.getByTestId('routine-player');
+			await expect(page.getByTestId('routine-step')).toContainText('Pajamas on');
+			await expect
+				.poll(async () => {
+					const box = await player.boundingBox();
+					if (!box) return false;
+					return (
+						box.x >= 0 &&
+						box.y >= 0 &&
+						box.x + box.width <= screen.width + 0.5 &&
+						box.y + box.height <= screen.height + 0.5
+					);
+				})
+				.toBe(true);
+			// The player itself does not scroll: everything is reachable in place.
+			expect(await player.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+			for (const id of ['routine-done', 'routine-close']) {
+				const control = page.getByTestId(id);
+				await expect(control).toBeInViewport({ ratio: 1 });
+				await expectTappable(control, 96);
+			}
+			await page.getByTestId('routine-close').click();
+			await expect(player).toHaveCount(0);
+		});
+	}
+});
