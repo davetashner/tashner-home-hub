@@ -14,6 +14,7 @@ Provisions a Raspberry Pi 5 as the wall display: Chromium in kiosk mode on labwc
 | Crash recovery | user unit `hub-kiosk.service`, `Restart=always`, `RestartSec=5`, no start limit |
 | Hang recovery | `hub-kiosk-watchdog.timer` every 30 s checks Chromium's DevTools endpoint (127.0.0.1 only); 3 misses in a row restarts the service |
 | Server down at boot | Chromium still opens `HUB_URL` (service worker serves cache if it has one). If it lands on an error page, the watchdog reopens the URL once `HUB_HEALTH_URL` answers. A server outage never restarts Chromium |
+| Hub error page | If the page is the hub's own server error page (tab title like `500 Internal Error`, e.g. the kiosk booted mid-redeploy), the watchdog reopens the URL once `HUB_HEALTH_URL` answers. Repeats back off 30 s, 60 s, ... up to 10 min, and a normal page resets it, so a hub that keeps erroring never reload-loops. Logic and tests: `kiosk/watchdog/` (`python3 -m unittest`) |
 | Full freeze | `RuntimeWatchdogSec=15` in `/etc/systemd/system.conf.d/10-hub-watchdog.conf` (hardware watchdog) |
 | Rotation | `wlr-randr --output <OUTPUT> --mode <RESOLUTION> --transform <ORIENTATION>` plus a libinput calibration matrix and `mapToOutput` in labwc `rc.xml` |
 | Hidden cursor | invisible Xcursor theme `hub-blank` set in labwc `environment`; `INPUT="mouse"` shows a normal pointer and makes Esc minimize the hub |

@@ -76,6 +76,7 @@ install -d -m 755 "$LIB_DIR" /etc/hub-kiosk
 install -m 755 "$HERE"/bin/hub-kiosk-* "$LIB_DIR/"
 install -m 755 "$HERE/display-agent/hub_display_agent.py" "$LIB_DIR/hub-kiosk-display-agent"
 install -m 644 "$HERE/display-agent/hub_speaker.py" "$LIB_DIR/hub_speaker.py"
+install -m 644 "$HERE/watchdog/hub_watchdog_logic.py" "$LIB_DIR/hub_watchdog_logic.py"
 install -m 644 "$CONF_SRC" "$CONF_DST"
 install -m 644 "$HERE"/systemd/hub-kiosk.service "$HERE"/systemd/hub-kiosk-watchdog.service \
   "$HERE"/systemd/hub-kiosk-watchdog.timer "$HERE"/systemd/hub-kiosk-display-agent.service \
