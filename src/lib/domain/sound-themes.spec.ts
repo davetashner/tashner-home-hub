@@ -7,7 +7,7 @@ import {
 	type SoundKind
 } from './sound-themes.js';
 
-const kinds: SoundKind[] = ['tap', 'ding', 'fanfare'];
+const kinds: SoundKind[] = ['tap', 'ding', 'fanfare', 'alarm'];
 
 describe('sound themes', () => {
 	it('every theme has a label and sensible notes for every sound', () => {

@@ -17,7 +17,9 @@ export const THEME_LABELS: Record<SoundTheme, string> = {
 export const isSoundTheme = (v: unknown): v is SoundTheme =>
 	typeof v === 'string' && (SOUND_THEMES as readonly string[]).includes(v);
 
-export type SoundKind = 'tap' | 'ding' | 'fanfare';
+type RecipeKind = 'tap' | 'ding' | 'fanfare';
+/** `alarm` is the kitchen timer: the theme's ding, three times. */
+export type SoundKind = RecipeKind | 'alarm';
 /** [frequency Hz, start offset s, length s, peak gain, waveform]. */
 export type Note = [freq: number, offset: number, dur: number, peak: number, type?: OscillatorType];
 
@@ -37,7 +39,7 @@ const run = (
 /** One extra note per star, three to five notes in all. */
 const count = (stars: number) => Math.min(5, Math.max(3, stars + 2));
 
-const classic: Record<SoundKind, (stars: number) => Note[]> = {
+const classic: Record<RecipeKind, (stars: number) => Note[]> = {
 	tap: (s) => run([C5, E5, G5, C6, E6].slice(0, count(s)), 0.07, 0.28, 0.16, 'triangle'),
 	// Bell-like ding: a fundamental plus an inharmonic partial.
 	ding: () => [
@@ -53,7 +55,7 @@ const classic: Record<SoundKind, (stars: number) => Note[]> = {
 	]
 };
 
-const arcade: Record<SoundKind, (stars: number) => Note[]> = {
+const arcade: Record<RecipeKind, (stars: number) => Note[]> = {
 	tap: (s) => run([C5, G5, C6, E6, G6].slice(0, count(s)), 0.05, 0.1, 0.07, 'square'),
 	ding: () => run([E6, G6], 0.09, 0.2, 0.07, 'square'),
 	fanfare: () => [
@@ -63,7 +65,7 @@ const arcade: Record<SoundKind, (stars: number) => Note[]> = {
 	]
 };
 
-const gentle: Record<SoundKind, (stars: number) => Note[]> = {
+const gentle: Record<RecipeKind, (stars: number) => Note[]> = {
 	tap: (s) => run([G4, C5, E5, G5, C6].slice(0, count(s)), 0.12, 0.5, 0.12, 'sine'),
 	ding: () => [
 		[G5, 0, 1.1, 0.14],
@@ -77,7 +79,7 @@ const gentle: Record<SoundKind, (stars: number) => Note[]> = {
 	]
 };
 
-const silly: Record<SoundKind, (stars: number) => Note[]> = {
+const silly: Record<RecipeKind, (stars: number) => Note[]> = {
 	tap: (s) => run([G5, C5, A5, D5, C6].slice(0, count(s)), 0.08, 0.15, 0.1, 'sawtooth'),
 	ding: () => [
 		[A5, 0, 0.12, 0.1, 'sawtooth'],
@@ -96,5 +98,11 @@ const RECIPES = { classic, arcade, gentle, silly };
 /** The notes for one celebration sound in a theme, each scaled by `volume` (0 to 100). */
 export function themeNotes(theme: SoundTheme, kind: SoundKind, stars = 1, volume = 100): Note[] {
 	const gain = Math.min(100, Math.max(0, volume)) / 100;
-	return RECIPES[theme][kind](stars).map(([f, o, d, p, t]) => [f, o, d, p * gain, t]);
+	const notes =
+		kind === 'alarm'
+			? [0, 0.6, 1.2].flatMap((at) =>
+					RECIPES[theme].ding(1).map(([f, o, d, p, t]): Note => [f, o + at, d, p, t])
+				)
+			: RECIPES[theme][kind](stars);
+	return notes.map(([f, o, d, p, t]) => [f, o, d, p * gain, t]);
 }
