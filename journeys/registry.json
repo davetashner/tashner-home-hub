@@ -710,6 +710,12 @@
 					"text": "A grown-up connects Home Assistant, tests it, picks, renames and reorders entities.",
 					"status": "built",
 					"simulated": "Home Assistant is a fake server in the tests"
+				},
+				{
+					"id": "J17.5",
+					"text": "Home sensors show temperature, humidity and door or window state, read-only, with Not updating and Unavailable states.",
+					"status": "built",
+					"simulated": "Home Assistant is a fake server in the tests"
 				}
 			]
 		},
