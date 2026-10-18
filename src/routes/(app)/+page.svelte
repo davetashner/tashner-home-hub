@@ -3,6 +3,7 @@
 	import WeatherWidget from '#lib/components/weather/WeatherWidget.svelte';
 	import Clock from '#lib/components/shell/Clock.svelte';
 	import HomeCountdowns from '#lib/components/home/HomeCountdowns.svelte';
+	import HomeControls from '#lib/components/home/HomeControls.svelte';
 	import Icon from '#lib/components/shell/Icon.svelte';
 	import { timerState } from '#lib/components/timers/timers-state.svelte.js';
 	import HomeNotes from '#lib/components/home/HomeNotes.svelte';
@@ -48,6 +49,7 @@
 		<span class="text-lead"><Icon name="timer" /></span>
 		Timers
 	</button>
+	<HomeControls />
 	<HomeCountdowns />
 	<HomeNotes />
 </div>
