@@ -7,6 +7,7 @@
 	import OnScreenKeyboard from '#lib/components/lists/OnScreenKeyboard.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import { LIST_TITLE_MAX, sortItems, withDone, type ListItem } from '#lib/domain/lists.js';
+	import { createPendingActions, isTempId } from '#lib/domain/lists-pending.js';
 	import { createLiveChannel } from '#lib/domain/live-events.js';
 	import { deliver } from '#lib/offline/client.js';
 
@@ -37,6 +38,8 @@
 	/** Adds and removals still in flight: a refresh landing mid-request must not undo them. */
 	let placeholders: ListItem[] = [];
 	const removing: Record<string, true> = {};
+	/** Taps on rows whose add has not returned: replayed against the real id when it does. */
+	const held = createPendingActions();
 	/** The item whose Delete action a long-press revealed. */
 	let armed = $state<string | null>(null);
 	let error = $state('');
@@ -202,8 +205,13 @@
 
 	async function toggle(item: ListItem) {
 		const done = !item.done;
-		intent[item.id] = done;
 		patchItems(item.listId, (all) => withDone(all, item.id, done));
+		if (isTempId(item.id)) {
+			placeholders = withDone(placeholders, item.id, done);
+			held.hold(item.id, { kind: 'done', done });
+			return;
+		}
+		intent[item.id] = done;
 		const r = await deliver({
 			kind: 'check',
 			url: `/api/list-items/${item.id}`,
@@ -225,14 +233,36 @@
 		};
 		placeholders.push(temp);
 		patchItems(listId, (all) => [...all, temp]);
+		let realId: string | null = null;
 		try {
-			await fetch(`/api/lists/${listId}/items`, {
+			const res = await fetch(`/api/lists/${listId}/items`, {
 				method: 'POST',
 				headers: JSON_HEADERS,
 				body: JSON.stringify({ text })
 			});
+			if (res.ok) realId = ((await res.json()) as ListItem).id;
 		} catch {
 			// Offline: the refresh below drops the placeholder.
+		}
+		// Replay taps made before the id existed; a failed add drops them with the row.
+		const replay = realId ? held.take(temp.id) : (held.drop(temp.id), []);
+		for (const a of replay) {
+			if (a.kind === 'done') {
+				intent[realId!] = a.done;
+				const r = await deliver({
+					kind: 'check',
+					url: `/api/list-items/${realId}`,
+					body: { done: a.done },
+					choreId: realId!
+				});
+				if (r.sent || (!r.queued && r.status >= 400)) delete intent[realId!];
+			} else {
+				await fetch(`/api/list-items/${realId}`, {
+					method: 'DELETE',
+					headers: JSON_HEADERS,
+					body: '{}'
+				}).catch(() => undefined);
+			}
 		}
 		generation++;
 		await refresh(() => (placeholders = placeholders.filter((p) => p.id !== temp.id)));
@@ -260,6 +290,12 @@
 	async function removeRaw(item: ListItem) {
 		armed = null;
 		error = '';
+		if (isTempId(item.id)) {
+			placeholders = placeholders.filter((p) => p.id !== item.id);
+			patchItems(item.listId, (all) => all.filter((i) => i.id !== item.id));
+			held.hold(item.id, { kind: 'delete' });
+			return;
+		}
 		removing[item.id] = true;
 		patchItems(item.listId, (all) => all.filter((i) => i.id !== item.id));
 		let ok = false;
