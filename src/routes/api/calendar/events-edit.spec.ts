@@ -1,8 +1,9 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { scopedId } from '#lib/server/domain/calendar/diff.js';
+import { HOUSEHOLD_TZ_KEY } from '#lib/domain/time-zone.js';
 import { openDb, type Db } from '#lib/server/db/index.js';
-import { calendarSources, events } from '#lib/server/db/schema.js';
+import { calendarSources, events, settings } from '#lib/server/db/schema.js';
 
 process.env.HUB_SECRET_KEY = randomBytes(32).toString('base64');
 
@@ -78,6 +79,10 @@ describe('PUT/DELETE /api/calendar/events/[id]', () => {
 	const eventId = 'ev-1';
 	beforeEach(() => {
 		db = openDb(':memory:');
+		// Wall times resolve in the household zone, which defaults to the process TZ: pin it.
+		db.insert(settings)
+			.values({ key: HOUSEHOLD_TZ_KEY, value: JSON.stringify('America/New_York') })
+			.run();
 		update.mockReset().mockResolvedValue({ ok: true, status: 204 });
 		remove.mockReset().mockResolvedValue({ ok: true, status: 204 });
 		fetchObjects.mockReset().mockResolvedValue([{ url: OBJECT_URL, etag: '"e1"', data: ics() }]);
