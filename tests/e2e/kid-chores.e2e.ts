@@ -68,7 +68,7 @@ test('tap shows pending instantly, even while the network is slow; undo restores
 		await route.continue();
 	});
 	await open(page, s);
-	await expect(page.getByRole('heading', { name: /This morning/ })).toBeVisible();
+	await expect(page.getByRole('heading', { name: /Morning/ })).toBeVisible();
 	const teeth = card(page, 'Brush teeth');
 	const button = teeth.getByTestId('did-it');
 	await expectTappable(button, 96);
@@ -211,4 +211,66 @@ test('a new to-do is self-serve by default: gold at once, star flies, nothing wa
 	expect((await saved).ok()).toBe(true);
 	await expect(page.getByTestId('jar-counts')).toContainText('2 gold stars');
 	await expect(page.getByTestId('jar-counts')).toContainText('0 waiting');
+});
+
+test('six Star Jobs and six habits fit the wall without page scrolling (hub-3yg)', async ({
+	page
+}, info) => {
+	await signInAsAdult(page, `adult-kc-fold${info.project.name.replace(/\W/g, '')}`);
+	const member = await (
+		await page.request.post('/api/members', {
+			data: { name: `Fern ${Date.now() % 1e9}`, role: 'child', color: 'member-5', avatar: '🦋' }
+		})
+	).json();
+	// Spread over the three time columns, two Star Jobs and two habits in each.
+	const times = ['morning', 'afternoon', 'evening'];
+	for (let i = 0; i < 6; i++) {
+		for (const kind of ['star_job', 'habit']) {
+			const res = await page.request.post('/api/chores', {
+				data: {
+					title: `${kind === 'habit' ? 'Habit' : 'Job'} ${i + 1}`,
+					icon: kind === 'habit' ? '🧺' : '🧹',
+					stars: 1,
+					kind,
+					timeOfDay: times[i % 3],
+					memberIds: [member.id],
+					schedule: { type: 'daily' }
+				}
+			});
+			expect(res.ok()).toBe(true);
+		}
+	}
+	await page.context().clearCookies();
+	// Only this child: leftover children from other runs would add rows of avatars above the board.
+	await page.route('**/api/members', async (route) => {
+		const res = await route.fetch();
+		const all = (await res.json()) as { id: string }[];
+		await route.fulfill({ response: res, json: all.filter((m) => m.id === member.id) });
+	});
+	await gotoHydrated(page, `/chores?member=${member.id}`);
+	await expect(page.getByTestId('chore-card')).toHaveCount(12);
+	await expect(page.getByTestId('star-jobs-count')).toHaveText('0/6');
+	await expect(page.getByTestId('habits-count')).toHaveText('0/6');
+
+	if (info.project.name.includes('portrait')) {
+		// Portrait stacks the columns: the Now column comes first and its first row is on screen.
+		await expect(page.getByTestId('time-column').first()).toHaveAttribute('data-now', 'true');
+		const box = (await page.getByTestId('chore-card').first().boundingBox())!;
+		expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+	} else {
+		// Landscape: every row is on screen and the page itself never scrolls.
+		const viewport = page.viewportSize()!;
+		for (const row of await page.getByTestId('chore-card').all()) {
+			const box = (await row.boundingBox())!;
+			expect(box.y).toBeGreaterThanOrEqual(0);
+			expect(box.y + box.height, 'row below the fold').toBeLessThanOrEqual(viewport.height);
+		}
+		const scrolls = await page.evaluate(() =>
+			[document.documentElement, document.querySelector('main')!].some(
+				(el) => el.scrollHeight > el.clientHeight + 1
+			)
+		);
+		expect(scrolls, 'the page scrolls').toBe(false);
+	}
+	await expectTappable(page.getByTestId('did-it').first(), 96);
 });

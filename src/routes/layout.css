@@ -31,6 +31,13 @@
 	--color-success-soft: oklch(93% 0.05 155);
 	--color-danger: oklch(55% 0.2 27);
 	--color-danger-soft: oklch(94% 0.04 25);
+	/* To-Do kinds (hub-3yg): Star Jobs are pink, habits are purple. Soft = row fill, line = outline. */
+	--color-job: oklch(62% 0.2 355);
+	--color-job-soft: oklch(94% 0.045 355);
+	--color-job-line: oklch(76% 0.11 355);
+	--color-habit: oklch(50% 0.19 300);
+	--color-habit-soft: oklch(93.5% 0.045 300);
+	--color-habit-line: oklch(72% 0.11 300);
 
 	/* Sticky-note paper (MSG-1): pale enough that --color-ink reads at 4.5:1 or better. */
 	--color-note-yellow: oklch(93% 0.09 95);
@@ -268,6 +275,12 @@
 	--color-success-soft: oklch(30% 0.05 155);
 	--color-danger: oklch(70% 0.17 27);
 	--color-danger-soft: oklch(30% 0.06 25);
+	--color-job: oklch(72% 0.17 355);
+	--color-job-soft: oklch(30% 0.06 355);
+	--color-job-line: oklch(50% 0.1 355);
+	--color-habit: oklch(74% 0.15 300);
+	--color-habit-soft: oklch(30% 0.06 300);
+	--color-habit-line: oklch(52% 0.11 300);
 	--shadow-raised: 0 1px 2px oklch(0% 0 0 / 0.3), 0 6px 18px oklch(0% 0 0 / 0.3);
 	--shadow-float: 0 2px 4px oklch(0% 0 0 / 0.3), 0 18px 48px oklch(0% 0 0 / 0.5);
 }

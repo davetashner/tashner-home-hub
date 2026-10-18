@@ -25,15 +25,15 @@ test('Star Jobs and habits each count, and finishing every habit earns a star', 
 	await page.context().clearCookies(); // the kid screen needs no adult session
 
 	await gotoHydrated(page, `/chores?member=${member.id}`);
-	const jobs = page.getByTestId('star-jobs');
-	const habits = page.getByTestId('habits');
+	// Star Jobs and habits share one list per time column (hub-3yg), told apart by kind.
+	const habits = page.locator('[data-testid="chore-card"][data-kind="habit"]');
 	await expect(page.getByTestId('star-jobs-count')).toHaveText('0/1');
 	await expect(page.getByTestId('habits-count')).toHaveText('0/2');
-	await expect(jobs.getByText('Wash the window')).toBeVisible();
+	await expect(page.getByText('Wash the window')).toBeVisible();
 	await expect(habits.getByTestId('habit-tag')).toHaveCount(2);
 	await expect(page.getByTestId('habit-week')).toContainText('Do them all today for a star');
 
-	const card = (title: string) => habits.getByTestId('chore-card').filter({ hasText: title });
+	const card = (title: string) => habits.filter({ hasText: title });
 	const didIt = card('Hang up towels').getByTestId('did-it');
 	await expectTappable(didIt);
 	await didIt.click();

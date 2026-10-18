@@ -43,52 +43,27 @@
 	);
 </script>
 
+<!-- A slim strip (hub-3yg): star balance, the jar's stars, the goal bar and the shop. -->
 <section
 	data-testid="star-jar"
 	aria-label="Star jar"
-	class="flex flex-col gap-6 rounded-card bg-surface-sunken p-8 short:gap-2 short:p-3 tablet:gap-3 tablet:p-4 portrait:tablet:grid portrait:tablet:grid-cols-2 portrait:tablet:items-center"
+	class="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-card bg-surface-sunken px-4 py-2 short:gap-x-2 short:gap-y-1 short:px-2 short:py-1 tablet:gap-x-3 tablet:landscape:flex-nowrap"
 >
-	<div
-		class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 portrait:tablet:col-span-2"
+	<p
+		data-testid="jar-caption"
+		class="text-body font-extrabold whitespace-nowrap text-ink-muted short:text-caption short:whitespace-normal"
 	>
-		<h2 class="text-title leading-none font-extrabold short:sr-only tablet:text-lead">
-			My star jar
-		</h2>
-		<p
-			data-testid="jar-caption"
-			class="text-lead font-extrabold text-ink-muted short:text-caption tablet:text-body"
-		>
-			{balance}
-			{balance === 1 ? 'star' : 'stars'}{pending > 0 ? ` · ${pending} waiting` : ''}
-		</p>
-		<div class="flex flex-wrap gap-3 short:gap-1">
-			<Button
-				variant="secondary"
-				size="kid"
-				class="px-4!"
-				data-testid="open-stickers"
-				aria-label="My stickers"
-				onclick={() => (stickersOpen = true)}><span aria-hidden="true">🏅</span></Button
-			>
-			<Button
-				size="kid"
-				class="short:px-6 tablet:px-6"
-				data-testid="open-shop"
-				onclick={() => (shopOpen = true)}>Shop</Button
-			>
-		</div>
-	</div>
+		{balance}
+		{balance === 1 ? 'star' : 'stars'}{pending > 0 ? ` · ${pending} waiting` : ''}
+	</p>
 
 	<div
 		bind:this={jar}
 		data-testid="jar-glass"
-		class="flex min-h-48 flex-wrap-reverse content-start justify-center gap-1 rounded-sheet rounded-t-card border-4 border-line bg-surface-raised p-5 short:min-h-12 short:p-1 tablet:min-h-16 tablet:p-2 {goal &&
-		fill
-			? ''
-			: 'portrait:tablet:col-span-2'}"
+		class="flex min-w-0 flex-wrap content-start gap-0.5 rounded-control border-2 border-line bg-surface-raised px-2 py-1 short:px-1 short:py-0.5"
 	>
 		{#each cells as kind, i (i)}
-			<StarIcon variant={kind} class="size-14 short:size-5 tablet:size-7" />
+			<StarIcon variant={kind} class="size-8 short:size-4 tablet:size-5" />
 		{/each}
 	</div>
 
@@ -100,49 +75,61 @@
 		<div
 			data-testid="jar-goal"
 			data-reached={fill.reached}
-			class="flex items-center gap-6 short:gap-2 tablet:gap-4"
+			class="flex min-w-48 grow basis-0 items-center gap-3 short:min-w-0 short:basis-full short:gap-2"
 		>
-			<div
-				class="relative h-48 w-36 shrink-0 short:h-14 short:w-10 tablet:h-20 tablet:w-14"
-				aria-hidden="true"
-			>
-				<div class="absolute inset-x-6 top-0 h-6 rounded-control bg-line"></div>
+			<span class="text-headline leading-none short:text-title" aria-hidden="true">
+				{goal.image ?? '🎁'}
+			</span>
+			<div class="flex min-w-0 grow flex-col gap-1">
+				<div class="flex items-baseline justify-between gap-3">
+					<p class="min-w-0 truncate text-body leading-tight font-extrabold short:text-caption">
+						{goal.title}
+					</p>
+					<p
+						data-testid="goal-caption"
+						class="text-body font-extrabold whitespace-nowrap short:text-caption short:whitespace-normal"
+					>
+						{jarCaption(balance, goal.cost)}
+					</p>
+				</div>
 				<div
-					class="absolute inset-x-0 top-4 bottom-0 overflow-hidden rounded-card rounded-t-sheet border-4 border-line bg-surface-raised"
+					class="relative h-4 overflow-hidden rounded-chip bg-surface-raised ring-2 ring-line short:h-3"
+					aria-hidden="true"
 				>
 					<div
 						data-testid="goal-fill-pending"
-						class="fill absolute inset-0 origin-bottom bg-star-pending"
-						style:transform="scaleY({fill.pending})"
+						class="fill absolute inset-0 origin-left bg-star-pending"
+						style:transform="scaleX({fill.pending})"
 					></div>
 					<div
 						data-testid="goal-fill"
-						class="fill absolute inset-0 origin-bottom bg-star"
-						style:transform="scaleY({fill.gold})"
+						class="fill absolute inset-0 origin-left bg-star"
+						style:transform="scaleX({fill.gold})"
 					></div>
-					<span class="absolute inset-0 grid place-items-center text-title">
-						{goal.image ?? '🎁'}
-					</span>
 				</div>
-			</div>
-			<div class="flex min-w-0 grow flex-col gap-2">
-				<p
-					class="text-lead leading-tight font-extrabold break-words short:text-caption tablet:text-body"
-				>
-					{goal.title}
-				</p>
-				<p
-					data-testid="goal-caption"
-					class="text-lead font-extrabold short:text-caption tablet:text-body"
-				>
-					{jarCaption(balance, goal.cost)}
-				</p>
-				<p class="text-caption font-bold text-ink-muted tablet:text-caption">
+				<p class="text-caption font-bold text-ink-muted">
 					{fill.reached ? 'You earned it! Ask a grown-up.' : `${fill.remaining} more to go`}
 				</p>
 			</div>
 		</div>
 	{/if}
+
+	<div class="ml-auto flex shrink-0 gap-3 short:ml-0 short:w-full short:gap-1">
+		<Button
+			variant="secondary"
+			size="kid"
+			class="px-4!"
+			data-testid="open-stickers"
+			aria-label="My stickers"
+			onclick={() => (stickersOpen = true)}><span aria-hidden="true">🏅</span></Button
+		>
+		<Button
+			size="kid"
+			class="px-6! short:grow short:px-2! short:text-body!"
+			data-testid="open-shop"
+			onclick={() => (shopOpen = true)}>Shop</Button
+		>
+	</div>
 </section>
 
 {#if stickersOpen}

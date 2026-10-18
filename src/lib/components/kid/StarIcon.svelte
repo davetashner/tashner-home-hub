@@ -1,14 +1,19 @@
 <script lang="ts">
-	/** One star. gold = earned, outline = waiting for a grown-up, empty = still to fill. */
+	/**
+	 * One star. gold = earned, outline = waiting for a grown-up, empty = still to fill.
+	 * job / job-outline are the pink Star Job checkbox (done / waiting) on the To-Dos board.
+	 */
 	let {
 		variant = 'gold',
 		class: className = 'size-12'
-	}: { variant?: 'gold' | 'outline' | 'empty'; class?: string } = $props();
+	}: { variant?: 'gold' | 'outline' | 'empty' | 'job' | 'job-outline'; class?: string } = $props();
 
 	const looks = {
 		gold: 'fill-star stroke-star',
 		outline: 'fill-star-soft stroke-ink-muted [stroke-dasharray:3_2.5]',
-		empty: 'fill-transparent stroke-line'
+		empty: 'fill-transparent stroke-line',
+		job: 'fill-job stroke-job',
+		'job-outline': 'fill-transparent stroke-job [stroke-dasharray:3_2.5]'
 	};
 </script>
 

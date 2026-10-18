@@ -6,7 +6,7 @@
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
-	import ChoreCard from '#lib/components/kid/ChoreCard.svelte';
+	import TodoRow from '#lib/components/kid/TodoRow.svelte';
 	import StarJar, { type Goal } from '#lib/components/kid/StarJar.svelte';
 	import AllDoneBanner from '#lib/components/kid/AllDoneBanner.svelte';
 	import EarnedBanner from '#lib/components/kid/EarnedBanner.svelte';
@@ -48,6 +48,9 @@
 		kidsToShow,
 		switcherMembers,
 		starJobGroups,
+		timeColumns,
+		type TimeColumn,
+		type ColumnKey,
 		habitChores,
 		doneCount,
 		habitCount,
@@ -144,6 +147,15 @@
 	);
 	const habits = $derived(habitChores(groups));
 	const habitsToday = $derived(habitCount(habits, routines));
+	// Now first, so a narrow screen opens on what to do right now; wide screens restore the clock order.
+	const columns = $derived(
+		timeColumns(groups, offered, nowMinutes).sort((a, b) => Number(b.now) - Number(a.now))
+	);
+	const COLUMN_ORDER_CLASS: Record<ColumnKey, string> = {
+		morning: 'landscape:order-1 short:order-none tablet:order-none',
+		afternoon: 'landscape:order-2 short:order-none tablet:order-none',
+		evening: 'landscape:order-3 short:order-none tablet:order-none'
+	};
 	// Week tally (Monday to today) and today's habit star, from the server.
 	let habitWeeks = $state<Record<string, { done: number; due: number; starEarned: boolean }>>({});
 	const habitWeek = $derived(selectedId ? (habitWeeks[selectedId] ?? null) : null);
@@ -593,161 +605,109 @@
 {:else if selected}
 	<h1 class="sr-only">{todo}</h1>
 	<div
-		class="flex min-h-full flex-col gap-10 p-12 portrait:p-10 landscape:flex-row landscape:items-start short:grid short:grid-cols-kid-short short:items-start short:gap-3 short:p-3 tablet:gap-4 tablet:p-6 portrait:tablet:p-6"
+		class="flex min-h-full flex-col gap-4 p-6 short:grid short:grid-cols-kid-short short:items-start short:gap-2 short:p-2 tablet:p-4"
 	>
-		<div class="flex min-w-0 grow flex-col gap-10 portrait:contents short:contents tablet:gap-4">
-			<header
-				class="flex flex-wrap items-center gap-8 portrait:order-1 short:contents tablet:flex-nowrap tablet:justify-between tablet:gap-4"
+		<div class="flex flex-wrap items-center gap-x-6 gap-y-3 short:contents tablet:gap-x-4">
+			{#if kids.length > 1}
+				<nav
+					aria-label="Whose to-dos?"
+					data-testid="child-switcher"
+					class="flex max-h-tap-kid-lg flex-wrap gap-4 overflow-y-auto short:col-start-1 short:row-span-3 short:row-start-1 short:max-h-none short:flex-col short:flex-nowrap short:gap-2 tablet:max-h-none tablet:max-w-3/5 tablet:flex-nowrap tablet:gap-3 tablet:overflow-x-auto tablet:p-1"
+				>
+					{#each kids as kid (kid.id)}
+						<button
+							type="button"
+							aria-label={kid.name}
+							aria-pressed={kid.id === selected.id}
+							onclick={() => choose(kid.id)}
+							class="flex min-h-tap-kid min-w-tap-kid flex-col items-center justify-center rounded-card p-1 transition-transform duration-150 active:scale-95 {kid.id ===
+							selected.id
+								? 'bg-surface-raised shadow-raised ring-4 ring-ink'
+								: ''}"
+						>
+							<MemberAvatar name={kid.name} color={kid.color} avatar={kid.avatar} size="kid" />
+						</button>
+					{/each}
+				</nav>
+			{/if}
+			<div
+				class="flex min-w-0 grow flex-wrap items-center gap-x-6 gap-y-2 short:col-start-3 short:row-start-1 short:grow-0 short:flex-col short:items-start short:gap-1"
 			>
-				<div class="flex min-w-0 items-center gap-6 short:contents tablet:flex-1 tablet:gap-4">
-					<!-- The switcher below already shows the selected avatar. -->
-					<span
-						class={kids.length > 1
-							? 'contents short:hidden tablet:hidden'
-							: 'contents short:hidden'}
-					>
-						<MemberAvatar
-							name={selected.name}
-							color={selected.color}
-							avatar={selected.avatar}
-							size="lg"
-						/>
-					</span>
+				<div class="flex min-w-0 items-center gap-4">
+					{#if kids.length <= 1}
+						<span class="contents short:hidden">
+							<MemberAvatar
+								name={selected.name}
+								color={selected.color}
+								avatar={selected.avatar}
+								size="lg"
+							/>
+						</span>
+					{/if}
 					<p
-						class="min-w-0 text-headline leading-tight font-extrabold break-words short:col-start-3 short:text-body"
+						class="min-w-0 text-title leading-tight font-extrabold break-words short:text-body tablet:text-lead"
 					>
 						Hi, {selected.name}!
 					</p>
-					{#if partial}
-						<p data-testid="partial-note" role="status" class="text-body text-ink-muted">
-							Some Star Jobs could not refresh. Trying again soon.
+				</div>
+				{#if partial}
+					<p data-testid="partial-note" role="status" class="text-caption text-ink-muted">
+						Some Star Jobs could not refresh. Trying again soon.
+					</p>
+				{/if}
+				<div class="flex flex-col gap-1 tablet:flex-row tablet:items-center tablet:gap-3">
+					<div class="flex flex-wrap items-center gap-3 short:gap-1">
+						<p
+							data-testid="star-jobs"
+							class="flex items-center gap-2 rounded-chip bg-job-soft px-4 py-1 text-body font-extrabold short:px-2 short:text-caption tablet:px-3 tablet:text-caption"
+						>
+							<span aria-hidden="true">⭐</span>
+							{#if jobGroups.length === 0}
+								No Star Jobs today.
+							{:else}
+								Star Jobs
+								<span data-testid="star-jobs-count" aria-label="{jobs.done} of {jobs.total} done"
+									>{jobs.done}/{jobs.total}</span
+								>
+							{/if}
+						</p>
+						{#if habitsToday.total > 0}
+							<p
+								data-testid="habits"
+								class="flex items-center gap-2 rounded-chip bg-habit-soft px-4 py-1 text-body font-extrabold short:px-2 short:text-caption tablet:px-3 tablet:text-caption"
+							>
+								<span aria-hidden="true">✅</span>
+								Habits
+								<span
+									data-testid="habits-count"
+									aria-label="{habitsToday.done} of {habitsToday.total} done"
+									>{habitsToday.done}/{habitsToday.total}</span
+								>
+							</p>
+						{/if}
+					</div>
+					{#if habitsToday.total > 0}
+						<p class="text-caption text-ink-muted" data-testid="habit-week">
+							{#if habitWeek?.starEarned}
+								All done today: you earned a star ⭐
+							{:else}
+								Do them all today for a star ⭐
+							{/if}
+							{#if habitWeek && habitWeek.due > 0}
+								· This week {habitWeek.done} of {habitWeek.due}
+							{/if}
 						</p>
 					{/if}
 				</div>
 				{#if streak && streak.days > 0 && !onVacation}
-					<StreakBadge days={streak.days} nextDays={streak.next?.days ?? null} />
-				{/if}
-				{#if kids.length > 1}
-					<nav
-						aria-label="Whose to-dos?"
-						data-testid="child-switcher"
-						class="flex flex-wrap gap-6 short:col-start-1 short:row-span-3 short:row-start-1 short:flex-col short:flex-nowrap short:gap-3 short:p-1 tablet:max-w-3/5 tablet:flex-nowrap tablet:gap-3 tablet:overflow-x-auto tablet:p-1"
-					>
-						{#each kids as kid (kid.id)}
-							<button
-								type="button"
-								aria-label={kid.name}
-								aria-pressed={kid.id === selected.id}
-								onclick={() => choose(kid.id)}
-								class="flex min-h-tap-kid min-w-tap-kid flex-col items-center gap-2 rounded-card p-2 transition-transform duration-150 active:scale-95 {kid.id ===
-								selected.id
-									? 'bg-surface-raised shadow-raised ring-4 ring-ink'
-									: ''}"
-							>
-								<MemberAvatar name={kid.name} color={kid.color} avatar={kid.avatar} size="kid" />
-								<span
-									class="max-w-40 truncate text-body font-bold short:hidden tablet:hidden"
-									aria-hidden="true">{kid.name}</span
-								>
-							</button>
-						{/each}
-					</nav>
-				{/if}
-			</header>
-
-			<div
-				class="flex grow flex-col gap-10 portrait:order-3 short:col-start-2 short:row-span-3 short:row-start-1 short:gap-3 tablet:gap-5"
-			>
-				{#if onVacation}
-					<VacationCard days={streak?.days ?? 0} back={page.data.vacation?.back ?? null} />
-				{:else if jobGroups.length === 0 && habitsToday.total === 0}
-					<div
-						class="flex grow flex-col items-center justify-center gap-6 py-16 text-center"
-						data-testid="all-free"
-					>
-						<p class="text-display leading-none" aria-hidden="true">🎉</p>
-						<p class="text-headline leading-none font-extrabold">All free today!</p>
-						<p class="text-lead text-ink-muted">Nothing to do today. Go play!</p>
+					<div class="ml-auto short:ml-0">
+						<StreakBadge days={streak.days} nextDays={streak.next?.days ?? null} />
 					</div>
-				{:else}
-					<section
-						aria-labelledby="star-jobs"
-						data-testid="star-jobs"
-						class="flex flex-col gap-6 short:gap-2 tablet:gap-3"
-					>
-						{@render sectionHeading('star-jobs', '⭐', 'Star Jobs', jobs.done, jobs.total)}
-						{#if jobGroups.length === 0}
-							<p class="text-lead text-ink-muted">No Star Jobs today.</p>
-						{/if}
-						{#each jobGroups as group (group.timeOfDay)}
-							<div class="flex flex-col gap-6 short:gap-2 tablet:gap-3">
-								<h3
-									id="g-{group.timeOfDay}"
-									class="text-title leading-none font-extrabold short:sr-only tablet:sr-only"
-								>
-									<span aria-hidden="true">{GROUP_HEADINGS[group.timeOfDay].emoji}</span>
-									{GROUP_HEADINGS[group.timeOfDay].label}
-								</h3>
-								{@render cards(group.chores)}
-							</div>
-						{/each}
-					</section>
-
-					{#if habitsToday.total > 0}
-						<section
-							aria-labelledby="habits"
-							data-testid="habits"
-							class="flex flex-col gap-6 short:gap-2 tablet:gap-3"
-						>
-							{@render sectionHeading(
-								'habits',
-								'✅',
-								'Habits',
-								habitsToday.done,
-								habitsToday.total
-							)}
-							<p class="text-lead text-ink-muted short:text-caption" data-testid="habit-week">
-								{#if habitWeek?.starEarned}
-									All done today: you earned a star ⭐
-								{:else}
-									Do them all today for a star ⭐
-								{/if}
-								{#if habitWeek && habitWeek.due > 0}
-									· This week {habitWeek.done} of {habitWeek.due}
-								{/if}
-							</p>
-							{#if offered.length > 0}
-								<div
-									class="flex flex-wrap gap-6 short:gap-3 tablet:gap-3"
-									data-testid="routine-buttons"
-								>
-									{#each offered as r (r.id)}
-										<button
-											type="button"
-											onclick={() => (playing = r.id)}
-											data-testid="routine-button"
-											class="flex min-h-tap-kid items-center gap-6 rounded-card bg-accent px-10 py-4 text-title font-extrabold text-on-accent shadow-raised transition-transform duration-75 active:scale-95 short:gap-3 short:px-6 short:text-lead tablet:px-6 tablet:text-lead"
-										>
-											<span class="size-16 short:size-10 tablet:size-10"
-												><RoutineIcon name={r.steps[0]?.icon ?? 'star'} /></span
-											>
-											{r.name}
-											{#if isRoutineComplete(r.done, r.steps.length)}<span aria-label="done">✓</span
-												>{/if}
-										</button>
-									{/each}
-								</div>
-							{/if}
-							{@render cards(habits)}
-						</section>
-					{/if}
 				{/if}
 			</div>
 		</div>
 
-		<aside
-			class="shrink-0 portrait:order-first landscape:sticky landscape:top-0 landscape:w-1/3 short:col-start-3 short:w-auto portrait:tablet:order-2 landscape:tablet:w-1/4"
-		>
+		<div class="short:col-start-3 short:row-start-2">
 			<StarJar
 				memberId={selected.id}
 				onchanged={() => void loadStars(selected.id).catch(() => {})}
@@ -756,7 +716,32 @@
 				{goal}
 				bind:jar
 			/>
-		</aside>
+		</div>
+
+		<div class="flex grow flex-col short:col-start-2 short:row-span-3 short:row-start-1">
+			{#if onVacation}
+				<VacationCard days={streak?.days ?? 0} back={page.data.vacation?.back ?? null} />
+			{:else if jobGroups.length === 0 && habitsToday.total === 0}
+				<div
+					class="flex grow flex-col items-center justify-center gap-6 py-16 text-center"
+					data-testid="all-free"
+				>
+					<p class="text-display leading-none" aria-hidden="true">🎉</p>
+					<p class="text-headline leading-none font-extrabold">All free today!</p>
+					<p class="text-lead text-ink-muted">Nothing to do today. Go play!</p>
+				</div>
+			{:else}
+				<!-- Morning | After school | Tonight side by side; stacked, with Now first, when narrow. -->
+				<div
+					data-testid="todo-columns"
+					class="grid grow grid-cols-1 content-start gap-4 landscape:grid-cols-3 short:grid-cols-1 short:gap-2 tablet:grid-cols-1 tablet:gap-2"
+				>
+					{#each columns as col (col.key)}
+						{@render column(col)}
+					{/each}
+				</div>
+			{/if}
+		</div>
 	</div>
 {/if}
 
@@ -799,34 +784,72 @@
 	</p>
 {/if}
 
-{#snippet sectionHeading(id: string, emoji: string, label: string, done: number, total: number)}
-	<h2
-		{id}
-		class="flex items-center gap-4 text-headline leading-none font-extrabold short:gap-2 short:text-body tablet:gap-2 tablet:text-lead"
-	>
-		<span aria-hidden="true">{emoji}</span>
-		{label}
-		<span
-			class="rounded-chip bg-surface-raised px-4 py-1 text-title shadow-raised short:px-2 short:py-0 short:text-caption tablet:px-3 tablet:py-0 tablet:text-body"
-			data-testid="{id}-count"
-			aria-label="{done} of {total} done">{done}/{total}</span
+{#snippet column(col: TimeColumn)}
+	{#if selected}
+		<section
+			aria-labelledby="col-{col.key}"
+			data-testid="time-column"
+			data-column={col.key}
+			data-now={col.now}
+			class="flex min-w-0 flex-col gap-2 rounded-card p-2 {col.now
+				? 'bg-surface-sunken'
+				: ''} {COLUMN_ORDER_CLASS[col.key]}"
 		>
-	</h2>
+			<h2
+				id="col-{col.key}"
+				class="flex items-center gap-3 px-1 text-lead leading-none font-extrabold short:text-body"
+			>
+				{col.label}
+				{#if col.now}
+					<span
+						class="rounded-chip bg-accent px-3 py-1 text-caption font-extrabold text-on-accent"
+						data-testid="now-tag">Now</span
+					>
+				{/if}
+			</h2>
+			{#each col.routines as r (r.id)}
+				<button
+					type="button"
+					onclick={() => (playing = r.id)}
+					data-testid="routine-button"
+					class="flex min-h-tap-kid w-full items-center gap-3 rounded-card border-4 border-habit-line bg-surface-raised px-3 py-2 text-left transition-transform duration-75 active:scale-95"
+				>
+					<span class="size-14 shrink-0 text-habit"
+						><RoutineIcon name={r.steps[0]?.icon ?? 'star'} /></span
+					>
+					<span
+						class="min-w-0 grow text-body leading-tight font-extrabold break-words short:text-caption"
+						>{r.name}</span
+					>
+					<span
+						class="shrink-0 rounded-chip bg-habit px-4 py-2 text-caption font-extrabold text-on-accent"
+						>Start</span
+					>
+				</button>
+			{/each}
+			{@render rows(col.chores)}
+			{#if col.weekly.length > 0}
+				<h3 class="px-1 pt-2 text-caption font-extrabold text-ink-muted">
+					<span aria-hidden="true">{GROUP_HEADINGS.week.emoji}</span>
+					{GROUP_HEADINGS.week.label}
+				</h3>
+				{@render rows(col.weekly)}
+			{/if}
+		</section>
+	{/if}
 {/snippet}
 
-{#snippet cards(list: KidChore[])}
+{#snippet rows(list: KidChore[])}
 	{#if selected}
-		<div class="flex flex-col gap-6 short:gap-3 tablet:gap-3">
-			{#each list as chore (chore.id)}
-				{@const key = tapKey(selected.id, chore.id)}
-				<ChoreCard
-					{chore}
-					undoStartedAt={undoStarts[key] ?? null}
-					ondone={done}
-					onundo={undo}
-					onundoexpire={() => dropUndo(key)}
-				/>
-			{/each}
-		</div>
+		{#each list as chore (chore.id)}
+			{@const key = tapKey(selected.id, chore.id)}
+			<TodoRow
+				{chore}
+				undoStartedAt={undoStarts[key] ?? null}
+				ondone={done}
+				onundo={undo}
+				onundoexpire={() => dropUndo(key)}
+			/>
+		{/each}
 	{/if}
 {/snippet}
