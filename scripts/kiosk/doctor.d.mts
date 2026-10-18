@@ -18,8 +18,15 @@ export interface RemoteFacts {
 	outputs: Output[];
 	units: Record<string, string>;
 	health: string | null;
+	/** Absent when the remote script had no wake section. */
+	wake?: WakeFacts;
 	/** Absent when the remote script had no speaker section. */
 	speaker?: SpeakerFacts;
+}
+export interface WakeFacts {
+	input: string;
+	/** Names of the input devices the display agent has open. */
+	devices: string[];
 }
 export interface SpeakerFacts {
 	mac: string | null;
@@ -63,6 +70,7 @@ export declare function parseFlags(cmdline: string): {
 	kiosk: boolean;
 	automation: boolean;
 };
+export declare function parseWake(text: string): WakeFacts;
 export declare function parseSpeaker(text: string): SpeakerFacts;
 export declare function parseWlrRandr(text: string): Output[];
 export declare function diagnose(facts: Facts): Check[];

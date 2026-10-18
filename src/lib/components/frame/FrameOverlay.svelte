@@ -10,7 +10,7 @@
 		WEATHER_REFRESH_MS,
 		eventsWindow,
 		formatNextEvent,
-		formatWeatherLine,
+		formatOverlayWeather,
 		msToNextMinute,
 		overlayNudge,
 		overlayVisibility,
@@ -19,19 +19,21 @@
 		type OverlaySettings
 	} from '#lib/domain/frame-overlay.js';
 	import { defaultTimeZone, isTimeZone } from '#lib/domain/time-zone.js';
-	import type { WeatherCurrent, WeatherUnit } from '#lib/domain/weather.js';
+	import type { WeatherCurrent, WeatherDay } from '#lib/domain/weather.js';
 
 	/** Clock, date, weather and next event over the photo frame (PHO-7). Never takes a touch. */
 	let settings = $state<OverlaySettings>({ ...DEFAULT_OVERLAY });
 	let now = $state(Date.now());
 	let events = $state<CalEvent[]>([]);
-	let weather = $state<{ current: WeatherCurrent; unit: WeatherUnit } | null>(null);
+	let weather = $state<{ current: WeatherCurrent; days: WeatherDay[] } | null>(null);
 
 	const zone = $derived(isTimeZone(page.data.timeZone) ? page.data.timeZone : defaultTimeZone());
 	const clock = $derived(formatClock(new Date(now), { timeZone: zone }));
 	const show = $derived(overlayVisibility(settings, weather !== null));
 	const next = $derived(show.nextEvent ? pickNextEvent(events, now, zone) : null);
-	const line = $derived(weather ? formatWeatherLine(weather.current, weather.unit) : null);
+	const wx = $derived(
+		weather ? formatOverlayWeather(weather.current, weather.days, now, zone) : null
+	);
 	const nudge = $derived(overlayNudge(now));
 
 	async function getJson(url: string): Promise<unknown> {
@@ -42,13 +44,15 @@
 	async function loadWeather() {
 		const body = (await getJson('/api/weather')) as {
 			enabled?: boolean;
-			snapshot?: { current?: WeatherCurrent; unit?: WeatherUnit };
+			snapshot?: { current?: WeatherCurrent; days?: WeatherDay[] };
 		} | null;
 		// A failed refresh keeps what is showing; only an explicit "off" clears it.
 		if (!body) return;
 		const snap = body.snapshot;
 		weather =
-			body.enabled && snap?.current ? { current: snap.current, unit: snap.unit ?? 'F' } : null;
+			body.enabled && snap?.current
+				? { current: snap.current, days: Array.isArray(snap.days) ? snap.days : [] }
+				: null;
 	}
 
 	async function loadEvents() {
@@ -110,15 +114,25 @@
 					</p>
 				{/if}
 			</div>
-			{#if show.weather && line}
-				<p
-					class="overlay-text flex items-center gap-3 text-lead font-bold whitespace-nowrap"
+			{#if show.weather && wx}
+				<div
+					class="overlay-text flex flex-col items-end gap-2 font-bold whitespace-nowrap"
 					data-testid="overlay-weather"
 				>
-					<span class="text-title leading-none"><WeatherIcon name={line.icon} /></span>
-					<span>{line.temp}</span>
-					<span>{line.label}</span>
-				</p>
+					<p class="flex items-center gap-3 text-lead" data-testid="overlay-weather-now">
+						<span class="text-title leading-none"><WeatherIcon name={wx.current.icon} /></span>
+						<span class="text-title leading-none font-extrabold">{wx.current.temp}</span>
+						<span>Current</span>
+					</p>
+					{#if wx.day}
+						<p class="flex items-center gap-3 text-lead" data-testid="overlay-weather-day">
+							<span class="leading-none"><WeatherIcon name={wx.day.icon} /></span>
+							<span>{wx.day.label}</span>
+							<span class="font-extrabold">{wx.day.high}</span>
+							<span class="font-semibold opacity-80">/ {wx.day.low}</span>
+						</p>
+					{/if}
+				</div>
 			{/if}
 		</div>
 	</div>

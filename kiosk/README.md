@@ -96,6 +96,8 @@ POST {HUB_URL}/api/display/sleep   (the nav "Sleep" button; same body, status 20
 - If `wlr-randr` fails and `CEC_BACKEND` is `cec-ctl` or `cec-client`, it tries HDMI-CEC standby / on instead.
 - Reads the touchscreen straight from `/dev/input/event*` (struct reads, no libraries; the `kiosk` user is in the `input` group), so touch works while the output is off. `TOUCH_DEVICE` overrides detection.
 - Touch while off: grabs the touch device exclusively (`EVIOCGRAB`) while the screen is off and until the waking finger lifts, so Chromium never sees the wake tap (SLP-3); the page also swallows taps for 700 ms after the display comes back (wake guard). Switches on first, then `POST /api/display/wake`. The hub applies the night re-sleep timeout; the next poll turns the screen off again. A touch while on at night re-posts wake (at most every 20 s) to restart the timeout. If the hub is down, the screen stays on for `OFFLINE_WAKE_SECONDS`.
+- `INPUT="mouse"` (a TV driven by a mouse and keyboard): mice (left button) and full keyboards are watched too. A click or a key press wakes the screen like a touch, and the device is grabbed the same way until the button or key is released, so the waking click never reaches Chromium. Moving the mouse does not wake it, so a bumped mouse at night stays dark. The TV's CEC remote, media keys and the power button never wake it.
+- `kioskctl doctor` lists the devices the agent watches (`wake-input`), and fails when there are none.
 - Hub unreachable: the screen is left as it is; polling backs off from 2 s to 30 s.
 - Logs go to journald: `sudo journalctl _UID=$(id -u kiosk) -e | grep display-agent`.
 

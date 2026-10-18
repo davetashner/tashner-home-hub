@@ -10,7 +10,8 @@ const destinations = [
 	['Photos', 'photos'],
 	['Lists', 'lists'],
 	['Meals', 'meals'],
-	['Games', 'games']
+	['Games', 'games'],
+	['Music', 'music']
 ];
 
 async function swipe(page: Page, from: number, to: number) {

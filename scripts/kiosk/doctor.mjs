@@ -47,6 +47,14 @@ echo "=== wlr"; asowner wlr-randr 2>&1
 echo "=== units"; for u in ${KIOSK_UNITS.join(' ')}; do echo "$u $(asowner systemctl --user is-active $u 2>/dev/null || true)"; done
 echo "=== health"; ${health}
 echo
+echo "=== wake"
+sed -n 's/^INPUT="\\{0,1\\}\\([a-z]*\\).*/input \\1/p' /etc/hub-kiosk/kiosk.conf 2>/dev/null
+AP=$(pgrep -f '^/usr/bin/python3 /usr/local/lib/hub-kiosk/hub-kiosk-display-agent' | head -1)
+if [ -n "$AP" ]; then
+  for d in $(sudo -n ls -l /proc/$AP/fd 2>/dev/null | grep -o 'event[0-9]*$' | sort -u); do
+    echo "dev $d $(cat /sys/class/input/$d/device/name 2>/dev/null)"
+  done
+fi
 echo "=== speaker"
 H=$(getent passwd "\${OWNER:-$(id -un)}" | cut -d: -f6)
 SPK=$(sudo -n cat "$H/.local/state/hub-kiosk/speaker" 2>/dev/null | tr -d '[:space:]')
@@ -91,8 +99,19 @@ export function remoteFacts(text) {
 		outputs: parseWlrRandr(s.wlr ?? ''),
 		units,
 		health: s.health && s.health !== 'none' ? s.health : null,
+		...(s.wake === undefined ? {} : { wake: parseWake(s.wake) }),
 		...(s.speaker === undefined ? {} : { speaker: parseSpeaker(s.speaker) })
 	};
+}
+
+/** The `wake` section: kiosk.conf INPUT and the input devices the display agent has open. */
+export function parseWake(text) {
+	const lines = text.split('\n');
+	const input = lines.find((l) => l.startsWith('input '))?.slice(6) || 'touch';
+	const devices = lines
+		.filter((l) => l.startsWith('dev '))
+		.map((l) => l.split(' ').slice(2).join(' ') || l.split(' ')[1]);
+	return { input, devices };
 }
 
 /** The `speaker` section: the chosen speaker's Bluetooth state and whether it is the default sink. */
@@ -238,6 +257,20 @@ export function diagnose(facts) {
 				: fail('server-from-pi', `curl ${code}`, 'the Pi cannot reach the hub server')
 		);
 	}
+
+	const wk = r.wake;
+	if (wk && r.units['hub-kiosk-display-agent.service'] === 'active')
+		out.push(
+			wk.devices.length
+				? pass('wake-input', `${wk.input}: ${[...new Set(wk.devices)].join(', ')}`)
+				: fail(
+						'wake-input',
+						`${wk.input}: no input device watched, nothing at the screen can wake it`,
+						wk.input === 'mouse'
+							? 'plug in the mouse or keyboard; the agent rescans every 10 s'
+							: 'plug in the touch screen, or set INPUT="mouse" in kiosk.conf'
+					)
+		);
 
 	const sp = r.speaker;
 	if (sp) {

@@ -4,8 +4,13 @@
  */
 import { time } from './calendar-view/format.js';
 import { eventDays, type CalEvent } from './calendar-view/layout.js';
-import { addDays, dateKeyOf, dayStartMs } from './calendar-view/zone.js';
-import { describeWeather, unitSymbol, type WeatherCurrent, type WeatherUnit } from './weather.js';
+import { addDays, dateKeyOf, dayStartMs, zonedMs } from './calendar-view/zone.js';
+import {
+	describeWeather,
+	type WeatherCurrent,
+	type WeatherDay,
+	type WeatherIconName
+} from './weather.js';
 
 export const OVERLAY_FIELDS = ['clock', 'date', 'weather', 'nextEvent'] as const;
 export type OverlayField = (typeof OVERLAY_FIELDS)[number];
@@ -106,13 +111,39 @@ export function eventsWindow(now: number, timeZone: string): { start: number; en
 	return { start: now, end: dayStartMs(addDays(dateKeyOf(now, timeZone), 2), timeZone) };
 }
 
-/** "sun 72°F Clear". */
-export function formatWeatherLine(
+export interface OverlayWeather {
+	current: { icon: WeatherIconName; temp: string };
+	/** Today's high and low before noon, tomorrow's from noon; null when that day is missing. */
+	day: { label: 'Today' | 'Tomorrow'; icon: WeatherIconName; high: string; low: string } | null;
+}
+
+const degrees = (n: number) => `${n}°`;
+
+/** Current conditions on top, then today's (midnight to noon) or tomorrow's (noon on) high and low. */
+export function formatOverlayWeather(
 	current: Pick<WeatherCurrent, 'temp' | 'code' | 'isDay'>,
-	unit: WeatherUnit
-) {
-	const c = describeWeather(current.code, current.isDay);
-	return { icon: c.icon, temp: `${current.temp}${unitSymbol(unit)}`, label: c.label };
+	days: readonly Pick<WeatherDay, 'date' | 'code' | 'high' | 'low'>[],
+	now: number,
+	timeZone: string
+): OverlayWeather {
+	const today = dateKeyOf(now, timeZone);
+	const afternoon = now >= zonedMs(today, 12 * 60, timeZone);
+	const key = afternoon ? addDays(today, 1) : today;
+	const d = days.find((x) => x.date === key);
+	return {
+		current: {
+			icon: describeWeather(current.code, current.isDay).icon,
+			temp: degrees(current.temp)
+		},
+		day: d
+			? {
+					label: afternoon ? 'Tomorrow' : 'Today',
+					icon: describeWeather(d.code).icon,
+					high: degrees(d.high),
+					low: degrees(d.low)
+				}
+			: null
+	};
 }
 
 /**
