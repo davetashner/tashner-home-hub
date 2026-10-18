@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { snowsOn, spriteStyle, spritesFor } from '#lib/domain/season-sprites.js';
+	import { navClearance, snowsOn, spriteStyle, spritesFor } from '#lib/domain/season-sprites.js';
 	import type { SeasonState } from '#lib/domain/season.js';
 
 	/** Holiday sprites over the wave (hub-6pv.6.2): transform/opacity only, still when the wave is held. */
@@ -8,10 +8,39 @@
 	// Images exist only while a season with sprites is showing: nothing loads on a plain day.
 	const sprites = $derived(spritesFor(season));
 	const snow = $derived(snowsOn(season));
+
+	// Keep clear of the nav when it's a bar across the screen (hub-6pv.6.8): the phone's tab bar
+	// is taller than any fixed guess, and in landscape it moves to the top.
+	let clear = $state({ top: 0, bottom: 0 });
+	$effect(() => {
+		if (sprites.length === 0) return;
+		const nav = document.querySelector('nav[aria-label="Main"]');
+		const measure = () =>
+			(clear = navClearance(nav?.getBoundingClientRect() ?? null, window.innerHeight));
+		measure();
+		const resized = new ResizeObserver(measure);
+		if (nav) resized.observe(nav);
+		// Hiding the bars for full-screen photos and calendar toggles `inert` on the nav.
+		const toggled = new MutationObserver(measure);
+		if (nav) toggled.observe(nav, { attributes: true, attributeFilter: ['inert', 'class'] });
+		window.addEventListener('resize', measure);
+		return () => {
+			resized.disconnect();
+			toggled.disconnect();
+			window.removeEventListener('resize', measure);
+		};
+	});
 </script>
 
 {#if sprites.length > 0}
-	<div class="layer" class:still data-testid="seasonal-layer" data-season={season.season}>
+	<div
+		class="layer"
+		class:still
+		style:top="{clear.top}px"
+		style:bottom="{clear.bottom}px"
+		data-testid="seasonal-layer"
+		data-season={season.season}
+	>
 		{#if snow}
 			<!-- Two sheets of flakes at different speeds; each slides down one tile and repeats. -->
 			<div class="snow near" data-testid="snow"></div>
@@ -73,13 +102,6 @@
 	.rest {
 		animation-name: rest;
 		transform-origin: 50% 100%;
-	}
-	/* Portrait puts the nav along the bottom: the pumpkins sit just above it. */
-	@media (orientation: portrait) {
-		.rest,
-		.glow {
-			margin-bottom: 9vh;
-		}
 	}
 	.float {
 		animation-name: float;
