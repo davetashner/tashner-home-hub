@@ -159,7 +159,7 @@
 					onclick={expand}
 					aria-label="Show menu"
 					data-testid="nav-handle"
-					class="shell-handle press-link hidden size-tap items-center justify-center rounded-chip border-2 border-line bg-surface-raised/70 text-title text-ink shadow-raised"
+					class="shell-handle press-link hidden size-tap-kid items-center justify-center rounded-chip border-2 border-line bg-surface-raised/70 text-title text-ink shadow-raised"
 				>
 					<Icon name="menu" />
 				</button>
@@ -228,7 +228,7 @@
 			type="button"
 			onclick={collapse}
 			data-testid="nav-collapse"
-			class="shell-collapse press-link mt-auto hidden min-h-tap items-center justify-center gap-3 rounded-chip border-2 border-line bg-surface-raised px-4 text-body text-ink"
+			class="shell-collapse press-link mt-auto hidden min-h-tap-kid items-center justify-center gap-3 rounded-chip border-2 border-line bg-surface-raised px-4 text-body text-ink"
 		>
 			<span class="text-lead"><Icon name="collapse" /></span>
 			<span class="tablet:sr-only">Hide menu</span>

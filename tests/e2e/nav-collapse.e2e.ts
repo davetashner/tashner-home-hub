@@ -18,8 +18,8 @@ test.describe('collapsible nav rail', () => {
 		await expect(page.getByTestId('nav-handle')).toBeVisible();
 		await expect.poll(async () => (await main.boundingBox())!.width).toBeCloseTo(viewport.width, 0);
 		const handle = (await page.getByTestId('nav-handle').boundingBox())!;
-		expect(handle.width).toBeGreaterThanOrEqual(60);
-		expect(handle.height).toBeGreaterThanOrEqual(60);
+		expect(handle.width).toBeGreaterThanOrEqual(96);
+		expect(handle.height).toBeGreaterThanOrEqual(96);
 
 		await page.reload();
 		await page.waitForLoadState('networkidle');
