@@ -11,6 +11,8 @@ export const sitter = $state({
 	card: null as SitterCard | null,
 	/** The session the card belongs to, so a new session never inherits an old card. */
 	cardFor: null as string | null,
+	/** House rules and bedtimes: sent while active, before any PIN. */
+	tonight: null as { rules: string[]; bedtimes: { memberId: string; bedtime: string }[] } | null,
 	now: Date.now(),
 	emergencyOpen: false,
 	approvalsOpen: false,
@@ -21,8 +23,17 @@ export const sitter = $state({
 export const POLL_MS = 15_000;
 export const TICK_MS = 5_000;
 
-function setSession(session: WallSession | null, card: SitterCard | null) {
-	if (session?.id !== sitter.cardFor) {
+let lastId: string | null = null;
+
+function setSession(
+	session: WallSession | null,
+	card: SitterCard | null,
+	tonight: typeof sitter.tonight = sitter.tonight
+) {
+	sitter.tonight = session ? tonight : null;
+	if ((session?.id ?? null) !== lastId) {
+		// A different (or no) session: nothing learned from the last one carries over.
+		lastId = session?.id ?? null;
 		sitter.card = null;
 		sitter.cardFor = null;
 		sitter.pin = null;
@@ -42,8 +53,12 @@ export async function refreshSitter(): Promise<void> {
 	try {
 		const res = await fetch('/api/sitter/current');
 		if (!res.ok) return;
-		const body = (await res.json()) as { session: WallSession | null; card: SitterCard | null };
-		setSession(body.session, body.card);
+		const body = (await res.json()) as {
+			session: WallSession | null;
+			card: SitterCard | null;
+			tonight: typeof sitter.tonight;
+		};
+		setSession(body.session, body.card, body.tonight);
 	} catch {
 		// Offline blip: keep what we have; the clock still ends the session on time.
 	}

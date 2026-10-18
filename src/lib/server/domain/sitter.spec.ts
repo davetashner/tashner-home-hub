@@ -18,6 +18,7 @@ import {
 	sessionLog,
 	submitCheckin,
 	sitterApprover,
+	readTonightInfo,
 	SITTER_CARD_KEY
 } from './sitter.js';
 
@@ -205,5 +206,27 @@ describe('sitterApprover', () => {
 		expect(() => sitterApprover(db, '0000', NOW)).toThrow(/Wrong PIN/);
 		expect(() => sitterApprover(db, undefined, NOW)).toThrow(/Wrong PIN/);
 		expect(() => sitterApprover(db, '4812', NOW + 2 * H)).toThrow(/Wrong PIN/);
+	});
+});
+
+describe('tonight info', () => {
+	it('shows rules and bedtimes without the sensitive parts', () => {
+		expect(readTonightInfo(db)).toEqual({ rules: [], bedtimes: [] });
+		saveCard(db, ring, {
+			contacts: [{ name: 'Grandma', relation: 'Grandmother', phone: '555-0101' }],
+			address: '1 Test Lane',
+			kids: [{ memberId: 'a', bedtime: '19:30', allergies: 'Peanuts', medical: 'Inhaler' }],
+			rules: ['No screens']
+		});
+		const info = readTonightInfo(db);
+		expect(info).toEqual({
+			rules: ['No screens'],
+			bedtimes: [{ memberId: 'a', bedtime: '19:30' }]
+		});
+		expect(JSON.stringify(info)).not.toMatch(/Test Lane|Peanuts|555-0101/);
+	});
+	it('survives a damaged card row', () => {
+		db.insert(settings).values({ key: SITTER_CARD_KEY, value: 'not json' }).run();
+		expect(readTonightInfo(db)).toEqual({ rules: [], bedtimes: [] });
 	});
 });

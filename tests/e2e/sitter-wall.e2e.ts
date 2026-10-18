@@ -240,3 +240,94 @@ test(
 		}
 	}
 );
+
+test(
+	"the wall's home is tonight's plan while a session runs, and goes back when it ends",
+	{ tag: '@J19.9' },
+	async ({ page }, info) => {
+		test.setTimeout(120_000);
+		const release = await holdSitter();
+		const tag = info.project.name.replace(/\W/g, '');
+		const p2 = (n: number) => String(n).padStart(2, '0');
+		const d = new Date();
+		const today = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+		let routineId: string | null = null;
+		try {
+			await signInAsAdult(page, `adult-sitter-wall-${tag}`);
+			const kidName = `Kid C ${Date.now() % 1e9}`;
+			const kid = (await (
+				await page.request.post('/api/members', {
+					data: { name: kidName, role: 'child', color: 'member-4', avatar: '🦊' }
+				})
+			).json()) as { id: string };
+			trackMember(kid.id);
+			expect((await page.request.put('/api/sitter/card', { data: testCard(kid.id) })).ok()).toBe(
+				true
+			);
+			const routine = await page.request.post('/api/routines', {
+				data: {
+					memberId: kid.id,
+					name: `Bath time ${tag}`,
+					windowStart: '18:30',
+					windowEnd: '19:15',
+					steps: [{ label: 'Wash up', icon: 'toothbrush' }]
+				}
+			});
+			routineId = ((await routine.json()) as { id: string }).id;
+			await page.request.put('/api/meals', {
+				data: { date: today, meal: 'dinner', title: `Tacos ${tag}` }
+			});
+			await startSession(page.request, {
+				endAt: Date.now() + 3 * HOUR,
+				sitterName: 'Sam Sitter',
+				funAllowed: true
+			});
+
+			const sitterCtx = await sitterWall(page);
+			const wall = await sitterCtx.newPage();
+			await wall.clock.install({ time: Date.now() });
+			await gotoHydrated(wall, '/');
+
+			await test.step("J19.9 the home shows tonight's plan from real data", async () => {
+				await expect(wall.getByTestId('sitter-title')).toHaveText('Tonight with Sam Sitter');
+				await expect(wall.getByTestId('sitter-back')).toContainText('back around');
+				await expect(wall.getByTestId('emergency-open')).toBeVisible();
+				const items = wall.getByTestId('plan-item');
+				await expect(items.filter({ hasText: `Dinner: Tacos ${tag}` })).toHaveCount(1);
+				await expect(items.filter({ hasText: `Bath time ${tag}` })).toHaveCount(1);
+				await expect(items.filter({ hasText: `${kidName}'s bedtime` })).toHaveCount(1);
+				await expect(items.last()).toContainText('home');
+				await expect(wall.getByTestId('plan-now')).toHaveCount(1);
+				await expect(
+					items.filter({ hasText: `${kidName}'s bedtime` }).getByTestId('plan-when')
+				).toHaveText(/^(in .+|.+ ago|now)$/);
+				await expect(wall.getByTestId('sitter-rules')).toContainText('Lights out at bedtime');
+			});
+
+			await test.step('J19.9 a routine starts from the plan', async () => {
+				await wall
+					.getByTestId('plan-item')
+					.filter({ hasText: `Bath time ${tag}` })
+					.getByTestId('plan-start')
+					.click();
+				await expect(wall.getByTestId('routine-player')).toBeVisible();
+				await wall.getByTestId('routine-close').click();
+			});
+
+			await test.step('J19.9 the session ends by the clock and the normal home returns', async () => {
+				await wall.clock.fastForward(4 * HOUR);
+				await expect(wall.getByTestId('sitter-home')).toHaveCount(0);
+				await expect(wall.getByTestId('emergency-open')).toHaveCount(0);
+			});
+
+			await sitterCtx.close();
+		} finally {
+			const cur = (await (await page.request.get('/api/sitter/current')).json()) as {
+				session: { id: string } | null;
+			};
+			if (cur.session) await endSession(page.request, cur.session.id);
+			if (routineId) await page.request.delete(`/api/routines/${routineId}`);
+			release();
+		}
+	}
+);
