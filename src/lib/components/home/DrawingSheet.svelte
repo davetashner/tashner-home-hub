@@ -3,7 +3,17 @@
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import {
+		ALL_SHAPES,
 		BRUSH_SIZES,
+		SHAPE_LABELS,
+		isShape,
+		placement,
+		shapeParts,
+		shapeWidth,
+		type DrawItem,
+		type PathCmd,
+		type Shape,
+		type ShapeKind,
 		COLOR_GRID,
 		DRAW_COLORS,
 		HIGHLIGHTER_ALPHA,
@@ -55,6 +65,11 @@
 		if (tool === 'eraser') tool = 'pen';
 		picking = false;
 	}
+	const pickShape = (k: ShapeKind | null) => {
+		shapeKind = k;
+		if (k && tool !== 'pen') tool = 'pen';
+		shapePicking = false;
+	};
 	const memberColor = (c: string): MemberColor => (isMemberColor(c) ? c : 'member-1');
 
 	let canvas: HTMLCanvasElement;
@@ -65,12 +80,18 @@
 	let size = $state<BrushSize>('medium');
 	let recent = $state<string[]>([]);
 	let picking = $state(false);
+	let shapePicking = $state(false);
+	/** The shape or stamp the next drag places; null means freehand drawing. */
+	let shapeKind = $state<ShapeKind | null>(null);
+	let filled = $state(false);
 	let count = $state(0); // strokes drawn, for the undo/clear/post enabled state
 	let blank = $state(true);
 	let choosing = $state(false);
 	let dpr = 1;
-	let strokes: Stroke[] = [];
+	let strokes: DrawItem[] = [];
 	let current: Stroke | null = null;
+	let draft: Shape | null = null;
+	let anchor = { x: 0, y: 0 };
 	let activeId = -1;
 	let rect: DOMRect;
 	const guard = createPalmGuard();
@@ -116,8 +137,49 @@
 		ctx.globalAlpha = 1;
 	}
 
-	function paint(s: Stroke) {
-		if (s.tool === 'highlighter') highlight(s);
+	function tracePath(cmds: PathCmd[]) {
+		for (const c of cmds) {
+			if (c[0] === 'M') ctx.moveTo(c[1], c[2]);
+			else if (c[0] === 'L') ctx.lineTo(c[1], c[2]);
+			else if (c[0] === 'C') ctx.bezierCurveTo(c[1], c[2], c[3], c[4], c[5], c[6]);
+			else if (c[0] === 'E') {
+				ctx.moveTo(c[1] + c[3], c[2]);
+				ctx.ellipse(c[1], c[2], Math.max(0, c[3]), Math.max(0, c[4]), 0, 0, Math.PI * 2);
+			} else ctx.closePath();
+		}
+	}
+
+	function paintShape(s: Shape) {
+		ctx.globalCompositeOperation = 'source-over';
+		ctx.globalAlpha = 1;
+		ctx.strokeStyle = ctx.fillStyle = token(s.color);
+		ctx.lineCap = 'round';
+		ctx.lineJoin = 'round';
+		ctx.lineWidth = s.width;
+		for (const part of shapeParts(s)) {
+			ctx.beginPath();
+			tracePath(part.cmds);
+			if (part.kind === 'solid' || (part.kind === 'body' && s.filled)) ctx.fill();
+			if (part.kind !== 'solid') ctx.stroke();
+		}
+	}
+
+	/** SVG path data for a picker preview, so the buttons show the real shape. */
+	function previewPath(kind: ShapeKind): string {
+		const parts = shapeParts({ shape: kind, x0: 6, y0: 6, x1: 38, y1: 38 });
+		return parts
+			.flatMap((p) => p.cmds)
+			.map((c) =>
+				c[0] === 'E'
+					? `M${c[1] - c[3]} ${c[2]}a${c[3]} ${c[4]} 0 1 0 ${2 * c[3]} 0a${c[3]} ${c[4]} 0 1 0 ${-2 * c[3]} 0`
+					: c.join(' ')
+			)
+			.join(' ');
+	}
+
+	function paint(s: DrawItem) {
+		if (isShape(s)) paintShape(s);
+		else if (s.tool === 'highlighter') highlight(s);
 		else for (let i = 0; i < s.points.length; i++) segment(s, i);
 	}
 
@@ -126,6 +188,7 @@
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		for (const s of strokes) paint(s);
 		if (current) paint(current);
+		if (draft) paintShape(draft);
 	}
 
 	function fit() {
@@ -159,13 +222,34 @@
 		}
 		activeId = e.pointerId;
 		rect = canvas.getBoundingClientRect();
+		if (shapeKind) {
+			const p = sample(e);
+			anchor = { x: p.x, y: p.y };
+			draft = makeShape(shapeKind, anchor, anchor);
+			redraw();
+			return;
+		}
 		current = { tool, color, points: [sample(e)] };
 		if (tool === 'highlighter') redraw();
 		else segment(current, 0);
 	}
 
+	function makeShape(
+		kind: ShapeKind,
+		from: { x: number; y: number },
+		to: { x: number; y: number }
+	): Shape {
+		return { shape: kind, color, filled, width: shapeWidth(size), ...placement(kind, from, to) };
+	}
+
 	function move(e: PointerEvent) {
 		guard.see(e.pointerType); // a hovering pen is noticed before it touches
+		if (e.pointerId === activeId && draft && shapeKind) {
+			const p = sample(e);
+			draft = makeShape(shapeKind, anchor, p);
+			redraw();
+			return;
+		}
 		if (e.pointerId !== activeId || !current) return;
 		const events = e.getCoalescedEvents?.() ?? [];
 		for (const c of events.length ? events : [e]) {
@@ -177,6 +261,16 @@
 	}
 
 	function up(e: PointerEvent) {
+		if (e.pointerId === activeId && draft) {
+			activeId = -1;
+			strokes.push(draft);
+			recent = pushRecent(recent, draft.color);
+			draft = null;
+			count = strokes.length;
+			blank = isBlank(strokes);
+			redraw();
+			return;
+		}
 		if (e.pointerId !== activeId || !current) return;
 		activeId = -1;
 		strokes.push(current);
@@ -285,7 +379,57 @@
 				>Back</Button
 			>
 		{:else}
-			{#if picking}
+			{#if shapePicking}
+				<p class="w-full text-body font-extrabold">Shapes and stamps</p>
+				<div class="flex flex-wrap gap-3" role="group" aria-label="Fill">
+					{#each [false, true] as f (f)}
+						<button
+							type="button"
+							class="{btn} {filled === f
+								? 'border-accent bg-accent-soft'
+								: 'border-line bg-surface'}"
+							aria-pressed={filled === f}
+							data-testid="draw-fill"
+							data-filled={f}
+							onclick={() => (filled = f)}>{f ? 'Filled' : 'Outline'}</button
+						>
+					{/each}
+				</div>
+				<div
+					class="flex flex-wrap gap-3"
+					role="group"
+					aria-label="Shapes"
+					data-testid="draw-shapes"
+				>
+					{#each ALL_SHAPES as k (k)}
+						<button
+							type="button"
+							class="{btn} flex-col gap-1 {shapeKind === k
+								? 'border-accent bg-accent-soft'
+								: 'border-line bg-surface'}"
+							aria-label={SHAPE_LABELS[k]}
+							aria-pressed={shapeKind === k}
+							data-testid="draw-shape"
+							data-shape={k}
+							onclick={() => pickShape(k)}
+						>
+							<svg viewBox="0 0 44 44" class="size-tap-kid" aria-hidden="true">
+								<path
+									d={previewPath(k)}
+									fill={filled ? 'currentColor' : 'none'}
+									stroke="currentColor"
+									stroke-width="3"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/>
+							</svg>
+						</button>
+					{/each}
+				</div>
+				<Button variant="ghost" onclick={() => pickShape(null)} data-testid="draw-shape-off"
+					>Back to pen</Button
+				>
+			{:else if picking}
 				<p class="w-full text-body font-extrabold">Pick a color</p>
 				<div
 					class="flex flex-wrap gap-3"
@@ -371,13 +515,24 @@
 				</div>
 				<button
 					type="button"
+					class="{btn} {shapeKind ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+					aria-pressed={shapeKind !== null}
+					data-testid="draw-shapes-open"
+					data-shape={shapeKind ?? ''}
+					onclick={() => (shapePicking = true)}
+					>{shapeKind ? SHAPE_LABELS[shapeKind] : 'Shapes'}</button
+				>
+				<button
+					type="button"
 					class="{btn} {tool === 'highlighter'
 						? 'border-accent bg-accent-soft'
 						: 'border-line bg-surface'}"
 					aria-pressed={tool === 'highlighter'}
 					data-testid="draw-highlighter"
-					onclick={() => (tool = tool === 'highlighter' ? 'pen' : 'highlighter')}
-					>Highlighter</button
+					onclick={() => {
+						shapeKind = null;
+						tool = tool === 'highlighter' ? 'pen' : 'highlighter';
+					}}>Highlighter</button
 				>
 				<button
 					type="button"
@@ -386,7 +541,10 @@
 						: 'border-line bg-surface'}"
 					aria-pressed={tool === 'eraser'}
 					data-testid="draw-eraser"
-					onclick={() => (tool = tool === 'eraser' ? 'pen' : 'eraser')}>Eraser</button
+					onclick={() => {
+						shapeKind = null;
+						tool = tool === 'eraser' ? 'pen' : 'eraser';
+					}}>Eraser</button
 				>
 				<button
 					type="button"
