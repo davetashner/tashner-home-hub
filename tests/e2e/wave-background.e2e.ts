@@ -80,6 +80,28 @@ test('a pinned holiday takes over Auto', async ({ page }) => {
 	await expect(bg).toHaveAttribute('data-palette', /^(dusk|sorbet|night)$/);
 });
 
+// hub-6pv.6.2: holiday pictures ride on the wave layer and never take a tap.
+test('Halloween brings pumpkins, bats and a ghost; a plain day brings none', async ({ page }) => {
+	await page.goto('/?season=halloween');
+	const layer = page.getByTestId('seasonal-layer');
+	await expect(layer).toHaveAttribute('data-season', 'halloween');
+	await expect(layer).toHaveCSS('pointer-events', 'none');
+	for (const id of ['jack-tall', 'jack-round', 'pumpkin', 'ghost', 'bat-1', 'bat-2']) {
+		await expect(layer.locator(`[data-sprite="${id}"]`)).toHaveCount(1);
+	}
+	await expect
+		.poll(() =>
+			layer
+				.locator('[data-sprite="jack-round"] img')
+				.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)
+		)
+		.toBe(true);
+	await page.goto('/?season=none');
+	await expect(page.getByTestId('wave-background')).toHaveAttribute('data-season', 'none');
+	await expect(page.getByTestId('seasonal-layer')).toHaveCount(0);
+	await expect(page.locator('img[src^="/seasons/"]')).toHaveCount(0);
+});
+
 test('this device can hide the waves and remembers it', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wave-device-${info.project.name}`);
 	await page.goto('/settings/background');
