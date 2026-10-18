@@ -280,3 +280,18 @@ export const settings = sqliteTable('settings', {
 		.notNull()
 		.default(sql`(unixepoch('subsec') * 1000)`)
 });
+
+/** Per-device bearer tokens for Apple Shortcuts / Siri (hub-6tr). Only the SHA-256 hash is stored. */
+export const apiTokens = sqliteTable(
+	'api_tokens',
+	{
+		id: id(),
+		name: text('name').notNull(),
+		tokenHash: text('token_hash').notNull(),
+		/** JSON array of scope strings, e.g. ["lists:add"]. */
+		scopes: text('scopes').notNull().default('[]'),
+		createdAt: createdAt(),
+		lastUsedAt: ms('last_used_at')
+	},
+	(t) => [uniqueIndex('api_tokens_hash_idx').on(t.tokenHash)]
+);

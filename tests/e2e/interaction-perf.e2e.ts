@@ -447,6 +447,10 @@ test(
 				? route.fulfill({ json: { intervalSeconds: 10, transition: 'kenburns' } })
 				: route.fallback()
 		);
+		// The frame reshuffles every list; this pins it to the order served.
+		await page.addInitScript(() => {
+			Math.random = () => 0.999;
+		});
 		await signInAsAdult(page, `adult-fade-${info.project.name.replace(/\W/g, '')}`);
 		await page.goto('/photos');
 		const front = page.getByTestId('slideshow').locator('[data-front="true"]');

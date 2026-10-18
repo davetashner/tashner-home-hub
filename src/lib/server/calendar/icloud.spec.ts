@@ -12,6 +12,7 @@ import { getKeyring } from '../keys.js';
 import {
 	IcloudError,
 	REAUTH_MESSAGE,
+	createIcloudEvent,
 	createIcloudProvider,
 	discoverCalendars,
 	fetchIcloudEvents,
@@ -160,6 +161,35 @@ describe('discovery', () => {
 		await expect(
 			probeIcloud(creds, { serverUrl: `${base}/empty-not-used`, timeoutMs: 1 })
 		).rejects.toBeInstanceOf(IcloudError);
+	});
+});
+
+describe('createIcloudEvent', () => {
+	const event = {
+		title: 'Piano, recital',
+		time: {
+			allDay: false as const,
+			startMs: Date.UTC(2026, 9, 20, 21),
+			endMs: Date.UTC(2026, 9, 20, 22)
+		}
+	};
+
+	it('PUTs <uid>.ics into the calendar with the VEVENT body', async () => {
+		const { uid } = await createIcloudEvent(creds, HOME(), event, opts());
+		expect(uid).toMatch(/@hub$/);
+		const put = seen.find((s) => s.startsWith('PUT'))!;
+		expect(put).toContain(`PUT /123/calendars/home/${uid}.ics`);
+		expect(put).toContain('BEGIN:VEVENT');
+		expect(put).toContain('SUMMARY:Piano\\, recital');
+		expect(put).toContain('DTSTART:20261020T210000Z');
+	});
+
+	it('maps a 401 to the re-auth error without leaking credentials', async () => {
+		reject = true;
+		const err = await createIcloudEvent(creds, HOME(), event, opts()).catch((e) => e);
+		expect(err.needsReauth).toBe(true);
+		expect(err.message).toBe(REAUTH_MESSAGE);
+		expect(err.message).not.toContain(PASS);
 	});
 });
 
