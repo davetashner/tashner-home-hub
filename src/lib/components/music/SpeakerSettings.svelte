@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
 	import { onMount } from 'svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
@@ -38,13 +39,8 @@
 		connected: (n) => `Connected to ${n}`
 	};
 
-	async function errorOf(res: Response) {
-		const body = await res.json().catch(() => null);
-		return (body as { message?: string } | null)?.message ?? 'Something went wrong. Try again.';
-	}
-
 	async function refresh() {
-		const res = await fetch('/api/music/speaker');
+		const res = await safeFetch('/api/music/speaker');
 		status = res.ok
 			? await res.json()
 			: { state: 'unreachable', name: null, mac: null, defaultSink: false };
@@ -56,20 +52,20 @@
 		scanning = true;
 		devices = null;
 		error = message = '';
-		const res = await fetch('/api/music/speaker/scan', {
+		const res = await safeFetch('/api/music/speaker/scan', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: '{}'
 		});
 		scanning = false;
 		if (res.ok) devices = await res.json();
-		else error = await errorOf(res);
+		else error = await errorMessage(res);
 	}
 
 	async function use(d: Device) {
 		pairing = d.mac;
 		error = message = '';
-		const res = await fetch('/api/music/speaker/use', {
+		const res = await safeFetch('/api/music/speaker/use', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ mac: d.mac })
@@ -78,20 +74,20 @@
 		if (res.ok) {
 			status = await res.json();
 			devices = null;
-		} else error = await errorOf(res);
+		} else error = await errorMessage(res);
 	}
 
 	async function test() {
 		testing = true;
 		error = message = '';
-		const res = await fetch('/api/music/speaker/test', {
+		const res = await safeFetch('/api/music/speaker/test', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: '{}'
 		});
 		testing = false;
 		if (res.ok) message = 'Played a chime. Did you hear it?';
-		else error = await errorOf(res);
+		else error = await errorMessage(res);
 	}
 </script>
 
