@@ -3,6 +3,7 @@
 	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
+	import GooglePhotosImport from '#lib/components/GooglePhotosImport.svelte';
 	import type { SourceView } from '#lib/server/photo-source/service.js';
 
 	interface Thumb {
@@ -187,6 +188,8 @@
 			</Button>
 		</form>
 	</Card>
+
+	<GooglePhotosImport folders={sources} onimported={refresh} />
 
 	{#each sources as s (s.id)}
 		<Card>
