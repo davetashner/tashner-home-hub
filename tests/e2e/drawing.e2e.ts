@@ -4,12 +4,13 @@ import { ensureHousehold } from './adult';
 import { gotoHydrated } from './hydrated';
 import { expectTappable } from './tap';
 import { trackMember } from './cleanup';
+import { DB_PATH } from './data-dir';
 
 // hub-fkp: the drawing board posts a PNG note. Runs in both wall orientations.
 
 function seedKid(id: string, name: string) {
 	ensureHousehold();
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare(
 		"INSERT OR REPLACE INTO members (id, name, role, color, avatar) VALUES (?, ?, 'child', 'member-3', '🦊')"
@@ -19,7 +20,7 @@ function seedKid(id: string, name: string) {
 }
 
 function wipe(authorId: string) {
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare('DELETE FROM notes WHERE author_id = ?').run(authorId);
 	db.close();
@@ -73,7 +74,9 @@ async function pointerStroke(
 	);
 }
 
-test('draw with a pen, ignore a palm, undo, post, enlarge and dismiss', async ({ page }, info) => {
+test('draw with a pen, ignore a palm, undo, post, enlarge and dismiss @J18.1 @J18.2', async ({
+	page
+}, info) => {
 	const tag = `d${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
 	const kidId = `e2e-draw-kid-${tag}`;
 	const kidName = `Kid ${tag}`;
@@ -159,7 +162,7 @@ test('draw with a pen, ignore a palm, undo, post, enlarge and dismiss', async ({
 	}
 });
 
-test('a finger draws when no pen is around', async ({ page }, info) => {
+test('a finger draws when no pen is around @J18.1', async ({ page }, info) => {
 	const kidId = `e2e-draw-kid2-${info.workerIndex}${info.repeatEachIndex}`;
 	seedKid(kidId, 'Kid Finger');
 	try {
