@@ -96,6 +96,12 @@
 			line: 'Connect Spotify for shower music.'
 		},
 		{
+			href: resolve('/(app)/settings/home-assistant'),
+			emoji: '💡',
+			title: 'Home Assistant',
+			line: 'Lights, switches and scenes on the Home screen.'
+		},
+		{
 			href: resolve('/(app)/settings/siri'),
 			emoji: '🎙️',
 			title: 'Siri and Shortcuts',
