@@ -20,14 +20,19 @@ import {
 
 describe('settings', () => {
 	it('defaults to 30 seconds and a fade', () => {
-		expect(DEFAULT_SLIDESHOW).toEqual({ intervalSeconds: 30, transition: 'fade' });
+		expect(DEFAULT_SLIDESHOW).toEqual({
+			intervalSeconds: 30,
+			transition: 'fade',
+			onThisDay: 'off'
+		});
 		expect(parseSlideshowSettings({})).toEqual(DEFAULT_SLIDESHOW);
 	});
 
 	it('keeps valid values and replaces invalid ones', () => {
 		expect(parseSlideshowSettings({ intervalSeconds: 60, transition: 'kenburns' })).toEqual({
 			intervalSeconds: 60,
-			transition: 'kenburns'
+			transition: 'kenburns',
+			onThisDay: 'off'
 		});
 		expect(parseSlideshowSettings({ intervalSeconds: 31, transition: 'spin' })).toEqual(
 			DEFAULT_SLIDESHOW

@@ -10,10 +10,11 @@ import {
 	parseSlideshowSettings,
 	type SlideshowSettings
 } from '#lib/domain/slideshow.js';
+import { isOnThisDayMode } from '#lib/domain/on-this-day.js';
 import type { RequestHandler } from './$types';
 
 const PREFIX = 'slideshow.';
-const KEYS = ['intervalSeconds', 'transition'].map((f) => PREFIX + f);
+const KEYS = ['intervalSeconds', 'transition', 'onThisDay'].map((f) => PREFIX + f);
 
 function read(): SlideshowSettings {
 	const rows = getDb()
@@ -35,7 +36,7 @@ function read(): SlideshowSettings {
 /** Open to the LAN like the slideshow itself (PHO-3): 30 s fades unless a grown-up changed them. */
 export const GET: RequestHandler = () => json(read());
 
-/** Adult only. Body: { intervalSeconds?, transition? }. */
+/** Adult only. Body: { intervalSeconds?, transition?, onThisDay? }. */
 export const PUT: RequestHandler = async (event) => {
 	requireAdult(event);
 	const body = await readJson(event.request);
@@ -43,8 +44,10 @@ export const PUT: RequestHandler = async (event) => {
 		error(400, `intervalSeconds must be one of ${INTERVAL_STEPS.join(', ')}`);
 	if (body.transition !== undefined && !isTransition(body.transition))
 		error(400, 'transition must be fade or kenburns');
+	if (body.onThisDay !== undefined && !isOnThisDayMode(body.onThisDay))
+		error(400, 'onThisDay must be off, favor or only');
 	const db = getDb();
-	for (const field of ['intervalSeconds', 'transition'] as const) {
+	for (const field of ['intervalSeconds', 'transition', 'onThisDay'] as const) {
 		if (body[field] === undefined) continue;
 		const value = JSON.stringify(body[field]);
 		db.insert(schema.settings)
