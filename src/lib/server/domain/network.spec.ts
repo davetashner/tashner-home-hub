@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPrivateAddress, isRequestAllowed } from './network.js';
+import { isPrivateAddress, isRequestAllowed, isTailscaleAddress } from './network.js';
 
 describe('isPrivateAddress', () => {
 	it.each([
@@ -58,5 +58,38 @@ describe('isRequestAllowed', () => {
 	});
 	it('allows everything when public access is enabled', () => {
 		expect(isRequestAllowed('8.8.8.8', { allowPublic: true })).toBe(true);
+	});
+});
+
+describe('Tailscale CGNAT (100.64.0.0/10)', () => {
+	it.each(['100.64.0.0', '100.100.1.2', '100.127.255.255', '::ffff:100.101.5.5', '[100.80.0.1]'])(
+		'%s is a Tailscale address',
+		(ip) => expect(isTailscaleAddress(ip)).toBe(true)
+	);
+	it.each([
+		'100.63.255.255',
+		'100.128.0.0',
+		'99.64.0.1',
+		'101.64.0.1',
+		'8.8.8.8',
+		'::1',
+		'not-an-ip',
+		'',
+		undefined,
+		null
+	])('%s is not a Tailscale address', (ip) => expect(isTailscaleAddress(ip)).toBe(false));
+	it('is allowed when HUB_ALLOW_TAILSCALE is on', () => {
+		const policy = { allowPublic: false, allowTailscale: true };
+		expect(isRequestAllowed('100.100.1.2', policy)).toBe(true);
+		expect(isRequestAllowed('192.168.1.2', policy)).toBe(true);
+		expect(isRequestAllowed('100.63.255.255', policy)).toBe(false);
+		expect(isRequestAllowed('100.128.0.0', policy)).toBe(false);
+		expect(isRequestAllowed('8.8.8.8', policy)).toBe(false);
+	});
+	it('is blocked when off or unset (default)', () => {
+		expect(isRequestAllowed('100.100.1.2', { allowPublic: false })).toBe(false);
+		expect(isRequestAllowed('100.100.1.2', { allowPublic: false, allowTailscale: false })).toBe(
+			false
+		);
 	});
 });

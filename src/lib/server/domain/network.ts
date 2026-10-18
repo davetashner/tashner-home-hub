@@ -63,8 +63,24 @@ export function isPrivateAddress(raw: string | undefined | null): boolean {
 	return false;
 }
 
+/** Tailscale CGNAT range 100.64.0.0/10 (100.64.0.0 - 100.127.255.255), incl. IPv4-mapped IPv6. */
+export function isTailscaleAddress(raw: string | undefined | null): boolean {
+	if (!raw) return false;
+	let ip = raw.trim();
+	const zone = ip.indexOf('%');
+	if (zone !== -1) ip = ip.slice(0, zone);
+	if (ip.startsWith('[') && ip.endsWith(']')) ip = ip.slice(1, -1);
+	const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
+	if (mapped?.[1]) ip = mapped[1];
+	if (isIP(ip) !== 4) return false;
+	const [a, b] = parseV4(ip) as [number, number];
+	return a === 100 && b >= 64 && b <= 127;
+}
+
 export interface AccessPolicy {
 	allowPublic: boolean;
+	/** Opt-in (HUB_ALLOW_TAILSCALE): also serve Tailscale CGNAT addresses. */
+	allowTailscale?: boolean;
 }
 
 /** Whether a request from `clientAddress` should be served under `policy`. */
@@ -72,5 +88,6 @@ export function isRequestAllowed(
 	clientAddress: string | undefined | null,
 	policy: AccessPolicy
 ): boolean {
-	return policy.allowPublic || isPrivateAddress(clientAddress);
+	if (policy.allowPublic || isPrivateAddress(clientAddress)) return true;
+	return policy.allowTailscale === true && isTailscaleAddress(clientAddress);
 }
