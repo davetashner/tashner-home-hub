@@ -30,8 +30,11 @@ export const STAR_REASONS = [
 	'streak',
 	'redemption',
 	'adjustment',
-	'habits_day'
+	'habits_day',
+	'cashout'
 ] as const;
+/** Allowance ledger entry kinds (REW-7): stars cashed in, money handed over, manual fixes. */
+export const ALLOWANCE_KINDS = ['cashout', 'payout', 'adjustment'] as const;
 
 export const members = sqliteTable('members', {
 	id: id(),
@@ -163,6 +166,29 @@ export const starTransactions = sqliteTable(
 		createdAt: createdAt()
 	},
 	(t) => [index('star_transactions_member_idx').on(t.memberId)]
+);
+
+/**
+ * The allowance ledger (REW-7). `cents` is signed integer money: a cash-out credits, a payout
+ * debits. The balance is NEVER stored; it is the sum of this table.
+ */
+export const allowanceTransactions = sqliteTable(
+	'allowance_transactions',
+	{
+		id: id(),
+		memberId: text('member_id')
+			.notNull()
+			.references(() => members.id, { onDelete: 'cascade' }),
+		cents: integer('cents').notNull(),
+		kind: text('kind', { enum: ALLOWANCE_KINDS }).notNull(),
+		/** Stars spent, for a cash-out. */
+		stars: integer('stars'),
+		/** The star ledger row a cash-out wrote. */
+		refId: text('ref_id'),
+		note: text('note'),
+		createdAt: createdAt()
+	},
+	(t) => [index('allowance_transactions_member_idx').on(t.memberId)]
 );
 
 /**
