@@ -213,3 +213,34 @@ test('Home sensors: values, contacts, stale and unavailable are read-only @J17.5
 	expect(posts).toBe(0);
 	await expect(page.getByTestId('ha-tile')).toHaveCount(0);
 });
+
+test('Home Assistant screen token: shown once, snippet filled in, then revoked @J17.6', async ({
+	page,
+	request
+}) => {
+	await signInAsAdult(page, 'e2e-ha-screen-adult');
+	await gotoHydrated(page, '/settings/home-assistant');
+	const card = page.getByTestId('ha-screen');
+	await expect(card.getByTestId('ha-screen-yaml')).toContainText('<paste the token>');
+	await card.getByTestId('ha-screen-new').click();
+	const secret = (await card.getByTestId('ha-screen-secret').textContent())!.trim();
+	expect(secret.length).toBeGreaterThanOrEqual(43);
+	await expect(card.getByTestId('ha-screen-yaml')).toContainText(`Bearer ${secret}`);
+	expect((await card.getByTestId('ha-screen-copy').boundingBox())!.height).toBeGreaterThanOrEqual(
+		60
+	);
+
+	const call = (auth: string, state: string) =>
+		request.post('/api/display/remote', {
+			headers: { authorization: `Bearer ${auth}` },
+			data: { state }
+		});
+	expect((await call(secret, 'wake')).status()).toBe(200);
+	expect((await (await call(secret, 'sleep')).json()).power).toBe('off');
+	expect((await call(secret, 'wake')).status()).toBe(200);
+
+	const row = card.getByTestId('ha-screen-token').first();
+	await expect(row).toBeVisible();
+	await row.getByTestId('ha-screen-revoke').click();
+	await expect.poll(async () => (await call(secret, 'wake')).status()).toBe(401);
+});

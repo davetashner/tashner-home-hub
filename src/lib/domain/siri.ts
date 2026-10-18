@@ -1,18 +1,22 @@
 /** Siri / Shortcuts helpers (hub-6tr): scopes, loose name matching, spoken replies. Pure, no I/O. */
 
 export const SIRI_SCOPES = ['lists:add', 'chores:create'] as const;
-export type SiriScope = (typeof SIRI_SCOPES)[number];
+/** Granted to Home Assistant tokens only (hub-068); not offered on the Siri page. */
+export const DISPLAY_SCOPE = 'display:power' as const;
+export const TOKEN_SCOPES = [...SIRI_SCOPES, DISPLAY_SCOPE] as const;
+export type SiriScope = (typeof TOKEN_SCOPES)[number];
 
 export const SCOPE_LABELS: Record<SiriScope, string> = {
 	'lists:add': 'Add list items',
-	'chores:create': 'Create Star Jobs'
+	'chores:create': 'Create Star Jobs',
+	'display:power': 'Wake or sleep the screen'
 };
 
 export const TOKEN_NAME_MAX = 40;
 export const SIRI_STARS_MAX = 5;
 
 export function isScope(v: unknown): v is SiriScope {
-	return typeof v === 'string' && (SIRI_SCOPES as readonly string[]).includes(v);
+	return typeof v === 'string' && (TOKEN_SCOPES as readonly string[]).includes(v);
 }
 
 /** Lowercase letters and digits only, minus a leading "the" and a trailing "list(s)", singularized. */
