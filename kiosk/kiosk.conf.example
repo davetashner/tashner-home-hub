@@ -37,6 +37,10 @@ CEC_BACKEND=""
 CEC_DEVICE="/dev/cec0"
 # CEC logical address of the monitor (0 = TV).
 CEC_ADDRESS="0"
+# fallback = CEC only when wlr-randr fails (default). also = a TV that stays on showing "No signal"
+# after HDMI off: also send CEC standby after turning HDMI off, and CEC power-on + Active Source
+# as it comes back. Needs CEC_BACKEND.
+CEC_MODE="fallback"
 # If the hub is unreachable, a touch-woken screen stays on this many seconds.
 OFFLINE_WAKE_SECONDS="120"
 

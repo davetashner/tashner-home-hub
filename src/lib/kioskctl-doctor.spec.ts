@@ -4,6 +4,7 @@ import {
 	parseFlags,
 	parseSpeaker,
 	parseSpotify,
+	parseCec,
 	parseWake,
 	parseWlrRandr,
 	remoteFacts,
@@ -294,6 +295,29 @@ describe('diagnose', () => {
 		expect(check({ input: 'mouse', devices: [] })).toMatchObject({ status: 'fail' });
 		expect(check({ input: 'touch', devices: [] })?.hint).toContain('INPUT="mouse"');
 		expect(check({ input: 'touch', devices: [] }, {})).toBeUndefined(); // the unit check covers it
+	});
+
+	it('warns when CEC_MODE=also cannot reach the TV', () => {
+		const check = (cec?: { device: string; present: boolean; backend: string | null }) =>
+			status(healthy({ remote: remote({ cec }) }), 'cec');
+		expect(check()).toBeUndefined(); // fallback mode: nothing to check
+		expect(check({ device: '/dev/cec0', present: true, backend: 'cec-ctl' })).toMatchObject({
+			status: 'pass'
+		});
+		expect(check({ device: '/dev/cec0', present: false, backend: 'cec-ctl' })).toMatchObject({
+			status: 'warn',
+			detail: expect.stringContaining('/dev/cec0 is missing')
+		});
+		expect(check({ device: '/dev/cec0', present: true, backend: null })).toMatchObject({
+			status: 'warn'
+		});
+		expect(parseCec('device /dev/cec1\npresent no\nbackend cec-ctl')).toEqual({
+			device: '/dev/cec1',
+			present: false,
+			backend: 'cec-ctl'
+		});
+		expect(remoteFacts('=== cec\ndevice /dev/cec0\npresent yes\n=== end').cec?.present).toBe(true);
+		expect(remoteFacts('=== end').cec).toBeUndefined();
 	});
 
 	it('warns when this browser is not a wall display', () => {
