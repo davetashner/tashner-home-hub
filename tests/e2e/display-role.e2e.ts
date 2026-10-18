@@ -71,18 +71,23 @@ test('Settings > Screen switches this device between personal and wall', async (
 	);
 
 	const saved = page.waitForResponse((r) => r.url().endsWith('/api/display/role'));
+	// The page re-runs its loads after the save (invalidateAll); reloading mid-flight interrupts the frame.
+	const refreshed = page.waitForResponse((r) => r.url().includes('__data.json'));
 	await group.getByRole('button', { name: 'Wall display' }).click();
 	await expect(group.getByRole('button', { name: 'Wall display' })).toHaveAttribute(
 		'aria-pressed',
 		'true'
 	);
 	expect((await saved).ok()).toBe(true);
+	await refreshed;
 	await page.reload();
 	await expect(group.getByRole('button', { name: 'Wall display' })).toHaveAttribute(
 		'aria-pressed',
 		'true'
 	);
 
+	// A tap before the reloaded page hydrates is lost, so wait for it to settle first.
+	await page.waitForLoadState('networkidle');
 	await group.getByRole('button', { name: 'Personal' }).click();
 	await expect(group.getByRole('button', { name: 'Personal' })).toHaveAttribute(
 		'aria-pressed',
