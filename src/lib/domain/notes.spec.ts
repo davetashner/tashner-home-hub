@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	NOTE_IMAGE_MAX_BYTES,
 	NOTE_MAX,
 	cleanNoteBody,
 	compareNotes,
@@ -7,6 +8,7 @@ import {
 	isExpired,
 	isNoteColor,
 	isUntil,
+	parseNoteImage,
 	startOfDay,
 	untilLabel,
 	visibleNotes
@@ -85,5 +87,30 @@ describe('untilLabel', () => {
 		expect(untilLabel(Date.parse('2027-03-11T00:00:00Z'), now, 'UTC')).toBe('Until tonight');
 		expect(untilLabel(Date.parse('2027-03-12T00:00:00Z'), now, 'UTC')).toBe('Until Thu');
 		expect(untilLabel(Date.parse('2027-03-17T00:00:00Z'), now, 'UTC')).toBe('Until Tue');
+	});
+});
+
+describe('note images', () => {
+	const PNG =
+		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+	it('decodes a small PNG data URL', () => {
+		const bytes = parseNoteImage(PNG);
+		expect(bytes?.length).toBeGreaterThan(8);
+		expect(bytes?.[1]).toBe(0x50);
+	});
+	it('rejects anything else', () => {
+		expect(parseNoteImage(undefined)).toBeNull();
+		expect(parseNoteImage('data:image/jpeg;base64,AAAA')).toBeNull();
+		expect(parseNoteImage('data:image/png;base64,not base64!')).toBeNull();
+		expect(parseNoteImage('data:image/png;base64,AAA')).toBeNull(); // bad padding
+		expect(parseNoteImage('data:image/png;base64,AAAAAAAAAAAA')).toBeNull(); // not a PNG
+		expect(parseNoteImage('data:image/png;base64,AAAA')).toBeNull(); // too short
+	});
+	it('rejects an image over the limit', () => {
+		const big = 'data:image/png;base64,' + 'A'.repeat(((NOTE_IMAGE_MAX_BYTES + 100) * 4) / 3);
+		expect(parseNoteImage(big)).toBeNull();
+		const bits = Buffer.alloc(NOTE_IMAGE_MAX_BYTES + 3);
+		bits.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+		expect(parseNoteImage('data:image/png;base64,' + bits.toString('base64'))).toBeNull();
 	});
 });

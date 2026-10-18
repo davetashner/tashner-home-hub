@@ -1,5 +1,5 @@
 /** Sticky-note storage (requirements MSG-1). Ordering and expiry maths: `#lib/domain/notes.js`. */
-import { and, eq, isNotNull, lte } from 'drizzle-orm';
+import { and, eq, isNotNull, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import {
 	DEFAULT_NOTE_COLOR,
@@ -7,6 +7,7 @@ import {
 	expiryFor,
 	isNoteColor,
 	isUntil,
+	parseNoteImage,
 	visibleNotes,
 	NOTE_MAX
 } from '#lib/domain/notes.js';
@@ -27,6 +28,8 @@ export interface NoteView {
 	authorName: string;
 	authorColor: string;
 	authorAvatar: string | null;
+	/** URL of the drawing, or null for a text note. */
+	imageUrl: string | null;
 }
 
 export interface NoteInput {
@@ -35,12 +38,14 @@ export interface NoteInput {
 	color?: unknown;
 	/** 'today' | 'tomorrow' | 'week'; absent or null keeps the note until dismissed. */
 	until?: unknown;
+	/** Optional drawing: a `data:image/png;base64,` URL of at most NOTE_IMAGE_MAX_BYTES. */
+	image?: unknown;
 }
 
 const invalid = (msg: string) => new LedgerError('invalid', msg);
 
-const view = (db: Db, id: string): NoteView | undefined =>
-	db
+const view = (db: Db, id: string): NoteView | undefined => {
+	const row = db
 		.select({
 			id: notes.id,
 			body: notes.body,
@@ -51,16 +56,35 @@ const view = (db: Db, id: string): NoteView | undefined =>
 			authorId: notes.authorId,
 			authorName: members.name,
 			authorColor: members.color,
-			authorAvatar: members.avatar
+			authorAvatar: members.avatar,
+			hasImage: sql<number>`${notes.image} is not null`
 		})
 		.from(notes)
 		.innerJoin(members, eq(members.id, notes.authorId))
 		.where(eq(notes.id, id))
 		.get();
+	if (!row) return undefined;
+	const { hasImage, ...rest } = row;
+	// The timestamp busts the browser cache if an id were ever reused.
+	return { ...rest, imageUrl: hasImage ? `/api/notes/${id}/image?v=${row.createdAt}` : null };
+};
+
+/** The drawing's PNG bytes, or null when the note is gone or has none. */
+export function noteImage(db: Db, id: string): Buffer | null {
+	return db.select({ image: notes.image }).from(notes).where(eq(notes.id, id)).get()?.image ?? null;
+}
 
 /** Posts a note. Open to every member, children included: no PIN. */
 export function createNote(db: Db, input: NoteInput, now = Date.now()): NoteView {
-	const body = cleanNoteBody(input.body);
+	const hasImage = input.image !== undefined && input.image !== null;
+	const image = hasImage ? parseNoteImage(input.image) : null;
+	if (hasImage && image === null) throw invalid('image must be a small PNG data URL');
+	// A drawing may stand alone; a caption is optional then.
+	const caption =
+		image !== null && (input.body === undefined || input.body === null || input.body === '')
+			? ''
+			: null;
+	const body = caption ?? cleanNoteBody(input.body);
 	if (body === null) throw invalid(`note must be 1-${NOTE_MAX} characters`);
 	if (typeof input.authorId !== 'string') throw invalid('authorId is required');
 	if (!db.select().from(members).where(eq(members.id, input.authorId)).get())
@@ -78,7 +102,8 @@ export function createNote(db: Db, input: NoteInput, now = Date.now()): NoteView
 			body,
 			color,
 			createdAt: now,
-			expiresAt: expiryFor(untilRaw, now, householdTimeZone(db))
+			expiresAt: expiryFor(untilRaw, now, householdTimeZone(db)),
+			image: image === null ? null : Buffer.from(image)
 		})
 		.run();
 	publish('notes', { kind: 'note', noteId: id });

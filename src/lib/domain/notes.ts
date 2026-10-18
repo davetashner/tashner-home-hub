@@ -26,6 +26,23 @@ export const isUntil = (v: unknown): v is Until =>
 /** Whole days an `until` choice keeps a note: through the end of today, tomorrow, or 7 days on. */
 const UNTIL_DAYS: Record<Until, number> = { today: 1, tomorrow: 2, week: 7 };
 
+/** A drawing posted as a note: a PNG data URL. Kept under the 512 KB request limit once base64'd. */
+export const NOTE_IMAGE_MAX_BYTES = 300_000;
+const PNG_URL = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/;
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+/** The bytes of a small PNG data URL, or null when it is anything else. */
+export function parseNoteImage(v: unknown): Uint8Array | null {
+	if (typeof v !== 'string' || v.length > Math.ceil((NOTE_IMAGE_MAX_BYTES * 4) / 3) + 8)
+		return null;
+	const m = PNG_URL.exec(v);
+	if (!m || m[1].length % 4 !== 0) return null;
+	const bin = atob(m[1]);
+	if (bin.length > NOTE_IMAGE_MAX_BYTES || bin.length <= PNG_SIGNATURE.length) return null;
+	const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+	return PNG_SIGNATURE.every((b, i) => bytes[i] === b) ? bytes : null;
+}
+
 export interface NoteLike {
 	id: string;
 	pinned: boolean;
