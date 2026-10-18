@@ -1,4 +1,4 @@
-import { activeRoutines, type KidRoutine } from '#lib/domain/routines.js';
+import { activeRoutines, parseMinutes, type KidRoutine } from '#lib/domain/routines.js';
 
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'anytime';
 export type Status = 'none' | 'pending' | 'approved' | 'rejected' | 'undone';
@@ -181,4 +181,62 @@ export function habitCount(habits: KidChore[], routines: KidRoutine[]): Count {
 		done: habits.filter(isChecked).length + real.filter((r) => r.done >= r.steps.length).length,
 		total: habits.length + real.length
 	};
+}
+
+/** The three parts of the kid's day, side by side on the To-Dos board (hub-3yg). */
+export type ColumnKey = 'morning' | 'afternoon' | 'evening';
+
+export const COLUMN_HEADINGS: Record<ColumnKey, string> = {
+	morning: 'Morning',
+	afternoon: 'After school',
+	evening: 'Tonight'
+};
+
+const COLUMN_ORDER: ColumnKey[] = ['morning', 'afternoon', 'evening'];
+const NOON = 12 * 60;
+const EVENING_START = 17 * 60;
+
+/** Which part of the day a clock time (minutes since midnight) falls in. */
+export function columnAt(minutes: number): ColumnKey {
+	if (minutes < NOON) return 'morning';
+	return minutes < EVENING_START ? 'afternoon' : 'evening';
+}
+
+/** A routine sits in the column its window opens in; with no window it follows the clock. */
+export function routineColumn(routine: KidRoutine, nowMinutes: number): ColumnKey {
+	const start = parseMinutes(routine.windowStart);
+	return columnAt(start ?? nowMinutes);
+}
+
+export interface TimeColumn {
+	key: ColumnKey;
+	label: string;
+	/** The part of the day it is right now. */
+	now: boolean;
+	routines: KidRoutine[];
+	chores: KidChore[];
+	/** Any-day to-dos still open this week: shown in the Now column, after the rest. */
+	weekly: KidChore[];
+}
+
+/**
+ * Lays a board out in time columns. Star Jobs and habits share one list per column; to-dos with no
+ * time of day ("anytime") and any-day to-dos follow the clock into the Now column.
+ */
+export function timeColumns(
+	groups: KidGroup[],
+	routines: KidRoutine[],
+	nowMinutes: number
+): TimeColumn[] {
+	const now = columnAt(nowMinutes);
+	const pick = (key: KidGroupKey) =>
+		groups.filter((g) => g.timeOfDay === key).flatMap((g) => g.chores);
+	return COLUMN_ORDER.map((key) => ({
+		key,
+		label: COLUMN_HEADINGS[key],
+		now: key === now,
+		routines: routines.filter((r) => routineColumn(r, nowMinutes) === key),
+		chores: [...pick(key), ...(key === now ? pick('anytime') : [])],
+		weekly: key === now ? pick('week') : []
+	}));
 }

@@ -4,9 +4,9 @@
 
 <p
 	data-testid="streak-badge"
-	class="flex min-h-tap-kid items-center gap-4 rounded-card bg-star-soft px-8 py-4 text-lead leading-tight font-extrabold short:col-start-3 short:min-h-tap short:gap-2 short:px-3 short:py-1 short:text-body"
+	class="flex items-center gap-3 rounded-card bg-star-soft px-4 py-1 text-body leading-tight font-extrabold short:gap-2 short:px-2 short:text-caption"
 >
-	<span aria-hidden="true" class="text-title leading-none">🔥</span>
+	<span aria-hidden="true" class="text-lead leading-none short:text-body">🔥</span>
 	<span>
 		{days}-day habit streak
 		{#if nextDays !== null}

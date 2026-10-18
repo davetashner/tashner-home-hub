@@ -14,6 +14,9 @@ import {
 	isHabit,
 	doneCount,
 	habitCount,
+	columnAt,
+	routineColumn,
+	timeColumns,
 	type KidChore,
 	type KidGroup
 } from './kid-chores.js';
@@ -175,5 +178,54 @@ describe('flexNote', () => {
 		expect(flexNote({ dueBy: '2026-03-15', week: 2, weeks: 2 })).toBe(
 			'Week 2 of 2 · due by Sunday'
 		);
+	});
+});
+
+describe('time columns (hub-3yg)', () => {
+	const chore = (id: string, kind?: 'habit') =>
+		({ id, title: id, icon: null, stars: 1, status: 'none', completionId: null, kind }) as KidChore;
+	const routine = (windowStart: string | null): KidRoutine => ({
+		id: 'r',
+		name: 'Routine',
+		windowStart,
+		windowEnd: windowStart && '23:00',
+		steps: [{ label: 'x', icon: 'star' }],
+		done: 0
+	});
+
+	it('splits the day into morning, after school and tonight', () => {
+		expect(columnAt(0)).toBe('morning');
+		expect(columnAt(11 * 60 + 59)).toBe('morning');
+		expect(columnAt(12 * 60)).toBe('afternoon');
+		expect(columnAt(16 * 60 + 59)).toBe('afternoon');
+		expect(columnAt(17 * 60)).toBe('evening');
+		expect(columnAt(23 * 60 + 59)).toBe('evening');
+	});
+
+	it('puts a routine where its window opens, or where the clock is', () => {
+		expect(routineColumn(routine('07:00'), 20 * 60)).toBe('morning');
+		expect(routineColumn(routine('18:30'), 8 * 60)).toBe('evening');
+		expect(routineColumn(routine(null), 13 * 60)).toBe('afternoon');
+	});
+
+	it('shares one list per column and sends anytime and any-day to-dos to Now', () => {
+		const board: KidGroup[] = [
+			{ timeOfDay: 'morning', chores: [chore('job'), chore('habit', 'habit')] },
+			{ timeOfDay: 'evening', chores: [chore('late')] },
+			{ timeOfDay: 'anytime', chores: [chore('free')] },
+			{ timeOfDay: 'week', chores: [chore('room')] }
+		];
+		const cols = timeColumns(board, [routine('07:00')], 13 * 60);
+		expect(cols.map((c) => [c.key, c.label, c.now])).toEqual([
+			['morning', 'Morning', false],
+			['afternoon', 'After school', true],
+			['evening', 'Tonight', false]
+		]);
+		expect(cols[0].chores.map((c) => c.id)).toEqual(['job', 'habit']);
+		expect(cols[0].routines).toHaveLength(1);
+		expect(cols[1].chores.map((c) => c.id)).toEqual(['free']);
+		expect(cols[1].weekly.map((c) => c.id)).toEqual(['room']);
+		expect(cols[2].chores.map((c) => c.id)).toEqual(['late']);
+		expect(cols[2].weekly).toEqual([]);
 	});
 });
