@@ -45,14 +45,15 @@ export const EXPORT_TABLES = [
  * App tables deliberately left out of exports: `events` is a calendar sync cache, and
  * `notes` are short-lived sticky notes, and `routine_progress` is per-day state that resets itself each morning,, `api_tokens` are
  * device credentials that stay on this server (re-create them after a restore), and `sitter_sessions`
- * are one-evening handovers with PIN hashes.
+ * (and their `sitter_checkins`) are one-evening handovers with PIN hashes.
  */
 export const EXCLUDED_TABLES = [
 	'events',
 	'routine_progress',
 	'api_tokens',
 	'notes',
-	'sitter_sessions'
+	'sitter_sessions',
+	'sitter_checkins'
 ] as const;
 
 /** Settings keys that stay local to this server: kept on import, never exported. */

@@ -2,6 +2,7 @@
 import { asc, desc, eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import {
+	decideCheckin,
 	emptyCard,
 	extendedEnd,
 	joinCard,
@@ -12,13 +13,15 @@ import {
 	splitCard,
 	validateSitterPin,
 	validateWindow,
+	type Checkin,
+	type CheckinKind,
 	type PlainCard,
 	type SensitiveCard,
 	type SessionStatus,
 	type SitterCard
 } from '#lib/domain/sitter.js';
 import type { Db } from '../db/index.js';
-import { settings, sitterSessions } from '../db/schema.js';
+import { settings, sitterCheckins, sitterSessions } from '../db/schema.js';
 import { LedgerError } from './ledger.js';
 import { hashPin, verifyPin } from './pin.js';
 import { decryptSecret, encryptSecret, type Keyring } from './secrets.js';
@@ -119,6 +122,8 @@ export function createSession(db: Db, input: NewSession, now: number): SitterSes
 		pinHash,
 		...window.value,
 		endedAt: null,
+		startNotifiedAt: null,
+		endNotifiedAt: null,
 		approveJobs: input.approveJobs === true,
 		funAllowed: input.funAllowed !== false,
 		createdAt: now
@@ -137,7 +142,11 @@ function load(db: Db, id: string): Row {
 export function endSession(db: Db, id: string, now: number): SitterSessionView {
 	const row = load(db, id);
 	if (sessionStatus(row, now) === 'ended') return toView(row, now);
-	db.update(sitterSessions).set({ endedAt: now }).where(eq(sitterSessions.id, id)).run();
+	// A parent ending it knows already: nothing to announce.
+	db.update(sitterSessions)
+		.set({ endedAt: now, endNotifiedAt: now, startNotifiedAt: row.startNotifiedAt ?? now })
+		.where(eq(sitterSessions.id, id))
+		.run();
 	return toView({ ...row, endedAt: now }, now);
 }
 
@@ -177,4 +186,29 @@ export function checkSitterPin(db: Db, pin: unknown, now: number): SitterSession
 	if (!row || typeof pin !== 'string') return null;
 	const usable = pinUsable({ ...row, hasPin: row.pinHash !== null }, now);
 	return usable && verifyPin(pin, row.pinHash) ? toView(row, now) : null;
+}
+
+export function listCheckins(db: Db, sessionId: string): Checkin[] {
+	return db
+		.select({ kind: sitterCheckins.kind, at: sitterCheckins.at })
+		.from(sitterCheckins)
+		.where(eq(sitterCheckins.sessionId, sessionId))
+		.orderBy(asc(sitterCheckins.at))
+		.all() as Checkin[];
+}
+
+export type CheckinOutcome =
+	| { ok: true; at: number; kind: CheckinKind; sitterName: string | null }
+	| { ok: false; status: 400 | 409 | 429; message: string; retryAfterMs?: number };
+
+/** Stores a sitter's check-in on the active session, if the rules allow it. */
+export function submitCheckin(db: Db, kind: unknown, now: number): CheckinOutcome {
+	const row = currentSession(db, now);
+	const history = row ? listCheckins(db, row.id) : [];
+	const decision = decideCheckin(row, kind, history, now);
+	if (!decision.ok) return decision;
+	db.insert(sitterCheckins)
+		.values({ id: randomUUID(), sessionId: row!.id, kind: decision.kind, at: now })
+		.run();
+	return { ok: true, at: now, kind: decision.kind, sitterName: row!.sitterName };
 }

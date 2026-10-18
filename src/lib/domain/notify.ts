@@ -1,7 +1,7 @@
 // Parent push notifications (ADM-6, REW-3): pure rules. The HTTP call is in #lib/server/notify.js.
 
 export const DEFAULT_NTFY_SERVER = 'https://ntfy.sh';
-export const EVENT_KEYS = ['approval', 'goal', 'redeemed', 'streak'] as const;
+export const EVENT_KEYS = ['approval', 'goal', 'redeemed', 'streak', 'sitter'] as const;
 export type EventKey = (typeof EVENT_KEYS)[number];
 
 export interface NotifyConfig {
@@ -17,7 +17,7 @@ export const DEFAULT_NOTIFY: NotifyConfig = {
 	serverUrl: DEFAULT_NTFY_SERVER,
 	topic: '',
 	baseUrl: '',
-	events: { approval: true, goal: true, redeemed: true, streak: true }
+	events: { approval: true, goal: true, redeemed: true, streak: true, sitter: true }
 };
 
 export interface NtfyMessage {
@@ -119,6 +119,45 @@ export const streakMessage = (name: string, days: number, stars: number): NtfyMe
 		`${name} hit a ${days}-day streak and earned ${stars} ${stars === 1 ? 'star' : 'stars'}`,
 		3,
 		['fire']
+	);
+
+const SITTER_PATH = '/settings/sitter-mode';
+const sitterLabel = (name: string | null) => (name ? name : 'the sitter');
+
+export function sitterCheckinMessage(
+	kind: 'in-bed' | 'all-good' | 'call-me',
+	name: string | null
+): NtfyMessage {
+	const from = name ? ` (from ${name})` : '';
+	if (kind === 'in-bed')
+		return note('Sitter check-in', `Kids are in bed${from}`, 3, ['bed'], SITTER_PATH);
+	if (kind === 'all-good')
+		return note('Sitter check-in', `All good at home${from}`, 3, ['white_check_mark'], SITTER_PATH);
+	return note(
+		'Sitter needs you',
+		`Please call the sitter${from}`,
+		4,
+		['telephone_receiver'],
+		SITTER_PATH
+	);
+}
+
+export const sitterStartMessage = (name: string | null): NtfyMessage =>
+	note(
+		'Sitter session started',
+		`${sitterLabel(name)} is now in charge of the wall`,
+		3,
+		['house'],
+		SITTER_PATH
+	);
+
+export const sitterEndMessage = (name: string | null): NtfyMessage =>
+	note(
+		'Sitter session ended',
+		`${sitterLabel(name)}'s session ended on its own`,
+		3,
+		['wave'],
+		SITTER_PATH
 	);
 
 export const testMessage = (): NtfyMessage =>

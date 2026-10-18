@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
+import { sessionStatus, type CheckinKind } from '#lib/domain/sitter.js';
 import { getDb, type Db } from './db/index.js';
-import { goals, members, rewards, settings } from './db/schema.js';
+import { goals, members, rewards, settings, sitterSessions } from './db/schema.js';
 import { decryptSecret, encryptSecret, type Keyring } from './domain/secrets.js';
 import { pendingApprovals } from './domain/ledger.js';
 import type { Milestone } from '#lib/domain/streaks.js';
@@ -12,6 +13,9 @@ import {
 	decideGoalNotices,
 	goalMessage,
 	redeemedMessage,
+	sitterCheckinMessage,
+	sitterEndMessage,
+	sitterStartMessage,
 	streakMessage,
 	parseNotifyConfig,
 	shouldSend,
@@ -183,4 +187,38 @@ export function notifyStreakMilestones(db: Db, memberId: string, paid: Milestone
 			const m = db.select().from(members).where(eq(members.id, memberId)).get();
 			return m ? streakMessage(m.name, p.days, p.stars) : null;
 		});
+}
+
+/** Call after a sitter's check-in has been stored. */
+export function notifySitterCheckin(db: Db, sitterName: string | null, kind: CheckinKind): void {
+	dispatch(db, 'sitter', () => sitterCheckinMessage(kind, sitterName));
+}
+
+/**
+ * Tells the parents when a sitter session began and when it ended on its own. Safe to run often:
+ * each notice is recorded on the session, so it goes out once. A parent ending a session early
+ * records it as told (see endSession), so only the clock running out is announced.
+ */
+export function sweepSitterNotices(db: Db = getDb(), now = Date.now()): void {
+	try {
+		for (const s of db.select().from(sitterSessions).all()) {
+			const status = sessionStatus(s, now);
+			if (s.startNotifiedAt === null && status !== 'scheduled') {
+				db.update(sitterSessions)
+					.set({ startNotifiedAt: now })
+					.where(eq(sitterSessions.id, s.id))
+					.run();
+				if (status === 'active') dispatch(db, 'sitter', () => sitterStartMessage(s.sitterName));
+			}
+			if (s.endNotifiedAt === null && status === 'ended') {
+				db.update(sitterSessions)
+					.set({ endNotifiedAt: now, startNotifiedAt: s.startNotifiedAt ?? now })
+					.where(eq(sitterSessions.id, s.id))
+					.run();
+				if (s.endedAt === null) dispatch(db, 'sitter', () => sitterEndMessage(s.sitterName));
+			}
+		}
+	} catch {
+		// notifications must never break the request that triggered them
+	}
 }

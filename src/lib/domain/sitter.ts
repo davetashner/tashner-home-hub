@@ -101,6 +101,47 @@ export function validateSitterPin(pin: unknown): Result<string> {
 	return { ok: true, value: pin };
 }
 
+// ---- Check-ins ----
+
+export const CHECKIN_KINDS = ['in-bed', 'all-good', 'call-me'] as const;
+export type CheckinKind = (typeof CHECKIN_KINDS)[number];
+/** The same button can be tapped again after this long. */
+export const CHECKIN_INTERVAL_MS = 60_000;
+
+export interface Checkin {
+	kind: CheckinKind;
+	at: number;
+}
+
+export const isCheckinKind = (v: unknown): v is CheckinKind =>
+	typeof v === 'string' && (CHECKIN_KINDS as readonly string[]).includes(v);
+
+/** Milliseconds until `kind` may be sent again; 0 when it may be sent now. */
+export function checkinWaitMs(history: Checkin[], kind: CheckinKind, now: number): number {
+	const last = history.reduce((m, c) => (c.kind === kind && c.at > m ? c.at : m), -Infinity);
+	return Math.max(0, last + CHECKIN_INTERVAL_MS - now);
+}
+
+export type CheckinDecision =
+	| { ok: true; kind: CheckinKind }
+	| { ok: false; status: 400 | 409 | 429; message: string; retryAfterMs?: number };
+
+/** Check-ins need a known kind and an active session, at most one per kind per minute. */
+export function decideCheckin(
+	session: SessionTimes | null,
+	kind: unknown,
+	history: Checkin[],
+	now: number
+): CheckinDecision {
+	if (!isCheckinKind(kind)) return { ok: false, status: 400, message: 'Unknown check-in.' };
+	if (!session || sessionStatus(session, now) !== 'active')
+		return { ok: false, status: 409, message: 'There is no active sitter session.' };
+	const wait = checkinWaitMs(history, kind, now);
+	if (wait > 0)
+		return { ok: false, status: 429, message: 'Already sent. Try again soon.', retryAfterMs: wait };
+	return { ok: true, kind };
+}
+
 // ---- The info card ----
 
 export interface Contact {
