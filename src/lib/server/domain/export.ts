@@ -61,7 +61,10 @@ export const LOCAL_SETTING_PREFIXES = [
  * Settings rows holding secrets encrypted with this server's key: dropped from exports (and from
  * imported files) and kept on import, like local settings. Each is listed under `reconnect`.
  */
-export const SECRET_SETTING_KEYS = [{ key: 'notify.token', label: 'Notifications' }] as const;
+export const SECRET_SETTING_KEYS = [
+	{ key: 'notify.token', label: 'Notifications' },
+	{ key: 'sitter.card', label: 'Sitter mode info card' }
+] as const;
 
 /** Columns blanked on export, per table. */
 const SECRET_COLUMNS: Record<string, string[]> = {
