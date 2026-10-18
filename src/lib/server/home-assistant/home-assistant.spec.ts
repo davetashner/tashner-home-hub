@@ -194,6 +194,16 @@ describe('activate', () => {
 		]);
 		expect(s.calls[0]!.init.body).toBe(JSON.stringify({ entity_id: 'light.kitchen' }));
 	});
+	it('refuses a picked sensor: sensors are read-only', async () => {
+		ha.saveTiles([{ entityId: 'sensor.hall', name: '' }], { db });
+		const s = stub();
+		await expect(ha.activate('sensor.hall', { db, keyring, fetch: s.fetch })).rejects.toMatchObject(
+			{
+				kind: 'invalid'
+			}
+		);
+		expect(s.calls).toHaveLength(0);
+	});
 	it('refuses anything that is not a picked tile', async () => {
 		const s = stub();
 		for (const bad of ['light.other', 'lock.front', 5, undefined])
@@ -201,5 +211,37 @@ describe('activate', () => {
 				kind: 'invalid'
 			});
 		expect(s.calls).toHaveLength(0);
+	});
+});
+
+describe('sensor tiles', () => {
+	it('returns readings for picked sensors and contacts', async () => {
+		connect();
+		ha.saveTiles(
+			[
+				{ entityId: 'sensor.hall', name: '' },
+				{ entityId: 'binary_sensor.door', name: 'Back door' }
+			],
+			{ db }
+		);
+		const s = stub(200, [
+			{
+				entity_id: 'sensor.hall',
+				state: '19.26',
+				last_updated: new Date().toISOString(),
+				attributes: { device_class: 'temperature', unit_of_measurement: '°C' }
+			},
+			{ entity_id: 'binary_sensor.door', state: 'on', attributes: { device_class: 'door' } }
+		]);
+		const r = await ha.readTiles({ db, keyring, fetch: s.fetch });
+		expect(r).toMatchObject({
+			reachable: true,
+			tiles: [
+				{ kind: 'sensor', reading: '19.3 °C', stale: false },
+				{ kind: 'contact', name: 'Back door', reading: 'Open', open: true }
+			]
+		});
+		expect(JSON.stringify(r)).not.toContain('token');
+		expect(s.calls.every((c) => c.init.method === 'GET')).toBe(true);
 	});
 });

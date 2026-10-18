@@ -9,9 +9,12 @@ test.beforeAll(ensureHousehold);
 interface Tile {
 	entityId: string;
 	name: string;
-	kind: 'toggle' | 'scene';
+	kind: 'toggle' | 'scene' | 'sensor' | 'contact';
 	on: boolean | null;
 	unavailable: boolean;
+	reading?: string | null;
+	open?: boolean | null;
+	stale?: boolean;
 }
 const tiles = (): Tile[] => [
 	{
@@ -143,4 +146,70 @@ test('Settings: connect, test, pick, rename and reorder @J17.4', async ({ page }
 			{ entityId: 'scene.movie', name: '' },
 			{ entityId: 'light.kitchen', name: 'Counter' }
 		]);
+});
+
+test('Home sensors: values, contacts, stale and unavailable are read-only @J17.5', async ({
+	page
+}) => {
+	const sensors: Tile[] = [
+		{
+			entityId: 'sensor.hall',
+			name: 'Hall',
+			kind: 'sensor',
+			on: null,
+			unavailable: false,
+			reading: '21.5 °C',
+			open: null,
+			stale: false
+		},
+		{
+			entityId: 'binary_sensor.door',
+			name: 'Front door',
+			kind: 'contact',
+			on: null,
+			unavailable: false,
+			reading: 'Open',
+			open: true,
+			stale: false
+		},
+		{
+			entityId: 'sensor.cellar',
+			name: 'Cellar',
+			kind: 'sensor',
+			on: null,
+			unavailable: false,
+			reading: '48 %',
+			open: null,
+			stale: true
+		},
+		{
+			entityId: 'sensor.attic',
+			name: 'Attic',
+			kind: 'sensor',
+			on: null,
+			unavailable: true,
+			reading: null,
+			open: null,
+			stale: false
+		}
+	];
+	let posts = 0;
+	await page.route('**/api/home-assistant/tiles', (route) =>
+		route.fulfill({ json: { configured: true, reachable: true, tiles: sensors } })
+	);
+	await page.route('**/api/home-assistant/toggle', (route) => {
+		posts++;
+		return route.fulfill({ json: { ok: true } });
+	});
+	await gotoHydrated(page, '/');
+	const card = (id: string) => page.locator(`[data-testid="ha-sensor"][data-entity="${id}"]`);
+	await expect(card('sensor.hall')).toContainText('21.5 °C');
+	await expect(card('binary_sensor.door')).toContainText('Open');
+	await expect(card('sensor.cellar')).toHaveAttribute('data-state', 'stale');
+	await expect(card('sensor.cellar')).toContainText('Not updating');
+	await expect(card('sensor.attic')).toContainText('Unavailable');
+	await card('sensor.hall').click();
+	await page.waitForTimeout(300);
+	expect(posts).toBe(0);
+	await expect(page.getByTestId('ha-tile')).toHaveCount(0);
 });

@@ -144,9 +144,9 @@
 
 	<Card class="flex flex-col gap-4">
 		<p class="text-body text-ink-muted">
-			Lights, switches and scenes on the Home screen. The hub talks to Home Assistant itself, so the
-			token stays on the server. Create a long-lived access token on your Home Assistant profile
-			page.
+			Lights, switches and scenes on the Home screen, plus read-only temperature, humidity and door
+			or window sensors. The hub talks to Home Assistant itself, so the token stays on the server.
+			Create a long-lived access token on your Home Assistant profile page.
 		</p>
 		<form
 			class="flex flex-col gap-4"
@@ -243,7 +243,7 @@
 		</Card>
 
 		<Card class="flex flex-col gap-4">
-			<h2 class="text-title font-bold">Lights, switches and scenes</h2>
+			<h2 class="text-title font-bold">Lights, switches, scenes and sensors</h2>
 			{#if entityError}
 				<p role="alert" class="text-body text-danger" data-testid="ha-entity-error">
 					{entityError}
@@ -254,7 +254,9 @@
 			{:else if entities === null}
 				<p class="text-body text-ink-muted">Loading…</p>
 			{:else if entities.length === 0}
-				<p class="text-body text-ink-muted">Home Assistant has no lights, switches or scenes.</p>
+				<p class="text-body text-ink-muted">
+					Home Assistant has no lights, switches, scenes or sensors to show.
+				</p>
 			{/if}
 			<ul class="flex flex-col gap-3" aria-label="Available entities">
 				{#each entities ?? [] as e (e.entityId)}

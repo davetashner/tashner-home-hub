@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildTiles,
 	domainOf,
+	formatReading,
 	fallbackName,
 	flipTile,
 	isEntityId,
@@ -23,6 +24,40 @@ const states = [
 	},
 	{ entity_id: 'light.attic', state: 'unavailable', attributes: { friendly_name: 'Attic light' } },
 	{ entity_id: 'sensor.temp', state: '20', attributes: {} },
+	{
+		entity_id: 'sensor.hall_temp',
+		state: '21.54',
+		last_updated: '2026-10-18T10:00:00Z',
+		attributes: {
+			friendly_name: 'Hall temp',
+			device_class: 'temperature',
+			unit_of_measurement: '°C'
+		}
+	},
+	{
+		entity_id: 'sensor.cellar_humidity',
+		state: '48',
+		last_updated: '2026-10-17T10:00:00Z',
+		attributes: { device_class: 'humidity', unit_of_measurement: '%' }
+	},
+	{
+		entity_id: 'sensor.dead',
+		state: 'unknown',
+		attributes: { device_class: 'temperature', unit_of_measurement: '°C' }
+	},
+	{ entity_id: 'sensor.power', state: '5', attributes: { device_class: 'power' } },
+	{
+		entity_id: 'binary_sensor.front_door',
+		state: 'on',
+		attributes: { friendly_name: 'Front door', device_class: 'door' }
+	},
+	{
+		entity_id: 'binary_sensor.window',
+		state: 'off',
+		attributes: { device_class: 'window' }
+	},
+	{ entity_id: 'binary_sensor.motion', state: 'on', attributes: { device_class: 'motion' } },
+	{ entity_id: 'binary_sensor.gone', state: 'unavailable', attributes: { device_class: 'door' } },
 	{ entity_id: 'light.bad id', state: 'on' },
 	null,
 	{ entity_id: 'light.odd', state: 5, attributes: null }
@@ -31,7 +66,8 @@ const states = [
 describe('ids', () => {
 	it('classifies domains and ids', () => {
 		expect(domainOf('light.x')).toBe('light');
-		expect(domainOf('sensor.x')).toBeNull();
+		expect(domainOf('sensor.x')).toBe('sensor');
+		expect(domainOf('lock.x')).toBeNull();
 		expect(domainOf('nodot')).toBeNull();
 		expect(isEntityId('scene.a_b')).toBe(true);
 		expect(isEntityId('lock.door')).toBe(false);
@@ -73,7 +109,7 @@ describe('normalizeSelection', () => {
 			normalizeSelection([
 				{ entityId: 'light.a', name: '  Lamp  ' },
 				{ entityId: 'light.a', name: 'dup' },
-				{ entityId: 'sensor.x' },
+				{ entityId: 'lock.x' },
 				{ entityId: 'scene.b', name: 7 },
 				'junk',
 				null
@@ -91,13 +127,19 @@ describe('normalizeSelection', () => {
 });
 
 describe('parseEntities', () => {
-	it('lists only light, switch and scene, by domain then name', () => {
+	it('lists controls plus temperature, humidity and contact sensors, by domain then name', () => {
 		expect(parseEntities(states).map((e) => e.entityId)).toEqual([
 			'light.attic',
 			'light.kitchen',
 			'light.odd',
 			'switch.fan',
-			'scene.movie_night'
+			'scene.movie_night',
+			'sensor.cellar_humidity',
+			'sensor.dead',
+			'sensor.hall_temp',
+			'binary_sensor.front_door',
+			'binary_sensor.gone',
+			'binary_sensor.window'
 		]);
 		expect(parseEntities(states).find((e) => e.entityId === 'switch.fan')?.name).toBe('Fan');
 		expect(parseEntities('nope')).toEqual([]);
@@ -126,6 +168,45 @@ describe('buildTiles', () => {
 		const t = buildTiles(sel, null);
 		expect(t.every((x) => x.on === null && !x.unavailable)).toBe(true);
 		expect(t[1]!.name).toBe('Counter');
+	});
+});
+
+describe('buildTiles: sensors', () => {
+	const now = Date.parse('2026-10-18T11:00:00Z');
+	const sel = [
+		'sensor.hall_temp',
+		'sensor.cellar_humidity',
+		'sensor.dead',
+		'binary_sensor.front_door',
+		'binary_sensor.window',
+		'binary_sensor.gone',
+		'sensor.missing'
+	].map((entityId) => ({ entityId, name: '' }));
+	it('reads values, units, contacts, stale and unavailable', () => {
+		const t = buildTiles(sel, states, now);
+		expect(t.map((x) => [x.kind, x.reading, x.open, x.stale, x.unavailable, x.on])).toEqual([
+			['sensor', '21.5 °C', null, false, false, null],
+			['sensor', '48 %', null, true, false, null],
+			['sensor', null, null, false, true, null],
+			['contact', 'Open', true, false, false, null],
+			['contact', 'Closed', false, false, false, null],
+			['contact', null, null, false, true, null],
+			['sensor', null, null, false, true, null]
+		]);
+		expect(t[3]!.name).toBe('Front door');
+	});
+	it('has no reading when HA was not reached', () => {
+		const t = buildTiles(sel, null, now);
+		expect(t.every((x) => x.reading === null && !x.stale && !x.unavailable)).toBe(true);
+	});
+	it('formats readings', () => {
+		expect(formatReading('3', '')).toBe('3');
+		expect(formatReading('abc', '%')).toBe('abc %');
+		expect(formatReading('', '')).toBe('');
+	});
+	it('never has a service', () => {
+		expect(serviceFor('sensor.hall_temp')).toBeNull();
+		expect(serviceFor('binary_sensor.front_door')).toBeNull();
 	});
 });
 

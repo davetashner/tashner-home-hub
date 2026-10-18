@@ -72,7 +72,15 @@
 		};
 	});
 
-	const ICON = { light: '💡', switch: '🔌', scene: '🎬' } as const;
+	const ICON = {
+		light: '💡',
+		switch: '🔌',
+		scene: '🎬',
+		sensor: '🌡️',
+		binary_sensor: '🚪'
+	} as const;
+	const sensorLabel = (t: HaTile) =>
+		t.unavailable ? 'Unavailable' : t.stale ? 'Not updating' : (t.reading ?? '');
 	const stateLabel = (t: HaTile) =>
 		t.unavailable
 			? 'Unavailable'
@@ -105,24 +113,50 @@
 			<ul class="grid grid-cols-3 gap-4 max-sm:grid-cols-2 portrait:grid-cols-2 short:gap-2">
 				{#each tiles as tile (tile.entityId)}
 					<li>
-						<button
-							type="button"
-							data-testid="ha-tile"
-							data-entity={tile.entityId}
-							data-on={tile.on === null ? undefined : String(tile.on)}
-							aria-pressed={tile.kind === 'toggle' && tile.on !== null ? tile.on : undefined}
-							disabled={tile.unavailable}
-							onclick={() => tap(tile)}
-							class="flex min-h-tap-kid w-full flex-col items-center justify-center gap-1 rounded-card border-2 p-4 text-center transition-transform duration-75 active:scale-95 disabled:opacity-45 short:p-2 {tile.on
-								? 'border-accent bg-accent-soft'
-								: 'border-line bg-surface-raised'}"
-						>
-							<span class="text-headline leading-none short:text-title" aria-hidden="true"
-								>{ICON[domainOf(tile.entityId) ?? 'switch']}</span
+						{#if tile.kind === 'sensor' || tile.kind === 'contact'}
+							<div
+								data-testid="ha-sensor"
+								data-entity={tile.entityId}
+								data-state={tile.unavailable ? 'unavailable' : tile.stale ? 'stale' : 'ok'}
+								data-open={tile.open === null ? undefined : String(tile.open)}
+								class="flex min-h-tap-kid w-full flex-col items-center justify-center gap-1 rounded-card border-2 border-line bg-surface p-4 text-center short:p-2 {tile.unavailable ||
+								tile.stale
+									? 'opacity-45'
+									: ''} {tile.open ? 'border-danger' : ''}"
 							>
-							<span class="text-body font-extrabold short:text-caption">{tile.name}</span>
-							<span class="text-caption text-ink-muted">{stateLabel(tile)}</span>
-						</button>
+								<span class="text-headline leading-none short:text-title" aria-hidden="true"
+									>{ICON[
+										domainOf(tile.entityId) === 'binary_sensor' ? 'binary_sensor' : 'sensor'
+									]}</span
+								>
+								<span class="text-body font-extrabold short:text-caption">{tile.name}</span>
+								<span class="text-lead font-extrabold short:text-body" data-testid="ha-reading"
+									>{sensorLabel(tile)}</span
+								>
+								{#if tile.stale && tile.reading}
+									<span class="text-caption text-ink-muted">Last: {tile.reading}</span>
+								{/if}
+							</div>
+						{:else}
+							<button
+								type="button"
+								data-testid="ha-tile"
+								data-entity={tile.entityId}
+								data-on={tile.on === null ? undefined : String(tile.on)}
+								aria-pressed={tile.kind === 'toggle' && tile.on !== null ? tile.on : undefined}
+								disabled={tile.unavailable}
+								onclick={() => tap(tile)}
+								class="flex min-h-tap-kid w-full flex-col items-center justify-center gap-1 rounded-card border-2 p-4 text-center transition-transform duration-75 active:scale-95 disabled:opacity-45 short:p-2 {tile.on
+									? 'border-accent bg-accent-soft'
+									: 'border-line bg-surface-raised'}"
+							>
+								<span class="text-headline leading-none short:text-title" aria-hidden="true"
+									>{ICON[domainOf(tile.entityId) ?? 'switch']}</span
+								>
+								<span class="text-body font-extrabold short:text-caption">{tile.name}</span>
+								<span class="text-caption text-ink-muted">{stateLabel(tile)}</span>
+							</button>
+						{/if}
 					</li>
 				{/each}
 			</ul>

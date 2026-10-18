@@ -3,8 +3,19 @@
  * list from HA maps to tiles. Pure; the HTTP calls live in `server/home-assistant`.
  */
 
-export const HA_DOMAINS = ['light', 'switch', 'scene'] as const;
+/** Domains an adult can tap (service calls). Anything else is read-only. */
+export const CONTROL_DOMAINS = ['light', 'switch', 'scene'] as const;
+/** Read-only domains: sensor values and door/window contacts. Never sent a service call. */
+export const SENSOR_DOMAINS = ['sensor', 'binary_sensor'] as const;
+export const HA_DOMAINS = [...CONTROL_DOMAINS, ...SENSOR_DOMAINS] as const;
 export type HaDomain = (typeof HA_DOMAINS)[number];
+
+/** sensor.* device classes the picker offers (value + unit). */
+export const SENSOR_CLASSES = ['temperature', 'humidity'] as const;
+/** binary_sensor.* device classes shown as Open/Closed. */
+export const CONTACT_CLASSES = ['door', 'window', 'opening', 'garage_door'] as const;
+/** A value-sensor that has not reported for this long reads as stale. */
+export const STALE_MS = 6 * 60 * 60 * 1000;
 
 /** Most tiles one household can pin (keeps the Home card and the payloads small). */
 export const MAX_TILES = 24;
@@ -26,12 +37,18 @@ export interface HaEntity {
 export interface HaTile {
 	entityId: string;
 	name: string;
-	kind: 'toggle' | 'scene';
+	kind: 'toggle' | 'scene' | 'sensor' | 'contact';
 	on: boolean | null;
 	unavailable: boolean;
+	/** Sensors only: "21.5 °C", or "Open" / "Closed" for contacts. Null when unknown. */
+	reading: string | null;
+	/** Contacts only: true when open. */
+	open: boolean | null;
+	/** Sensors only: the value has not updated in a long while. */
+	stale: boolean;
 }
 
-const ENTITY_ID = /^(light|switch|scene)\.[a-z0-9_]{1,100}$/;
+const ENTITY_ID = /^(light|switch|scene|sensor|binary_sensor)\.[a-z0-9_]{1,100}$/;
 
 export function domainOf(entityId: string): HaDomain | null {
 	const m = /^([a-z_]+)\./.exec(entityId);
@@ -91,16 +108,36 @@ export function normalizeSelection(input: unknown): HaSelection[] {
 interface RawState {
 	entity_id?: unknown;
 	state?: unknown;
-	attributes?: { friendly_name?: unknown } | null;
+	last_updated?: unknown;
+	attributes?: {
+		friendly_name?: unknown;
+		device_class?: unknown;
+		unit_of_measurement?: unknown;
+	} | null;
 }
 
-function rawStates(body: unknown): { entityId: string; state: string; friendly: string }[] {
+interface Raw {
+	entityId: string;
+	state: string;
+	friendly: string;
+	deviceClass: string;
+	unit: string;
+	updated: number | null;
+}
+
+function rawStates(body: unknown): Raw[] {
 	if (!Array.isArray(body)) return [];
-	const out: { entityId: string; state: string; friendly: string }[] = [];
+	const out: Raw[] = [];
 	for (const r of body as RawState[]) {
 		if (!r || !isEntityId(r.entity_id)) continue;
 		const friendly = r.attributes?.friendly_name;
+		const dc = r.attributes?.device_class;
+		const unit = r.attributes?.unit_of_measurement;
+		const updated = typeof r.last_updated === 'string' ? Date.parse(r.last_updated) : NaN;
 		out.push({
+			deviceClass: typeof dc === 'string' ? dc : '',
+			unit: typeof unit === 'string' ? unit.trim().slice(0, 8) : '',
+			updated: Number.isFinite(updated) ? updated : null,
 			entityId: r.entity_id,
 			state: typeof r.state === 'string' ? r.state : 'unknown',
 			friendly: typeof friendly === 'string' ? friendly.trim() : ''
@@ -109,9 +146,17 @@ function rawStates(body: unknown): { entityId: string; state: string; friendly: 
 	return out;
 }
 
-/** Entities in the allowed domains from a `GET /api/states` body, by domain then name. */
+function offered(s: Raw): boolean {
+	const d = domainOf(s.entityId);
+	if (d === 'sensor') return (SENSOR_CLASSES as readonly string[]).includes(s.deviceClass);
+	if (d === 'binary_sensor') return (CONTACT_CLASSES as readonly string[]).includes(s.deviceClass);
+	return true;
+}
+
+/** Entities the picker offers from a `GET /api/states` body, by domain then name. */
 export function parseEntities(body: unknown): HaEntity[] {
 	return rawStates(body)
+		.filter(offered)
 		.map((s) => ({
 			entityId: s.entityId,
 			name: s.friendly || fallbackName(s.entityId),
@@ -123,28 +168,64 @@ export function parseEntities(body: unknown): HaEntity[] {
 		);
 }
 
+const BAD = new Set(['unavailable', 'unknown']);
+
+/** "21.54" + "°C" -> "21.5 °C". Non-numbers are shown as HA gave them. */
+export function formatReading(state: string, unit: string): string {
+	const n = Number(state);
+	const v = state.trim() !== '' && Number.isFinite(n) ? String(Math.round(n * 10) / 10) : state;
+	return unit ? `${v} ${unit}` : v;
+}
+
+function kindOf(entityId: string): HaTile['kind'] {
+	const d = domainOf(entityId);
+	if (d === 'scene') return 'scene';
+	if (d === 'sensor') return 'sensor';
+	if (d === 'binary_sensor') return 'contact';
+	return 'toggle';
+}
+
 /** Tiles for the selection, in the adult's order. Entities HA no longer has show as unavailable. */
-export function buildTiles(selection: readonly HaSelection[], body: unknown | null): HaTile[] {
+export function buildTiles(
+	selection: readonly HaSelection[],
+	body: unknown | null,
+	now: number = Date.now()
+): HaTile[] {
 	const states = new Map(rawStates(body).map((s) => [s.entityId, s]));
 	const reached = body !== null;
 	return selection.map((sel) => {
 		const s = states.get(sel.entityId);
-		const kind = domainOf(sel.entityId) === 'scene' ? 'scene' : 'toggle';
+		const kind = kindOf(sel.entityId);
 		const missing = reached && !s;
+		const bad = !!s && BAD.has(s.state);
+		const readOnly = kind === 'sensor' || kind === 'contact';
+		const live = !!s && !bad;
 		return {
 			entityId: sel.entityId,
 			name: sel.name || s?.friendly || fallbackName(sel.entityId),
 			kind,
-			on: kind === 'scene' || !s || s.state === 'unavailable' ? null : s.state === 'on',
-			unavailable: missing || s?.state === 'unavailable'
+			on: kind === 'toggle' && live ? s.state === 'on' : null,
+			unavailable:
+				missing || (kind === 'sensor' || kind === 'contact' ? bad : s?.state === 'unavailable'),
+			reading:
+				readOnly && live
+					? kind === 'contact'
+						? s.state === 'on'
+							? 'Open'
+							: 'Closed'
+						: formatReading(s.state, s.unit)
+					: null,
+			open: kind === 'contact' && live ? s.state === 'on' : null,
+			stale: kind === 'sensor' && live && s.updated !== null && now - s.updated > STALE_MS
 		};
 	});
 }
 
-/** The HA service a tap calls. Scenes are activated; lights and switches toggle. */
+/** The HA service a tap calls. Scenes are activated; lights and switches toggle. Null if read-only. */
 export function serviceFor(entityId: string): { domain: HaDomain; service: string } | null {
 	const domain = domainOf(entityId);
-	if (!domain) return null;
+	// Sensors are read-only: no service exists for them here.
+	if (!domain || !(CONTROL_DOMAINS as readonly string[]).includes(domain)) return null;
 	return { domain, service: domain === 'scene' ? 'turn_on' : 'toggle' };
 }
 
