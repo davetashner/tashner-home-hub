@@ -60,6 +60,25 @@ test('add a folder, pick albums, scan, hide a photo', async ({ page }, info) => 
 	await card.getByRole('checkbox').first().uncheck();
 	await expect(card.getByRole('checkbox').first()).not.toBeChecked();
 
+	// A yearly window: the album shows only between two days (Pets sorts first).
+	const between = card.getByRole('button', { name: 'Show only between…' }).first();
+	await expectTappable(between);
+	await between.click();
+	const dates = card.getByRole('form', { name: 'Dates for Pets' });
+	await dates.getByLabel('From month').selectOption({ index: 5 });
+	await dates.getByLabel('From day').selectOption('1');
+	await dates.getByLabel('To month').selectOption({ index: 5 });
+	await dates.getByLabel('To day').selectOption('10');
+	const save = dates.getByRole('button', { name: 'Save dates' });
+	await expectTappable(save);
+	const saved = page.waitForResponse((r) => r.request().method() === 'PATCH');
+	await save.click();
+	expect((await saved).status()).toBe(200);
+	await expect(card.getByTestId('album-window')).toContainText('1 –');
+	await expect(card.getByTestId('album-window')).toContainText(' 10 each year');
+	await card.getByRole('button', { name: 'Clear dates' }).click();
+	await expect(card.getByTestId('album-window')).toHaveCount(0);
+
 	const hide = card.getByRole('button', { name: 'Hide photo' }).first();
 	await expectTappable(hide);
 	await hide.click();

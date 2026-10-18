@@ -65,7 +65,11 @@
 						? s.days.map((d) => DAY_NAMES[d]).join(', ')
 						: s.type === 'weekly'
 							? 'Every week'
-							: 'Every month';
+							: s.type === 'flex'
+								? s.every === 2
+									? 'Every 2 weeks, any day'
+									: 'Once a week, any day'
+								: 'Every month';
 		const reward =
 			c.kind === 'habit' ? 'no stars' : `${c.stars} ${c.stars === 1 ? 'star' : 'stars'}`;
 		return `${when} · ${c.timeOfDay} · ${reward}`;

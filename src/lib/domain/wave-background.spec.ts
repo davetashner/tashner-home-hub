@@ -17,9 +17,13 @@ import {
 	parseWaveChoice,
 	renderScale,
 	resolvePalette,
+	isDarkPalette,
+	PALETTE_LOOK,
+	seasonPalette,
 	sunTimes,
 	waveShape
 } from './wave-background.js';
+import { SEASONS } from './season.js';
 
 describe('choice and palette', () => {
 	it('parses unknown values to auto', () => {
@@ -34,6 +38,29 @@ describe('choice and palette', () => {
 		expect(resolvePalette('seafoam', 'light')).toBe('seafoam');
 		expect(resolvePalette('night', 'light')).toBe('dusk');
 		expect(resolvePalette('auto', 'light')).toBe('dusk');
+	});
+	it('lets a holiday take over Auto, in the lightness of the theme', () => {
+		expect(seasonPalette('halloween', 'light')).toBe('halloween');
+		expect(seasonPalette('halloween', 'night')).toBe('halloween-night');
+		expect(resolvePalette('auto', 'light', seasonPalette('autumn', 'light'))).toBe('autumn');
+		expect(resolvePalette('auto', 'night', seasonPalette('christmas', 'night'))).toBe(
+			'christmas-night'
+		);
+		// A palette of the wrong lightness never shows.
+		expect(resolvePalette('auto', 'night', 'christmas')).toBe('night');
+		expect(resolvePalette('auto', 'light', 'stpatricks-night')).toBe('dusk');
+		// A pick ignores the holiday.
+		expect(resolvePalette('seafoam', 'light', 'halloween')).toBe('seafoam');
+		expect(resolvePalette('seafoam', 'night', 'halloween-night')).toBe('night');
+	});
+	it('has a look and a dark twin for every holiday', () => {
+		for (const s of SEASONS) {
+			expect(isDarkPalette(s)).toBe(false);
+			expect(isDarkPalette(`${s}-night`)).toBe(true);
+			expect(PALETTE_LOOK[s]).toBeDefined();
+			expect(PALETTE_LOOK[`${s}-night`]).toBeDefined();
+		}
+		expect(isDarkPalette('night')).toBe(true);
 	});
 });
 

@@ -19,9 +19,12 @@ export function approvedTransitions(
 	return { count, stars };
 }
 
-/** True when the day has chores and every one is done (waiting for a grown-up counts). */
+/**
+ * True when the day has chores and every one is done (waiting for a grown-up counts). Any-day
+ * to-dos ('week') don't hold the day up: they can be done on another day.
+ */
 export function isAllDone(groups: KidGroup[]): boolean {
-	const chores = flat(groups);
+	const chores = flat(groups.filter((g) => g.timeOfDay !== 'week'));
 	return (
 		chores.length > 0 && chores.every((c) => c.status === 'pending' || c.status === 'approved')
 	);

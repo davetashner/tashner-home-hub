@@ -53,7 +53,14 @@ async function stubFrame(page: Page, id: string) {
 					unit: 'F',
 					fetchedAt: Date.now(),
 					current: { temp: 72, feelsLike: 70, wind: 4, code: 0, isDay: true },
-					days: []
+					// Yesterday to two days out, so both "Today" and "Tomorrow" exist in any zone.
+					days: [-1, 0, 1, 2].map((n) => ({
+						date: new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10),
+						code: 63,
+						high: 80,
+						low: 60,
+						precip: 70
+					}))
 				}
 			}
 		})
@@ -92,8 +99,10 @@ test('the idle frame shows clock, date, weather and next event; a touch still ex
 
 	await expect(page.getByTestId('overlay-time')).toHaveText(/^\d{1,2}:\d{2} [AP]M$/);
 	await expect(page.getByTestId('overlay-date')).toBeVisible();
-	await expect(page.getByTestId('overlay-weather')).toContainText('72°F');
-	await expect(page.getByTestId('overlay-weather')).toContainText('Clear');
+	await expect(page.getByTestId('overlay-weather-now')).toHaveText(/^\s*72°\s*Current\s*$/);
+	await expect(page.getByTestId('overlay-weather-day')).toHaveText(
+		/^\s*(Today|Tomorrow)\s*80°\s*\/\s*60°\s*$/
+	);
 	await expect(page.getByTestId('overlay-next')).toContainText('Next: Swim practice · ');
 
 	// The overlay is only a picture: a tap on it wakes the screen like anywhere else.

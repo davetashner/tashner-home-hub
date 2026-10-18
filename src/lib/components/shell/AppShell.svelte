@@ -5,7 +5,7 @@
 	import { page } from '$app/state';
 	import { swipe } from '#lib/actions/swipe.js';
 	import Button from '#lib/components/ui/Button.svelte';
-	import { DESTINATIONS, isActive, swipeTarget } from '#lib/domain/nav.js';
+	import { TODO_FALLBACK, destinationsFor, isActive, swipeTarget } from '#lib/domain/nav.js';
 	import { DESTINATION_URLS } from './urls.js';
 	import OfflineBadge from './OfflineBadge.svelte';
 	import ApprovalsBadge from './ApprovalsBadge.svelte';
@@ -88,6 +88,7 @@
 	let { children }: { children: Snippet } = $props();
 
 	const pathname = $derived(page.url.pathname);
+	const destinations = $derived(destinationsFor(page.data.todoLabel ?? TODO_FALLBACK));
 
 	// The saved background choice comes with the page data; the settings page edits it optimistically.
 	$effect(() => {
@@ -210,7 +211,7 @@
 		inert={collapsed && sideRail}
 		class="shell-nav flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5 short:col-start-1 short:row-span-1 short:w-auto short:min-w-0 short:scrollbar-none short:flex-row short:gap-0 short:overflow-x-auto short:border-r-0 short:bg-surface short:pt-safe-2 short:pr-2 short:pb-2 short:pl-safe-2 portrait:tablet:gap-2 portrait:tablet:pt-1 portrait:tablet:pr-safe-4 portrait:tablet:pb-safe-1 portrait:tablet:pl-safe-4 landscape:tablet:w-rail-tablet landscape:tablet:gap-2 landscape:tablet:overflow-y-auto landscape:tablet:pt-safe-4 landscape:tablet:pr-2 landscape:tablet:pb-safe-4 landscape:tablet:pl-safe-2"
 	>
-		{#each DESTINATIONS as destination (destination.id)}
+		{#each destinations as destination (destination.id)}
 			<NavItem {destination} active={isActive(destination.href, pathname)} />
 		{/each}
 		<button

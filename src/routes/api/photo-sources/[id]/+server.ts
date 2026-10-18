@@ -4,12 +4,16 @@ import { getDb } from '#lib/server/db/index.js';
 import { photoSources } from '#lib/server/db/schema.js';
 import { readJson, str } from '#lib/server/api.js';
 import { requireAdult } from '#lib/server/auth.js';
+import { patchWindows } from '#lib/server/domain/album-window.js';
 import { parseConfig } from '#lib/server/domain/photo-folder.js';
 import { forgetSource } from '#lib/server/photo-source/folder.js';
 import { viewSource } from '#lib/server/photo-source/service.js';
 import type { RequestHandler } from './$types';
 
-/** Renames the source and/or sets the selected albums (empty list = all). */
+/**
+ * Renames the source, sets the selected albums (empty list = all) and/or sets yearly album
+ * windows (`windows: { [album]: { from: 'MM-DD', to: 'MM-DD' } | null }`, null clears one).
+ */
 export const PATCH: RequestHandler = async (event) => {
 	requireAdult(event);
 	const db = getDb();
@@ -18,10 +22,18 @@ export const PATCH: RequestHandler = async (event) => {
 	const body = await readJson(event.request);
 	const set: { label?: string; config?: string } = {};
 	if (body.label !== undefined) set.label = str(body.label, 'label');
+	const config = parseConfig(source.config);
 	if (body.albums !== undefined) {
 		if (!Array.isArray(body.albums) || !body.albums.every((a) => typeof a === 'string'))
 			error(400, 'albums must be an array of album names');
-		set.config = JSON.stringify({ ...parseConfig(source.config), albums: body.albums });
+		config.albums = body.albums;
+		set.config = JSON.stringify(config);
+	}
+	if (body.windows !== undefined) {
+		const windows = patchWindows(config.windows, body.windows);
+		if (typeof windows === 'string') error(400, windows);
+		config.windows = windows;
+		set.config = JSON.stringify(config);
 	}
 	if (set.label !== undefined || set.config !== undefined)
 		db.update(photoSources).set(set).where(eq(photoSources.id, source.id)).run();
