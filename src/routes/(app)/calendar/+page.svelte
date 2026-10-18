@@ -30,6 +30,8 @@
 	} from '#lib/domain/calendar-view/member-filter.js';
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import {
+		draftFromEvent,
+		editableInHub,
 		newDraft,
 		overlaps,
 		pendingEvent,
@@ -86,14 +88,19 @@
 	let writable = $state<WritableCalendar[]>([]);
 	let draft = $state<EventDraft | null>(null);
 	let pending = $state<CalEvent[]>([]);
+	// Edit and delete: the event being edited, and stored events hidden while a change is in flight.
+	let editing = $state<CalEvent | null>(null);
+	let hidden = $state<string[]>([]);
+	let icloudSources = $state<string[]>([]);
 	let notice = $state('');
 	let seq = 0;
 	const events = $derived.by(() => {
 		const r = fetchRange(keys, tz);
 		const mine = pending.filter((p) => overlaps(p, r.start, r.end));
-		return [...filterEvents(cache[cacheKey(keys)] ?? [], chosen), ...mine].sort(
-			(a, b) => a.startsAt - b.startsAt
+		const stored = filterEvents(cache[cacheKey(keys)] ?? [], chosen).filter(
+			(e) => !hidden.includes(e.id)
 		);
+		return [...stored, ...mine].sort((a, b) => a.startsAt - b.startsAt);
 	});
 	const staleSince = $derived.by(() => {
 		const stale = status?.sources.filter((s) => s.stale) ?? [];
@@ -140,10 +147,12 @@
 			const res = await fetch('/api/calendar/sources');
 			if (!res.ok) return;
 			const sources: {
+				id: string;
 				provider: string;
 				label: string;
 				calendars: { externalId: string; name: string; selected: boolean }[];
 			}[] = await res.json();
+			icloudSources = sources.filter((src) => src.provider === 'icloud').map((src) => src.id);
 			writable = sources
 				.filter((src) => src.provider === 'icloud')
 				.flatMap((src) =>
@@ -198,6 +207,60 @@
 		} finally {
 			pending = pending.filter((p) => p.id !== ghost.id);
 		}
+	}
+
+	/** What a change to a stored event may do: the sheet shows Edit/Delete, or the phone hint. */
+	function changeKind(ev: CalEvent): 'hub' | 'phone' | null {
+		if (!adult || ev.pending || !ev.sourceId || !icloudSources.includes(ev.sourceId)) return null;
+		return editableInHub(ev, tz) ? 'hub' : 'phone';
+	}
+
+	function openEdit() {
+		if (!selected) return;
+		draft = draftFromEvent(selected, tz);
+		editing = selected;
+		selected = null;
+	}
+
+	/** Sends a change, shows it at once, and puts the calendar back if Apple says no. */
+	async function change(ev: CalEvent, ghost: CalEvent | null, init: RequestInit, verb: string) {
+		hidden = [...hidden, ev.id];
+		if (ghost) pending = [...pending, ghost];
+		notice = '';
+		try {
+			const res = await fetch(`/api/calendar/events/${encodeURIComponent(ev.id)}`, {
+				...init,
+				headers: { 'content-type': 'application/json' }
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => null);
+				notice = `Could not ${verb} "${ev.title}": ${
+					typeof body?.message === 'string' ? body.message : 'the calendar said no.'
+				}`;
+			}
+		} catch {
+			notice = `Could not ${verb} "${ev.title}": the hub could not be reached, so nothing was changed.`;
+		}
+		// Success or not, show what Apple has now (after a conflict this is the refetch).
+		cache = {};
+		await load(keys, true);
+		hidden = hidden.filter((id) => id !== ev.id);
+		pending = pending.filter((p) => p.id !== ev.id);
+	}
+
+	function saveEdit(d: EventDraft) {
+		const ev = editing;
+		draft = null;
+		editing = null;
+		if (!ev) return;
+		const ghost = { ...pendingEvent(d, tz, ev.id), members: ev.members };
+		void change(ev, ghost, { method: 'PUT', body: JSON.stringify(toRequest(d)) }, 'save');
+	}
+
+	function removeSelected() {
+		const ev = selected;
+		selected = null;
+		if (ev) void change(ev, null, { method: 'DELETE' }, 'delete');
 	}
 
 	async function loadStatus() {
@@ -465,13 +528,25 @@
 		calendars={writable}
 		{today}
 		{wall}
-		onsubmit={addEvent}
-		onclose={() => (draft = null)}
+		mode={editing ? 'edit' : 'add'}
+		onsubmit={editing ? saveEdit : addEvent}
+		onclose={() => {
+			draft = null;
+			editing = null;
+		}}
 	/>
 {/if}
 
 {#if selected}
-	<EventSheet event={selected} {tz} onclose={() => (selected = null)} />
+	{@const kind = changeKind(selected)}
+	<EventSheet
+		event={selected}
+		{tz}
+		onclose={() => (selected = null)}
+		onedit={kind === 'hub' ? openEdit : undefined}
+		ondelete={kind === 'hub' ? removeSelected : undefined}
+		phoneOnly={kind === 'phone'}
+	/>
 {/if}
 
 <style>

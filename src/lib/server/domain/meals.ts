@@ -58,13 +58,11 @@ export function setMeal(db: Db, input: Record<string, unknown>): MealEntry {
 	});
 }
 
+/** Clears a slot. Idempotent: clearing an empty slot succeeds, so a replayed offline DELETE is harmless. */
 export function deleteMeal(db: Db, input: Record<string, unknown>): { date: string; meal: string } {
 	const { date, meal } = slotAndDate(input.date, input.meal);
-	const gone = db
-		.delete(mealPlanEntries)
+	db.delete(mealPlanEntries)
 		.where(and(eq(mealPlanEntries.date, date), eq(mealPlanEntries.meal, meal)))
-		.returning()
-		.all();
-	if (gone.length === 0) throw new LedgerError('not_found', 'Nothing planned there');
+		.run();
 	return { date, meal };
 }

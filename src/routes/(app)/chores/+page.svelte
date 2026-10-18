@@ -51,7 +51,7 @@
 		type KidGroup
 	} from '#lib/domain/kid-chores.js';
 	import { childrenOf, planLoad, type MemberResult } from '#lib/domain/chore-load.js';
-	import { overlayQueued } from '#lib/domain/write-queue.js';
+	import { overlayQueued, overlayRoutineSteps } from '#lib/domain/write-queue.js';
 	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 	import { TODO_FALLBACK } from '#lib/domain/nav.js';
 
@@ -281,13 +281,16 @@
 			r.id === routine.id ? { ...r, done } : r
 		);
 		if (isRoutineComplete(done, routine.steps.length)) celebrateAllDone();
-		void fetch(`/api/routines/${routine.id}/progress`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ date: localDate(Date.now(), tz), step: index })
+		// Through the write queue: a drop in the network or a reload keeps the step (the server
+		// takes the highest step index, so a replay is harmless).
+		void deliver({
+			kind: 'routine-step',
+			url: `/api/routines/${routine.id}/progress`,
+			body: { date: localDate(Date.now(), tz), step: index },
+			routineId: routine.id
 		})
 			// A finished routine can complete the day's habits: pick up the star.
-			.then(() => loadStars(memberId))
+			.then((r) => (r.sent ? loadStars(memberId) : undefined))
 			.catch(() => {});
 	}
 
@@ -324,6 +327,7 @@
 			members = plan.members;
 			// Before choosing a child: a kid with only a routine counts too.
 			if (fetchedRoutines) applyRoutines(fetchedRoutines);
+			routinesBy = overlayRoutineSteps(routinesBy, queued);
 			boards = Object.fromEntries(
 				plan.members.map((m) => [m.id, overlayQueued(plan.boards[m.id], m.id, queued)] as const)
 			);
@@ -356,8 +360,8 @@
 	});
 
 	onMount(() => {
-		onWriteDropped(() => {
-			say('Hmm, that one is already with the grown-ups.');
+		onWriteDropped((write) => {
+			if (write.kind !== 'routine-step') say('Hmm, that one is already with the grown-ups.');
 			void refresh();
 		});
 		preloadCelebrations();

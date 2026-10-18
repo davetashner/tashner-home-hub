@@ -110,3 +110,17 @@ describe('updateRoutine', () => {
 		expect(listRoutines(db)[0].name).toBe('Morning');
 	});
 });
+
+describe('completeRoutineStep idempotency', () => {
+	it('replaying the same step is harmless: one progress record, same result', () => {
+		const r = createRoutine(db, { memberId: 'kid', name: 'Morning', steps });
+		const first = completeRoutineStep(db, r.id, '2026-10-17', 0);
+		const again = completeRoutineStep(db, r.id, '2026-10-17', 0);
+		expect(again).toEqual(first);
+		expect(db.select().from(schema.routineProgress).all()).toHaveLength(1);
+		// A late replay of an older step after a later one never moves progress back.
+		completeRoutineStep(db, r.id, '2026-10-17', 1);
+		expect(completeRoutineStep(db, r.id, '2026-10-17', 0)).toEqual({ done: 2, total: 3 });
+		expect(db.select().from(schema.routineProgress).all()).toHaveLength(1);
+	});
+});

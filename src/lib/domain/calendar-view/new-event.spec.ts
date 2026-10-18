@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import type { CalEvent } from './layout.js';
 import {
 	clock,
+	draftFromEvent,
+	editableInHub,
 	clockLabel,
 	draftError,
 	newDraft,
@@ -88,5 +91,61 @@ describe('new event draft', () => {
 		const ev = pendingEvent(base, 'UTC', 'p');
 		expect(overlaps(ev, ev.startsAt - 10, ev.startsAt + 10)).toBe(true);
 		expect(overlaps(ev, ev.endsAt, ev.endsAt + 10)).toBe(false);
+	});
+});
+
+describe('editing a stored event', () => {
+	const tz = 'America/New_York';
+	const stored = (over: Partial<CalEvent> = {}): CalEvent => ({
+		id: 'e1',
+		sourceId: 's1',
+		recurrence: null,
+		title: 'Piano',
+		startsAt: Date.UTC(2026, 9, 20, 14),
+		endsAt: Date.UTC(2026, 9, 20, 15, 30),
+		allDay: false,
+		location: 'Hall',
+		notes: null,
+		members: [],
+		...over
+	});
+
+	it('fills a draft from a timed event in the household zone', () => {
+		expect(draftFromEvent(stored(), tz)).toMatchObject({
+			title: 'Piano',
+			allDay: false,
+			date: '2026-10-20',
+			endDate: '2026-10-20',
+			startMin: 600,
+			endMin: 690,
+			location: 'Hall',
+			notes: '',
+			calendarId: 's1'
+		});
+	});
+
+	it('fills a draft from an all-day event with an inclusive last day', () => {
+		const d = draftFromEvent(
+			stored({ allDay: true, startsAt: Date.UTC(2026, 9, 20), endsAt: Date.UTC(2026, 9, 22) }),
+			tz
+		);
+		expect([d.allDay, d.date, d.endDate]).toEqual([true, '2026-10-20', '2026-10-21']);
+	});
+
+	it('only offers editing for events the sheet can represent', () => {
+		expect(editableInHub(stored(), tz)).toBe(true);
+		expect(editableInHub(stored({ recurrence: 'FREQ=WEEKLY' }), tz)).toBe(false);
+		expect(editableInHub(stored({ pending: true }), tz)).toBe(false);
+		expect(editableInHub(stored({ endsAt: Date.UTC(2026, 9, 20, 14) }), tz)).toBe(false);
+		// Crosses midnight in New York.
+		expect(editableInHub(stored({ endsAt: Date.UTC(2026, 9, 21, 6) }), tz)).toBe(false);
+		// Ends exactly at midnight: the pickers stop at 11:45 PM.
+		expect(editableInHub(stored({ endsAt: Date.UTC(2026, 9, 21, 4) }), tz)).toBe(false);
+		expect(
+			editableInHub(
+				stored({ allDay: true, startsAt: Date.UTC(2026, 9, 20), endsAt: Date.UTC(2026, 9, 21) }),
+				tz
+			)
+		).toBe(true);
 	});
 });
