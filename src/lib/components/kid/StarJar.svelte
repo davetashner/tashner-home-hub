@@ -114,11 +114,11 @@
 		</div>
 	{/if}
 
-	<div class="ml-auto flex shrink-0 gap-3 short:ml-0 short:w-full short:gap-1">
+	<div class="ml-auto flex shrink-0 gap-3 short:ml-0 short:w-full short:flex-col short:gap-1">
 		<Button
 			variant="secondary"
 			size="kid"
-			class="px-4!"
+			class="px-4! short:w-full"
 			data-testid="open-stickers"
 			aria-label="My stickers"
 			onclick={() => (stickersOpen = true)}><span aria-hidden="true">🏅</span></Button
