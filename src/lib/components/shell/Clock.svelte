@@ -7,7 +7,7 @@
 	let {
 		testidPrefix = 'clock',
 		size = 'header'
-	}: { testidPrefix?: string; size?: 'header' | 'hero' } = $props();
+	}: { testidPrefix?: string; size?: 'header' | 'hero' | 'corner' } = $props();
 
 	let now = $state(new Date());
 
@@ -29,17 +29,21 @@
 	<p
 		class="leading-none font-extrabold whitespace-nowrap tabular-nums {size === 'hero'
 			? 'text-display short:text-headline'
-			: 'text-headline tablet:text-lead'}"
+			: size === 'corner'
+				? 'text-lead'
+				: 'text-headline tablet:text-lead'}"
 		data-testid="{testidPrefix}-time"
 	>
 		{clock.time}
 	</p>
-	<p
-		class="text-ink-muted {size === 'hero'
-			? 'text-title short:text-lead'
-			: 'text-lead tablet:text-caption tablet:whitespace-nowrap'}"
-		data-testid="{testidPrefix}-date"
-	>
-		{clock.date}
-	</p>
+	{#if size !== 'corner'}
+		<p
+			class="text-ink-muted {size === 'hero'
+				? 'text-title short:text-lead'
+				: 'text-lead tablet:text-caption tablet:whitespace-nowrap'}"
+			data-testid="{testidPrefix}-date"
+		>
+			{clock.date}
+		</p>
+	{/if}
 </div>

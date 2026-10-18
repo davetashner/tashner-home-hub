@@ -9,10 +9,11 @@
  *   `requiresApproval` require it (see {@link createChore}). The schema default is
  *   false and is frozen, so the default is applied here, in the creation code path.
  */
-import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/index.js';
 import { choreCompletions, chores, members, starTransactions } from '../db/schema.js';
+import { flexOf, flexPeriod } from './flex.js';
 
 export type Completion = typeof choreCompletions.$inferSelect;
 export type StarTransaction = typeof starTransactions.$inferSelect;
@@ -80,6 +81,9 @@ export function completeChore(
 		const member = tx.select().from(members).where(eq(members.id, input.memberId)).get();
 		if (!member) throw new LedgerError('not_found', 'Member not found');
 
+		// Once per day; a flexible to-do once per period, whichever day it was done on.
+		const flex = flexOf(chore.schedule, input.date);
+		const period = flex && flexPeriod(flex.start, flex.every, input.date);
 		const existing = tx
 			.select()
 			.from(choreCompletions)
@@ -87,7 +91,9 @@ export function completeChore(
 				and(
 					eq(choreCompletions.choreId, input.choreId),
 					eq(choreCompletions.memberId, input.memberId),
-					eq(choreCompletions.date, input.date)
+					period
+						? and(gte(choreCompletions.date, period.start), lte(choreCompletions.date, period.end))
+						: eq(choreCompletions.date, input.date)
 				)
 			)
 			.all()
