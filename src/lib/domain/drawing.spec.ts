@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+	BRUSH_SCALE,
+	COLOR_GRID,
+	GRID_HUES,
+	HIGHLIGHTER_WIDTH,
+	RECENT_MAX,
+	isInkToken,
+	pushRecent,
 	ERASER_WIDTH,
 	FIXED_WIDTH,
 	PEN_MAX_WIDTH,
@@ -85,5 +92,44 @@ describe('export size', () => {
 		expect(dataUrlBytes('data:image/png;base64,QUJD')).toBe(3);
 		expect(dataUrlBytes('data:image/png;base64,QUI=')).toBe(2);
 		expect(dataUrlBytes('data:image/png;base64,QQ==')).toBe(1);
+	});
+});
+
+describe('brush sizes, highlighter, colors', () => {
+	it('size presets scale the pen width and still follow pressure', () => {
+		expect(strokeWidth('pen', 'pen', 1, 'marker')).toBe(PEN_MAX_WIDTH * BRUSH_SCALE.marker);
+		expect(strokeWidth('pen', 'pen', 1, 'thin')).toBeLessThan(
+			strokeWidth('pen', 'pen', 1, 'thick')
+		);
+		expect(strokeWidth('pen', 'pen', 0.2, 'thick')).toBeLessThan(
+			strokeWidth('pen', 'pen', 0.9, 'thick')
+		);
+		expect(strokeWidth('pen', 'touch', 0.5, 'thick')).toBe(FIXED_WIDTH * BRUSH_SCALE.thick);
+	});
+	it('the highlighter is wide, ignores pressure and scales with size', () => {
+		expect(strokeWidth('highlighter', 'pen', 0.1)).toBe(HIGHLIGHTER_WIDTH);
+		expect(strokeWidth('highlighter', 'pen', 1)).toBe(HIGHLIGHTER_WIDTH);
+		expect(strokeWidth('highlighter', 'touch', 1, 'thin')).toBe(
+			HIGHLIGHTER_WIDTH * BRUSH_SCALE.thin
+		);
+	});
+	it('a board with only highlighter ink is not blank', () => {
+		expect(isBlank([stroke('highlighter')])).toBe(false);
+	});
+	it('the color grid is hues by three shades of oklch colors', () => {
+		expect(COLOR_GRID).toHaveLength(GRID_HUES.length * 3);
+		expect(new Set(COLOR_GRID).size).toBe(COLOR_GRID.length);
+		expect(COLOR_GRID.every((c) => c.startsWith('oklch('))).toBe(true);
+	});
+	it('tells ink tokens from computed colors', () => {
+		expect(isInkToken('draw-red')).toBe(true);
+		expect(isInkToken(COLOR_GRID[0])).toBe(false);
+	});
+	it('recent colors: newest first, no duplicates, capped', () => {
+		expect(pushRecent(['a', 'b'], 'b')).toEqual(['b', 'a']);
+		expect(pushRecent(['a'], 'c')).toEqual(['c', 'a']);
+		const many = Array.from({ length: RECENT_MAX }, (_, i) => `c${i}`);
+		expect(pushRecent(many, 'new')).toHaveLength(RECENT_MAX);
+		expect(pushRecent(many, 'new')[0]).toBe('new');
 	});
 });

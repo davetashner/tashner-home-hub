@@ -232,6 +232,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | **J18** | **Drawing board** (Kid at the wall) | | | |
 | J18.1 | Draw with a pen or finger on the Home notes card and post it to the board. | built | wall | `drawing` |
 | J18.2 | Tap a drawing to enlarge it; anyone dismisses it. | built | wall | `drawing` |
+| J18.3 | Pick any color from the big grid, reuse recent colors, choose a brush size, or highlight. | built | wall | `drawing` |
 | **J19** | **Sitter mode** (Parent at the wall) | | | |
 | J19.1 | A grown-up fills in the info card: emergency contacts, address, allergies, bedtimes, house rules, pets with the vet and pet emergency hospital, Wi-Fi and notes for tonight. | built | wall | untested: undefined |
 | J19.2 | Start a sitter session now or on a schedule, with an optional sitter name, 4-digit PIN and permissions. | built | wall | untested: undefined |

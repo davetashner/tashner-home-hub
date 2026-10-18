@@ -13,7 +13,43 @@ export const DRAW_COLORS = [
 	'draw-purple'
 ] as const;
 export type DrawColor = (typeof DRAW_COLORS)[number];
-export type DrawTool = 'pen' | 'eraser';
+export type DrawTool = 'pen' | 'highlighter' | 'eraser';
+
+/**
+ * A stroke color: a `--color-draw-*` token name (the six ink swatches) or a CSS color string
+ * computed in oklch (the color grid). Tokens are resolved at draw time, anything else is used as is.
+ */
+export type InkColor = string;
+export const isInkToken = (c: string): c is DrawColor =>
+	(DRAW_COLORS as readonly string[]).includes(c);
+
+/** Kid-friendly color grid: a few hues across, three shades down, all computed in oklch. */
+export const GRID_HUES = [20, 55, 95, 145, 195, 250, 305, 350] as const;
+const GRID_SHADES = [
+	{ l: 0.82, c: 0.12 }, // light
+	{ l: 0.62, c: 0.2 }, // bright
+	{ l: 0.4, c: 0.14 } // deep
+] as const;
+export const COLOR_GRID: readonly string[] = GRID_SHADES.flatMap((s) =>
+	GRID_HUES.map((h) => `oklch(${s.l * 100}% ${s.c} ${h})`)
+);
+
+export const RECENT_MAX = 6;
+/** Most recent first, no duplicates, capped. */
+export const pushRecent = (recent: readonly string[], color: string, max = RECENT_MAX): string[] =>
+	[color, ...recent.filter((c) => c !== color)].slice(0, max);
+
+export const BRUSH_SIZES = ['thin', 'medium', 'thick', 'marker'] as const;
+export type BrushSize = (typeof BRUSH_SIZES)[number];
+/** Multiplier on the pen's width, so presets combine with pressure. */
+export const BRUSH_SCALE: Record<BrushSize, number> = {
+	thin: 0.5,
+	medium: 1,
+	thick: 1.8,
+	marker: 3
+};
+export const HIGHLIGHTER_WIDTH = 26;
+export const HIGHLIGHTER_ALPHA = 0.4;
 
 export interface DrawPoint {
 	x: number;
@@ -23,7 +59,7 @@ export interface DrawPoint {
 }
 export interface Stroke {
 	tool: DrawTool;
-	color: DrawColor;
+	color: InkColor;
 	points: DrawPoint[];
 }
 
@@ -37,11 +73,19 @@ export const ERASER_WIDTH = 36;
 const DEFAULT_PRESSURE = 0.5;
 
 /** Line width in CSS px for one pointer sample. Pressure only matters for pens drawing ink. */
-export function strokeWidth(tool: DrawTool, pointerType: string, pressure: number): number {
+export function strokeWidth(
+	tool: DrawTool,
+	pointerType: string,
+	pressure: number,
+	size: BrushSize = 'medium'
+): number {
 	if (tool === 'eraser') return ERASER_WIDTH;
-	if (pointerType !== 'pen') return FIXED_WIDTH;
+	const scale = BRUSH_SCALE[size];
+	// A highlighter is a flat wide marker: pressure would make the translucent band uneven.
+	if (tool === 'highlighter') return HIGHLIGHTER_WIDTH * scale;
+	if (pointerType !== 'pen') return FIXED_WIDTH * scale;
 	const p = Number.isFinite(pressure) && pressure > 0 ? Math.min(pressure, 1) : DEFAULT_PRESSURE;
-	return PEN_MIN_WIDTH + (PEN_MAX_WIDTH - PEN_MIN_WIDTH) * p;
+	return (PEN_MIN_WIDTH + (PEN_MAX_WIDTH - PEN_MIN_WIDTH) * p) * scale;
 }
 
 /** Low-pass the width so a jittery pressure signal does not make the line pulse. */
@@ -96,4 +140,4 @@ export function dataUrlBytes(dataUrl: string): number {
 
 /** True when a stroke list would leave the board blank (nothing but erasing, or nothing). */
 export const isBlank = (strokes: readonly Stroke[]): boolean =>
-	!strokes.some((s) => s.tool === 'pen' && s.points.length > 0);
+	!strokes.some((s) => s.tool !== 'eraser' && s.points.length > 0);
