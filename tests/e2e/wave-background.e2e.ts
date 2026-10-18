@@ -95,6 +95,23 @@ test('Halloween brings pumpkins, bats and a ghost; a plain day brings none', asy
 	await expect(page.locator('img[src^="/seasons/"]')).toHaveCount(0);
 });
 
+// hub-6pv.6.3: one reindeer joins the herd each day from Dec 16; Rudolph comes last.
+test('the reindeer countdown shows one reindeer per day so far', async ({ page }) => {
+	await gotoHydrated(page, '/?season=christmas&reindeer=3');
+	const layer = page.getByTestId('seasonal-layer');
+	await expect(layer.locator('[data-sprite^="reindeer-"]')).toHaveCount(3);
+	await expect(layer.locator('[data-sprite="reindeer-rudolph"]')).toHaveCount(0);
+	await gotoHydrated(page, '/?season=christmas&reindeer=9');
+	await expect(layer.locator('[data-sprite^="reindeer-"]')).toHaveCount(9);
+	await expect
+		.poll(() =>
+			layer
+				.locator('[data-sprite="reindeer-rudolph"] img')
+				.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)
+		)
+		.toBe(true);
+});
+
 test('this device can hide the waves and remembers it', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wave-device-${info.project.name}`);
 	await gotoHydrated(page, '/settings/background');

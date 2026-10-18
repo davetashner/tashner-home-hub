@@ -62,7 +62,7 @@
 	);
 	// Holiday sprites (hub-6pv.6.2) go with the holiday palette: Auto only, never behind the frame.
 	const sprites = $derived(
-		showSprites({ choice: wave.choice, season: season.season, covered, deviceOff: device.off })
+		showSprites({ choice: wave.choice, season, covered, deviceOff: device.off })
 	);
 	const wall = $derived(page.data.displayRole === 'wall');
 	const profile = $derived(waveProfile(wall));
@@ -231,7 +231,7 @@
 			<canvas bind:this={canvas} data-palette={palette} data-drawn={drawn}></canvas>
 		{/if}
 		{#if sprites}
-			<SeasonalLayer season={season.season} still={paused || reduced} />
+			<SeasonalLayer {season} still={paused || reduced} />
 		{/if}
 	</div>
 {/if}

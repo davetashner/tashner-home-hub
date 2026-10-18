@@ -1,10 +1,10 @@
 /**
  * Seasonal sprites over the wave background (hub-6pv.6.2): which pictures a season shows and how
  * each one moves. Data only: the layer turns each entry into an image with a CSS animation.
- * Later seasons (reindeer, Christmas Eve, St Patrick's, July 4th) add entries here.
+ * The July 4th entries come later.
  */
 import type { WaveChoice } from './wave-background.js';
-import type { Season } from './season.js';
+import { REINDEER, type Season, type SeasonState } from './season.js';
 
 /**
  * How a sprite moves. Every motion is transform/opacity only and never rests in one exact spot
@@ -105,11 +105,41 @@ const halloween: Sprite[] = [
 	}
 ];
 
+const CHRISTMAS = '/seasons/christmas';
+
+/** Grazing, standing and resting poses in turn, so the herd doesn't look stamped out. */
+const POSES = ['graze', 'stand', 'lie', 'stand', 'graze', 'lie', 'graze', 'stand'] as const;
+const POSE_SIZE = { stand: 10, graze: 9, lie: 8 } as const;
+
+/**
+ * The countdown herd (hub-6pv.6.3): one reindeer joins each day from Dec 16, lining up from the
+ * right corner toward the middle. Rudolph comes last.
+ */
+function herd(count: number): Sprite[] {
+	return REINDEER.slice(0, count).map((name, i) => {
+		const pose = name === 'Rudolph' ? 'stand' : POSES[i % POSES.length]!;
+		return {
+			id: `reindeer-${name.toLowerCase()}`,
+			src: `${CHRISTMAS}/${name === 'Rudolph' ? 'rudolph' : 'reindeer'}-${pose}.webp`,
+			motion: 'rest',
+			size: POSE_SIZE[pose],
+			x: { edge: 'right', vmin: 2 + i * 10.5 },
+			y: { edge: 'bottom', pct: 0.5 },
+			period: 280 + i * 23,
+			delay: -i * 41,
+			flip: i % 3 === 1
+		};
+	});
+}
+
 const SPRITES: Partial<Record<Season, readonly Sprite[]>> = { halloween };
 
 /** The sprites a season shows; none for a plain day or a season without pictures yet. */
-export function spritesFor(season: Season | null): readonly Sprite[] {
-	return season ? (SPRITES[season] ?? []) : [];
+export function spritesFor(
+	state: Pick<SeasonState, 'season' | 'reindeer' | 'christmasEve'>
+): readonly Sprite[] {
+	if (state.season === 'christmas') return herd(state.reindeer);
+	return state.season ? (SPRITES[state.season] ?? []) : [];
 }
 
 /**
@@ -118,7 +148,7 @@ export function spritesFor(season: Season | null): readonly Sprite[] {
  */
 export function showSprites(o: {
 	choice: WaveChoice;
-	season: Season | null;
+	season: SeasonState;
 	covered: boolean;
 	deviceOff: boolean;
 }): boolean {
