@@ -55,7 +55,9 @@
 	] as const;
 	const toggles = [
 		['approval', 'Approval waiting'],
-		['goal', 'Goal reached']
+		['goal', 'Goal reached'],
+		['redeemed', 'Reward redeemed'],
+		['streak', 'Streak milestone']
 	] as const;
 	const plain = { autocomplete: 'off', autocapitalize: 'off', spellcheck: false } as const;
 	const input = 'min-h-tap rounded-control border-2 border-line bg-surface px-4 text-body text-ink';

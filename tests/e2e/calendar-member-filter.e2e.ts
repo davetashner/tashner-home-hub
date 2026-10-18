@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { seedCalendar } from './calendar.js';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 // FAM-4: member chips narrow Agenda, Week and Month, and the choice survives a reload.
 test('member chips filter the calendar and are remembered', async ({ page }) => {
 	seedCalendar();
-	await page.goto('/calendar');
+	await gotoHydrated(page, '/calendar');
 	const filter = page.getByTestId('member-filter');
 	const pane = page.getByTestId('calendar-pane');
 	const view = page.getByRole('group', { name: 'View' });
@@ -21,11 +22,8 @@ test('member chips filter the calendar and are remembered', async ({ page }) => 
 	}
 
 	await view.getByRole('button', { name: 'Agenda' }).click();
-	// The first tap can land before hydration on WebKit, so retry until it takes.
-	await expect(async () => {
-		await chip('Avery').click();
-		await expect(chip('Avery')).toHaveAttribute('aria-pressed', 'true', { timeout: 500 });
-	}).toPass();
+	await chip('Avery').click();
+	await expect(chip('Avery')).toHaveAttribute('aria-pressed', 'true');
 	await expect(pane.getByText('Soccer practice').first()).toBeVisible();
 	await expect(pane.getByText('Dentist')).toHaveCount(0);
 	await expect(pane.getByText('Grandma visits')).toHaveCount(0);

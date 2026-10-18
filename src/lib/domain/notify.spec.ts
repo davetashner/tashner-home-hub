@@ -23,7 +23,7 @@ describe('config', () => {
 		expect(parseNotifyConfig(good)).toEqual({
 			...on,
 			serverUrl: 'http://ntfy.local:8080',
-			events: { approval: false, goal: true }
+			events: { ...DEFAULT_NOTIFY.events, approval: false }
 		});
 	});
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import OnScreenKeyboard from '#lib/components/lists/OnScreenKeyboard.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import { dayNumber, weekdayShort } from '#lib/domain/calendar-view/format.js';
 	import { dateKeyOf, type DateKey } from '#lib/domain/calendar-view/zone.js';
@@ -30,6 +31,7 @@
 	let draft = $state('');
 	let failed = $state(false);
 
+	const wall = $derived(page.data.displayRole === 'wall');
 	const days = $derived(weekDays(week));
 	const plan = $derived(cache[week] ?? {});
 	const rangeLabel = $derived(
@@ -183,19 +185,32 @@
 				{cap(editing.meal)} · {weekdayShort(editing.date)}
 				{dayNumber(editing.date)}
 			</h2>
-			<!-- svelte-ignore a11y_autofocus -->
-			<input
-				class="field"
-				type="text"
-				maxlength={MEAL_TEXT_MAX}
-				placeholder="What's for {editing.meal}?"
-				aria-label="Meal"
-				data-testid="meal-input"
-				autofocus
-				bind:value={draft}
-			/>
+			{#if wall}
+				<!-- The wall has no OS keyboard; Enter saves, and it replaces whatever was planned. -->
+				<OnScreenKeyboard
+					onsubmit={(text) => {
+						draft = text;
+						void save();
+					}}
+					placeholder={draft || `What's for ${editing.meal}?`}
+					submitLabel="Save"
+					max={MEAL_TEXT_MAX}
+				/>
+			{:else}
+				<!-- svelte-ignore a11y_autofocus -->
+				<input
+					class="field"
+					type="text"
+					maxlength={MEAL_TEXT_MAX}
+					placeholder="What's for {editing.meal}?"
+					aria-label="Meal"
+					data-testid="meal-input"
+					autofocus
+					bind:value={draft}
+				/>
+			{/if}
 			<div class="flex flex-wrap gap-3">
-				<Button type="submit" data-testid="meal-save">Save</Button>
+				{#if !wall}<Button type="submit" data-testid="meal-save">Save</Button>{/if}
 				<Button variant="secondary" onclick={() => (editing = null)}>Cancel</Button>
 				<Button variant="danger" data-testid="meal-delete" onclick={remove}>Clear</Button>
 			</div>

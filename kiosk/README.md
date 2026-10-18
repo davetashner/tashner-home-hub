@@ -14,6 +14,7 @@ Provisions a Raspberry Pi 5 as the wall display: Chromium in kiosk mode on labwc
 | Crash recovery | user unit `hub-kiosk.service`, `Restart=always`, `RestartSec=5`, no start limit |
 | Hang recovery | `hub-kiosk-watchdog.timer` every 30 s checks Chromium's DevTools endpoint (127.0.0.1 only); 3 misses in a row restarts the service |
 | Server down at boot | Chromium still opens `HUB_URL` (service worker serves cache if it has one). If it lands on an error page, the watchdog reopens the URL once `HUB_HEALTH_URL` answers. A server outage never restarts Chromium |
+| Hub error page | If the page is the hub's own server error page (tab title like `500 Internal Error`, e.g. the kiosk booted mid-redeploy), the watchdog reopens the URL once `HUB_HEALTH_URL` answers. Repeats back off 30 s, 60 s, ... up to 10 min, and a normal page resets it, so a hub that keeps erroring never reload-loops. Logic and tests: `kiosk/watchdog/` (`python3 -m unittest`) |
 | Full freeze | `RuntimeWatchdogSec=15` in `/etc/systemd/system.conf.d/10-hub-watchdog.conf` (hardware watchdog) |
 | Rotation | `wlr-randr --output <OUTPUT> --mode <RESOLUTION> --transform <ORIENTATION>` plus a libinput calibration matrix and `mapToOutput` in labwc `rc.xml` |
 | Hidden cursor | invisible Xcursor theme `hub-blank` set in labwc `environment`; `INPUT="mouse"` shows a normal pointer and makes Esc minimize the hub |
@@ -117,6 +118,26 @@ POST {HUB_URL}/api/display/sleep   (the nav "Sleep" button; same body, status 20
   1. Plug it in and disable the built-in radio with `dtoverlay=disable-bt` in `/boot/firmware/config.txt`.
   2. Reboot and pair again.
 
+### Spotify Connect (the "Hub" device)
+
+Opt in with `SPOTIFY_CONNECT="on"` in `kiosk.conf` (default `off`), re-run `sudo ./install.sh`, reboot. The Pi then shows up in Spotify as a speaker named **Hub**, which is what the hub's Music tab uses for "Play on: Automatic (Hub)". Audio goes to PipeWire's default sink, so it plays on the Bluetooth speaker above. `SPOTIFY_INITIAL_VOLUME` (0-100, default 40) is where it starts; volume normalisation is on.
+
+- **Implementation:** [Raspotify](https://github.com/dtcooper/raspotify) 0.48.3, which packages librespot v0.8.0 (the maintained open-source Spotify Connect client). Both are MIT-licensed, Raspotify ships an arm64 `.deb` for Raspberry Pi OS (Debian trixie) and had a release in September 2026. `install.sh` downloads that one pinned `.deb` over HTTPS, checks its SHA-256 (it stops on a mismatch), and installs it with apt. Nothing is piped to a shell. To upgrade, change `RASPOTIFY_VERSION`, `RASPOTIFY_DEB` and `RASPOTIFY_SHA256` in `install.sh` together. go-librespot (GPL-3.0, GitHub tarball, no apt package) was the alternative; Raspotify won on licence, packaging and checksummed installs.
+- **Service:** the package's own system unit is disabled and masked. `hub-kiosk-librespot.service` runs `/usr/bin/librespot` as a user unit of `kiosk` (started from the labwc autostart, restarts always) with `--backend pulseaudio` (PipeWire's pulse socket, so it follows the default sink), `--name Hub`, `--enable-volume-normalisation` and `--disable-audio-cache`.
+- **One-time login (headless, no secrets in the repo):** the parent signs in once with Spotify Premium via zeroconf.
+  1. Make sure the speaker is connected (`kioskctl doctor` shows `speaker` passing).
+  2. On a phone on the same Wi-Fi as the Pi, open the Spotify app and play anything.
+  3. Tap the "Connect to a device" icon and pick **Hub** (it appears under "Devices Available").
+  4. Librespot stores the login in `~kiosk/.local/state/hub-kiosk/librespot/` (owned by `kiosk`, mode 700; `credentials.json` inside is the secret, never copy it anywhere). From then on it signs in by itself after every reboot and the hub's Web API sees "Hub" under `/me/player/devices` without anyone opening Spotify.
+  - To sign in as someone else: stop the service (`sudo -u kiosk XDG_RUNTIME_DIR=/run/user/$(id -u kiosk) systemctl --user stop hub-kiosk-librespot.service`), delete that directory's contents, start the service, repeat the steps.
+- **Check it:** `kioskctl doctor` reports `spotify-connect`: pass when the service runs and a login is cached, warn when it is advertised but nobody has signed in yet, fail when the service is down.
+- **Troubleshooting:**
+  - Hub not listed in Spotify: the phone must be on the same subnet as the Pi (no guest Wi-Fi or client isolation) and `avahi-daemon` must run (`systemctl status avahi-daemon`). `avahi-browse -t _spotify-connect._tcp` on the Pi should list Hub.
+  - Service failing: `sudo journalctl _UID=$(id -u kiosk) -e | grep librespot`. A `pulseaudio` connection error means `pipewire-pulse` is not running in the kiosk session (`systemctl --user status pipewire-pulse`).
+  - Plays but silent or on the wrong output: the speaker must be the default sink (`wpctl status`; `kioskctl doctor` `speaker`). Librespot follows the default sink when playback starts; restart the service after changing it.
+  - Wi-Fi-only issues (device appears then vanishes): the Pi 5 shares one antenna between Wi-Fi and Bluetooth, see Range above.
+  - Not verified on hardware yet (hub-txj.7): the pulseaudio backend against PipeWire on Pi OS trixie, zeroconf discovery from a phone, and credentials surviving a reboot.
+
 Tests (no Pi needed): `cd kiosk/display-agent && python3 -m unittest`. CI does not run them yet (the workflow is protected); hub-ugl.12 may add shellcheck.
 
 ## Updating
@@ -183,3 +204,7 @@ node scripts/kiosk/kioskctl.mjs reload | restart | sw status | sw reset | logs -
 ## Offline caching and automation flags
 
 The hub's service worker (offline tolerance, NFR-6) stays on in headed Chromium, including with `--remote-debugging-port`. It switches itself off only for headless automation (`HeadlessChrome` user agent). Do not launch the kiosk with `--enable-automation`, which sets `navigator.webdriver` and is meant for test drivers, not the wall. Set `localStorage['hub.sw']` to `on` or `off` to force the worker either way.
+
+## Scrollbars
+
+`hub-kiosk-launch` passes `--hide-scrollbars`, so the thin overlay scrollbar no longer shows at the right edge of the wall (the content area scrolls). Scrolling still works by touch. The flag is still a valid Chromium content switch on Pi OS trixie, so the app CSS is unchanged. It only affects the kiosk's Chromium; phones and other browsers keep normal scrollbars. Re-run `sudo ./install.sh` and restart the kiosk to apply.

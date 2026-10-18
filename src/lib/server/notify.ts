@@ -3,6 +3,7 @@ import { getDb, type Db } from './db/index.js';
 import { goals, members, rewards, settings } from './db/schema.js';
 import { decryptSecret, encryptSecret, type Keyring } from './domain/secrets.js';
 import { pendingApprovals } from './domain/ledger.js';
+import type { Milestone } from '#lib/domain/streaks.js';
 import { starBalance } from './domain/stars.js';
 import { getKeyring } from './keys.js';
 import {
@@ -10,6 +11,8 @@ import {
 	createBatcher,
 	decideGoalNotices,
 	goalMessage,
+	redeemedMessage,
+	streakMessage,
 	parseNotifyConfig,
 	shouldSend,
 	type EventKey,
@@ -162,4 +165,22 @@ export function notifyGoalsReached(db: Db = getDb()): void {
 	} catch {
 		// notifications must never break the request that triggered them
 	}
+}
+
+/** Call after a redemption has committed. Names come from the DB at send time. */
+export function notifyRewardRedeemed(db: Db, memberId: string, rewardId: string): void {
+	dispatch(db, 'redeemed', () => {
+		const m = db.select().from(members).where(eq(members.id, memberId)).get();
+		const r = db.select().from(rewards).where(eq(rewards.id, rewardId)).get();
+		return m && r ? redeemedMessage(m.name, r.title) : null;
+	});
+}
+
+/** Call after streak payout rows are written, with the milestones just paid. */
+export function notifyStreakMilestones(db: Db, memberId: string, paid: Milestone[]): void {
+	for (const p of paid)
+		dispatch(db, 'streak', () => {
+			const m = db.select().from(members).where(eq(members.id, memberId)).get();
+			return m ? streakMessage(m.name, p.days, p.stars) : null;
+		});
 }

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
+import { gotoHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 
@@ -31,17 +32,12 @@ test('importing a bad file is refused and changes nothing', async ({ page }) => 
 	expect(bad.status()).toBe(422);
 	expect((await bad.json()).error).toContain('newer Home Hub');
 
-	await page.goto('/settings/backup');
-	// Retry until the page has hydrated and the change handler is attached.
-	await expect(async () => {
-		await page.getByTestId('import-file').setInputFiles({
-			name: 'bad.json',
-			mimeType: 'application/json',
-			buffer: Buffer.from('{"hello":1}')
-		});
-		await expect(page.getByRole('alert')).toHaveText('That file is not a Home Hub export.', {
-			timeout: 500
-		});
-	}).toPass();
+	await gotoHydrated(page, '/settings/backup');
+	await page.getByTestId('import-file').setInputFiles({
+		name: 'bad.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from('{"hello":1}')
+	});
+	await expect(page.getByRole('alert')).toHaveText('That file is not a Home Hub export.');
 	await expect(page.getByRole('button', { name: 'Replace all data' })).toHaveCount(0);
 });

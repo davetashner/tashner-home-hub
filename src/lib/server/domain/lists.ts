@@ -11,7 +11,7 @@ import {
 	type ListItem
 } from '#lib/domain/lists.js';
 import type { Db } from '../db/index.js';
-import { listItems, lists } from '../db/schema.js';
+import { listItems, lists, settings } from '../db/schema.js';
 import { LedgerError } from './ledger.js';
 
 export interface SharedList {
@@ -22,16 +22,27 @@ export interface SharedList {
 
 const invalid = (msg: string) => new LedgerError('invalid', msg);
 
-/** Every list with its items in display order; seeds Grocery, To-Do and Packing on first use. */
+/** Settings key set once the default lists were seeded (or lists already existed). */
+export const LISTS_SEEDED_KEY = 'lists.seeded';
+
+/** Every list with its items in display order; seeds Grocery, To-Do and Packing once, ever. */
 export function listAll(db: Db): SharedList[] {
 	return db.transaction((tx) => {
-		if (tx.select().from(lists).limit(1).all().length === 0)
-			DEFAULT_LISTS.forEach((title, i) =>
-				tx
-					.insert(lists)
-					.values({ id: randomUUID(), title, createdAt: Date.now() + i })
-					.run()
-			);
+		const seeded = tx.select().from(settings).where(eq(settings.key, LISTS_SEEDED_KEY)).get();
+		if (!seeded) {
+			// An install that already has lists counts as seeded; only a fresh one gets the defaults.
+			if (tx.select().from(lists).limit(1).all().length === 0)
+				DEFAULT_LISTS.forEach((title, i) =>
+					tx
+						.insert(lists)
+						.values({ id: randomUUID(), title, createdAt: Date.now() + i })
+						.run()
+				);
+			tx.insert(settings)
+				.values({ key: LISTS_SEEDED_KEY, value: 'true' })
+				.onConflictDoNothing()
+				.run();
+		}
 		const items = tx.select().from(listItems).all();
 		return tx
 			.select()

@@ -10,6 +10,8 @@ export interface KidChore {
 	kind?: 'star_job' | 'habit';
 	icon: string | null;
 	stars: number;
+	/** False: the stars count the moment the kid taps (no grown-up's OK). Missing means true. */
+	requiresApproval?: boolean;
 	status: Status;
 	completionId: string | null;
 	/** Any-day to-dos (hub-it5): the period's last day and which of its weeks today is in. */

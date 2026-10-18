@@ -3,6 +3,7 @@ import {
 	diagnose,
 	parseFlags,
 	parseSpeaker,
+	parseSpotify,
 	parseWake,
 	parseWlrRandr,
 	remoteFacts,
@@ -244,6 +245,42 @@ describe('diagnose', () => {
 		expect(check({ paired: false, connected: false })).toMatchObject({ status: 'warn' });
 		expect(check({ connected: false })).toMatchObject({ status: 'warn', hint: 'switch it on' });
 		expect(check({ defaultSink: false })).toMatchObject({ status: 'fail' });
+	});
+
+	it('reads the Spotify Connect section, only when the option is on', () => {
+		const text = 'enabled yes\nunit active\ncredentials yes\nadvertised no';
+		expect(parseSpotify(text)).toEqual({ unit: 'active', credentials: true, advertised: false });
+		expect(parseSpotify('unit inactive\ncredentials no\nadvertised unknown')).toEqual({
+			unit: 'inactive',
+			credentials: false,
+			advertised: null
+		});
+		expect(remoteFacts(`=== spotify\n${text}\n=== end`).spotify?.unit).toBe('active');
+		expect(remoteFacts('=== host\nkiosk').spotify).toBeUndefined();
+		expect(remoteFactsScript(null)).toContain('_spotify-connect._tcp');
+	});
+
+	it('checks that the Hub Spotify Connect device is up and signed in', () => {
+		const check = (over: object | null) =>
+			status(
+				healthy({
+					remote: remote(
+						over
+							? { spotify: { unit: 'active', credentials: true, advertised: true, ...over } }
+							: {}
+					)
+				}),
+				'spotify-connect'
+			);
+		expect(check(null)).toBeUndefined();
+		expect(check({})).toMatchObject({ status: 'pass' });
+		expect(check({ advertised: null })).toMatchObject({ status: 'pass' });
+		expect(check({ advertised: false })).toMatchObject({ status: 'warn' });
+		expect(check({ unit: 'failed' })).toMatchObject({ status: 'fail', detail: 'service failed' });
+		expect(check({ unit: '' })).toMatchObject({ status: 'fail', detail: 'service not installed' });
+		expect(check({ credentials: false })).toMatchObject({ status: 'warn' });
+		expect(check({ credentials: false })?.hint).toContain('"Hub"');
+		expect(check({ credentials: false, advertised: false })).toMatchObject({ status: 'fail' });
 	});
 
 	it('fails when nothing at the screen can wake it', () => {
