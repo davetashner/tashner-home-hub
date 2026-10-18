@@ -723,13 +723,13 @@
 				{
 					"id": "J18.1",
 					"text": "Draw with a pen or finger on the Home notes card and post it to the board.",
-					"status": "planned",
+					"status": "built",
 					"beads": ["hub-fkp"]
 				},
 				{
 					"id": "J18.2",
 					"text": "Tap a drawing to enlarge it; anyone dismisses it.",
-					"status": "planned",
+					"status": "built",
 					"beads": ["hub-fkp"]
 				}
 			]
