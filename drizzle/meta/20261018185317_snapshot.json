@@ -1,7 +1,7 @@
 {
 	"version": "6",
 	"dialect": "sqlite",
-	"id": "c1437a28-79f1-43ab-b7b9-dd8d594b29ad",
+	"id": "82a1016d-6b50-4808-9eee-45d4183d6ca0",
 	"prevId": "fa27bf8a-953c-4356-a729-5e97880fccba",
 	"tables": {
 		"allowance_transactions": {
