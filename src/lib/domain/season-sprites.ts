@@ -35,6 +35,8 @@ export interface Sprite {
 	delay: number;
 	/** Faces left: flipped horizontally (a bat flying right to left). */
 	flip?: boolean;
+	/** Flickers in brightness (filter only), like firelight. */
+	flicker?: boolean;
 }
 
 const HALLOWEEN = '/seasons/halloween';
@@ -193,7 +195,34 @@ const eve: Sprite[] = [
 	}))
 ];
 
-const SPRITES: Partial<Record<Season, readonly Sprite[]>> = { halloween };
+const CHRISTMASDAY = '/seasons/christmasday';
+
+/** Christmas Day (hub-6pv.6.6): the tree and its presents by a crackling fire. No people. */
+const christmasday: Sprite[] = [
+	{
+		id: 'fireplace',
+		src: `${CHRISTMASDAY}/fireplace.webp`,
+		motion: 'rest',
+		size: 18,
+		x: { edge: 'right', vmin: 19 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 420,
+		delay: -150,
+		flicker: true
+	},
+	{
+		id: 'tree',
+		src: `${CHRISTMASDAY}/tree.webp`,
+		motion: 'rest',
+		size: 26,
+		x: { edge: 'right', vmin: 2 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 360,
+		delay: 0
+	}
+];
+
+const SPRITES: Partial<Record<Season, readonly Sprite[]>> = { halloween, christmasday };
 
 /** The sprites a season shows; none for a plain day or a season without pictures yet. */
 export function spritesFor(

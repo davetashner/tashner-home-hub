@@ -19,7 +19,7 @@
 		{/if}
 		{#each sprites as s (s.id)}
 			<div class="sprite {s.motion}" class:flip={s.flip} style={spriteStyle(s)} data-sprite={s.id}>
-				<div class="frames">
+				<div class="frames" class:flicker={s.flicker}>
 					<img src={s.src} alt="" decoding="async" draggable="false" />
 					{#if s.flap}
 						<img class="flap" src={s.flap} alt="" decoding="async" draggable="false" />
@@ -98,6 +98,9 @@
 		animation-timing-function: linear;
 		opacity: 0;
 	}
+	.flicker {
+		animation: flicker 2.3s ease-in-out infinite;
+	}
 	.snow {
 		position: absolute;
 		inset: -100vmin 0 0;
@@ -149,6 +152,7 @@
 		animation-duration: 27s;
 	}
 	.still .sprite,
+	.still .frames,
 	.still .frames img,
 	.still .snow {
 		animation-play-state: paused;
@@ -208,6 +212,21 @@
 			opacity: 0;
 		}
 	}
+	@keyframes flicker {
+		0%,
+		100% {
+			filter: brightness(1);
+		}
+		30% {
+			filter: brightness(1.08);
+		}
+		55% {
+			filter: brightness(0.96);
+		}
+		80% {
+			filter: brightness(1.05);
+		}
+	}
 	@keyframes snow {
 		from {
 			transform: translateY(0);
@@ -238,6 +257,7 @@
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.sprite,
+		.frames,
 		.frames img,
 		.snow {
 			animation-play-state: paused;

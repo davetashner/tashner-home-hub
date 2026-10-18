@@ -123,6 +123,16 @@ test('Christmas Eve brings snow, pines and the sleigh with all nine', async ({ p
 	await expect(layer.locator('[data-sprite^="reindeer-"]')).toHaveCount(0);
 });
 
+// hub-6pv.6.6: Christmas Day is the tree and presents by the fire.
+test('Christmas Day shows the tree and the fire', async ({ page }) => {
+	await gotoHydrated(page, '/?season=christmasday');
+	const layer = page.getByTestId('seasonal-layer');
+	await expect(layer).toHaveAttribute('data-season', 'christmasday');
+	for (const id of ['tree', 'fireplace']) {
+		await expect(layer.locator(`[data-sprite="${id}"]`)).toHaveCount(1);
+	}
+});
+
 test('this device can hide the waves and remembers it', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wave-device-${info.project.name}`);
 	await gotoHydrated(page, '/settings/background');
