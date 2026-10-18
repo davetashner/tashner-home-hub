@@ -358,3 +358,29 @@ describe('habits (hub-esf)', () => {
 		);
 	});
 });
+
+describe('habit follow-ups (hub-obz)', () => {
+	const habit = () =>
+		createChore(db, { title: 'Feed the fish', kind: 'habit', memberIds: ['kid'] }, clock);
+
+	it('accepts requiresApproval:false on a habit, as a no-op', () => {
+		const h = habit();
+		expect(updateChore(db, h.id, { requiresApproval: false }, clock)).toMatchObject({
+			kind: 'habit',
+			requiresApproval: false
+		});
+	});
+
+	it('cannot approve or reject a habit completion, which is already approved', () => {
+		const h = habit();
+		const { completion } = completeChore(db, {
+			choreId: h.id,
+			memberId: 'kid',
+			date: '2026-01-05',
+			now: clock.now
+		});
+		expect(code(() => approveCompletion(db, completion.id))).not.toBe('none');
+		expect(code(() => rejectCompletion(db, completion.id))).not.toBe('none');
+		expect(db.select().from(schema.starTransactions).all()).toEqual([]);
+	});
+});

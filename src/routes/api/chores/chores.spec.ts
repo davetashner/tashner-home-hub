@@ -123,3 +123,29 @@ describe('chores API', () => {
 		expect(rows).toHaveLength(1);
 	});
 });
+
+describe('chores API kind filter (hub-obz)', () => {
+	const get = (query: string) => call(list.GET, { url: new URL(`http://example.com/${query}`) });
+
+	it('filters by valid kind, returns all without one, and 400s on a bad one', async () => {
+		const habit = await (
+			await call(list.POST, { request: req('POST', { title: 'Feed fish', kind: 'habit' }) })
+		).json();
+		const job = await (
+			await call(list.POST, { request: req('POST', { title: 'Mop floor' }) })
+		).json();
+		const ids = async (q: string) =>
+			((await (await get(q)).json()) as { id: string }[]).map((c) => c.id);
+
+		expect(await ids('?kind=habit')).toEqual([habit.id]);
+		expect(await ids('?kind=star_job')).toContain(job.id);
+		expect(await ids('?kind=star_job')).not.toContain(habit.id);
+		expect(await ids('')).toEqual(expect.arrayContaining([habit.id, job.id]));
+
+		await expect(get('?kind=nap')).rejects.toMatchObject({
+			status: 400,
+			body: { message: expect.stringMatching(/kind must be one of/) }
+		});
+		await expect(get('?kind=')).rejects.toMatchObject({ status: 400 });
+	});
+});

@@ -133,7 +133,7 @@ function validStars(value: unknown): number {
 	return value;
 }
 
-function validKind(value: unknown): ChoreKind {
+export function validKind(value: unknown): ChoreKind {
 	if (!(CHORE_KINDS as readonly unknown[]).includes(value))
 		throw invalid(`kind must be one of ${CHORE_KINDS.join(', ')}`);
 	return value as ChoreKind;
