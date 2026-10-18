@@ -1,5 +1,6 @@
 // Records one video per journey per device from the Playwright tests tagged with the journey's
-// steps (journeys/registry.json, docs/journeys.md), then an HTML evidence report. Local tool only; never CI, never committed.
+// steps (journeys/registry.json, docs/journeys.md), with a caption banner, a drawn cursor and tap
+// ripples, then an HTML evidence report. Local tool only; never CI, never committed.
 //
 //   node scripts/journey-videos/record.mjs [--only J1,J4] [--device wall-landscape|wall-portrait|
 //        ipad|ipad-landscape|ipad-portrait|iphone|all] [--skip-build] [--port 4400]
@@ -12,6 +13,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listTests, loadRegistry, tagsFromListing } from '../journeys/trace.mjs';
+import { firstLine } from './caption.mjs';
 import { cardArgs, clipArgs, concatArgs, concatList } from './assemble.mjs';
 import { DEVICE_PROJECTS, grepFor, parseArgs, planJourneys, slug, testKey } from './plan.mjs';
 import { endCard, renderReport, stepResults, titleCard } from './report.mjs';
@@ -36,7 +38,7 @@ export function readResults(report) {
 			if (!run) continue;
 			out.set(testKey({ file: spec.file, title: spec.title }), {
 				status: run.status,
-				error: (run.error?.message ?? '').split('\n').find((l) => l.trim()) ?? '',
+				error: firstLine(run.error?.message),
 				video: run.attachments?.find((a) => a.name === 'video')?.path ?? null,
 				duration: run.duration
 			});

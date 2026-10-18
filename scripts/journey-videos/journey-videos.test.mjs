@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { cardArgs, clipArgs, concatArgs, concatList } from './assemble.mjs';
+import { captionFor, finalCaption, firstLine, plainTitle, tagIds } from './caption.mjs';
 import { fitVideo, grepFor, parseArgs, planJourneys, projectsFor } from './plan.mjs';
 import { counts, endCard, esc, renderReport, stepResults } from './report.mjs';
 
@@ -78,6 +79,21 @@ test('grepFor matches J1 steps but not J10', () => {
 	assert.ok(re.test('x @J1.2'));
 	assert.ok(!re.test('x @J10.2'));
 	assert.ok(!re.test('x @J2.1'));
+});
+
+test('captions: ids, step text, test name; failures show the assertion', () => {
+	assert.deepEqual(tagIds('a @J1.2 b @J2.1'), ['J1.2', 'J2.1']);
+	assert.equal(plainTitle('tap a job @J1.2 @J2.1'), 'tap a job');
+	const c = captionFor(registry, 'tap @J1.2 @J1.1 @J9.9', 'celebrate.e2e.ts');
+	assert.equal(c.id, 'J1.2 + J1.1');
+	assert.equal(c.step, 'Tap a job. / Pick a name.');
+	assert.equal(c.test, 'celebrate.e2e.ts › tap');
+	assert.equal(c.state, 'running');
+	assert.equal(finalCaption(c, 'passed').state, 'passed');
+	const bad = finalCaption(c, 'failed', '\u001b[31mError: expect(received)\u001b[0m\n  detail');
+	assert.deepEqual([bad.state, bad.note], ['failed', 'Error: expect(received)']);
+	assert.equal(finalCaption(c, 'timedOut', 'late').state, 'failed');
+	assert.equal(firstLine('x'.repeat(300)).length, 160);
 });
 
 test('assembly command lines', () => {
