@@ -9,6 +9,7 @@ const API_READS = [
 	/^\/api\/members\/[^/]+\/(chores|stars|goal)$/,
 	/^\/api\/calendar\/(events|status)$/,
 	/^\/api\/approvals\/count$/,
+	/^\/api\/routines$/,
 	// The slideshow's list and settings: fresh when online (new photos show up), kept for offline.
 	/^\/api\/photo\/slideshow$/,
 	/^\/api\/settings\/slideshow$/
