@@ -4,6 +4,12 @@
 	import { page } from '$app/state';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
+	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
+	import {
+		describeWallPower,
+		parseWallPower,
+		type WallPowerState
+	} from '#lib/domain/wall-power.js';
 	import { parseDisplayRole, type DisplayRole } from '#lib/domain/display-role.js';
 	import {
 		DEFAULT_IDLE,
@@ -65,11 +71,47 @@
 			.catch(() => (message = 'Could not save. Try again.'))
 			.finally(() => (pending = null));
 	}
+	// The wall's power, for phones: "Waking…" / "Going to sleep…" while a tap is in flight.
+	let wall = $state<WallPowerState | null>(null);
+	let wallBusy = $state<'wake' | 'sleep' | null>(null);
+	let wallError = $state('');
+	const wallText = $derived(
+		wallBusy === 'wake'
+			? 'Waking…'
+			: wallBusy === 'sleep'
+				? 'Going to sleep…'
+				: wall
+					? describeWallPower(wall, page.data.timeZone ?? 'UTC')
+					: 'Checking…'
+	);
+
+	async function loadWall() {
+		const res = await safeFetch('/api/display/power', { cache: 'no-store' });
+		const next = res.ok ? parseWallPower(await res.json().catch(() => null)) : null;
+		if (next && !wallBusy) wall = next;
+	}
+
+	async function wallAction(kind: 'wake' | 'sleep') {
+		if (wallBusy) return;
+		wallError = '';
+		wallBusy = kind;
+		const res = await safeFetch(`/api/display/${kind}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: '{}'
+		});
+		const next = res.ok ? parseWallPower(await res.json().catch(() => null)) : null;
+		if (next) wall = next;
+		else wallError = res.ok ? 'Something went wrong.' : await errorMessage(res);
+		wallBusy = null;
+	}
+
 	// Each save stamps a number, so a stale load can't undo a change made meanwhile.
 	let slideshowEdits = 0;
 	let overlayEdits = 0;
 
 	onMount(() => {
+		void loadWall();
 		void fetch('/api/settings/idle')
 			.then(async (res) => {
 				if (res.ok) settings = parseIdleSettings(await res.json());
@@ -179,6 +221,23 @@
 			</div>
 			<p class="text-body text-ink-muted">{roles.find((r) => r.value === role)?.line}</p>
 		</div>
+	</Card>
+	<Card>
+		<div class="flex flex-wrap items-center justify-between gap-6">
+			<div class="flex flex-col gap-1">
+				<h2 class="text-title font-bold">Wall screen</h2>
+				<p class="text-body text-ink-muted" role="status" data-testid="wall-power">{wallText}</p>
+			</div>
+			<div class="flex flex-wrap gap-4">
+				<Button disabled={wallBusy !== null} onclick={() => wallAction('wake')}
+					>Wake the wall</Button
+				>
+				<Button variant="secondary" disabled={wallBusy !== null} onclick={() => wallAction('sleep')}
+					>Sleep now</Button
+				>
+			</div>
+		</div>
+		{#if wallError}<p role="alert" class="mt-4 text-body text-danger">{wallError}</p>{/if}
 	</Card>
 	{#each rows as row (row.key)}
 		<Card>
