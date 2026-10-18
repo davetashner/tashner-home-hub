@@ -67,7 +67,7 @@ This repository **opts in to the team-maintainer profile**. Agents working a bea
   `git worktree add .claude/worktrees/<branch> -b <branch> origin/main`
 - Sign off every commit (`git commit -s`). Include the bead ID in the subject: `feat: star ledger [hub-sps.2]`.
 - The PR body must contain one `Closes hub-xxx` line per bead completed.
-- One bead per PR. Keep diffs small (CI fails above ~800 changed lines, excluding lockfiles and baselines).
+- One bead per PR. Keep diffs small (CI fails above ~800 changed lines, excluding lockfiles, baselines and Drizzle snapshot JSON).
 
 ## Build & Test
 
