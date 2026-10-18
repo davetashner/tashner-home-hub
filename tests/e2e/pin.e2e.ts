@@ -4,6 +4,7 @@ import { px } from './tap';
 import Database from 'better-sqlite3';
 import { hashPin } from '../../src/lib/server/domain/pin';
 import { gotoHydrated } from './hydrated';
+import { DATA_DIR, DB_PATH } from './data-dir';
 
 // Synthetic adults with a synthetic PIN, written straight into the server's SQLite file.
 // Each test gets its own member (lockout is tracked per client address and member).
@@ -12,8 +13,8 @@ const WRONG = '2580';
 const seeded: string[] = [];
 
 function withDb<T>(fn: (db: Database.Database) => T): T {
-	mkdirSync('data', { recursive: true });
-	const db = new Database('data/hub.db');
+	mkdirSync(DATA_DIR, { recursive: true });
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	try {
 		return fn(db);

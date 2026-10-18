@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import { signInAsAdult } from './adult';
 import { trackMember } from './cleanup';
 import { expectTappable } from './tap';
+import { DB_PATH } from './data-dir';
 
 const DAY = 86_400_000;
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -32,7 +33,7 @@ async function seedMissed(page: Page, label: string) {
 			}
 		})
 	).json();
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare('UPDATE chores SET created_at = ? WHERE id = ?').run(Date.now() - 4 * DAY, chore.id);
 	db.prepare(

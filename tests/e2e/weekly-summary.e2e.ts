@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
 import { gotoHydrated } from './hydrated';
+import { DB_PATH } from './data-dir';
 
 const addDays = (date: string, n: number) => {
 	const d = new Date(`${date}T00:00:00Z`);
@@ -44,7 +45,7 @@ async function seed(page: Page, label: string) {
 		await request.post(`/api/chores/${dishes}/complete`, {
 			data: { memberId: member.id, date: addDays(week.start, i) }
 		});
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare('UPDATE star_transactions SET created_at = ? WHERE member_id = ?').run(
 		Date.parse(`${addDays(week.start, 2)}T12:00:00Z`),

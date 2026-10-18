@@ -4,6 +4,7 @@ import { ensureHousehold, signInAsAdult } from './adult';
 import { seedKid, type KidSeed } from './kid';
 import { px } from './tap';
 import { gotoHydrated } from './hydrated';
+import { DB_PATH } from './data-dir';
 
 // DEV-1/UI-8: every page works on an iPhone turned sideways (only ~290px of height under the
 // compact top bar): nothing scrolls sideways, headings fit, controls are tap-sized (96px on the
@@ -233,7 +234,7 @@ test('phone landscape: a three-digit approvals count keeps the adult header on s
 	// CI's shared database can hold 100+ pending approvals; the badge caps its count at "99+" so
 	// the header (with Lock, for an adult) still fits the narrowest phone.
 	const kid = await seedKid(page, `phone-badge-${info.project.name}`);
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	const insert = db.prepare(
 		"INSERT INTO chore_completions (id, chore_id, member_id, date, completed_at, status) VALUES (?, ?, ?, '2019-01-01', 0, 'pending')"

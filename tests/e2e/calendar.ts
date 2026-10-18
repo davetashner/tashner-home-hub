@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import Database from 'better-sqlite3';
+import { DATA_DIR, DB_PATH } from './data-dir';
 
 const SOURCE = 'e2e-cal-source';
 /**
@@ -31,8 +32,8 @@ const day = (offsetDays: number) => {
  * into the server's SQLite file. `fresh: false` leaves the source stale.
  */
 export function seedCalendar(options: { fresh?: boolean } = {}): void {
-	mkdirSync('data', { recursive: true });
-	const db = new Database('data/hub.db');
+	mkdirSync(DATA_DIR, { recursive: true });
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	const member = db.prepare(
 		"INSERT OR REPLACE INTO members (id, name, role, color) VALUES (?, ?, 'child', ?)"

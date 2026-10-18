@@ -1,13 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import Database from 'better-sqlite3';
+import { DB_PATH } from './data-dir';
 
 // The service worker is off for automated browsers unless a test opts in (see lib/offline/client).
 test.use({ serviceWorkers: 'allow' });
 
 /** An empty source of our own (idempotent): the calendar shows its full view without adding events other files count. */
 function seedOwnSource(): void {
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare(
 		"INSERT OR REPLACE INTO calendar_sources (id, provider, label, calendars, last_sync_at) VALUES ('e2e-off-source', 'ics', 'Offline test', '[]', ?)"

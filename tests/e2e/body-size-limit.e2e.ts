@@ -5,6 +5,7 @@ import Database from 'better-sqlite3';
 import { expect, test } from '@playwright/test';
 import { hashPin } from '../../src/lib/server/domain/pin';
 import { PIN } from './adult';
+import { DB_PATH } from './data-dir';
 
 // hub-7az.9: adapter-node rejects bodies over 512 KB unless BODY_SIZE_LIMIT is set, which broke
 // big data imports. The image sets it in the Dockerfile; this boots the production build with
@@ -56,7 +57,7 @@ async function withServer(
 const adultFor = () => `body-limit-${test.info().project.name}`;
 
 async function postImport(base: string, adultId: string): Promise<number> {
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare(
 		"INSERT OR REPLACE INTO members (id, name, role, color, pin_hash) VALUES (?, 'Test Adult', 'adult', 'member-1', ?)"

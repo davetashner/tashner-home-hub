@@ -1,5 +1,6 @@
 import { test } from '@playwright/test';
 import Database from 'better-sqlite3';
+import { DB_PATH } from './data-dir';
 
 /**
  * Every project shares one server and one SQLite file for the whole run, and specs seed members
@@ -31,7 +32,7 @@ export function sweepPrevious(): void {
 	ids = [];
 	owner = now;
 	if (stale.length === 0) return;
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	try {
 		db.pragma('busy_timeout = 5000');
 		db.pragma('foreign_keys = ON');

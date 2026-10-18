@@ -4,12 +4,13 @@ import { ensureHousehold, signInAsAdult } from './adult';
 import { gotoHydrated } from './hydrated';
 import { px } from './tap';
 import { trackMember } from './cleanup';
+import { DB_PATH } from './data-dir';
 
 // MSG-1: sticky notes on Home. Runs in both wall orientations and the phone viewports.
 
 function seedKid(id: string, name: string, avatar: string) {
 	ensureHousehold();
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare(
 		"INSERT OR REPLACE INTO members (id, name, role, color, avatar) VALUES (?, ?, 'child', 'member-3', ?)"
@@ -19,7 +20,7 @@ function seedKid(id: string, name: string, avatar: string) {
 }
 
 function wipe(tag: string) {
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare('DELETE FROM notes WHERE body LIKE ?').run(`%${tag}%`);
 	db.close();
@@ -117,7 +118,7 @@ test('a note that has expired is gone', async ({ page }, info) => {
 	const kidId = `e2e-notes-kid-${tag}`;
 	const kidName = `Kid ${tag}`;
 	seedKid(kidId, kidName, '🦊');
-	const db = new Database('data/hub.db');
+	const db = new Database(DB_PATH);
 	db.pragma('busy_timeout = 5000');
 	db.prepare(
 		"INSERT INTO notes (id, author_id, body, color, pinned, created_at, expires_at) VALUES (?, ?, ?, 'note-blue', 0, ?, ?)"
