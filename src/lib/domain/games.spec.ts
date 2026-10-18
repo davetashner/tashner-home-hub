@@ -6,6 +6,8 @@ import {
 	checkTitle,
 	cleanHttpsUrl,
 	isHubOrigin,
+	isPrivateGameUrl,
+	isPrivateHost,
 	GAME_TITLE_MAX,
 	MAX_GAMES,
 	moveGame,
@@ -136,5 +138,74 @@ describe("the hub's own origin is never a game (hub-wzg review)", () => {
 		];
 		expect(parseGames(stored, HUB).map((g) => g.id)).toEqual(['b']);
 		expect(parseGames(stored).map((g) => g.id)).toEqual(['a', 'b']);
+	});
+});
+
+describe('isPrivateHost (hub-84i)', () => {
+	it.each([
+		'10.0.0.1',
+		'10.255.255.255',
+		'172.16.0.1',
+		'172.31.255.1',
+		'192.168.1.50',
+		'127.0.0.1',
+		'127.8.9.10',
+		'169.254.1.1',
+		'100.64.0.1',
+		'100.127.255.254',
+		'::1',
+		'[::1]',
+		'fc00::1',
+		'fd12:3456::1',
+		'[fd12:3456::1]',
+		'fe80::1',
+		'[febf::1]',
+		'::ffff:192.168.1.5',
+		'[::ffff:c0a8:132]',
+		'localhost',
+		'LOCALHOST',
+		'app.localhost',
+		'nas.local',
+		'Game-Box.LOCAL.',
+		'  10.1.1.1  '
+	])('%s is private', (h) => expect(isPrivateHost(h)).toBe(true));
+
+	it.each([
+		'',
+		'games.example.com',
+		'localhost.example.com',
+		'notlocal',
+		'8.8.8.8',
+		'11.0.0.1',
+		'172.15.0.1',
+		'172.32.0.1',
+		'192.167.1.1',
+		'169.253.1.1',
+		'100.63.0.1',
+		'100.128.0.1',
+		'2001:db8::1',
+		'[2606:4700::1111]',
+		'fe00::1',
+		'fec0::1',
+		'fb00::1',
+		'::ffff:8.8.8.8',
+		'[::ffff:808:808]',
+		'xyz::1'
+	])('%s is public', (h) => expect(isPrivateHost(h)).toBe(false));
+});
+
+describe('isPrivateGameUrl', () => {
+	it('flags https URLs on private hosts only', () => {
+		expect(isPrivateGameUrl('https://192.168.1.50/game')).toBe(true);
+		expect(isPrivateGameUrl('https://[fd00::5]/game')).toBe(true);
+		expect(isPrivateGameUrl('https://nas.local:8443/')).toBe(true);
+		expect(isPrivateGameUrl('https://games.example.com/')).toBe(false);
+		expect(isPrivateGameUrl('http://192.168.1.50/game')).toBe(false);
+		expect(isPrivateGameUrl('not a url')).toBe(false);
+		expect(isPrivateGameUrl('')).toBe(false);
+	});
+
+	it('still accepts private hosts as games', () => {
+		expect(checkNewGame({ title: 'LAN', url: 'https://192.168.1.50/game' }).ok).toBe(true);
 	});
 });

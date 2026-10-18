@@ -3,7 +3,13 @@
 	import { onMount } from 'svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
-	import { GAME_TITLE_MAX, MAX_GAMES, moveGame, type Game } from '#lib/domain/games.js';
+	import {
+		GAME_TITLE_MAX,
+		MAX_GAMES,
+		isPrivateGameUrl,
+		moveGame,
+		type Game
+	} from '#lib/domain/games.js';
 
 	const JSON_HEADERS = { 'content-type': 'application/json' };
 
@@ -15,6 +21,7 @@
 	let title = $state('');
 	let url = $state('');
 	let image = $state('');
+	const lanHost = $derived(isPrivateGameUrl(url));
 
 	async function load() {
 		const res = await fetch('/api/games');
@@ -100,6 +107,11 @@
 						required
 						data-testid="game-url"
 					/>
+					{#if lanHost}
+						<p class="text-caption text-ink" role="note" data-testid="game-lan-warning">
+							This address is on your home network. Only add game servers you trust.
+						</p>
+					{/if}
 				</label>
 				<label class="flex flex-col gap-2">
 					<span class="text-caption text-ink-muted">Preview picture address (optional)</span>
