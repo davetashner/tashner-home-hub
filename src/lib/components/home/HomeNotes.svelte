@@ -5,6 +5,7 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
+	import DrawingSheet from './DrawingSheet.svelte';
 	import { REWARD_EMOJI } from '#lib/domain/emoji.js';
 	import { createLiveChannel } from '#lib/domain/live-events.js';
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
@@ -35,6 +36,7 @@
 		authorName: string;
 		authorColor: string;
 		authorAvatar: string | null;
+		imageUrl: string | null;
 	}
 	interface Member {
 		id: string;
@@ -74,6 +76,8 @@
 	const keys = new SvelteMap<string, string>();
 	// Temp ids dismissed before the POST returned; deleted once the server id is known.
 	const dismissedEarly = new SvelteSet<string>();
+	let drawing = $state(false);
+	let zoom = $state<Note | null>(null);
 
 	const zone = $derived(isTimeZone(page.data.timeZone) ? page.data.timeZone : runtimeZone());
 	const adult = $derived(page.data.adult === true);
@@ -105,33 +109,8 @@
 		}
 	}
 
-	function post(e: SubmitEvent) {
-		e.preventDefault();
-		const who = people.find((p) => p.id === authorId);
-		if (!who || clean === null) return;
-		const t = Date.now();
-		const payload = { authorId: who.id, body: clean, color, until };
-		const tempId = `temp-${++tempSeq}`;
-		all = [
-			...all,
-			{
-				id: tempId,
-				key: tempId,
-				body: clean,
-				color,
-				pinned: false,
-				createdAt: t,
-				expiresAt: expiryFor(until, t, zone),
-				authorId: who.id,
-				authorName: who.name,
-				authorColor: who.color,
-				authorAvatar: who.avatar
-			}
-		];
-		body = '';
-		until = null;
-		composing = false;
-		showEmoji = false;
+	/** POSTs a new note; on success its server id keeps the optimistic card's key (or deletes it if dismissed early). */
+	function sendNew(tempId: string, payload: Record<string, unknown>) {
 		void mutate(
 			() =>
 				fetch('/api/notes', {
@@ -154,6 +133,64 @@
 				}
 			}
 		);
+	}
+
+	function post(e: SubmitEvent) {
+		e.preventDefault();
+		const who = people.find((p) => p.id === authorId);
+		if (!who || clean === null) return;
+		const t = Date.now();
+		const payload = { authorId: who.id, body: clean, color, until };
+		const tempId = `temp-${++tempSeq}`;
+		all = [
+			...all,
+			{
+				id: tempId,
+				key: tempId,
+				body: clean,
+				color,
+				pinned: false,
+				createdAt: t,
+				expiresAt: expiryFor(until, t, zone),
+				authorId: who.id,
+				authorName: who.name,
+				authorColor: who.color,
+				authorAvatar: who.avatar,
+				imageUrl: null
+			}
+		];
+		body = '';
+		until = null;
+		composing = false;
+		showEmoji = false;
+		sendNew(tempId, payload);
+	}
+
+	/** A finished drawing: shown at once from the local PNG, then sent. */
+	function postDrawing(authorId: string, image: string) {
+		const who = people.find((p) => p.id === authorId);
+		if (!who) return;
+		const t = Date.now();
+		const tempId = `temp-${++tempSeq}`;
+		all = [
+			...all,
+			{
+				id: tempId,
+				key: tempId,
+				body: '',
+				color: 'note-yellow',
+				pinned: false,
+				createdAt: t,
+				expiresAt: null,
+				authorId: who.id,
+				authorName: who.name,
+				authorColor: who.color,
+				authorAvatar: who.avatar,
+				imageUrl: image
+			}
+		];
+		drawing = false;
+		sendNew(tempId, { authorId, body: '', image });
 	}
 
 	function dismiss(n: Note) {
@@ -229,9 +266,14 @@
 	<div class="flex items-center justify-between gap-4">
 		<h2 class="text-lead font-extrabold short:text-body">Notes</h2>
 		{#if !composing}
-			<Button variant="secondary" onclick={() => (composing = true)} data-testid="note-add">
-				Add a note
-			</Button>
+			<div class="flex flex-wrap gap-3">
+				<Button variant="secondary" onclick={() => (drawing = true)} data-testid="note-draw">
+					Draw
+				</Button>
+				<Button variant="secondary" onclick={() => (composing = true)} data-testid="note-add">
+					Add a note
+				</Button>
+			</div>
 		{/if}
 	</div>
 
@@ -368,7 +410,24 @@
 					data-testid="note"
 					data-pinned={n.pinned}
 				>
-					<p class="text-body [overflow-wrap:anywhere]" data-testid="note-text">{n.body}</p>
+					{#if n.imageUrl}
+						<button
+							type="button"
+							class="rounded-control bg-draw-paper active:scale-95"
+							aria-label="Enlarge drawing by {n.authorName}"
+							data-testid="note-image"
+							onclick={() => (zoom = n)}
+						>
+							<img
+								src={n.imageUrl}
+								alt="Drawing by {n.authorName}"
+								class="max-h-80 w-full rounded-control object-contain short:max-h-40"
+							/>
+						</button>
+					{/if}
+					{#if n.body}
+						<p class="text-body [overflow-wrap:anywhere]" data-testid="note-text">{n.body}</p>
+					{/if}
 					<div class="flex items-center gap-3">
 						<MemberAvatar
 							name={n.authorName}
@@ -404,5 +463,26 @@
 				</li>
 			{/each}
 		</ul>
+	{/if}
+
+	{#if drawing}
+		<DrawingSheet {people} onpost={postDrawing} onclose={() => (drawing = false)} />
+	{/if}
+
+	{#if zoom?.imageUrl}
+		<div
+			class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-scrim p-4"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Drawing by {zoom.authorName}"
+			data-testid="note-zoom"
+		>
+			<img
+				src={zoom.imageUrl}
+				alt="Drawing by {zoom.authorName}"
+				class="min-h-0 w-full flex-1 rounded-card bg-draw-paper object-contain"
+			/>
+			<Button size="kid" onclick={() => (zoom = null)} data-testid="note-zoom-close">Close</Button>
+		</div>
 	{/if}
 </section>
