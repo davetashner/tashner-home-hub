@@ -431,10 +431,20 @@
 		if (!memberId) return;
 		const key = tapKey(memberId, chore.id);
 		const jarStars = starsOf(memberId);
-		patch(memberId, (g) => setStatus(g, chore.id, 'pending', null));
-		jarStars.pending += chore.stars;
+		// Self-serve to-dos are gold at once; only ones a grown-up checks wait (hub-526).
+		const optimistic = chore.requiresApproval === false ? 'approved' : 'pending';
+		const bucket = optimistic === 'approved' ? 'balance' : 'pending';
+		patch(memberId, (g) => setStatus(g, chore.id, optimistic, null));
+		jarStars[bucket] += chore.stars;
 		undoStarts[key] = Date.now();
-		celebrate({ choreId: chore.id, memberId, stars: chore.stars, origin: card, jar });
+		celebrate({
+			choreId: chore.id,
+			memberId,
+			stars: chore.stars,
+			origin: card,
+			jar,
+			gold: optimistic === 'approved'
+		});
 		maybeAllDone(memberId);
 		const request = deliver<{ completion: Completion }>({
 			kind: 'complete',
@@ -458,7 +468,7 @@
 			})
 			.catch(() => {
 				patch(memberId, (g) => setStatus(g, chore.id, 'none', null));
-				jarStars.pending = Math.max(0, jarStars.pending - chore.stars);
+				jarStars[bucket] = Math.max(0, jarStars[bucket] - chore.stars);
 				dropUndo(key);
 				say('Oops, that did not save. Tap again when you are ready!');
 				return null;

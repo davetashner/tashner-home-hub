@@ -53,6 +53,8 @@
 								<button
 									type="button"
 									class="row press"
+									class:pending={ev.pending}
+									data-pending={ev.pending ? 'true' : undefined}
 									style="--stripe: {stripeColor(ev.members)}; --m: var(--color-{ev.members[0]
 										?.color ?? 'ink-muted'})"
 									onclick={() => onselect(ev)}
@@ -168,6 +170,11 @@
 		width: 0.5rem;
 		border-radius: var(--radius-chip);
 		background: var(--stripe);
+	}
+	.row.pending {
+		opacity: 0.6;
+		outline: 3px dashed var(--color-line);
+		outline-offset: -3px;
 	}
 	.press {
 		cursor: pointer;

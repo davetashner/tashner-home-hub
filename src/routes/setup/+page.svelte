@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
 	import { MEMBER_COLORS, type MemberColor } from '#lib/domain/member-colors.js';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import PinPad, { type PinResult } from '#lib/components/PinPad.svelte';
@@ -48,7 +49,7 @@
 			notice = 'Those PINs did not match. Let’s try again.';
 			return { ok: true };
 		}
-		const response = await fetch('/api/setup', {
+		const response = await safeFetch('/api/setup', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ name, color, avatar: avatar || null, pin, remember: true })
@@ -58,10 +59,10 @@
 			window.location.assign('/settings/family');
 			return { ok: true };
 		}
-		const body = (await response.json().catch(() => ({}))) as { message?: string };
+		const message = await errorMessage(response);
 		firstPin = '';
 		step = 2;
-		notice = body.message ?? 'Something went wrong. Please try again.';
+		notice = message;
 		return { ok: true };
 	}
 </script>

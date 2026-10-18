@@ -37,7 +37,8 @@ async function seed(page: Page, label: string): Promise<Seed> {
 				stars: 3,
 				timeOfDay: 'morning',
 				memberIds: [member.id],
-				schedule: { type: 'daily' }
+				schedule: { type: 'daily' },
+				requiresApproval: true
 			}
 		})
 	).json();
@@ -114,7 +115,8 @@ test('one child whose chores will not load does not blank the other kids', async
 			stars: 1,
 			timeOfDay: 'morning',
 			memberIds: [other.id],
-			schedule: { type: 'daily' }
+			schedule: { type: 'daily' },
+			requiresApproval: true
 		}
 	});
 	await page.context().clearCookies();
