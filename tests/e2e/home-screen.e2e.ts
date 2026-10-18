@@ -1,6 +1,8 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { ensureHousehold } from './adult';
 import { gotoHydrated } from './hydrated';
+import { fakeTimerApi } from './timers-api';
+import type { KitchenTimer } from '../../src/lib/domain/timers';
 
 // DEV-2: Add to Home Screen on iPhone and iPad opens the hub full screen with its own icon.
 test.beforeAll(ensureHousehold);
@@ -52,4 +54,19 @@ test('the manifest opens standalone with any and maskable icons', async ({ reque
 
 test('the touch icon is the 180px size iOS asks for', async ({ request }) => {
 	expect(await pngSize(request, '/apple-touch-icon.png')).toEqual({ width: 180, height: 180 });
+});
+
+// TMR-1: phone, tablet and short layouts have no header Timers button; Home carries the entry.
+test('every layout has one way to open Timers from Home and start a timer', async ({ page }) => {
+	const timers: KitchenTimer[] = [];
+	await fakeTimerApi(page, timers);
+	await gotoHydrated(page, '/');
+	const entry = page.locator('[data-testid^="timer-open"]:visible');
+	await expect(entry).toHaveCount(1);
+	await entry.click();
+	await page.getByTestId('timer-preset-5').click();
+	await page.getByTestId('timer-start').click();
+	await expect(page.getByTestId('timer-row')).toHaveCount(1);
+	await page.getByTestId('timer-cancel').click();
+	expect(timers).toHaveLength(0);
 });
