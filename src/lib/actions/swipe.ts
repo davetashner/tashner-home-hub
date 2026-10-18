@@ -7,6 +7,7 @@ export interface SwipeParams extends Partial<SwipeOptions> {
 
 /**
  * Pointer-event swipe recognizer. Use as `use:swipe={{ onswipe: (d) => ... }}`.
+ * Anything inside a `data-no-swipe` element never starts a swipe.
  * Pair with `touch-action: pan-y` (or none) on the element so the browser does
  * not claim the gesture.
  */
@@ -15,6 +16,8 @@ export const swipe: Action<HTMLElement, SwipeParams> = (node, initial) => {
 	let start: { x: number; y: number; t: number; id: number } | null = null;
 
 	const down = (e: PointerEvent) => {
+		// Surfaces that draw or drag (the drawing board) own their gestures: no page swipes from them.
+		if ((e.target as Element | null)?.closest?.('[data-no-swipe]')) return;
 		start = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId };
 	};
 	const up = (e: PointerEvent) => {

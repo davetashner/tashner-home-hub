@@ -25,6 +25,17 @@ describe('swipe action', () => {
 		expect(onswipe).toHaveBeenCalledWith('left');
 	});
 
+	it('does not start a swipe inside a data-no-swipe surface', () => {
+		const { node, onswipe } = setup();
+		const inside = pointer('pointerdown', 300, 100, 0);
+		Object.defineProperty(inside, 'target', {
+			value: { closest: (sel: string) => (sel === '[data-no-swipe]' ? {} : null) }
+		});
+		node.dispatchEvent(inside);
+		node.dispatchEvent(pointer('pointerup', 100, 110, 200));
+		expect(onswipe).not.toHaveBeenCalled();
+	});
+
 	it('ignores taps, other pointers and cancelled gestures', () => {
 		const { node, onswipe } = setup();
 		node.dispatchEvent(pointer('pointerup', 0, 0, 10));
