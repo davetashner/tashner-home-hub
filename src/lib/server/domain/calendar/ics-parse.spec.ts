@@ -389,4 +389,80 @@ describe('parseIcs malformed input', () => {
 	it('ignores a VEVENT with a duration but no start, and an unreadable DTEND', () => {
 		expect(parseIcs(vevent('DURATION:PT1H'), HOME)).toEqual({ events: [], skipped: 1 });
 	});
+
+	describe('Outlook feeds', () => {
+		const outlook = () => parseIcs(fixture('outlook.ics'), HOME);
+		const get = (uid: string) => outlook().events.filter((e) => e.uid === uid);
+
+		it('reads the name and maps Windows time zone names to IANA', () => {
+			expect(outlook().name).toBe('Parent One Work');
+			expect(outlook().skipped).toBe(0);
+			const master = get('standup@example.com').find((e) => !e.recurrenceId)!;
+			expect(master.start).toEqual({
+				dateTime: '2026-01-05T09:30:00',
+				timeZone: 'America/New_York'
+			});
+			expect(master.exdates).toEqual([
+				{ dateTime: '2026-01-12T09:30:00', timeZone: 'America/New_York' }
+			]);
+			expect(get('lunch@example.com')[0]!.start).toMatchObject({
+				timeZone: 'America/Los_Angeles'
+			});
+		});
+
+		it('keeps RECURRENCE-ID overrides tied to the original instance', () => {
+			const override = get('standup@example.com').find((e) => e.recurrenceId)!;
+			expect(override.title).toBe('Team standup (moved)');
+			expect(override.recurrenceId).toEqual({
+				dateTime: '2026-01-19T09:30:00',
+				timeZone: 'America/New_York'
+			});
+		});
+
+		it('turns flagged midnight-to-midnight events into all-day dates', () => {
+			expect(get('offsite@example.com')[0]).toMatchObject({
+				start: { date: '2026-02-03' },
+				end: { date: '2026-02-04' }
+			});
+			expect(get('holiday@example.com')[0]!.start).toEqual({ date: '2026-02-16' });
+		});
+
+		it('leaves unflagged timed events alone', () => {
+			expect(get('lunch@example.com')[0]).toMatchObject({
+				start: { dateTime: '2026-02-10T12:00:00' },
+				end: { dateTime: '2026-02-10T13:00:00' }
+			});
+		});
+
+		it('does not make a flagged event with a real time all-day', () => {
+			const ics = wrap(
+				'BEGIN:VEVENT',
+				'UID:odd',
+				'DTSTART;TZID=Eastern Standard Time:20260203T093000',
+				'X-MICROSOFT-CDO-ALLDAYEVENT:TRUE',
+				'END:VEVENT'
+			);
+			expect(parseIcs(ics, HOME).events[0]!.start).toHaveProperty('dateTime');
+		});
+
+		it('converts EXDATE, RDATE and RECURRENCE-ID of a flagged all-day series', () => {
+			const ics = wrap(
+				'BEGIN:VEVENT',
+				'UID:series',
+				'DTSTART;TZID=Eastern Standard Time:20260203T000000',
+				'DTEND;TZID=Eastern Standard Time:20260204T000000',
+				'RRULE:FREQ=DAILY;COUNT=5',
+				'EXDATE;TZID=Eastern Standard Time:20260204T000000',
+				'RDATE;TZID=Eastern Standard Time:20260301T000000',
+				'RECURRENCE-ID;TZID=Eastern Standard Time:20260205T000000',
+				'X-MICROSOFT-CDO-ALLDAYEVENT:TRUE',
+				'END:VEVENT'
+			);
+			expect(parseIcs(ics, HOME).events[0]).toMatchObject({
+				exdates: [{ date: '2026-02-04' }],
+				rdates: [{ date: '2026-03-01' }],
+				recurrenceId: { date: '2026-02-05' }
+			});
+		});
+	});
 });

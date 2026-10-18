@@ -17,6 +17,19 @@ END:VEVENT
 END:VCALENDAR
 `;
 
+const OUTLOOK_FEED = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Microsoft Corporation//Outlook 16.0 MIMEDIR//EN
+X-WR-CALNAME:Synthetic Work
+BEGIN:VEVENT
+UID:ol-1@example.com
+SUMMARY:Planning
+DTSTART;TZID=Eastern Standard Time:20300902T090000
+DTEND;TZID=Eastern Standard Time:20300902T100000
+END:VEVENT
+END:VCALENDAR
+`;
+
 const STATUS_KEY = 'calendar.sync.status';
 
 function withDb<T>(f: (db: Database.Database) => T): T {
@@ -132,13 +145,17 @@ async function noSideScroll(page: Page): Promise<void> {
 
 let feed: Server;
 let feedUrl: string;
+let outlookUrl: string;
 test.beforeAll(async () => {
 	ensureHousehold();
 	feed = createServer((_req, res) => {
-		res.writeHead(200, { 'content-type': 'text/calendar' }).end(FEED);
+		res
+			.writeHead(200, { 'content-type': 'text/calendar' })
+			.end(_req.url?.includes('/owa/') ? OUTLOOK_FEED : FEED);
 	});
 	await new Promise<void>((r) => feed.listen(0, '127.0.0.1', r));
 	feedUrl = `http://127.0.0.1:${(feed.address() as AddressInfo).port}/school.ics`;
+	outlookUrl = `${feedUrl.replace('/school.ics', '')}/owa/calendar/abc/cal/calendar.ics`;
 });
 test.afterAll(() => {
 	feed.closeAllConnections();
@@ -307,4 +324,31 @@ test('iCloud: shows how to get the password and a friendly rejection inline', as
 		'Apple rejected the app-specific password'
 	);
 	await expect(page.getByLabel('Apple ID')).toHaveValue('jane@example.com');
+});
+
+test('Outlook: shows how to publish the link and adds it as a read-only feed', async ({
+	page
+}, info) => {
+	const tag = `e2e-cs-${info.project.name}-outlook`;
+	const label = `Work ${tag}`;
+	await signInAsAdult(page, `${tag}-adult`);
+	await page.route('**/api/calendar/sync', (route) => route.fulfill({ json: {} }));
+	try {
+		await gotoHydrated(page, '/settings/calendars');
+		await page.getByRole('button', { name: 'Add connection' }).click();
+		const choice = page.getByRole('button', { name: /Outlook \/ Microsoft 365/ });
+		await expectTappable(choice);
+		await choice.click();
+		await expect(page.getByText('Publish a calendar')).toBeVisible();
+		await page.getByLabel('Name this calendar').fill(label);
+		await page.getByLabel('Calendar link').fill(outlookUrl);
+		await shot(page, info, 'outlook');
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByTestId('calendar-picker')).toBeVisible();
+		await page.getByTestId('calendar-picker').getByRole('button', { name: 'Save' }).click();
+		await expect(page.getByRole('listitem').filter({ hasText: label })).toBeVisible();
+		await noSideScroll(page);
+	} finally {
+		withDb((db) => db.prepare('DELETE FROM calendar_sources WHERE label = ?').run(label));
+	}
 });

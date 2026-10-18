@@ -42,6 +42,8 @@ export interface FetchResult {
 	lastModified?: string | undefined;
 }
 
+const OUTLOOK_HOSTS = new Set(['outlook.office365.com', 'outlook.live.com', 'outlook.office.com']);
+
 /** `webcal://` and `webcals://` are `https://` in disguise. */
 export function normalizeUrl(raw: string): URL {
 	let u: URL;
@@ -52,6 +54,10 @@ export function normalizeUrl(raw: string): URL {
 	}
 	if (u.protocol !== 'https:' && u.protocol !== 'http:') {
 		throw new IcsError('Calendar URLs must start with https://, http:// or webcal://');
+	}
+	// Outlook's "Publish a calendar" shows both an HTML and an ICS link; the HTML one is a web page.
+	if (OUTLOOK_HOSTS.has(u.hostname.toLowerCase()) && /\/calendar\.html$/i.test(u.pathname)) {
+		u.pathname = u.pathname.replace(/\.html$/i, '.ics');
 	}
 	return u;
 }

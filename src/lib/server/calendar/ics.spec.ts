@@ -73,6 +73,15 @@ describe('url helpers', () => {
 		expect(normalizeUrl('webcal://example.com/a.ics').href).toBe('https://example.com/a.ics');
 		expect(normalizeUrl('WEBCALS://example.com/a.ics').protocol).toBe('https:');
 		expect(() => normalizeUrl('ftp://example.com/a.ics')).toThrow(IcsError);
+		expect(
+			normalizeUrl('webcal://outlook.office365.com/owa/calendar/user@example.com/abc/calendar.ics')
+				.href
+		).toBe('https://outlook.office365.com/owa/calendar/user@example.com/abc/calendar.ics');
+		// The HTML link Outlook shows next to the ICS one is switched to the feed.
+		expect(
+			normalizeUrl('https://outlook.office365.com/owa/calendar/abc/cal/calendar.html').pathname
+		).toBe('/owa/calendar/abc/cal/calendar.ics');
+		expect(normalizeUrl('https://example.com/calendar.html').pathname).toBe('/calendar.html');
 		expect(() => normalizeUrl('not a url')).toThrow(/look like/);
 	});
 	it('masks to the host and hashes stably', () => {

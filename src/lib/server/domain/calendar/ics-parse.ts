@@ -1,5 +1,6 @@
 import ICAL from 'ical.js';
 import type { RemoteEvent, RemoteTime } from './types.js';
+import { windowsToIana } from './windows-zones.js';
 
 export class IcsParseError extends Error {
 	constructor(message: string) {
@@ -16,29 +17,6 @@ export interface ParsedIcs {
 	skipped: number;
 }
 
-/** Windows (Outlook/Exchange) zone names mapped to IANA. Covers the common North American and European zones. */
-export const WINDOWS_ZONES: Record<string, string> = {
-	UTC: 'UTC',
-	'Eastern Standard Time': 'America/New_York',
-	'Central Standard Time': 'America/Chicago',
-	'Mountain Standard Time': 'America/Denver',
-	'US Mountain Standard Time': 'America/Phoenix',
-	'Pacific Standard Time': 'America/Los_Angeles',
-	'Alaskan Standard Time': 'America/Anchorage',
-	'Hawaiian Standard Time': 'Pacific/Honolulu',
-	'Atlantic Standard Time': 'America/Halifax',
-	'GMT Standard Time': 'Europe/London',
-	'W. Europe Standard Time': 'Europe/Berlin',
-	'Central Europe Standard Time': 'Europe/Budapest',
-	'Central European Standard Time': 'Europe/Warsaw',
-	'Romance Standard Time': 'Europe/Paris',
-	'India Standard Time': 'Asia/Kolkata',
-	'China Standard Time': 'Asia/Shanghai',
-	'Tokyo Standard Time': 'Asia/Tokyo',
-	'AUS Eastern Standard Time': 'Australia/Sydney',
-	'New Zealand Standard Time': 'Pacific/Auckland'
-};
-
 function validZone(tz: string): boolean {
 	try {
 		new Intl.DateTimeFormat('en-US', { timeZone: tz });
@@ -52,7 +30,7 @@ function validZone(tz: string): boolean {
 function resolveZone(tzid: string, custom: Map<string, string>, fallback: string): string {
 	const cleaned = tzid.replace(/^\//, '');
 	if (validZone(cleaned)) return cleaned;
-	return WINDOWS_ZONES[cleaned] ?? custom.get(tzid) ?? fallback;
+	return windowsToIana(cleaned) ?? custom.get(tzid) ?? fallback;
 }
 
 const pad = (n: number, w = 2) => String(n).padStart(w, '0');
@@ -109,20 +87,35 @@ function endOf(ev: ICAL.Component, ctx: Ctx): RemoteTime | undefined {
 	return toRemote(startProp!, t, ctx);
 }
 
+/** Outlook marks all-day events with a flag, and may still send midnight date-times for them. */
+function flaggedAllDay(ev: ICAL.Component): boolean {
+	return text(ev, 'x-microsoft-cdo-alldayevent')?.toUpperCase() === 'TRUE';
+}
+
+/** A date-time at local midnight becomes a plain date (the wall clock is already the event's own zone). */
+function asDate(t: RemoteTime | undefined): RemoteTime | undefined {
+	if (!t || 'date' in t) return t;
+	return { date: t.dateTime.slice(0, 10) };
+}
+
 function convert(ev: ICAL.Component, ctx: Ctx): RemoteEvent | null {
 	const uid = text(ev, 'uid');
-	const start = timeProp(ev, 'dtstart', ctx);
+	let start = timeProp(ev, 'dtstart', ctx);
 	if (!uid || !start) return null;
+	const allDay = flaggedAllDay(ev) && !('date' in start) && start.dateTime.endsWith('T00:00:00');
+	if (allDay) start = asDate(start)!;
 	const out: RemoteEvent = { uid, title: text(ev, 'summary') ?? '(no title)', start };
-	const end = endOf(ev, ctx);
+	const end = allDay ? asDate(endOf(ev, ctx)) : endOf(ev, ctx);
 	if (end) out.end = end;
 	const rule = ev.getFirstPropertyValue('rrule');
 	if (rule instanceof ICAL.Recur) out.rrule = rule.toString();
-	const exdates = timeList(ev, 'exdate', ctx);
+	const dayOnly = (list: RemoteTime[]) => (allDay ? list.map((t) => asDate(t)!) : list);
+	const exdates = dayOnly(timeList(ev, 'exdate', ctx));
 	if (exdates.length) out.exdates = exdates;
-	const rdates = timeList(ev, 'rdate', ctx);
+	const rdates = dayOnly(timeList(ev, 'rdate', ctx));
 	if (rdates.length) out.rdates = rdates;
-	const rid = timeProp(ev, 'recurrence-id', ctx);
+	const ridRaw = timeProp(ev, 'recurrence-id', ctx);
+	const rid = allDay ? asDate(ridRaw) : ridRaw;
 	if (rid) out.recurrenceId = rid;
 	const location = text(ev, 'location');
 	if (location) out.location = location;
