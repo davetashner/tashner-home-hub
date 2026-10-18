@@ -58,13 +58,18 @@ export function createPkce(): { verifier: string; challenge: string } {
 	return { verifier, challenge: b64url(createHash('sha256').update(verifier).digest()) };
 }
 
-export function authUrl(cfg: GoogleConfig, state: string, challenge: string): string {
+export function authUrl(
+	cfg: GoogleConfig,
+	state: string,
+	challenge: string,
+	scope: string = SCOPE
+): string {
 	const u = new URL(endpoints.auth);
 	u.search = new URLSearchParams({
 		client_id: cfg.clientId,
 		redirect_uri: REDIRECT_URI,
 		response_type: 'code',
-		scope: SCOPE,
+		scope,
 		access_type: 'offline',
 		prompt: 'consent',
 		state,
