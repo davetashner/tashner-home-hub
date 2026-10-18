@@ -1,24 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { showSprites, spriteStyle, spritesFor } from './season-sprites.js';
-import { SEASONS } from './season.js';
+import { NO_SEASON, REINDEER, SEASONS, type Season } from './season.js';
+
+const on = (season: Season | null, more: { reindeer?: number; christmasEve?: boolean } = {}) => ({
+	...NO_SEASON,
+	season,
+	...more
+});
 
 describe('spritesFor', () => {
 	it('shows nothing on a plain day', () => {
-		expect(spritesFor(null)).toEqual([]);
+		expect(spritesFor(on(null))).toEqual([]);
 	});
 
 	it('gives Halloween pumpkins, bats and a ghost', () => {
-		const ids = spritesFor('halloween').map((s) => s.id);
+		const ids = spritesFor(on('halloween')).map((s) => s.id);
 		expect(ids).toEqual(
 			expect.arrayContaining(['jack-tall', 'jack-round', 'pumpkin', 'ghost', 'bat-1', 'bat-2'])
 		);
-		const bats = spritesFor('halloween').filter((s) => s.motion === 'fly');
+		const bats = spritesFor(on('halloween')).filter((s) => s.motion === 'fly');
 		expect(bats.length).toBeGreaterThanOrEqual(2);
 		expect(bats.every((b) => b.flap)).toBe(true);
 	});
 
 	it('keeps pumpkins small, on the bottom edge, and clear of the left nav rail', () => {
-		const resting = spritesFor('halloween').filter((s) => s.motion === 'rest');
+		const resting = spritesFor(on('halloween')).filter((s) => s.motion === 'rest');
 		expect(resting.length).toBeGreaterThanOrEqual(2);
 		for (const s of resting) {
 			expect(s.y.edge).toBe('bottom');
@@ -29,7 +35,7 @@ describe('spritesFor', () => {
 
 	it('serves every image from the static seasons folder with unique ids', () => {
 		for (const season of SEASONS) {
-			const list = spritesFor(season);
+			const list = spritesFor(on(season));
 			expect(new Set(list.map((s) => s.id)).size).toBe(list.length);
 			for (const s of list) {
 				expect(s.src).toMatch(/^\/seasons\/[a-z0-9]+\/[a-z0-9-]+\.webp$/);
@@ -38,15 +44,35 @@ describe('spritesFor', () => {
 		}
 	});
 
+	it('adds one reindeer a day to the herd, Rudolph last, all clear of the nav rail', () => {
+		expect(spritesFor(on('christmas'))).toEqual([]);
+		for (let n = 1; n <= REINDEER.length; n++) {
+			const herd = spritesFor(on('christmas', { reindeer: n }));
+			expect(herd).toHaveLength(n);
+			for (const s of herd) {
+				expect(s.motion).toBe('rest');
+				expect(s.x.edge).toBe('right');
+				expect(s.y.edge).toBe('bottom');
+			}
+		}
+		const all = spritesFor(on('christmas', { reindeer: REINDEER.length }));
+		expect(all.at(-1)!.id).toBe('reindeer-rudolph');
+		expect(all.at(-1)!.src).toContain('rudolph-');
+		expect(all.filter((s) => s.src.includes('rudolph-'))).toHaveLength(1);
+		// Each newcomer stands further left than the one before.
+		const xs = all.map((s) => s.x.vmin);
+		expect(xs).toEqual([...xs].sort((a, b) => a - b));
+	});
+
 	it('has no sprites yet for seasons whose art is still to come', () => {
-		expect(spritesFor('autumn')).toEqual([]);
+		expect(spritesFor(on('autumn'))).toEqual([]);
 	});
 });
 
 describe('showSprites', () => {
 	const base = {
 		choice: 'auto' as const,
-		season: 'halloween' as const,
+		season: on('halloween'),
 		covered: false,
 		deviceOff: false
 	};
@@ -59,14 +85,14 @@ describe('showSprites', () => {
 		expect(showSprites({ ...base, choice: 'seafoam' })).toBe(false);
 		expect(showSprites({ ...base, covered: true })).toBe(false);
 		expect(showSprites({ ...base, deviceOff: true })).toBe(false);
-		expect(showSprites({ ...base, season: null })).toBe(false);
-		expect(showSprites({ ...base, season: 'autumn' })).toBe(false);
+		expect(showSprites({ ...base, season: on(null) })).toBe(false);
+		expect(showSprites({ ...base, season: on('autumn') })).toBe(false);
 	});
 });
 
 describe('spriteStyle', () => {
 	it('anchors to the sprite edges and passes its timing', () => {
-		const [s] = spritesFor('halloween');
+		const [s] = spritesFor(on('halloween'));
 		const style = spriteStyle(s!);
 		expect(style).toContain(`${s!.x.edge}: ${s!.x.vmin}vmin`);
 		expect(style).toContain(`${s!.y.edge}: ${s!.y.pct}%`);

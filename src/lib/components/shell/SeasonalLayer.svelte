@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { spriteStyle, spritesFor } from '#lib/domain/season-sprites.js';
-	import type { Season } from '#lib/domain/season.js';
+	import type { SeasonState } from '#lib/domain/season.js';
 
 	/** Holiday sprites over the wave (hub-6pv.6.2): transform/opacity only, still when the wave is held. */
-	let { season, still }: { season: Season | null; still: boolean } = $props();
+	let { season, still }: { season: SeasonState; still: boolean } = $props();
 
 	// Images exist only while a season with sprites is showing: nothing loads on a plain day.
 	const sprites = $derived(spritesFor(season));
 </script>
 
 {#if sprites.length > 0}
-	<div class="layer" class:still data-testid="seasonal-layer" data-season={season}>
+	<div class="layer" class:still data-testid="seasonal-layer" data-season={season.season}>
 		{#each sprites as s (s.id)}
 			<div class="sprite {s.motion}" class:flip={s.flip} style={spriteStyle(s)} data-sprite={s.id}>
 				<div class="frames">
