@@ -112,6 +112,17 @@ test('the reindeer countdown shows one reindeer per day so far', async ({ page }
 		.toBe(true);
 });
 
+// hub-6pv.6.4: Christmas Eve snows, and Santa's whole team crosses the sky.
+test('Christmas Eve brings snow, pines and the sleigh with all nine', async ({ page }) => {
+	await gotoHydrated(page, '/?season=christmas-eve');
+	const layer = page.getByTestId('seasonal-layer');
+	await expect(layer.getByTestId('snow')).toHaveCount(1);
+	await expect(layer.locator('[data-sprite="sleigh"]')).toHaveCount(1);
+	await expect(layer.locator('[data-sprite^="team-"]')).toHaveCount(9);
+	await expect(layer.locator('[data-sprite^="pine-"]')).not.toHaveCount(0);
+	await expect(layer.locator('[data-sprite^="reindeer-"]')).toHaveCount(0);
+});
+
 test('this device can hide the waves and remembers it', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wave-device-${info.project.name}`);
 	await gotoHydrated(page, '/settings/background');

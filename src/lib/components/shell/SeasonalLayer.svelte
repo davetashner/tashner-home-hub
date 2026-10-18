@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { spriteStyle, spritesFor } from '#lib/domain/season-sprites.js';
+	import { snowsOn, spriteStyle, spritesFor } from '#lib/domain/season-sprites.js';
 	import type { SeasonState } from '#lib/domain/season.js';
 
 	/** Holiday sprites over the wave (hub-6pv.6.2): transform/opacity only, still when the wave is held. */
@@ -7,10 +7,16 @@
 
 	// Images exist only while a season with sprites is showing: nothing loads on a plain day.
 	const sprites = $derived(spritesFor(season));
+	const snow = $derived(snowsOn(season));
 </script>
 
 {#if sprites.length > 0}
 	<div class="layer" class:still data-testid="seasonal-layer" data-season={season.season}>
+		{#if snow}
+			<!-- Two sheets of flakes at different speeds; each slides down one tile and repeats. -->
+			<div class="snow near" data-testid="snow"></div>
+			<div class="snow far"></div>
+		{/if}
 		{#each sprites as s (s.id)}
 			<div class="sprite {s.motion}" class:flip={s.flip} style={spriteStyle(s)} data-sprite={s.id}>
 				<div class="frames">
@@ -86,8 +92,65 @@
 	.fly.flip {
 		animation-direction: reverse;
 	}
+	/* Santa's team crosses in the first third of its cycle, then waits off screen. */
+	.team {
+		animation-name: team;
+		animation-timing-function: linear;
+		opacity: 0;
+	}
+	.snow {
+		position: absolute;
+		inset: -100vmin 0 0;
+		/* Three flakes per tile at scattered spots and sizes, so the sheet doesn't read as a grid. */
+		background-image:
+			radial-gradient(
+				circle,
+				var(--color-snow) 0 var(--flake),
+				transparent calc(var(--flake) * 1.6)
+			),
+			radial-gradient(
+				circle,
+				var(--color-snow) 0 calc(var(--flake) * 0.7),
+				transparent var(--flake)
+			),
+			radial-gradient(
+				circle,
+				var(--color-snow) 0 calc(var(--flake) * 0.5),
+				transparent calc(var(--flake) * 0.8)
+			);
+		animation: snow linear infinite;
+	}
+	/* Each sheet falls a whole number of tiles per loop, so it lands where it started: no seam. */
+	.snow.near {
+		--flake: 0.4vmin;
+		--fall: 95vmin;
+		background-size:
+			31vmin 19vmin,
+			23vmin 19vmin,
+			17vmin 19vmin;
+		background-position:
+			3vmin 2vmin,
+			14vmin 11vmin,
+			8vmin 15vmin;
+		animation-duration: 16s;
+	}
+	.snow.far {
+		--flake: 0.25vmin;
+		--fall: 99vmin;
+		background-size:
+			19vmin 11vmin,
+			13vmin 11vmin,
+			29vmin 11vmin;
+		background-position:
+			1vmin 1vmin,
+			9vmin 6vmin,
+			20vmin 9vmin;
+		opacity: 0.6;
+		animation-duration: 27s;
+	}
 	.still .sprite,
-	.still .frames img {
+	.still .frames img,
+	.still .snow {
 		animation-play-state: paused;
 	}
 
@@ -127,6 +190,32 @@
 			opacity: 0;
 		}
 	}
+	@keyframes team {
+		0% {
+			transform: translate(-6vmin, 2vh);
+			opacity: 1;
+		}
+		15% {
+			transform: translate(calc(50vw + 55vmin), -1vh);
+		}
+		30% {
+			transform: translate(calc(100vw + 115vmin), 1vh);
+			opacity: 1;
+		}
+		30.01%,
+		100% {
+			transform: translate(calc(100vw + 115vmin), 1vh);
+			opacity: 0;
+		}
+	}
+	@keyframes snow {
+		from {
+			transform: translateY(0);
+		}
+		to {
+			transform: translateY(var(--fall));
+		}
+	}
 	@keyframes flap {
 		0%,
 		49.99% {
@@ -149,7 +238,8 @@
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.sprite,
-		.frames img {
+		.frames img,
+		.snow {
 			animation-play-state: paused;
 		}
 	}

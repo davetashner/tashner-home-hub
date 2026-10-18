@@ -8,9 +8,10 @@ import { REINDEER, type Season, type SeasonState } from './season.js';
 
 /**
  * How a sprite moves. Every motion is transform/opacity only and never rests in one exact spot
- * for hours (burn-in): `rest` sways a little, `float` bobs, `fly` crosses the screen now and then.
+ * for hours (burn-in): `rest` sways a little, `float` bobs, `fly` crosses the screen now and then,
+ * `team` crosses as one line with the rest of its team (Santa's sleigh).
  */
-export type SpriteMotion = 'rest' | 'float' | 'fly';
+export type SpriteMotion = 'rest' | 'float' | 'fly' | 'team';
 
 export interface Sprite {
 	id: string;
@@ -132,15 +133,78 @@ function herd(count: number): Sprite[] {
 	});
 }
 
+/**
+ * Christmas Eve (hub-6pv.6.4): pines along the bottom right and, every few minutes, Santa's sleigh
+ * pulled across the sky by all nine, Rudolph in front. Every member of the team shares one
+ * period and delay, so the line moves as one; the snow is drawn by the layer itself.
+ */
+const SLEIGH_PERIOD = 200;
+const TEAM_GAP = 9;
+const eve: Sprite[] = [
+	{
+		id: 'pine-tall',
+		src: `${CHRISTMAS}/pine-tall.webp`,
+		motion: 'rest',
+		size: 22,
+		x: { edge: 'right', vmin: 1 },
+		y: { edge: 'bottom', pct: 0 },
+		period: 340,
+		delay: 0
+	},
+	{
+		id: 'pine-short',
+		src: `${CHRISTMAS}/pine-short.webp`,
+		motion: 'rest',
+		size: 15,
+		x: { edge: 'right', vmin: 14 },
+		y: { edge: 'bottom', pct: 0 },
+		period: 290,
+		delay: -90
+	},
+	{
+		id: 'pine-far',
+		src: `${CHRISTMAS}/pine-tall.webp`,
+		motion: 'rest',
+		size: 12,
+		x: { edge: 'right', vmin: 24 },
+		y: { edge: 'bottom', pct: 0 },
+		period: 380,
+		delay: -200
+	},
+	{
+		id: 'sleigh',
+		src: `${CHRISTMAS}/sleigh.webp`,
+		motion: 'team',
+		size: 9,
+		x: { edge: 'left', vmin: -(REINDEER.length * TEAM_GAP + 17) },
+		y: { edge: 'top', pct: 10 },
+		period: SLEIGH_PERIOD,
+		delay: -6
+	},
+	...REINDEER.map((name, i): Sprite => ({
+		id: `team-${name.toLowerCase()}`,
+		src: `${CHRISTMAS}/${name === 'Rudolph' ? 'rudolph' : 'reindeer'}-fly.webp`,
+		motion: 'team',
+		size: 7,
+		x: { edge: 'left', vmin: -(REINDEER.length - i) * TEAM_GAP },
+		y: { edge: 'top', pct: 9 },
+		period: SLEIGH_PERIOD,
+		delay: -6
+	}))
+];
+
 const SPRITES: Partial<Record<Season, readonly Sprite[]>> = { halloween };
 
 /** The sprites a season shows; none for a plain day or a season without pictures yet. */
 export function spritesFor(
 	state: Pick<SeasonState, 'season' | 'reindeer' | 'christmasEve'>
 ): readonly Sprite[] {
-	if (state.season === 'christmas') return herd(state.reindeer);
+	if (state.season === 'christmas') return state.christmasEve ? eve : herd(state.reindeer);
 	return state.season ? (SPRITES[state.season] ?? []) : [];
 }
+
+/** Christmas Eve snows (drawn by the layer, not a picture). */
+export const snowsOn = (state: Pick<SeasonState, 'christmasEve'>) => state.christmasEve;
 
 /**
  * Sprites belong to the holiday look, so they show only when Auto lets the holiday take over,

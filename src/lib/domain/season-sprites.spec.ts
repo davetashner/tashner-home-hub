@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { showSprites, spriteStyle, spritesFor } from './season-sprites.js';
+import { showSprites, snowsOn, spriteStyle, spritesFor } from './season-sprites.js';
 import { NO_SEASON, REINDEER, SEASONS, type Season } from './season.js';
 
 const on = (season: Season | null, more: { reindeer?: number; christmasEve?: boolean } = {}) => ({
@@ -62,6 +62,23 @@ describe('spritesFor', () => {
 		// Each newcomer stands further left than the one before.
 		const xs = all.map((s) => s.x.vmin);
 		expect(xs).toEqual([...xs].sort((a, b) => a - b));
+	});
+
+	it('flies Santa and the whole team across together on Christmas Eve, with pines and snow', () => {
+		const eve = on('christmas', { reindeer: REINDEER.length, christmasEve: true });
+		const team = spritesFor(eve).filter((s) => s.motion === 'team');
+		expect(team).toHaveLength(REINDEER.length + 1);
+		expect(new Set(team.map((s) => `${s.period}/${s.delay}`)).size).toBe(1);
+		const sleigh = team.find((s) => s.id === 'sleigh')!;
+		// The sleigh trails behind every reindeer, and Rudolph leads.
+		expect(Math.min(...team.map((s) => s.x.vmin))).toBe(sleigh.x.vmin);
+		const leader = team.reduce((a, b) => (b.x.vmin > a.x.vmin ? b : a));
+		expect(leader.id).toBe('team-rudolph');
+		expect(spritesFor(eve).filter((s) => s.id.startsWith('pine-')).length).toBeGreaterThanOrEqual(
+			2
+		);
+		expect(snowsOn(eve)).toBe(true);
+		expect(snowsOn(on('christmas', { reindeer: 8 }))).toBe(false);
 	});
 
 	it('has no sprites yet for seasons whose art is still to come', () => {
