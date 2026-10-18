@@ -737,6 +737,12 @@
 					"text": "Pick any color from the big grid, reuse recent colors, choose a brush size, or highlight.",
 					"status": "built",
 					"beads": ["hub-cn7.1"]
+				},
+				{
+					"id": "J18.4",
+					"text": "Open Shapes, pick a shape or stamp, then tap or drag on the canvas to place it; Undo takes it back.",
+					"status": "built",
+					"beads": ["hub-cn7.2"]
 				}
 			]
 		},

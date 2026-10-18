@@ -241,3 +241,52 @@ test('more colors, recent colors, brush sizes and the highlighter @J18.3', async
 		wipe(kidId);
 	}
 });
+
+test('insert shapes and stamps, outline or filled, undo @J18.4', async ({ page }, info) => {
+	const kidId = `e2e-draw-kid4-${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, 'Kid Shapes');
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		const canvas = page.getByTestId('draw-canvas');
+		await expectTappable(page.getByTestId('draw-shapes-open'), 96);
+		await page.getByTestId('draw-shapes-open').click();
+		await expect(page.getByTestId('draw-shape')).toHaveCount(10);
+		await expectTappable(page.getByTestId('draw-shape').first(), 96);
+
+		// An outlined square dragged out leaves ink and counts as one undoable item.
+		await page.getByTestId('draw-shape').and(page.locator('[data-shape="square"]')).click();
+		await expect(page.getByTestId('draw-shape')).toHaveCount(0);
+		await pointerStroke(page, 'touch', 0.5, [0.2, 0.2], [0.6, 0.6], 1);
+		await expect(canvas).toHaveAttribute('data-strokes', '1');
+		await expect(canvas).toHaveAttribute('data-blank', 'false');
+		const outline = await inkPixels(page);
+		expect(outline).toBeGreaterThan(200);
+		await page.getByTestId('draw-undo').click();
+		await expect(canvas).toHaveAttribute('data-strokes', '0');
+		expect(await inkPixels(page)).toBe(0);
+
+		// The same square filled covers far more.
+		await page.getByTestId('draw-shapes-open').click();
+		await page.getByTestId('draw-fill').and(page.locator('[data-filled="true"]')).click();
+		await page.getByTestId('draw-shape').and(page.locator('[data-shape="square"]')).click();
+		await pointerStroke(page, 'touch', 0.5, [0.2, 0.2], [0.6, 0.6], 2);
+		expect(await inkPixels(page)).toBeGreaterThan(outline * 2);
+
+		// A stamp places on a plain drag, alongside the square.
+		await page.getByTestId('draw-shapes-open').click();
+		await page.getByTestId('draw-shape').and(page.locator('[data-shape="smiley"]')).click();
+		await pointerStroke(page, 'touch', 0.5, [0.65, 0.5], [0.95, 0.9], 3);
+		await expect(canvas).toHaveAttribute('data-strokes', '2');
+
+		// Shapes are part of the drawing: posting works, and going back to the pen draws freehand.
+		await page.getByTestId('draw-shapes-open').click();
+		await page.getByTestId('draw-shape-off').click();
+		await pointerStroke(page, 'touch', 0.5, [0.1, 0.9], [0.5, 0.95], 4);
+		await expect(canvas).toHaveAttribute('data-strokes', '3');
+		await expect(page.getByTestId('draw-post')).toBeEnabled();
+		await page.getByTestId('draw-close').click();
+	} finally {
+		wipe(kidId);
+	}
+});
