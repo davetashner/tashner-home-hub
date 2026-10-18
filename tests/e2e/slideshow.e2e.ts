@@ -382,7 +382,7 @@ async function stubClip(page: Page, status = 200) {
 
 const live = { intervalSeconds: 600, transition: 'kenburns', livePhotos: 'on' };
 
-test('a Live Photo plays its clip once over the still, then holds on the still', async ({
+test('a Live Photo plays its clip once over the still, then holds on the still @J8.9', async ({
 	page
 }, info) => {
 	const photo = { id: `${info.project.name}-live`, w: 640, h: 360, motion: true };
@@ -402,7 +402,7 @@ test('a Live Photo plays its clip once over the still, then holds on the still',
 	await expect(front).toHaveAttribute('data-photo-id', photo.id);
 });
 
-test('with Live Photos off, or no clip, no video is loaded', async ({ page }, info) => {
+test('with Live Photos off, or no clip, no video is loaded @J8.9', async ({ page }, info) => {
 	const photo = { id: `${info.project.name}-off`, w: 640, h: 360, motion: true };
 	await stubFrame(page, [photo], { ...live, livePhotos: 'off' });
 	const requested = await stubClip(page);
@@ -413,7 +413,7 @@ test('with Live Photos off, or no clip, no video is loaded', async ({ page }, in
 	expect(requested).toEqual([]);
 });
 
-test('a clip that fails to load leaves the still alone', async ({ page }, info) => {
+test('a clip that fails to load leaves the still alone @J8.9', async ({ page }, info) => {
 	const photo = { id: `${info.project.name}-broken`, w: 640, h: 360, motion: true };
 	await stubFrame(page, [photo], live);
 	const requested = await stubClip(page, 500);
@@ -423,7 +423,7 @@ test('a clip that fails to load leaves the still alone', async ({ page }, info) 
 	await expect(page.locator('[data-front="true"] [data-part="main"]')).toBeVisible();
 });
 
-test('grown-ups turn Live Photos on in Settings, Screen', async ({ page }) => {
+test('grown-ups turn Live Photos on in Settings, Screen @J8.9', async ({ page }) => {
 	await page.route('**/api/settings/slideshow', (route) =>
 		route.request().method() === 'GET'
 			? route.fulfill({ json: { intervalSeconds: 30, transition: 'fade', livePhotos: 'off' } })

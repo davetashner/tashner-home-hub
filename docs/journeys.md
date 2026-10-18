@@ -176,7 +176,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J8.6 | At night the dim, warm clock names the morning's first event; a touch wakes the app. | built | wall | `night-clock` |
 | J8.7 | A grown-up adds photo folders, hides a photo, and sets the interval. | built | wall | `photo-library`, `slideshow` |
 | J8.8 | A grown-up connects Google and imports photos with the Google Photos picker. | built | wall | `photo-google-import` |
-| J8.9 | The photo frame plays Live Photo clips. | planned | wall | planned |
+| J8.9 | The photo frame plays Live Photo clips. | built | wall | `slideshow` |
 | **J9** | **Parent sets up the household** (Parent on a phone or iPad, critical) | | | |
 | J9.1 | A fresh hub shows setup, creates the first grown-up and PIN, then guards the routes. | built | wall | `setup` |
 | J9.2 | Add and edit family members. | built | wall | `family` |
