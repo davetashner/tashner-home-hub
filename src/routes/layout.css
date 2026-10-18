@@ -32,6 +32,12 @@
 	--color-danger: oklch(55% 0.2 27);
 	--color-danger-soft: oklch(94% 0.04 25);
 
+	/* Sticky-note paper (MSG-1): pale enough that --color-ink reads at 4.5:1 or better. */
+	--color-note-yellow: oklch(93% 0.09 95);
+	--color-note-pink: oklch(91% 0.06 355);
+	--color-note-blue: oklch(91% 0.05 235);
+	--color-note-green: oklch(92% 0.07 150);
+
 	/* Family member colors (chart-safe, distinct hues, similar lightness). */
 	--color-member-1: oklch(62% 0.17 25);
 	--color-member-2: oklch(68% 0.15 65);
