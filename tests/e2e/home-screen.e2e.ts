@@ -68,5 +68,6 @@ test('every layout has one way to open Timers from Home and start a timer', asyn
 	await page.getByTestId('timer-start').click();
 	await expect(page.getByTestId('timer-row')).toHaveCount(1);
 	await page.getByTestId('timer-cancel').click();
-	expect(timers).toHaveLength(0);
+	// The tap is optimistic: the request lands after the UI updates.
+	await expect.poll(() => timers.length).toBe(0);
 });
