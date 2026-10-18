@@ -11,5 +11,6 @@ export const DESTINATION_URLS: Record<DestinationPath, string> = {
 	'/photos': resolve('/(app)/[section]', { section: 'photos' }),
 	'/lists': resolve('/(app)/lists'),
 	'/meals': resolve('/(app)/meals'),
-	'/games': resolve('/(app)/games')
+	'/games': resolve('/(app)/games'),
+	'/music': resolve('/(app)/music')
 };

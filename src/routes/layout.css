@@ -79,6 +79,7 @@
 	/* Spacing rhythm: multiples of --spacing (0.25rem) via p-4, gap-6 etc. */
 	--spacing-tap: 60px;
 	--spacing-tap-kid: 96px;
+	--spacing-tap-kid-lg: 128px;
 	--spacing-rail: 20rem;
 	/* Tablet tier (iPad): proportionate controls and a slim rail. */
 	--spacing-tap-tablet: 72px;

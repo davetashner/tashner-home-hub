@@ -121,7 +121,7 @@ export function buildWeeklySummary(input: {
 	if (start > thisWeek) throw new LedgerError('invalid', 'That week has not started yet');
 	const end = addDays(start, 6);
 	const through = end < today ? end : today;
-	const partial = through < end;
+	const partial = end >= today; // still in progress through the whole of Sunday
 	const days: string[] = [];
 	for (let d = start; d <= through; d = addDays(d, 1)) days.push(d);
 
