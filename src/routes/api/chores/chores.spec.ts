@@ -53,7 +53,8 @@ describe('chores API', () => {
 				})
 			})
 		).json();
-		expect(created).toMatchObject({ requiresApproval: true, timeOfDay: 'morning' });
+		// New to-dos follow the household setting, which is off until a grown-up turns it on.
+		expect(created).toMatchObject({ requiresApproval: false, timeOfDay: 'morning' });
 
 		const all = await (await call(list.GET, { url: new URL('http://example.com/') })).json();
 		expect(all).toHaveLength(1);

@@ -68,7 +68,8 @@ test('the kid sees the streak badge, then a 3-day milestone banner paid exactly 
 					stars: 1,
 					timeOfDay: 'morning',
 					memberIds: [member.id],
-					schedule: { type: 'daily', start: '2000-01-01' }
+					schedule: { type: 'daily', start: '2000-01-01' },
+					requiresApproval: true
 				}
 			})
 		).json()

@@ -134,7 +134,7 @@ describe('POST /api/siri/star-job', () => {
 	const addKid = (id: string, name: string) =>
 		getDb().insert(schema.members).values({ id, name, role: 'child', color: 'member-2' }).run();
 
-	it('defaults to the only kid, one star, pending approval', async () => {
+	it('defaults to the only kid, one star, and approval follows the household default (off)', async () => {
 		const t = await mint('Jobber', ['chores:create']);
 		addKid('siri-kid-1', 'Zed');
 		const body = await (
@@ -145,7 +145,7 @@ describe('POST /api/siri/star-job', () => {
 		const chore = (
 			await (await call(choresApi.GET, { url: new URL('http://x/?kind=star_job') })).json()
 		).find((c: { id: string }) => c.id === body.id);
-		expect(chore).toMatchObject({ memberIds: ['siri-kid-1'], requiresApproval: true });
+		expect(chore).toMatchObject({ memberIds: ['siri-kid-1'], requiresApproval: false });
 		expect(chore.schedule.type).toBe('once');
 	});
 

@@ -43,7 +43,13 @@ test('the header badge counts a reached goal and drops it after redemption', asy
 	await page.request.post(`/api/members/${member.id}/bonus`, { data: { delta: 3, note: 'seed' } });
 	const chore = await (
 		await page.request.post('/api/chores', {
-			data: { title: 'Badge chore', stars: 2, memberIds: [member.id], schedule: { type: 'daily' } }
+			data: {
+				title: 'Badge chore',
+				stars: 2,
+				memberIds: [member.id],
+				schedule: { type: 'daily' },
+				requiresApproval: true
+			}
 		})
 	).json();
 	await page.request.post(`/api/chores/${chore.id}/complete`, { data: { memberId: member.id } });

@@ -27,7 +27,12 @@ export async function seedKid(page: Page, label: string, extra: string[] = []): 
 	for (const def of defs) {
 		const chore = await (
 			await request.post('/api/chores', {
-				data: { ...def, memberIds: [member.id], schedule: { type: 'daily' } }
+				data: {
+					...def,
+					memberIds: [member.id],
+					schedule: { type: 'daily' },
+					requiresApproval: true
+				}
 			})
 		).json();
 		chores[def.title] = chore.id;
