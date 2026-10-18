@@ -780,6 +780,11 @@
 					"id": "J19.8",
 					"text": "When the parents allow it, the sitter checks Star Jobs with the sitter PIN; otherwise approving stays with the parents.",
 					"status": "built"
+				},
+				{
+					"id": "J19.9",
+					"text": "While a session runs the wall's home is tonight's plan: dinner, evening routines, each child's bedtime and when the parents are back, plus the house rules.",
+					"status": "built"
 				}
 			]
 		}

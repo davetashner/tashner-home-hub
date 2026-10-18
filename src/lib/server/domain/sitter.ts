@@ -242,3 +242,23 @@ export function sitterApprover(db: Db, pin: unknown, now: number): SitterSession
 		throw new LedgerError('forbidden', 'The grown-ups did not allow approving Star Jobs tonight.');
 	return session;
 }
+
+/** What a sitter may see before any PIN: house rules and bedtimes (stored in the clear, no medical or contact data). */
+export interface TonightInfo {
+	rules: string[];
+	bedtimes: { memberId: string; bedtime: string }[];
+}
+
+export function readTonightInfo(db: Db): TonightInfo {
+	const row = db.select().from(settings).where(eq(settings.key, SITTER_CARD_KEY)).get();
+	if (!row) return { rules: [], bedtimes: [] };
+	try {
+		const { plain } = JSON.parse(row.value) as Stored;
+		return {
+			rules: plain.rules ?? [],
+			bedtimes: (plain.kids ?? []).map(({ memberId, bedtime }) => ({ memberId, bedtime }))
+		};
+	} catch {
+		return { rules: [], bedtimes: [] };
+	}
+}
