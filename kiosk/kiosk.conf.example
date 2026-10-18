@@ -37,6 +37,10 @@ CEC_BACKEND=""
 CEC_DEVICE="/dev/cec0"
 # CEC logical address of the monitor (0 = TV).
 CEC_ADDRESS="0"
+# fallback = CEC only when wlr-randr fails (default). also = a TV that stays on showing "No signal"
+# after HDMI off: also send CEC standby after turning HDMI off, and CEC power-on + Active Source
+# as it comes back. Needs CEC_BACKEND.
+CEC_MODE="fallback"
 # If the hub is unreachable, a touch-woken screen stays on this many seconds.
 OFFLINE_WAKE_SECONDS="120"
 
@@ -46,3 +50,9 @@ BT_SPEAKER=""
 # Port of the display agent's speaker API, which the hub server calls. install.sh creates the token.
 SPEAKER_API_PORT="8742"
 SPEAKER_API_TOKEN_FILE="/etc/hub-kiosk/speaker-api.token"
+
+# Spotify Connect (hub-txj.2): the Pi appears in Spotify as the device "Hub" and plays through the
+# Bluetooth speaker. on | off. One-time login: see kiosk/README.md, Spotify Connect.
+SPOTIFY_CONNECT="off"
+# Volume (0-100) librespot starts at until the hub sets one.
+SPOTIFY_INITIAL_VOLUME="40"

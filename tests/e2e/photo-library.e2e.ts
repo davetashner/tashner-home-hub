@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test';
 import { expectTappable } from './tap';
 import { signInAsAdult } from './adult';
 import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
+import { gotoHydrated } from './hydrated';
 
 test('add a folder, pick albums, scan, hide a photo', async ({ page }, info) => {
 	const name = info.project.name;
@@ -21,14 +22,9 @@ test('add a folder, pick albums, scan, hide a photo', async ({ page }, info) => 
 		writeFileSync(`${root}/${dir}/a.jpg`, await syntheticJpeg(w, h));
 	}
 	await signInAsAdult(page, `e2e-photo-${name}`);
-	// The page's onMount refresh is the first request after hydration. Typing before that lets
-	// hydration re-apply the default label on top of the text ("Family photosLib ..."), so the card
-	// never carries the expected name.
-	const hydrated = page.waitForResponse(
-		(r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/photo-sources'
-	);
-	await page.goto('/settings/photo-library');
-	await hydrated;
+	// Typing before hydration lets it re-apply the default label on top of the text
+	// ("Family photosLib ..."), so the card never carries the expected name.
+	await gotoHydrated(page, '/settings/photo-library');
 
 	await page.getByLabel('Name').fill(label);
 	await page.getByLabel('Folder path').fill('/etc');

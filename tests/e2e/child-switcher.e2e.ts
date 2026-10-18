@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 /** Two synthetic kids sharing one chore ("Tidy toys"); each also has a chore of their own. */
 async function seedTwo(page: Page, project: string) {
@@ -16,7 +17,14 @@ async function seedTwo(page: Page, project: string) {
 	const b = await make('Moss', 'member-5', '🦉');
 	const chore = (title: string, icon: string, memberIds: string[]) =>
 		page.request.post('/api/chores', {
-			data: { title, icon, stars: 1, memberIds, schedule: { type: 'daily' } }
+			data: {
+				title,
+				icon,
+				stars: 1,
+				memberIds,
+				schedule: { type: 'daily' },
+				requiresApproval: true
+			}
 		});
 	await chore('Tidy toys', '🧸', [a.id, b.id]);
 	await chore('Water plants', '🪴', [a.id]);
@@ -32,7 +40,7 @@ test('the avatar switcher swaps kids instantly and keeps each child’s undo', a
 	page
 }, info) => {
 	const { a, b } = await seedTwo(page, info.project.name);
-	await page.goto(`/chores?member=${a.id}`);
+	await gotoHydrated(page, `/chores?member=${a.id}`);
 	await expect(page.getByRole('heading', { name: 'Water plants' })).toBeVisible();
 
 	const switcher = page.getByTestId('child-switcher');
@@ -70,6 +78,6 @@ test('the avatar switcher swaps kids instantly and keeps each child’s undo', a
 	);
 	expect(overflow).toBeLessThanOrEqual(0);
 
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(page.getByText(`Hi, ${a.name}!`)).toBeVisible();
 });

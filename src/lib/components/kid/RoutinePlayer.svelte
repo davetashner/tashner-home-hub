@@ -28,7 +28,7 @@
 	aria-modal="true"
 	aria-label={routine.name}
 	data-testid="routine-player"
-	class="fixed inset-0 z-30 flex flex-col items-center gap-8 bg-surface p-10 portrait:p-8"
+	class="fixed inset-0 z-30 flex flex-col items-center gap-8 bg-surface p-10 portrait:p-8 short:gap-3 short:p-4"
 >
 	<header class="flex w-full items-center justify-between gap-6">
 		<h2 class="text-title leading-none font-extrabold">{routine.name}</h2>
@@ -45,19 +45,23 @@
 	{#if step && index !== null}
 		{#key index}
 			<div
-				class="step flex min-h-0 grow flex-col items-center justify-center gap-8"
+				class="step flex min-h-0 grow flex-col items-center justify-center gap-8 short:flex-row short:gap-6"
 				data-testid="routine-step"
 			>
-				<div class="size-64 text-accent portrait:size-96"><RoutineIcon name={step.icon} /></div>
-				<p class="text-center text-headline leading-tight font-extrabold">{step.label}</p>
-				<p class="text-lead text-ink-muted">Step {index + 1} of {total}</p>
+				<div class="size-64 text-accent portrait:size-96 short:size-20 tablet:landscape:size-40">
+					<RoutineIcon name={step.icon} />
+				</div>
+				<div class="flex flex-col items-center gap-8 short:items-start short:gap-1">
+					<p class="text-center text-headline leading-tight font-extrabold">{step.label}</p>
+					<p class="text-lead text-ink-muted">Step {index + 1} of {total}</p>
+				</div>
 			</div>
 		{/key}
 		<button
 			type="button"
 			onclick={() => ondone(index)}
 			data-testid="routine-done"
-			class="min-h-tap-kid w-full max-w-3xl rounded-card bg-success px-12 py-8 text-headline font-extrabold text-on-accent shadow-raised transition-transform duration-75 active:scale-95"
+			class="min-h-tap-kid w-full max-w-3xl rounded-card bg-success px-12 py-8 text-headline font-extrabold text-on-accent shadow-raised transition-transform duration-75 active:scale-95 short:py-2"
 		>
 			Done
 		</button>
@@ -71,9 +75,16 @@
 		</div>
 	{/if}
 
-	<ol class="flex flex-wrap justify-center gap-4" aria-label="Steps" data-testid="routine-progress">
+	<ol
+		class="flex flex-wrap justify-center gap-4 short:gap-2"
+		aria-label="Steps"
+		data-testid="routine-progress"
+	>
 		{#each routine.steps as s, i (i)}
-			<li class="size-16 rounded-full p-3 {STATE[state(i)]}" data-state={state(i)}>
+			<li
+				class="size-16 rounded-full p-3 short:size-12 short:p-2 {STATE[state(i)]}"
+				data-state={state(i)}
+			>
 				<RoutineIcon name={s.icon} />
 			</li>
 		{/each}

@@ -23,13 +23,27 @@ say() { echo "==> $*"; }
 : "${RESOLUTION:=2560x1440}"
 : "${TOUCH_MATRIX:=}"
 : "${INPUT:=touch}"
+: "${CEC_MODE:=fallback}"
 : "${BT_SPEAKER:=}"
 : "${SPEAKER_API_TOKEN_FILE:=/etc/hub-kiosk/speaker-api.token}"
+: "${SPOTIFY_CONNECT:=off}"
+: "${SPOTIFY_INITIAL_VOLUME:=40}"
 case "$ORIENTATION" in normal | 90 | 180 | 270) ;; *) die "ORIENTATION must be normal|90|180|270" ;; esac
 [[ "$OUTPUT" =~ ^[A-Za-z0-9_-]+$ ]] || die "OUTPUT looks wrong: $OUTPUT"
 [[ "$RESOLUTION" =~ ^[0-9]+x[0-9]+$ ]] || die "RESOLUTION must look like 2560x1440"
 [[ "$HUB_URL" =~ ^https?:// ]] || die "HUB_URL must start with http:// or https://"
 case "$INPUT" in touch | mouse) ;; *) die "INPUT must be touch|mouse" ;; esac
+case "$CEC_MODE" in fallback | also) ;; *) die "CEC_MODE must be fallback|also" ;; esac
+[ "$CEC_MODE" != also ] || [ -n "${CEC_BACKEND:-}" ] || die "CEC_MODE=also needs CEC_BACKEND=cec-ctl|cec-client"
+case "$SPOTIFY_CONNECT" in on | off) ;; *) die "SPOTIFY_CONNECT must be on|off" ;; esac
+[[ "$SPOTIFY_INITIAL_VOLUME" =~ ^([0-9]|[1-9][0-9]|100)$ ]] || die "SPOTIFY_INITIAL_VOLUME must be 0-100"
+
+# Spotify Connect (hub-txj.2): Raspotify's pinned arm64 .deb (MIT; wraps librespot, MIT). Never
+# fetched unverified: the download must match this SHA-256 or the install stops.
+RASPOTIFY_VERSION="0.48.3"
+RASPOTIFY_DEB="raspotify_0.48.3.librespot.v0.8.0-939dc5e_arm64.deb"
+RASPOTIFY_SHA256="2097b3994824cf17163ecc47c6f6a5a695202987e2ab0b650f50d663291c63f2"
+RASPOTIFY_URL="https://github.com/dtcooper/raspotify/releases/download/$RASPOTIFY_VERSION/$RASPOTIFY_DEB"
 [ -z "$BT_SPEAKER" ] || [[ "$BT_SPEAKER" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]] ||
   die "BT_SPEAKER must look like AA:BB:CC:DD:EE:FF"
 
@@ -76,7 +90,9 @@ install -d -m 755 "$LIB_DIR" /etc/hub-kiosk
 install -m 755 "$HERE"/bin/hub-kiosk-* "$LIB_DIR/"
 install -m 755 "$HERE/display-agent/hub_display_agent.py" "$LIB_DIR/hub-kiosk-display-agent"
 install -m 644 "$HERE/display-agent/hub_speaker.py" "$LIB_DIR/hub_speaker.py"
+install -m 644 "$HERE/watchdog/hub_watchdog_logic.py" "$LIB_DIR/hub_watchdog_logic.py"
 install -m 644 "$CONF_SRC" "$CONF_DST"
+install -m 644 "$HERE/systemd/hub-kiosk-librespot.service" /etc/systemd/user/
 install -m 644 "$HERE"/systemd/hub-kiosk.service "$HERE"/systemd/hub-kiosk-watchdog.service \
   "$HERE"/systemd/hub-kiosk-watchdog.timer "$HERE"/systemd/hub-kiosk-display-agent.service \
   /etc/systemd/user/
@@ -92,6 +108,30 @@ chown "root:$KIOSK_USER" "$SPEAKER_API_TOKEN_FILE"
 chmod 640 "$SPEAKER_API_TOKEN_FILE"
 systemctl enable --now bluetooth.service || echo "(bluetooth.service unavailable)"
 rfkill unblock bluetooth 2>/dev/null || true
+
+SPOTIFY_START=""
+if [ "$SPOTIFY_CONNECT" = on ]; then
+  say "Setting up Spotify Connect (librespot, device \"Hub\")"
+  [ "$(dpkg --print-architecture)" = arm64 ] || die "SPOTIFY_CONNECT=on needs a 64-bit (arm64) OS"
+  apt-get install -y pipewire-pulse avahi-daemon avahi-utils || die "Spotify audio packages failed"
+  if [ "$(dpkg-query -W -f='${Version}' raspotify 2>/dev/null)" != "${RASPOTIFY_VERSION}~librespot.v0.8.0-939dc5e" ]; then
+    DL="$(mktemp -d)"
+    curl -fsSL --retry 3 -o "$DL/$RASPOTIFY_DEB" "$RASPOTIFY_URL" || die "could not download $RASPOTIFY_URL"
+    echo "$RASPOTIFY_SHA256  $DL/$RASPOTIFY_DEB" | sha256sum -c - || die "Raspotify checksum mismatch; not installing"
+    apt-get install -y "$DL/$RASPOTIFY_DEB" || die "Raspotify install failed"
+    rm -rf "$DL"
+  fi
+  # We only want its librespot binary: run it as the kiosk user's service, not Raspotify's system unit.
+  systemctl disable --now raspotify.service raspotify-crash-report-generator.service 2>/dev/null || true
+  systemctl mask raspotify.service 2>/dev/null || true
+  systemctl enable --now avahi-daemon.service || echo "(avahi-daemon unavailable; Spotify cannot discover Hub)"
+  echo "LIBRESPOT_INITIAL_VOLUME=$SPOTIFY_INITIAL_VOLUME" >/etc/hub-kiosk/librespot.env
+  chmod 644 /etc/hub-kiosk/librespot.env
+  install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 755 "$KIOSK_HOME/.local" "$KIOSK_HOME/.local/state"
+  install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 700 \
+    "$KIOSK_HOME/.local/state/hub-kiosk" "$KIOSK_HOME/.local/state/hub-kiosk/librespot"
+  SPOTIFY_START=" hub-kiosk-librespot.service"
+fi
 
 say "Configuring autologin to the desktop"
 SESSION="labwc"
@@ -117,7 +157,7 @@ cat >"$CFG/autostart" <<EOC
 # Managed by hub-kiosk install.sh. Edits are overwritten.
 $LIB_DIR/hub-kiosk-apply-display &
 systemctl --user import-environment WAYLAND_DISPLAY XDG_RUNTIME_DIR XCURSOR_THEME XCURSOR_SIZE
-systemctl --user start hub-kiosk.service hub-kiosk-watchdog.timer hub-kiosk-display-agent.service
+systemctl --user start hub-kiosk.service hub-kiosk-watchdog.timer hub-kiosk-display-agent.service$SPOTIFY_START
 EOC
 # Touch wall: the invisible cursor theme. Mouse and keyboard on a TV (INPUT=mouse): a pointer
 # readable at 4K, and Esc minimizes the hub so the desktop is reachable (restore it from the taskbar).

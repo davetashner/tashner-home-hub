@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { ensureHousehold, signInAsAdult } from './adult';
+import { gotoHydrated } from './hydrated';
 
 // ADR 0002 Tier 2 (visual regression row, minus screenshots): no portrait layout may scroll
 // horizontally or clip a control. Vertical scroll is fine; horizontal clipping is not.
@@ -144,7 +145,7 @@ test.describe('portrait layout has no horizontal overflow or clipped controls', 
 			const viewport = viewportFor(testInfo.project.name);
 			await page.setViewportSize(viewport);
 			await signInAsAdult(page, 'e2e-portrait-adult');
-			await page.goto(route);
+			await gotoHydrated(page, route);
 			await settle(page);
 			const landed = new URL(page.url()).pathname;
 			const problems = await findLayoutProblems(page, TOLERANCE);

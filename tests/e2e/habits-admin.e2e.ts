@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { expectTappable } from './tap';
 import { signInAsAdult } from './adult';
 import { trackMember } from './cleanup';
+import { gotoHydrated } from './hydrated';
 
 test('a grown-up adds a daily habit: no stars, no approval, kept apart from chores', async ({
 	page
@@ -16,15 +17,12 @@ test('a grown-up adds a daily habit: no stars, no approval, kept apart from chor
 	const kid = (await made.json()) as { id: string; name: string };
 	trackMember(kid.id);
 
-	await page.goto('/settings/habits');
+	await gotoHydrated(page, '/settings/habits');
 	const add = page.getByRole('button', { name: 'Add habit' });
 	await expectTappable(add);
-	// A tap before the page hydrates is lost: retry until the form opens.
 	const form = page.getByTestId('chore-form');
-	await expect(async () => {
-		await add.click();
-		await expect(form).toBeVisible({ timeout: 1000 });
-	}).toPass();
+	await add.click();
+	await expect(form).toBeVisible();
 	await expect(form.getByRole('button', { name: 'More stars' })).toHaveCount(0);
 	await expect(form.getByText('A grown-up checks it before stars count')).toHaveCount(0);
 	await form.getByLabel('Habit', { exact: true }).fill(title);
@@ -36,11 +34,11 @@ test('a grown-up adds a daily habit: no stars, no approval, kept apart from chor
 	await expect(row).toBeVisible();
 	await expect(row.getByText('Every day · anytime · no stars')).toBeVisible();
 
-	await page.goto('/settings/chores');
+	await gotoHydrated(page, '/settings/chores');
 	await expect(page.getByTestId('chore-list')).toBeVisible();
 	await expect(page.getByText(title)).toHaveCount(0);
 
-	await page.goto('/settings/habits');
+	await gotoHydrated(page, '/settings/habits');
 	await row.getByRole('button', { name: `Archive ${title}` }).click();
 	await page.getByRole('button', { name: 'Yes, archive' }).click();
 	await expect(page.getByText(title)).toHaveCount(0);

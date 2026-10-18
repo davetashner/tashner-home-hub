@@ -1,6 +1,7 @@
 import { getDb } from '#lib/server/db/index.js';
 import { requireAdult } from '#lib/server/auth.js';
 import { redeemReward, redemptionLog } from '#lib/server/domain/redemptions.js';
+import { notifyRewardRedeemed } from '#lib/server/notify.js';
 import { handle, readJson, str } from '#lib/server/api.js';
 import type { RequestHandler } from './$types';
 
@@ -18,6 +19,11 @@ export const POST: RequestHandler = async (event) => {
 	const body = await readJson(event.request);
 	const memberId = str(body.memberId, 'memberId');
 	const rewardId = str(body.rewardId, 'rewardId');
-	const res = handle(() => redeemReward(getDb(), { memberId, rewardId, approvedBy: adult.id }));
+	const res = handle(() => {
+		const db = getDb();
+		const out = redeemReward(db, { memberId, rewardId, approvedBy: adult.id });
+		notifyRewardRedeemed(db, memberId, rewardId);
+		return out;
+	});
 	return new Response(res.body, { status: 201, headers: res.headers });
 };

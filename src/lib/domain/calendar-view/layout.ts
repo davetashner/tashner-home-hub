@@ -8,6 +8,10 @@ export interface CalMember {
 
 export interface CalEvent {
 	id: string;
+	/** The calendar source this event came from (absent on pending ghosts). */
+	sourceId?: string;
+	/** RRULE text when the event repeats. */
+	recurrence?: string | null;
 	title: string;
 	startsAt: number;
 	endsAt: number;
@@ -15,6 +19,8 @@ export interface CalEvent {
 	location: string | null;
 	notes: string | null;
 	members: CalMember[];
+	/** Set while a hub-created event is still being saved to the provider. */
+	pending?: boolean;
 }
 
 /** Minimum on-screen length of a timed event, so zero-length events stay tappable. */

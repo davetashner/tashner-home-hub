@@ -5,8 +5,17 @@
  */
 
 import { setStatus, type KidGroup } from './kid-chores.js';
+import { mealKey, mondayOf, isMealSlot } from './meals.js';
+import { advance, type KidRoutine } from './routines.js';
 
-export type WriteKind = 'complete' | 'undo' | 'check';
+/**
+ * 'complete' | 'undo' | 'check' are kid chore taps (they carry a choreId); 'routine-step' is a
+ * routine step tap (body `{ date, step }`, step index idempotent server-side); 'meal' is a meal
+ * plan edit (PUT `{ date, meal, title }` sets, DELETE `{ date, meal }` clears; both idempotent). A new feature adds
+ * a kind here, sets `method` if it is not a POST, and (optionally) an overlay for reloads.
+ */
+export type WriteKind = 'complete' | 'undo' | 'check' | 'routine-step' | 'meal';
+export type WriteMethod = 'POST' | 'PUT' | 'DELETE';
 export type SendResult = 'ok' | 'retry' | 'drop';
 export type DropReason = 'expired' | 'rejected';
 
@@ -16,9 +25,13 @@ export interface QueuedWrite {
 	key: string;
 	kind: WriteKind;
 	url: string;
+	/** Defaults to POST when absent (all writes queued before this field existed were POSTs). */
+	method?: WriteMethod;
 	body: unknown;
-	/** The chore this write concerns (lets an undo cancel a not-yet-sent completion). */
-	choreId: string;
+	/** Chore kinds only: the chore this write concerns (lets an undo cancel a not-yet-sent completion). */
+	choreId?: string;
+	/** 'routine-step' only: the routine the step belongs to. */
+	routineId?: string;
 	queuedAt: number;
 	/** Undo only: after this instant the server would refuse, so the write is dropped unsent. */
 	expiresAt: number | null;
@@ -26,9 +39,10 @@ export interface QueuedWrite {
 	nextAt: number;
 }
 
-export type NewWrite = Pick<QueuedWrite, 'kind' | 'url' | 'body' | 'choreId'> & {
-	expiresAt?: number | null;
-};
+export type NewWrite = Pick<QueuedWrite, 'kind' | 'url' | 'body'> &
+	Partial<Pick<QueuedWrite, 'method' | 'choreId' | 'routineId'>> & {
+		expiresAt?: number | null;
+	};
 
 export interface QueueStorage {
 	load(): Promise<QueuedWrite[]>;
@@ -89,8 +103,10 @@ export class WriteQueue {
 			key: id,
 			kind: input.kind,
 			url: input.url,
+			...(input.method ? { method: input.method } : {}),
 			body: input.body,
-			choreId: input.choreId,
+			...(input.choreId !== undefined ? { choreId: input.choreId } : {}),
+			...(input.routineId !== undefined ? { routineId: input.routineId } : {}),
 			queuedAt: now,
 			expiresAt: input.expiresAt ?? null,
 			attempts: 0,
@@ -154,8 +170,54 @@ export function overlayQueued(
 ): KidGroup[] {
 	return writes.reduce((acc, w) => {
 		const body = w.body as { memberId?: string } | null;
+		if (w.choreId === undefined) return acc;
 		if (w.kind === 'complete' && body?.memberId === memberId)
 			return setStatus(acc, w.choreId, 'pending', null);
 		return w.kind === 'undo' ? setStatus(acc, w.choreId, 'none', null) : acc;
 	}, groups);
+}
+
+/** Re-applies queued routine step taps to routines loaded from the server or a saved copy. */
+export function overlayRoutineSteps(
+	routinesBy: Record<string, KidRoutine[]>,
+	writes: readonly QueuedWrite[]
+): Record<string, KidRoutine[]> {
+	const steps = writes.filter((w) => w.kind === 'routine-step' && w.routineId !== undefined);
+	if (steps.length === 0) return routinesBy;
+	return Object.fromEntries(
+		Object.entries(routinesBy).map(([memberId, list]) => [
+			memberId,
+			list.map((r) =>
+				steps.reduce((acc, w) => {
+					const step = (w.body as { step?: unknown } | null)?.step;
+					return w.routineId === r.id && Number.isInteger(step)
+						? { ...acc, done: advance(acc.done, step as number, acc.steps.length) }
+						: acc;
+				}, r)
+			)
+		])
+	);
+}
+
+/**
+ * Re-applies queued meal edits (in order) to one week's `date|slot -> text` map loaded from the
+ * server or a saved copy, so a reload offline still shows them.
+ */
+export function overlayMeals(
+	week: Record<string, string>,
+	monday: string,
+	writes: readonly QueuedWrite[]
+): Record<string, string> {
+	const edits = writes.filter((w) => w.kind === 'meal');
+	if (edits.length === 0) return week;
+	return edits.reduce((acc, w) => {
+		const b = w.body as { date?: unknown; meal?: unknown; title?: unknown } | null;
+		if (typeof b?.date !== 'string' || !isMealSlot(b.meal)) return acc;
+		if (mondayOf(b.date) !== monday) return acc;
+		const key = mealKey(b.date, b.meal);
+		if (w.method === 'DELETE') {
+			return Object.fromEntries(Object.entries(acc).filter(([k]) => k !== key));
+		}
+		return typeof b.title === 'string' ? { ...acc, [key]: b.title } : acc;
+	}, week);
 }

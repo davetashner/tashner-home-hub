@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import FunGate from '#lib/components/kid/FunGate.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Icon from '#lib/components/shell/Icon.svelte';
 	import {
@@ -108,11 +109,17 @@
 	function onframeload() {
 		frameLoaded = true;
 	}
+	/** Games and Music wait while this kid still has jobs to finish (hub-ruz). */
+	let funLocked = $state(false);
 </script>
 
 <svelte:head><title>Games · Home Hub</title></svelte:head>
 
-<section class="mx-auto flex w-full max-w-7xl flex-col gap-8 p-8 max-sm:p-3 short:gap-4 short:p-3">
+<FunGate onlock={(locked) => (funLocked = locked)} />
+<section
+	style:display={funLocked ? 'none' : undefined}
+	class="mx-auto flex w-full max-w-7xl flex-col gap-8 p-8 max-sm:p-3 short:gap-4 short:p-3"
+>
 	<h1 class="text-headline leading-none font-extrabold">Games</h1>
 
 	{#if loaded && games.length === 0}

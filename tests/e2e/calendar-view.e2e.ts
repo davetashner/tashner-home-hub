@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { seedCalendar } from './calendar';
 import { expectTappable } from './tap';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 async function swipe(page: Page, from: number, to: number) {
 	const box = (await page.getByTestId('calendar-pane').boundingBox())!;
@@ -18,7 +19,7 @@ const chooseView = (page: Page, name: string) =>
 test.beforeEach(async ({ page }) => {
 	seedCalendar({ fresh: false });
 	await signInAsAdult(page, 'e2e-cal-adult');
-	await page.goto('/calendar');
+	await gotoHydrated(page, '/calendar');
 	await page.waitForLoadState('networkidle');
 });
 
@@ -85,7 +86,7 @@ test('week view blocks and bars are tappable, unclipped, and open near now', asy
 		return d.getTime();
 	});
 	await page.clock.install({ time: pinned });
-	await page.reload();
+	await reloadHydrated(page);
 	await page.waitForLoadState('networkidle');
 	await expect(pane.locator('.now')).toBeVisible();
 	await expect
@@ -123,7 +124,7 @@ test('month view lists events and a day tap opens that day in the agenda', async
 
 test('remembers the last view and shows the stale badge without blocking', async ({ page }) => {
 	await chooseView(page, 'Week');
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(page.getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'true');
 	await expect(page.getByTestId('stale-badge')).toContainText(/Last updated 4\d min ago/);
 	await expect(page.getByTestId('calendar-pane').getByText('Dentist')).toBeVisible();

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { seedKid } from './kid';
+import { gotoHydrated } from './hydrated';
 
 test('an adult creates, edits, reorders and deletes a routine; the kid sees it', async ({
 	page
@@ -10,11 +11,9 @@ test('an adult creates, edits, reorders and deletes a routine; the kid sees it',
 		(m: { id: string }) => m.id === seed.memberId
 	);
 
-	await page.goto('/settings/routines');
-	await expect(async () => {
-		await page.getByTestId('add-routine').click();
-		await expect(page.getByTestId('routine-form')).toBeVisible();
-	}).toPass();
+	await gotoHydrated(page, '/settings/routines');
+	await page.getByTestId('add-routine').click();
+	await expect(page.getByTestId('routine-form')).toBeVisible();
 	await page.getByTestId('routine-member').selectOption(seed.memberId);
 	await page.getByTestId('routine-name').fill(routineName);
 	// The step rows are labelled as steps, for this kid, with no example text that reads as a field.
@@ -61,7 +60,7 @@ test('an adult creates, edits, reorders and deletes a routine; the kid sees it',
 	// Kid view (no adult session) shows the routine button.
 	const kidPage = await page.context().browser()!.newContext({ baseURL: info.project.use.baseURL });
 	const kp = await kidPage.newPage();
-	await kp.goto(`/chores?member=${seed.memberId}`);
+	await gotoHydrated(kp, `/chores?member=${seed.memberId}`);
 	await expect(async () => {
 		await expect(kp.getByTestId('routine-button').filter({ hasText: routineName })).toBeVisible();
 	}).toPass();

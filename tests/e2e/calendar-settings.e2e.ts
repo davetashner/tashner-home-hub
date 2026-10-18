@@ -4,6 +4,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 const FEED = `BEGIN:VCALENDAR
 VERSION:2.0
@@ -104,7 +105,7 @@ async function expectFitsPhone(page: Page, tag: string): Promise<void> {
 			"INSERT INTO calendar_sources (id, provider, label, calendars, last_sync_at) VALUES (?, 'ics', 'Family', '[]', ?)"
 		).run(`${tag}-short`, Date.now());
 	});
-	await page.reload();
+	await reloadHydrated(page);
 	const width = page.viewportSize()!.width;
 	await expect(page.getByRole('button', { name: 'Add connection' })).toBeVisible();
 	for (const button of await page.getByRole('button').all()) {
@@ -155,7 +156,7 @@ async function runFlow(page: Page, info: TestInfo): Promise<void> {
 	await page.route('**/api/calendar/sync', (route) => route.fulfill({ json: {} }));
 	try {
 		// The settings menu links here.
-		await page.goto('/settings');
+		await gotoHydrated(page, '/settings');
 		await page.getByRole('link', { name: /Calendars/ }).click();
 		await expect(page.getByRole('heading', { name: 'Calendars', level: 1 })).toBeVisible();
 
@@ -211,7 +212,7 @@ async function runFlow(page: Page, info: TestInfo): Promise<void> {
 
 		// A connection that needs reconnecting: calm banner on both pages.
 		setReauth(googleId, true);
-		await page.goto('/settings');
+		await gotoHydrated(page, '/settings');
 		const banner = page.getByTestId('reauth-banner');
 		await expect(banner).toContainText(`${googleLabel} calendar needs reconnecting`);
 		const reconnect = banner.locator(`a[href$="reconnect=${googleId}"]`);
@@ -292,7 +293,7 @@ test('iCloud: shows how to get the password and a friendly rejection inline', as
 			json: { message: 'Apple rejected the app-specific password. Make a new one.' }
 		});
 	});
-	await page.goto('/settings/calendars');
+	await gotoHydrated(page, '/settings/calendars');
 	await page.getByRole('button', { name: 'Add connection' }).click();
 	await page.getByRole('button', { name: /iCloud/ }).click();
 	await page.getByText('How do I get this?').click();

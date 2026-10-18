@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 // Page routes must see every request; a service worker would answer some from the real server.
 test.use({ serviceWorkers: 'block' });
@@ -23,7 +24,7 @@ test('a personal device (the default) never goes home or shows the photo frame',
 }) => {
 	await idleSettings(page);
 	await page.clock.install();
-	await page.goto('/meals');
+	await gotoHydrated(page, '/meals');
 	await page.waitForLoadState('networkidle');
 	await page.clock.fastForward(30 * MIN);
 	await expect(page).toHaveURL(/\/meals$/);
@@ -34,7 +35,7 @@ test('a wall display goes home and shows the photo frame when idle', async ({ pa
 	await asWallDisplay(context);
 	await idleSettings(page);
 	await page.clock.install();
-	await page.goto('/meals');
+	await gotoHydrated(page, '/meals');
 	await page.waitForLoadState('networkidle');
 	await page.clock.fastForward(2 * MIN);
 	await expect(page).toHaveURL(/:\d+\/$/);
@@ -45,12 +46,12 @@ test('a wall display goes home and shows the photo frame when idle', async ({ pa
 test('?display=wall makes the device a wall, drops the query, and survives a reload', async ({
 	page
 }) => {
-	await page.goto('/meals?display=wall');
+	await gotoHydrated(page, '/meals?display=wall');
 	await expect(page).toHaveURL(/\/meals$/);
 	expect(await (await page.request.get('/api/display/role')).json()).toEqual({ role: 'wall' });
-	await page.reload();
+	await reloadHydrated(page);
 	expect(await (await page.request.get('/api/display/role')).json()).toEqual({ role: 'wall' });
-	await page.goto('/meals?display=personal');
+	await gotoHydrated(page, '/meals?display=personal');
 	expect(await (await page.request.get('/api/display/role')).json()).toEqual({
 		role: 'personal'
 	});
@@ -62,7 +63,7 @@ test('Settings > Screen switches this device between personal and wall', async (
 		route.fulfill({ json: { power: 'on', reason: 'schedule', mode: 'normal' } })
 	);
 	await signInAsAdult(page, 'e2e-display-role-adult');
-	await page.goto('/settings/screen');
+	await gotoHydrated(page, '/settings/screen');
 	await page.waitForLoadState('networkidle');
 	const group = page.getByRole('group', { name: 'This device' });
 	await expect(group.getByRole('button', { name: 'Personal' })).toHaveAttribute(
@@ -71,18 +72,23 @@ test('Settings > Screen switches this device between personal and wall', async (
 	);
 
 	const saved = page.waitForResponse((r) => r.url().endsWith('/api/display/role'));
+	// The page re-runs its loads after the save (invalidateAll); reloading mid-flight interrupts the frame.
+	const refreshed = page.waitForResponse((r) => r.url().includes('__data.json'));
 	await group.getByRole('button', { name: 'Wall display' }).click();
 	await expect(group.getByRole('button', { name: 'Wall display' })).toHaveAttribute(
 		'aria-pressed',
 		'true'
 	);
 	expect((await saved).ok()).toBe(true);
-	await page.reload();
+	await refreshed;
+	await reloadHydrated(page);
 	await expect(group.getByRole('button', { name: 'Wall display' })).toHaveAttribute(
 		'aria-pressed',
 		'true'
 	);
 
+	// A tap before the reloaded page hydrates is lost, so wait for it to settle first.
+	await page.waitForLoadState('networkidle');
 	await group.getByRole('button', { name: 'Personal' }).click();
 	await expect(group.getByRole('button', { name: 'Personal' })).toHaveAttribute(
 		'aria-pressed',
@@ -100,20 +106,19 @@ test('the unlock page remembers by default on a personal device, not on a wall',
 	context
 }) => {
 	const box = () => page.getByRole('checkbox', { name: /stay unlocked/ });
-	// A tap before the page hydrates is lost: retry the pick until the PIN screen shows its checkbox.
-	const pickAdult = () =>
-		expect(async () => {
-			const adult = page.getByRole('button', { name: 'Baseline Adult' });
-			if (await adult.isVisible()) await adult.click();
-			await expect(box()).toBeVisible({ timeout: 1000 });
-		}).toPass();
-	await page.goto('/unlock?next=/settings');
+	// With a single adult the unlock page may skip the picker and show the PIN screen directly.
+	const pickAdult = async () => {
+		const adult = page.getByRole('button', { name: 'Baseline Adult' });
+		if (await adult.isVisible()) await adult.click();
+		await expect(box()).toBeVisible();
+	};
+	await gotoHydrated(page, '/unlock?next=/settings');
 	await expect(page.getByRole('button', { name: 'Baseline Adult' }).or(box())).toBeVisible();
 	await pickAdult();
 	await expect(box()).toBeChecked();
 
 	await asWallDisplay(context);
-	await page.goto('/unlock?next=/settings');
+	await gotoHydrated(page, '/unlock?next=/settings');
 	await pickAdult();
 	await expect(box()).not.toBeChecked();
 });

@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold } from './adult';
 import { seedCalendar } from './calendar';
+import { asWallDisplay } from './display';
+import { expectTappable } from './tap';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 // MEAL-1. Each project plans a different far-future week so parallel projects sharing one database
 // never see each other's dinner. Mondays: 2043-06-01 is a Monday; offset by project.
@@ -33,25 +36,23 @@ test('plan a dinner, see it in Meals and the calendar week, edit it, delete it',
 		});
 		expect(put.ok()).toBe(true);
 
-		await page.goto('/meals');
+		await gotoHydrated(page, '/meals');
 		const day = page.locator(`[data-testid="meals-day"][data-date="${tuesday}"]`);
 		await expect(day).toContainText(dinner);
 
 		// The calendar's week view shows it under the date (when the pane is wide enough for the grid).
 		await page.addInitScript(() => localStorage.setItem('hub.calendar.view', 'week'));
-		await page.goto('/calendar');
+		await gotoHydrated(page, '/calendar');
 		const pane = page.getByTestId('calendar-pane');
 		await expect(pane).toBeVisible();
 		if ((await pane.boundingBox())!.width >= 720) {
 			await expect(page.getByTestId('week-meal').filter({ hasText: dinner })).toBeVisible();
 		}
-		await page.goto('/meals');
+		await gotoHydrated(page, '/meals');
 
 		// Edit through the sheet.
-		await expect(async () => {
-			await day.locator('[data-slot="dinner"]').click();
-			await expect(page.getByTestId('meal-input')).toBeVisible({ timeout: 1000 });
-		}).toPass();
+		await day.locator('[data-slot="dinner"]').click();
+		await expect(page.getByTestId('meal-input')).toBeVisible();
 		await page.getByTestId('meal-input').fill(edited);
 		await page.getByTestId('meal-save').click();
 		await expect(day).toContainText(edited);
@@ -78,7 +79,7 @@ test('plan a dinner, see it in Meals and the calendar week, edit it, delete it',
 test('meals fits a 390px phone with no sideways scroll', async ({ page }) => {
 	ensureHousehold();
 	await page.setViewportSize({ width: 390, height: 844 });
-	await page.goto('/meals');
+	await gotoHydrated(page, '/meals');
 	await expect(page.getByTestId('meals-day')).toHaveCount(7);
 	const overflow = await page.evaluate(
 		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
@@ -103,7 +104,7 @@ for (const { w, h, perRow } of [
 	test(`meal slot labels fit on one line at ${w}x${h}`, async ({ page }) => {
 		ensureHousehold();
 		await page.setViewportSize({ width: w, height: h });
-		await page.goto('/meals');
+		await gotoHydrated(page, '/meals');
 		await expect(page.getByTestId('meals-day')).toHaveCount(7);
 		const layout = await page.evaluate(() => {
 			const labels = [
@@ -121,3 +122,34 @@ for (const { w, h, perRow } of [
 		if (perRow) expect(layout.perRow).toBe(perRow);
 	});
 }
+
+test('wall: plan a meal with the on-screen keyboard, it survives a reload', async ({
+	page,
+	context
+}, info) => {
+	ensureHousehold();
+	await asWallDisplay(context);
+	const k = Math.max(0, PROJECTS.indexOf(info.project.name));
+	const monday = new Date(Date.UTC(2044, 5, 6 + 7 * k)).toISOString().slice(0, 10);
+	await page.clock.setFixedTime(new Date(`${monday}T12:00:00`));
+	const word = `soup${Date.now().toString(36)}`.replace(/[^a-z0-9]/g, '');
+	try {
+		await gotoHydrated(page, '/meals');
+		const day = page.locator(`[data-testid="meals-day"][data-date="${monday}"]`);
+		await day.locator('[data-slot="lunch"]').click();
+		await expect(page.getByTestId('keyboard')).toBeVisible();
+		await expect(page.getByTestId('meal-input')).toHaveCount(0);
+		await expectTappable(page.getByTestId('key-q'));
+		await expectTappable(page.getByTestId('key-enter'));
+		for (const ch of word) await page.getByTestId(`key-${ch}`).click();
+		await page.getByTestId('key-enter').click();
+		await expect(day).toContainText(word, { ignoreCase: true });
+		await reloadHydrated(page);
+		await expect(day).toContainText(word, { ignoreCase: true });
+	} finally {
+		await page.request.delete('/api/meals', {
+			headers: JSON_HEADERS,
+			data: { date: monday, meal: 'lunch' }
+		});
+	}
+});

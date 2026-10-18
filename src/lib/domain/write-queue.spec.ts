@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { KidGroup } from './kid-chores';
+import type { KidRoutine } from './routines';
 import {
 	backoffMs,
+	overlayMeals,
 	overlayQueued,
+	overlayRoutineSteps,
 	classifyStatus,
 	WriteQueue,
 	type QueuedWrite,
@@ -27,7 +30,7 @@ function setup(results: SendResult[] = []) {
 		},
 		now: () => t,
 		newId: () => `k${++n}`,
-		onDrop: (w, reason) => drops.push([w.choreId, reason]),
+		onDrop: (w, reason) => drops.push([w.choreId ?? '', reason]),
 		onChange: (s) => sizes.push(s)
 	});
 	return {
@@ -235,5 +238,139 @@ describe('overlayQueued', () => {
 		expect(overlayQueued(board('pending'), 'm', [write('undo', 'm')])[0].chores[0].status).toBe(
 			'none'
 		);
+	});
+});
+
+describe('routine step writes', () => {
+	const step = (routineId: string, n: number) => ({
+		kind: 'routine-step' as const,
+		url: `/api/routines/${routineId}/progress`,
+		body: { date: '2026-10-18', step: n },
+		routineId
+	});
+
+	it('queues without a chore, keeps method and routine, and replays in order', async () => {
+		const s = setup();
+		await s.queue.enqueue(step('r1', 0));
+		await s.queue.enqueue({ ...step('r1', 1), method: 'PUT' });
+		const [a, b] = await s.queue.pending();
+		expect(a).toMatchObject({ kind: 'routine-step', routineId: 'r1' });
+		expect(a).not.toHaveProperty('choreId');
+		expect(a).not.toHaveProperty('method');
+		expect(b?.method).toBe('PUT');
+		expect(await s.queue.flush()).toBe(2);
+		expect(s.sent.map((w) => (w.body as { step: number }).step)).toEqual([0, 1]);
+	});
+
+	it('does not let a chore cancel touch routine steps', async () => {
+		const s = setup();
+		await s.queue.enqueue(step('r1', 0));
+		expect(await s.queue.cancelComplete('r1')).toBe(false);
+		expect(await s.queue.size()).toBe(1);
+	});
+
+	const routine = (id: string, done: number): KidRoutine => ({
+		id,
+		name: id,
+		windowStart: null,
+		windowEnd: null,
+		steps: [
+			{ label: 'a', icon: 'star' },
+			{ label: 'b', icon: 'star' }
+		],
+		done
+	});
+	const queued = (routineId: string | undefined, kind: QueuedWrite['kind'], step: unknown) =>
+		({
+			id: 'i',
+			key: 'i',
+			kind,
+			url: '',
+			body: { step },
+			routineId,
+			queuedAt: 0,
+			expiresAt: null,
+			attempts: 0,
+			nextAt: 0
+		}) satisfies QueuedWrite;
+
+	it('overlays queued steps on loaded routines, never backwards, ignoring junk', () => {
+		const by = { m: [routine('r1', 0), routine('r2', 1)] };
+		expect(overlayRoutineSteps(by, [])).toBe(by);
+		const out = overlayRoutineSteps(by, [
+			queued('r1', 'routine-step', 0),
+			queued('r1', 'routine-step', 1),
+			queued('r1', 'routine-step', 0),
+			queued('r2', 'routine-step', 'x'),
+			queued(undefined, 'routine-step', 1),
+			queued('r2', 'complete', 1)
+		]);
+		expect(out.m?.map((r) => r.done)).toEqual([2, 1]);
+	});
+
+	it('overlayQueued ignores writes with no chore', () => {
+		const board: KidGroup[] = [{ timeOfDay: 'morning', chores: [] }];
+		expect(overlayQueued(board, 'm', [queued('r1', 'routine-step', 0)])).toEqual(board);
+	});
+});
+
+describe('meal writes', () => {
+	const meal = (method: 'PUT' | 'DELETE', body: unknown, kind: QueuedWrite['kind'] = 'meal') =>
+		({
+			id: 'i',
+			key: 'i',
+			kind,
+			url: '/api/meals',
+			method,
+			body,
+			queuedAt: 0,
+			expiresAt: null,
+			attempts: 0,
+			nextAt: 0
+		}) satisfies QueuedWrite;
+	const MON = '2026-10-12';
+	const week = { '2026-10-12|dinner': 'Soup', '2026-10-13|lunch': 'Rice' };
+
+	it('queues PUT and DELETE with their url and body, replaying in order', async () => {
+		const s = setup();
+		await s.queue.enqueue({
+			kind: 'meal',
+			method: 'PUT',
+			url: '/api/meals',
+			body: { date: MON, meal: 'dinner', title: 'Soup' }
+		});
+		await s.queue.enqueue({
+			kind: 'meal',
+			method: 'DELETE',
+			url: '/api/meals',
+			body: { date: MON, meal: 'dinner' }
+		});
+		expect(await s.queue.flush()).toBe(2);
+		expect(s.sent.map((w) => w.method)).toEqual(['PUT', 'DELETE']);
+		expect(s.sent[0]).not.toHaveProperty('choreId');
+	});
+
+	it('overlays sets and clears in order on the right week only', () => {
+		expect(overlayMeals(week, MON, [])).toBe(week);
+		const out = overlayMeals(week, MON, [
+			meal('PUT', { date: MON, meal: 'dinner', title: 'Pasta' }),
+			meal('PUT', { date: '2026-10-14', meal: 'snack', title: 'Apple' }),
+			meal('DELETE', { date: '2026-10-13', meal: 'lunch' }),
+			meal('PUT', { date: '2026-10-19', meal: 'dinner', title: 'Other week' }),
+			meal('PUT', { date: MON, meal: 'brunch', title: 'bad slot' }),
+			meal('PUT', { date: MON, meal: 'lunch' }),
+			meal('PUT', null),
+			meal('PUT', { date: MON, meal: 'lunch', title: 'ignored' }, 'complete')
+		]);
+		expect(out).toEqual({ '2026-10-12|dinner': 'Pasta', '2026-10-14|snack': 'Apple' });
+		expect(week['2026-10-13|lunch']).toBe('Rice');
+	});
+
+	it('a later set after a clear wins', () => {
+		const out = overlayMeals(week, MON, [
+			meal('DELETE', { date: MON, meal: 'dinner' }),
+			meal('PUT', { date: MON, meal: 'dinner', title: 'Back' })
+		]);
+		expect(out['2026-10-12|dinner']).toBe('Back');
 	});
 });

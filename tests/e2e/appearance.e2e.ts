@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { zonedInstant } from '../../src/lib/domain/display-power';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
+import { gotoHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 
@@ -31,7 +32,7 @@ test('Auto is light at noon and night in the evening, and the wall dims in the e
 }) => {
 	await asWallDisplay(context);
 	await page.clock.install({ time: await localInstant(page, 12) });
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await expect(html(page)).toHaveAttribute('data-theme', 'light');
 	await expect(overlay(page)).toHaveCSS('opacity', '0');
 
@@ -50,14 +51,14 @@ test('without the test seam, an automated browser is pinned to light and undimme
 		(window as unknown as { __hubLiveAppearance: boolean }).__hubLiveAppearance = false;
 	});
 	await page.clock.install({ time: await localInstant(page, 22) });
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await expect(html(page)).toHaveAttribute('data-theme', 'light');
 	await expect(overlay(page)).toHaveCSS('opacity', '0');
 });
 
 test('a personal device is not dimmed in the evening', async ({ page }) => {
 	await page.clock.install({ time: await localInstant(page, 22) });
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await expect(html(page)).toHaveAttribute('data-theme', 'night');
 	await expect(overlay(page)).toHaveCount(0);
 });
@@ -65,12 +66,10 @@ test('a personal device is not dimmed in the evening', async ({ page }) => {
 test('a grown-up picks Dark, then Light, and it applies at once', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-appearance-adult-${info.project.name}`);
 	await page.clock.install({ time: await localInstant(page, 12) });
-	await page.goto('/settings/appearance');
+	await gotoHydrated(page, '/settings/appearance');
 	const group = page.getByRole('group', { name: 'Theme' });
-	await expect(async () => {
-		await group.getByRole('button', { name: 'Dark' }).click();
-		await expect(html(page)).toHaveAttribute('data-theme', 'night', { timeout: 1000 });
-	}).toPass();
+	await group.getByRole('button', { name: 'Dark' }).click();
+	await expect(html(page)).toHaveAttribute('data-theme', 'night');
 	await expect(group.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
 	await group.getByRole('button', { name: 'Light' }).click();
 	await expect(html(page)).toHaveAttribute('data-theme', 'light');

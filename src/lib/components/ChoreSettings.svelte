@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { ChoreInput, ChoreKind, ChoreView } from '#lib/server/domain/chores.js';
 	import type { Member } from '#lib/server/domain/members.js';
@@ -16,8 +17,21 @@
 		heading: string;
 		addLabel: string;
 		empty: string;
+		/** Whether a new item starts out needing a grown-up's OK (the household setting). */
+		approvalDefault?: boolean;
+		/** Shown under the heading, above the list. */
+		intro?: Snippet;
 	}
-	let { kind, chores, members, heading, addLabel, empty }: Props = $props();
+	let {
+		kind,
+		chores,
+		members,
+		heading,
+		addLabel,
+		empty,
+		approvalDefault = false,
+		intro
+	}: Props = $props();
 	const data = $derived({ chores, members });
 
 	/** 'new', a chore id being edited, or null. */
@@ -88,10 +102,13 @@
 		{/if}
 	</header>
 
+	{@render intro?.()}
+
 	{#if editing === 'new'}
 		<Card elevation="float">
 			<ChoreForm
 				choreKind={kind}
+				{approvalDefault}
 				members={data.members}
 				onsave={(c) => send('/api/chores', 'POST', c)}
 				oncancel={close}

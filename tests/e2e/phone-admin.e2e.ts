@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { signInAsAdult } from './adult';
+import { gotoHydrated } from './hydrated';
 
 // ADM-1: every admin page must be usable from a phone (390x844). Pages are discovered from the
 // settings subtree so new ones are covered automatically.
@@ -29,7 +30,7 @@ for (const route of routes) {
 	test(`phone: ${route} fits 390px with short headings`, async ({ page }, info) => {
 		await signInAsAdult(page, `e2e-phone-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
-		await page.goto(route);
+		await gotoHydrated(page, route);
 		await page.waitForLoadState('networkidle');
 
 		const main = page.locator('main');
@@ -69,13 +70,10 @@ for (const f of forms) {
 	test(`phone: the ${f.name} form fits the screen width`, async ({ page }, info) => {
 		await signInAsAdult(page, `e2e-phone-form-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
-		await page.goto(f.path);
+		await gotoHydrated(page, f.path);
 		const form = page.locator(`[data-testid="${f.form}"], form`).first();
-		// A tap before hydration is lost (slow WebKit runs): retry it, as critical-flows and pin do.
-		await expect(async () => {
-			await page.getByRole('button', { name: f.open }).click();
-			await expect(form).toBeVisible({ timeout: 1000 });
-		}).toPass();
+		await page.getByRole('button', { name: f.open }).click();
+		await expect(form).toBeVisible();
 		const offenders = await form.evaluate((el) =>
 			[...el.querySelectorAll('*')]
 				.filter((c) => c.getBoundingClientRect().right > window.innerWidth + 1)
@@ -116,15 +114,12 @@ test.describe('phone flows', () => {
 		await page.route('**/api/calendar/google/start', (route) =>
 			route.fulfill({ json: { url: new URL('/healthz', page.url()).href, state: 's' } })
 		);
-		await page.goto('/settings/calendars');
+		await gotoHydrated(page, '/settings/calendars');
 		const sheet = page.getByTestId('add-connection');
 		const open = async (name: RegExp) => {
-			// A tap before hydration is lost: retry the opening tap until the choices show.
-			await expect(async () => {
-				if (!(await page.getByRole('button', { name }).isVisible()))
-					await page.getByRole('button', { name: 'Add connection' }).click();
-				await expect(page.getByRole('button', { name })).toBeVisible({ timeout: 1000 });
-			}).toPass();
+			if (!(await page.getByRole('button', { name }).isVisible()))
+				await page.getByRole('button', { name: 'Add connection' }).click();
+			await expect(page.getByRole('button', { name })).toBeVisible();
 			await page.getByRole('button', { name }).click();
 			await expect(sheet).toBeVisible();
 		};
@@ -193,7 +188,7 @@ test.describe('phone flows', () => {
 			'INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
 		).run(key, JSON.stringify(all), Date.now());
 		try {
-			await page.goto('/settings/calendars');
+			await gotoHydrated(page, '/settings/calendars');
 			const banner = page
 				.getByTestId('reauth-banner')
 				.getByRole('listitem')
@@ -219,7 +214,7 @@ test.describe('phone flows', () => {
 		page
 	}, info) => {
 		await signInAsAdult(page, `e2e-phone-photo-${info.project.name}`);
-		await page.goto('/settings/photo-library');
+		await gotoHydrated(page, '/settings/photo-library');
 		const form = page.getByTestId('add-folder');
 		await page.getByLabel('Folder path').fill('/mnt/user/Photos/Family/2026/Summer/Holiday');
 		expect(await pastEdge(form)).toEqual([]);
@@ -247,7 +242,8 @@ test.describe('phone flows', () => {
 					icon: '🪴',
 					stars: 2,
 					memberIds: [member.id],
-					schedule: { type: 'daily' }
+					schedule: { type: 'daily' },
+					requiresApproval: true
 				}
 			})
 		).json();
@@ -258,7 +254,7 @@ test.describe('phone flows', () => {
 		await request.put(`/api/members/${member.id}/goal`, { data: { rewardId: reward.id } });
 		await request.post(`/api/members/${member.id}/bonus`, { data: { delta: 7, note: 'seed' } });
 
-		await page.goto('/settings/approvals');
+		await gotoHydrated(page, '/settings/approvals');
 		const card = page.locator(`[data-testid="child-card"][data-member="${member.id}"]`);
 		// Open it from the bottom of a scrolled page, where a sheet used to land off-screen.
 		await card.getByTestId('redeem').scrollIntoViewIfNeeded();

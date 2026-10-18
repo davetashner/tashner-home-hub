@@ -26,11 +26,21 @@ describe('meal plan storage', () => {
 		expect(week.map((e) => e.title).sort()).toEqual(['Pasta', 'Soup']);
 		expect(listRange(db, '2026-10-19', '2026-10-19')).toHaveLength(1);
 	});
-	it('deletes an entry and 404s when nothing is there', () => {
+	it('deletes an entry; deleting again (a replay) still succeeds', () => {
 		setMeal(db, { date: '2026-10-12', meal: 'snack', title: 'Apples' });
 		deleteMeal(db, { date: '2026-10-12', meal: 'snack' });
 		expect(listWeek(db, '2026-10-12')).toEqual([]);
-		expect(code(() => deleteMeal(db, { date: '2026-10-12', meal: 'snack' }))).toBe('not_found');
+		expect(deleteMeal(db, { date: '2026-10-12', meal: 'snack' })).toEqual({
+			date: '2026-10-12',
+			meal: 'snack'
+		});
+		expect(code(() => deleteMeal(db, { date: 'x', meal: 'snack' }))).toBe('invalid');
+	});
+	it('a replayed set is idempotent', () => {
+		const put = { date: '2026-10-12', meal: 'dinner', title: 'Soup' };
+		setMeal(db, put);
+		setMeal(db, put);
+		expect(listWeek(db, '2026-10-12')).toEqual([put]);
 	});
 	it('rejects bad input', () => {
 		expect(code(() => setMeal(db, { date: 'x', meal: 'dinner', title: 'a' }))).toBe('invalid');

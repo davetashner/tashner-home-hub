@@ -20,8 +20,26 @@ export interface RemoteFacts {
 	health: string | null;
 	/** Absent when the remote script had no wake section. */
 	wake?: WakeFacts;
+	/** Absent unless kiosk.conf has CEC_MODE=also. */
+	cec?: CecFacts;
 	/** Absent when the remote script had no speaker section. */
 	speaker?: SpeakerFacts;
+	/** Absent unless kiosk.conf has SPOTIFY_CONNECT=on. */
+	spotify?: SpotifyFacts;
+}
+export interface SpotifyFacts {
+	/** systemctl is-active of hub-kiosk-librespot.service. */
+	unit: string;
+	/** A cached login exists (the one-time setup is done). */
+	credentials: boolean;
+	/** "Hub" is advertised over mDNS; null when avahi-browse is missing. */
+	advertised: boolean | null;
+}
+export interface CecFacts {
+	device: string;
+	/** The CEC device node exists on the Pi. */
+	present: boolean;
+	backend: string | null;
 }
 export interface WakeFacts {
 	input: string;
@@ -71,6 +89,7 @@ export declare function parseFlags(cmdline: string): {
 	automation: boolean;
 };
 export declare function parseWake(text: string): WakeFacts;
+export declare function parseSpotify(text: string): SpotifyFacts;
 export declare function parseSpeaker(text: string): SpeakerFacts;
 export declare function parseWlrRandr(text: string): Output[];
 export declare function diagnose(facts: Facts): Check[];
@@ -80,3 +99,4 @@ export declare function summarize(checks: Check[]): {
 	warn: number;
 	fail: number;
 };
+export declare function parseCec(text: string): CecFacts;

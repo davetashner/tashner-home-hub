@@ -1,6 +1,16 @@
-import { createDAVClient, fetchCalendarObjects, getBasicAuthHeaders } from 'tsdav';
+import {
+	createCalendarObject,
+	createDAVClient,
+	deleteCalendarObject,
+	fetchCalendarObjects,
+	updateCalendarObject,
+	getBasicAuthHeaders
+} from 'tsdav';
 import { getDb } from '../db/index.js';
 import { householdTimeZone } from '../household.js';
+import { buildEventIcs, newUid, type NewEvent } from '../domain/calendar/ics-build.js';
+import { expandAll } from '../domain/calendar/expand.js';
+import { uneditableReason, modifyEventIcs } from '../domain/calendar/ics-modify.js';
 import { parseIcs } from '../domain/calendar/ics-parse.js';
 import { decryptSecret, encryptSecret, type Keyring } from '../domain/secrets.js';
 import { getKeyring } from '../keys.js';
@@ -8,6 +18,8 @@ import {
 	providerRegistry,
 	type CalendarProvider,
 	type CalendarSource,
+	type EditFailure,
+	type EventRef,
 	type RemoteCalendar,
 	type RemoteEvent,
 	type Window
@@ -24,7 +36,9 @@ export const REAUTH_MESSAGE =
 export class IcloudError extends Error {
 	constructor(
 		message: string,
-		readonly needsReauth = false
+		readonly needsReauth = false,
+		/** Set when an edit or delete was refused for a reason the adult can act on. */
+		readonly code?: EditFailure
 	) {
 		super(message);
 		this.name = 'IcloudError';
@@ -146,6 +160,142 @@ export async function fetchIcloudEvents(
 	}
 }
 
+/** PUTs a new VEVENT (`<uid>.ics`) into the calendar. Fails if Apple already has that name. */
+export async function createIcloudEvent(
+	creds: IcloudCredentials,
+	calendarId: string,
+	event: NewEvent,
+	opts: IcloudOptions = {}
+): Promise<{ uid: string }> {
+	const { signal, fetch: f } = guarded(opts);
+	const uid = newUid();
+	try {
+		const res = await createCalendarObject({
+			calendar: { url: calendarId },
+			filename: `${uid}.ics`,
+			iCalString: buildEventIcs(event, { uid, now: Date.now() }),
+			headers: getBasicAuthHeaders({ username: creds.appleId, password: creds.appPassword }),
+			fetch: f
+		});
+		// tsdav returns the response rather than throwing on a refusal.
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		return { uid };
+	} catch (e) {
+		throw friendly(e, signal);
+	}
+}
+
+/** Shown when Apple's copy differs from what the hub displayed (HTTP 412 or a field mismatch). */
+export const CHANGED_MESSAGE = 'This event changed on another device — check it and try again.';
+export const RECURRING_MESSAGE = 'This event repeats. Edit this on your phone.';
+const DAY = 86_400_000;
+
+interface Located {
+	url: string;
+	etag: string | undefined;
+	data: string;
+}
+
+/**
+ * Reads the event's CalDAV object fresh from Apple (its URL, ETag and current text), and checks
+ * that it is still the plain, unchanged event the hub showed. The hub's cache keeps neither the
+ * URL nor the ETag, so each write starts from this read; comparing against the cached fields is
+ * what turns "someone edited it on their phone since the last sync" into a clear conflict.
+ */
+async function locate(
+	creds: IcloudCredentials,
+	ref: EventRef,
+	f: typeof fetch,
+	householdZone: string
+): Promise<Located> {
+	const w = {
+		start: ref.cached.startsAt - DAY,
+		end: Math.max(ref.cached.endsAt, ref.cached.startsAt + 1) + DAY
+	};
+	const objects = await fetchCalendarObjects({
+		calendar: { url: ref.calendarId },
+		timeRange: { start: new Date(w.start).toISOString(), end: new Date(w.end).toISOString() },
+		useMultiGet: false,
+		headers: getBasicAuthHeaders({ username: creds.appleId, password: creds.appPassword }),
+		fetch: f
+	});
+	for (const o of objects) {
+		if (typeof o.data !== 'string' || typeof o.url !== 'string') continue;
+		let events;
+		try {
+			events = parseIcs(o.data, householdZone).events;
+		} catch {
+			continue;
+		}
+		if (!events.some((e) => e.uid === ref.uid)) continue;
+		if (uneditableReason(o.data) === 'recurring')
+			throw new IcloudError(RECURRING_MESSAGE, false, 'recurring');
+		const now = expandAll(events, w).find((i) => i.externalId === `${ref.uid}::${ref.instance}`);
+		const c = ref.cached;
+		if (
+			!now ||
+			now.title !== c.title ||
+			now.startsAt !== c.startsAt ||
+			now.endsAt !== c.endsAt ||
+			now.allDay !== c.allDay ||
+			now.location !== c.location ||
+			now.notes !== c.notes
+		)
+			throw new IcloudError(CHANGED_MESSAGE, false, 'changed');
+		return { url: o.url, etag: o.etag, data: o.data };
+	}
+	throw new IcloudError(CHANGED_MESSAGE, false, 'changed');
+}
+
+/** PUTs the edited object with `If-Match: <etag>`. A 412 means it changed since we read it. */
+export async function updateIcloudEvent(
+	creds: IcloudCredentials,
+	ref: EventRef,
+	event: NewEvent,
+	householdZone: string,
+	opts: IcloudOptions = {}
+): Promise<void> {
+	const { signal, fetch: f } = guarded(opts);
+	try {
+		const found = await locate(creds, ref, f, householdZone);
+		const res = await updateCalendarObject({
+			calendarObject: {
+				url: found.url,
+				etag: found.etag,
+				data: modifyEventIcs(found.data, event, Date.now())
+			},
+			headers: getBasicAuthHeaders({ username: creds.appleId, password: creds.appPassword }),
+			fetch: f
+		});
+		if (res.status === 412) throw new IcloudError(CHANGED_MESSAGE, false, 'changed');
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	} catch (e) {
+		throw friendly(e, signal);
+	}
+}
+
+/** DELETEs the event's object with `If-Match: <etag>`. Already gone (404) counts as deleted. */
+export async function deleteIcloudEvent(
+	creds: IcloudCredentials,
+	ref: EventRef,
+	householdZone: string,
+	opts: IcloudOptions = {}
+): Promise<void> {
+	const { signal, fetch: f } = guarded(opts);
+	try {
+		const found = await locate(creds, ref, f, householdZone);
+		const res = await deleteCalendarObject({
+			calendarObject: { url: found.url, etag: found.etag, data: found.data },
+			headers: getBasicAuthHeaders({ username: creds.appleId, password: creds.appPassword }),
+			fetch: f
+		});
+		if (res.status === 412) throw new IcloudError(CHANGED_MESSAGE, false, 'changed');
+		if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
+	} catch (e) {
+		throw friendly(e, signal);
+	}
+}
+
 export function createIcloudProvider(
 	source: CalendarSource,
 	deps: { keyring?: Keyring; options?: IcloudOptions } = {}
@@ -161,7 +311,19 @@ export function createIcloudProvider(
 				window,
 				householdTimeZone(getDb()),
 				options
-			)
+			),
+		createEvent: (calendarId, event) =>
+			createIcloudEvent(openCredentials(keyring, source), calendarId, event, options),
+		updateEvent: (ref, event) =>
+			updateIcloudEvent(
+				openCredentials(keyring, source),
+				ref,
+				event,
+				householdTimeZone(getDb()),
+				options
+			),
+		deleteEvent: (ref) =>
+			deleteIcloudEvent(openCredentials(keyring, source), ref, householdTimeZone(getDb()), options)
 	};
 }
 

@@ -165,6 +165,52 @@ export const starTransactions = sqliteTable(
 	(t) => [index('star_transactions_member_idx').on(t.memberId)]
 );
 
+/**
+ * One row per (job, kid, period) once the period has been judged (hub-ruz), so a restart or a
+ * re-run never judges, or deducts for, the same period twice. `missed` rows may carry a deduction.
+ */
+export const missedJudgments = sqliteTable(
+	'missed_judgments',
+	{
+		id: id(),
+		choreId: text('chore_id')
+			.notNull()
+			.references(() => chores.id, { onDelete: 'cascade' }),
+		memberId: text('member_id')
+			.notNull()
+			.references(() => members.id, { onDelete: 'cascade' }),
+		/** A due day (YYYY-MM-DD) or `flex:<first day of the period>`. */
+		periodKey: text('period_key').notNull(),
+		/** Last local day of the period, YYYY-MM-DD. */
+		periodEnd: text('period_end').notNull(),
+		missed: integer('missed', { mode: 'boolean' }).notNull(),
+		/** Stars removed from the ledger (0 when the balance was already empty). */
+		starsRemoved: integer('stars_removed').notNull().default(0),
+		judgedAt: ms('judged_at').notNull()
+	},
+	(t) => [
+		uniqueIndex('missed_judgments_period_idx').on(t.choreId, t.memberId, t.periodKey),
+		index('missed_judgments_member_end_idx').on(t.memberId, t.periodEnd)
+	]
+);
+
+/** A grown-up unlocking Games and Music for a kid for one local day (hub-ruz): who and when. */
+export const funUnlocks = sqliteTable(
+	'fun_unlocks',
+	{
+		id: id(),
+		memberId: text('member_id')
+			.notNull()
+			.references(() => members.id, { onDelete: 'cascade' }),
+		/** The local day it applies to, YYYY-MM-DD. */
+		day: text('day').notNull(),
+		unlockedBy: text('unlocked_by').notNull(),
+		unlockedByName: text('unlocked_by_name').notNull(),
+		unlockedAt: ms('unlocked_at').notNull()
+	},
+	(t) => [index('fun_unlocks_member_day_idx').on(t.memberId, t.day)]
+);
+
 export const rewards = sqliteTable('rewards', {
 	id: id(),
 	title: text('title').notNull(),

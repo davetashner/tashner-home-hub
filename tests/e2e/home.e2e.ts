@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold } from './adult';
+import { gotoHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 
 test('home shows the wall clock', async ({ page }) => {
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await expect(page.getByTestId('clock-time')).toBeVisible();
 	await expect(page.getByTestId('clock-date')).toBeVisible();
 });

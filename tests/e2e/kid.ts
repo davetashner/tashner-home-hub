@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { trackMember } from './cleanup';
+import { gotoHydrated } from './hydrated';
 
 export interface KidSeed {
 	memberId: string;
@@ -27,7 +28,12 @@ export async function seedKid(page: Page, label: string, extra: string[] = []): 
 	for (const def of defs) {
 		const chore = await (
 			await request.post('/api/chores', {
-				data: { ...def, memberIds: [member.id], schedule: { type: 'daily' } }
+				data: {
+					...def,
+					memberIds: [member.id],
+					schedule: { type: 'daily' },
+					requiresApproval: true
+				}
 			})
 		).json();
 		chores[def.title] = chore.id;
@@ -73,7 +79,7 @@ export async function stubAudio(page: Page): Promise<() => Promise<number>> {
 }
 
 export async function openKid(page: Page, s: KidSeed) {
-	await page.goto(`/chores?member=${s.memberId}`);
+	await gotoHydrated(page, `/chores?member=${s.memberId}`);
 	await expect(page.getByTestId('star-jar')).toBeVisible();
 }
 

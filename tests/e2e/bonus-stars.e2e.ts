@@ -1,16 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectTappable } from './tap';
 import { openKid, seedKid, stubAudio } from './kid';
+import { gotoHydrated } from './hydrated';
 
 async function balance(page: Page, memberId: string): Promise<number> {
 	return (await (await page.request.get(`/api/members/${memberId}/stars`)).json()).balance;
 }
 
 async function openStars(page: Page, memberId: string) {
-	await expect(async () => {
-		await page.goto('/settings/stars');
-		await page.locator(`[data-testid="stars-member"][data-member="${memberId}"]`).click();
-	}).toPass();
+	await gotoHydrated(page, '/settings/stars');
+	await page.locator(`[data-testid="stars-member"][data-member="${memberId}"]`).click();
 }
 
 async function giveAndRemove(page: Page, label: string) {

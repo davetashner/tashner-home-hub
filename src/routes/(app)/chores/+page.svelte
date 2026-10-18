@@ -51,7 +51,7 @@
 		type KidGroup
 	} from '#lib/domain/kid-chores.js';
 	import { childrenOf, planLoad, type MemberResult } from '#lib/domain/chore-load.js';
-	import { overlayQueued } from '#lib/domain/write-queue.js';
+	import { overlayQueued, overlayRoutineSteps } from '#lib/domain/write-queue.js';
 	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 	import { TODO_FALLBACK } from '#lib/domain/nav.js';
 
@@ -103,6 +103,16 @@
 	const inflight: Record<string, Promise<Completion | null>> = {};
 	const busy = () => Object.keys(inflight).length > 0;
 	let messageTimer: ReturnType<typeof setTimeout> | undefined;
+
+	// Games and Music hold back the kid shown here until their jobs are done (hub-ruz).
+	$effect(() => {
+		if (!selectedId) return;
+		try {
+			localStorage.setItem('hub.kid', selectedId);
+		} catch {
+			// Storage unavailable: the fun tabs fall back to the first held-back kid.
+		}
+	});
 
 	const selected = $derived(members.find((m) => m.id === selectedId) ?? null);
 	const groups = $derived(selectedId ? (boards[selectedId] ?? []) : []);
@@ -281,13 +291,16 @@
 			r.id === routine.id ? { ...r, done } : r
 		);
 		if (isRoutineComplete(done, routine.steps.length)) celebrateAllDone();
-		void fetch(`/api/routines/${routine.id}/progress`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ date: localDate(Date.now(), tz), step: index })
+		// Through the write queue: a drop in the network or a reload keeps the step (the server
+		// takes the highest step index, so a replay is harmless).
+		void deliver({
+			kind: 'routine-step',
+			url: `/api/routines/${routine.id}/progress`,
+			body: { date: localDate(Date.now(), tz), step: index },
+			routineId: routine.id
 		})
 			// A finished routine can complete the day's habits: pick up the star.
-			.then(() => loadStars(memberId))
+			.then((r) => (r.sent ? loadStars(memberId) : undefined))
 			.catch(() => {});
 	}
 
@@ -324,6 +337,7 @@
 			members = plan.members;
 			// Before choosing a child: a kid with only a routine counts too.
 			if (fetchedRoutines) applyRoutines(fetchedRoutines);
+			routinesBy = overlayRoutineSteps(routinesBy, queued);
 			boards = Object.fromEntries(
 				plan.members.map((m) => [m.id, overlayQueued(plan.boards[m.id], m.id, queued)] as const)
 			);
@@ -356,8 +370,8 @@
 	});
 
 	onMount(() => {
-		onWriteDropped(() => {
-			say('Hmm, that one is already with the grown-ups.');
+		onWriteDropped((write) => {
+			if (write.kind !== 'routine-step') say('Hmm, that one is already with the grown-ups.');
 			void refresh();
 		});
 		preloadCelebrations();
@@ -431,10 +445,20 @@
 		if (!memberId) return;
 		const key = tapKey(memberId, chore.id);
 		const jarStars = starsOf(memberId);
-		patch(memberId, (g) => setStatus(g, chore.id, 'pending', null));
-		jarStars.pending += chore.stars;
+		// Self-serve to-dos are gold at once; only ones a grown-up checks wait (hub-526).
+		const optimistic = chore.requiresApproval === false ? 'approved' : 'pending';
+		const bucket = optimistic === 'approved' ? 'balance' : 'pending';
+		patch(memberId, (g) => setStatus(g, chore.id, optimistic, null));
+		jarStars[bucket] += chore.stars;
 		undoStarts[key] = Date.now();
-		celebrate({ choreId: chore.id, memberId, stars: chore.stars, origin: card, jar });
+		celebrate({
+			choreId: chore.id,
+			memberId,
+			stars: chore.stars,
+			origin: card,
+			jar,
+			gold: optimistic === 'approved'
+		});
 		maybeAllDone(memberId);
 		const request = deliver<{ completion: Completion }>({
 			kind: 'complete',
@@ -458,7 +482,7 @@
 			})
 			.catch(() => {
 				patch(memberId, (g) => setStatus(g, chore.id, 'none', null));
-				jarStars.pending = Math.max(0, jarStars.pending - chore.stars);
+				jarStars[bucket] = Math.max(0, jarStars[bucket] - chore.stars);
 				dropUndo(key);
 				say('Oops, that did not save. Tap again when you are ready!');
 				return null;

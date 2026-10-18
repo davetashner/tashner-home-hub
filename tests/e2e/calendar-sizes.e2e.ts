@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { seedCalendar } from './calendar.js';
+import { gotoHydrated } from './hydrated';
 
 // Phone and iPad sizes (requirements §3.10, DEV-4): the calendar must fit with no sideways scroll.
 // iPhone landscape (852x393) is left out until the shell stops filling that screen (hub-0hv.8).
@@ -38,7 +39,7 @@ for (const size of SIZES) {
 	test(`calendar fits at ${size.name} ${size.width}x${size.height}`, async ({ page }) => {
 		seedCalendar();
 		await page.setViewportSize({ width: size.width, height: size.height });
-		await page.goto('/calendar');
+		await gotoHydrated(page, '/calendar');
 		await page.waitForLoadState('networkidle');
 		const view = page.getByRole('group', { name: 'View' });
 		const shot = async (v: string) => {

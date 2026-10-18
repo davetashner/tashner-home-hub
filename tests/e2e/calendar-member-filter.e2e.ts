@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { seedCalendar } from './calendar.js';
 import { expectTappable } from './tap';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 // FAM-4: member chips narrow Agenda, Week and Month, and the choice survives a reload.
 test('member chips filter the calendar and are remembered', async ({ page }) => {
 	seedCalendar();
-	await page.goto('/calendar');
+	await gotoHydrated(page, '/calendar');
 	const filter = page.getByTestId('member-filter');
 	const pane = page.getByTestId('calendar-pane');
 	const view = page.getByRole('group', { name: 'View' });
@@ -21,11 +22,8 @@ test('member chips filter the calendar and are remembered', async ({ page }) => 
 	}
 
 	await view.getByRole('button', { name: 'Agenda' }).click();
-	// The first tap can land before hydration on WebKit, so retry until it takes.
-	await expect(async () => {
-		await chip('Avery').click();
-		await expect(chip('Avery')).toHaveAttribute('aria-pressed', 'true', { timeout: 500 });
-	}).toPass();
+	await chip('Avery').click();
+	await expect(chip('Avery')).toHaveAttribute('aria-pressed', 'true');
 	await expect(pane.getByText('Soccer practice').first()).toBeVisible();
 	await expect(pane.getByText('Dentist')).toHaveCount(0);
 	await expect(pane.getByText('Grandma visits')).toHaveCount(0);
@@ -44,7 +42,7 @@ test('member chips filter the calendar and are remembered', async ({ page }) => 
 		await expect(pane.getByText('Grandma visits')).toHaveCount(0);
 	}
 
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(chip('Avery')).toHaveAttribute('aria-pressed', 'true');
 	await expect(chip('Blake')).toHaveAttribute('aria-pressed', 'true');
 	await expect(pane.getByText('Grandma visits')).toHaveCount(0);
@@ -58,7 +56,7 @@ test('member chips filter the calendar and are remembered', async ({ page }) => 
 test('member chips stay inside a phone-width screen', async ({ page }) => {
 	seedCalendar();
 	await page.setViewportSize({ width: 393, height: 659 });
-	await page.goto('/calendar');
+	await gotoHydrated(page, '/calendar');
 	await expect(page.getByTestId('member-filter')).toBeVisible();
 	const overflow = await page.evaluate(
 		() => document.documentElement.scrollWidth - window.innerWidth
@@ -68,7 +66,7 @@ test('member chips stay inside a phone-width screen', async ({ page }) => {
 
 test("a member chip's avatar sits in the pill's rounded left end", async ({ page }) => {
 	seedCalendar({ fresh: false });
-	await page.goto('/calendar');
+	await gotoHydrated(page, '/calendar');
 	const chip = page
 		.getByTestId('member-filter')
 		.getByRole('button', { name: 'Avery', exact: true });

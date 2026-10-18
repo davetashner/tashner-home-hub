@@ -3,6 +3,9 @@
 	import { resolve } from '$app/paths';
 	import { swipe } from '#lib/actions/swipe.js';
 	import AgendaView from '#lib/components/calendar/AgendaView.svelte';
+	import AddEventSheet, {
+		type WritableCalendar
+	} from '#lib/components/calendar/AddEventSheet.svelte';
 	import EventSheet from '#lib/components/calendar/EventSheet.svelte';
 	import MonthView from '#lib/components/calendar/MonthView.svelte';
 	import WeekView from '#lib/components/calendar/WeekView.svelte';
@@ -26,7 +29,16 @@
 		toggleMember
 	} from '#lib/domain/calendar-view/member-filter.js';
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
-	import { dateKeyOf, type DateKey } from '#lib/domain/calendar-view/zone.js';
+	import {
+		draftFromEvent,
+		editableInHub,
+		newDraft,
+		overlaps,
+		pendingEvent,
+		toRequest,
+		type EventDraft
+	} from '#lib/domain/calendar-view/new-event.js';
+	import { dateKeyOf, dayStartMs, type DateKey } from '#lib/domain/calendar-view/zone.js';
 	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 	import { page } from '$app/state';
 	import { mealMap, type MealEntry } from '#lib/domain/meals.js';
@@ -45,6 +57,7 @@
 
 	const VIEW_KEY = 'hub.calendar.view';
 	const MEMBERS_KEY = 'hub.calendar.members';
+	const NEW_CAL_KEY = 'hub.calendar.newEventCalendar';
 	const LABELS: Record<CalendarViewMode, string> = {
 		agenda: 'Agenda',
 		week: 'Week',
@@ -70,7 +83,25 @@
 	const today = $derived(dateKeyOf(now, tz));
 	const keys = $derived(periodKeys(view, anchor));
 	const title = $derived(periodTitle(view, keys, anchor));
-	const events = $derived(filterEvents(cache[cacheKey(keys)] ?? [], chosen));
+	const adult = $derived(page.data.adult === true);
+	const wall = $derived(page.data.displayRole === 'wall');
+	let writable = $state<WritableCalendar[]>([]);
+	let draft = $state<EventDraft | null>(null);
+	let pending = $state<CalEvent[]>([]);
+	// Edit and delete: the event being edited, and stored events hidden while a change is in flight.
+	let editing = $state<CalEvent | null>(null);
+	let hidden = $state<string[]>([]);
+	let icloudSources = $state<string[]>([]);
+	let notice = $state('');
+	let seq = 0;
+	const events = $derived.by(() => {
+		const r = fetchRange(keys, tz);
+		const mine = pending.filter((p) => overlaps(p, r.start, r.end));
+		const stored = filterEvents(cache[cacheKey(keys)] ?? [], chosen).filter(
+			(e) => !hidden.includes(e.id)
+		);
+		return [...stored, ...mine].sort((a, b) => a.startsAt - b.startsAt);
+	});
 	const staleSince = $derived.by(() => {
 		const stale = status?.sources.filter((s) => s.stale) ?? [];
 		if (!stale.length) return null;
@@ -109,6 +140,128 @@
 	$effect(() => {
 		if (mounted && view === 'week') void loadMeals(keys);
 	});
+
+	// CAL-9: adults can add events to the iCloud calendars the household connected.
+	async function loadWritable() {
+		try {
+			const res = await fetch('/api/calendar/sources');
+			if (!res.ok) return;
+			const sources: {
+				id: string;
+				provider: string;
+				label: string;
+				calendars: { externalId: string; name: string; selected: boolean }[];
+			}[] = await res.json();
+			icloudSources = sources.filter((src) => src.provider === 'icloud').map((src) => src.id);
+			writable = sources
+				.filter((src) => src.provider === 'icloud')
+				.flatMap((src) =>
+					src.calendars
+						.filter((c) => c.selected)
+						.map((c) => ({ id: c.externalId, name: c.name || 'Calendar', account: src.label }))
+				);
+		} catch {
+			// Offline: no Add event button until the next load.
+		}
+	}
+
+	function openAdd() {
+		let last: string | null = null;
+		try {
+			last = localStorage.getItem(NEW_CAL_KEY);
+		} catch {
+			// Storage unavailable: start on the first calendar.
+		}
+		const calendarId = writable.find((c) => c.id === last)?.id ?? writable[0]?.id ?? '';
+		const nowMin = Math.floor((now - dayStartMs(today, tz)) / 60_000);
+		draft = newDraft(today, nowMin, calendarId);
+	}
+
+	async function addEvent(d: EventDraft) {
+		const ghost = pendingEvent(d, tz, `pending-${++seq}`);
+		pending = [...pending, ghost];
+		draft = null;
+		notice = '';
+		try {
+			localStorage.setItem(NEW_CAL_KEY, d.calendarId);
+		} catch {
+			// Storage unavailable: the choice just does not stick.
+		}
+		try {
+			const res = await fetch('/api/calendar/events', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(toRequest(d))
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => null);
+				notice = `Could not add "${ghost.title}": ${
+					typeof body?.message === 'string' ? body.message : 'the calendar said no.'
+				}`;
+			} else {
+				cache = {};
+				await load(keys, true);
+			}
+		} catch {
+			notice = `Could not add "${ghost.title}": the hub could not be reached, so nothing was saved.`;
+		} finally {
+			pending = pending.filter((p) => p.id !== ghost.id);
+		}
+	}
+
+	/** What a change to a stored event may do: the sheet shows Edit/Delete, or the phone hint. */
+	function changeKind(ev: CalEvent): 'hub' | 'phone' | null {
+		if (!adult || ev.pending || !ev.sourceId || !icloudSources.includes(ev.sourceId)) return null;
+		return editableInHub(ev, tz) ? 'hub' : 'phone';
+	}
+
+	function openEdit() {
+		if (!selected) return;
+		draft = draftFromEvent(selected, tz);
+		editing = selected;
+		selected = null;
+	}
+
+	/** Sends a change, shows it at once, and puts the calendar back if Apple says no. */
+	async function change(ev: CalEvent, ghost: CalEvent | null, init: RequestInit, verb: string) {
+		hidden = [...hidden, ev.id];
+		if (ghost) pending = [...pending, ghost];
+		notice = '';
+		try {
+			const res = await fetch(`/api/calendar/events/${encodeURIComponent(ev.id)}`, {
+				...init,
+				headers: { 'content-type': 'application/json' }
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => null);
+				notice = `Could not ${verb} "${ev.title}": ${
+					typeof body?.message === 'string' ? body.message : 'the calendar said no.'
+				}`;
+			}
+		} catch {
+			notice = `Could not ${verb} "${ev.title}": the hub could not be reached, so nothing was changed.`;
+		}
+		// Success or not, show what Apple has now (after a conflict this is the refetch).
+		cache = {};
+		await load(keys, true);
+		hidden = hidden.filter((id) => id !== ev.id);
+		pending = pending.filter((p) => p.id !== ev.id);
+	}
+
+	function saveEdit(d: EventDraft) {
+		const ev = editing;
+		draft = null;
+		editing = null;
+		if (!ev) return;
+		const ghost = { ...pendingEvent(d, tz, ev.id), members: ev.members };
+		void change(ev, ghost, { method: 'PUT', body: JSON.stringify(toRequest(d)) }, 'save');
+	}
+
+	function removeSelected() {
+		const ev = selected;
+		selected = null;
+		if (ev) void change(ev, null, { method: 'DELETE' }, 'delete');
+	}
 
 	async function loadStatus() {
 		try {
@@ -212,6 +365,7 @@
 		mounted = true;
 		void loadStatus();
 		void loadMembers();
+		if (page.data.adult === true) void loadWritable();
 		const timer = setInterval(() => {
 			now = Date.now();
 			void loadStatus();
@@ -273,6 +427,11 @@
 						>
 					{/each}
 				</div>
+				{#if adult && writable.length > 0}
+					<button type="button" class="nav-btn add-btn" data-testid="add-event" onclick={openAdd}
+						>Add event</button
+					>
+				{/if}
 				<div class="flex items-center gap-2">
 					<button type="button" class="nav-btn" aria-label="Previous" onclick={() => step(-1)}>
 						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
@@ -307,6 +466,19 @@
 				</div>
 			{/if}
 		</div>
+
+		{#if notice}
+			<div
+				role="alert"
+				class="flex items-center justify-between gap-4 rounded-card border-2 border-danger bg-surface-raised px-6 py-3 text-body font-extrabold"
+				data-testid="add-event-error"
+			>
+				<span class="min-w-0">{notice}</span>
+				<button type="button" class="nav-btn shrink-0 px-4" onclick={() => (notice = '')}
+					>Dismiss</button
+				>
+			</div>
+		{/if}
 
 		<div
 			class="viewport min-h-0 flex-1"
@@ -350,8 +522,31 @@
 	</div>
 {/if}
 
+{#if draft}
+	<AddEventSheet
+		bind:draft
+		calendars={writable}
+		{today}
+		{wall}
+		mode={editing ? 'edit' : 'add'}
+		onsubmit={editing ? saveEdit : addEvent}
+		onclose={() => {
+			draft = null;
+			editing = null;
+		}}
+	/>
+{/if}
+
 {#if selected}
-	<EventSheet event={selected} {tz} onclose={() => (selected = null)} />
+	{@const kind = changeKind(selected)}
+	<EventSheet
+		event={selected}
+		{tz}
+		onclose={() => (selected = null)}
+		onedit={kind === 'hub' ? openEdit : undefined}
+		ondelete={kind === 'hub' ? removeSelected : undefined}
+		phoneOnly={kind === 'phone'}
+	/>
 {/if}
 
 <style>
@@ -521,7 +716,8 @@
 		outline: 4px solid var(--color-accent);
 		outline-offset: 4px;
 	}
-	.today-btn {
+	.today-btn,
+	.add-btn {
 		padding: 0 2rem;
 	}
 	/* Phone width, or a phone turned sideways: the switcher and period controls have to fit on one row. */
@@ -533,7 +729,8 @@
 			min-width: 0;
 			padding: 0 0.625rem;
 		}
-		.today-btn {
+		.today-btn,
+		.add-btn {
 			padding: 0 1rem;
 		}
 	}

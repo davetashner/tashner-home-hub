@@ -3,6 +3,7 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { ensureHousehold } from './adult';
 import { seedKid } from './kid';
+import { gotoHydrated } from './hydrated';
 
 // ADR 0002 Tier 2 (readable from across the room, UI-3): on the wall screens (1440p, both
 // orientations) no visible text is under 24px, and the clock/date headers are at least the
@@ -133,7 +134,7 @@ test.describe('all visible text is at least 24px on the wall', () => {
 				data: { rewardId: reward.id }
 			});
 
-			await page.goto(KID_ROUTES.has(route) ? `${route}?member=${seed.memberId}` : route);
+			await gotoHydrated(page, KID_ROUTES.has(route) ? `${route}?member=${seed.memberId}` : route);
 			await settle(page);
 			const landed = new URL(page.url()).pathname;
 			const small = await findSmallText(page, MIN_PX, EXCLUDED_SELECTORS);
@@ -148,7 +149,7 @@ test.describe('all visible text is at least 24px on the wall', () => {
 
 test.describe('clock and date are at least their token sizes', () => {
 	test('header clock and date', async ({ page }) => {
-		await page.goto('/chores');
+		await gotoHydrated(page, '/chores');
 		await settle(page);
 		const vp = page.viewportSize()!;
 		const where = `${vp.width}x${vp.height}`;
@@ -163,7 +164,7 @@ test.describe('clock and date are at least their token sizes', () => {
 	});
 
 	test('hero clock and date on home', async ({ page }) => {
-		await page.goto('/');
+		await gotoHydrated(page, '/');
 		await settle(page);
 		const vp = page.viewportSize()!;
 		const where = `${vp.width}x${vp.height}`;

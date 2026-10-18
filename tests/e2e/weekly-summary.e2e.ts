@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 const addDays = (date: string, n: number) => {
 	const d = new Date(`${date}T00:00:00Z`);
@@ -64,7 +65,7 @@ test('an adult sees a child card with the week numbers, on a phone', async ({ pa
 	const s = await seed(page, info.project.name);
 	try {
 		await page.setViewportSize({ width: 390, height: 844 });
-		await page.goto('/settings/weekly-summary');
+		await gotoHydrated(page, '/settings/weekly-summary');
 		const card = page.locator(`[data-testid="summary-card"][data-member="${s.memberId}"]`);
 		await expect(card).toBeVisible();
 		await expect(card.getByTestId('net')).toHaveText('+6 ⭐');
@@ -74,13 +75,10 @@ test('an adult sees a child card with the week numbers, on a phone', async ({ pa
 		await expect(card.getByTestId('done-line')).toHaveText('3 of 8 Star Jobs done');
 		await expect(card.getByTestId('missed-list').locator('li')).toHaveCount(3);
 
-		// First tap after goto: the page may still be hydrating.
 		const toggle = card.getByTestId('toggle-missed');
 		await expectTappable(toggle);
-		await expect(async () => {
-			await toggle.click();
-			await expect(card.getByTestId('missed-list').locator('li')).toHaveCount(5, { timeout: 1000 });
-		}).toPass();
+		await toggle.click();
+		await expect(card.getByTestId('missed-list').locator('li')).toHaveCount(5);
 		await expect(toggle).toHaveText('Show fewer');
 
 		const next = page.getByTestId('next-week');
@@ -103,6 +101,6 @@ test('an adult sees a child card with the week numbers, on a phone', async ({ pa
 test('the summary needs a grown-up', async ({ page }) => {
 	const res = await page.request.get('/api/summary/weekly');
 	expect(res.status()).toBe(401);
-	await page.goto('/settings/weekly-summary');
+	await gotoHydrated(page, '/settings/weekly-summary');
 	await expect(page).toHaveURL(/\/unlock/);
 });

@@ -7,6 +7,8 @@
 	import OnScreenKeyboard from '#lib/components/lists/OnScreenKeyboard.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import { LIST_TITLE_MAX, sortItems, withDone, type ListItem } from '#lib/domain/lists.js';
+	import { createPendingActions, isTempId } from '#lib/domain/lists-pending.js';
+	import { createLiveChannel } from '#lib/domain/live-events.js';
 	import { deliver } from '#lib/offline/client.js';
 
 	interface SharedList {
@@ -15,7 +17,8 @@
 		items: ListItem[];
 	}
 
-	const POLL_MS = 5_000;
+	/** Safety net only: live changes arrive over /api/events. */
+	const POLL_MS = 60_000;
 	const wall = $derived(page.data.displayRole === 'wall');
 
 	let lists = $state<SharedList[]>([]);
@@ -35,6 +38,8 @@
 	/** Adds and removals still in flight: a refresh landing mid-request must not undo them. */
 	let placeholders: ListItem[] = [];
 	const removing: Record<string, true> = {};
+	/** Taps on rows whose add has not returned: replayed against the real id when it does. */
+	const held = createPendingActions();
 	/** The item whose Delete action a long-press revealed. */
 	let armed = $state<string | null>(null);
 	let error = $state('');
@@ -85,12 +90,42 @@
 
 	onMount(() => {
 		void refresh();
-		const timer = setInterval(() => void refresh(), POLL_MS);
-		const onVisible = () => document.visibilityState === 'visible' && void refresh();
-		document.addEventListener('visibilitychange', onVisible);
+		const channel = createLiveChannel({
+			url: '/api/events',
+			topics: ['lists'],
+			create: (url) => new EventSource(url),
+			onEvent: () => {
+				if (pending === 0) void refresh();
+			},
+			// Events missed while the stream was down: catch up on (re)connect.
+			onOpen: () => {
+				if (pending === 0) void refresh();
+			}
+		});
+		channel.start();
+		let timer: ReturnType<typeof setInterval> | null = null;
+		const stop = () => {
+			if (timer !== null) clearInterval(timer);
+			timer = null;
+		};
+		const start = () => {
+			stop();
+			timer = setInterval(() => void refresh(), POLL_MS);
+		};
+		// No polling while the tab is hidden; coming back refreshes at once and restarts it.
+		const onVisibility = () => {
+			if (document.visibilityState === 'visible') {
+				channel.resume();
+				void refresh();
+				start();
+			} else stop();
+		};
+		if (document.visibilityState === 'visible') start();
+		document.addEventListener('visibilitychange', onVisibility);
 		return () => {
-			clearInterval(timer);
-			document.removeEventListener('visibilitychange', onVisible);
+			channel.stop();
+			stop();
+			document.removeEventListener('visibilitychange', onVisibility);
 		};
 	});
 
@@ -104,7 +139,7 @@
 		replaceState(`${base}?list=${encodeURIComponent(id)}`, {});
 	}
 
-	async function createNew(title: string) {
+	async function createNewRaw(title: string) {
 		naming = false;
 		error = '';
 		const temp: SharedList = { id: `temp-${crypto.randomUUID()}`, title, items: [] };
@@ -133,7 +168,7 @@
 		await refresh();
 	}
 
-	async function removeList() {
+	async function removeListRaw() {
 		if (!current) return;
 		const gone = current;
 		confirming = false;
@@ -170,8 +205,13 @@
 
 	async function toggle(item: ListItem) {
 		const done = !item.done;
-		intent[item.id] = done;
 		patchItems(item.listId, (all) => withDone(all, item.id, done));
+		if (isTempId(item.id)) {
+			placeholders = withDone(placeholders, item.id, done);
+			held.hold(item.id, { kind: 'done', done });
+			return;
+		}
+		intent[item.id] = done;
 		const r = await deliver({
 			kind: 'check',
 			url: `/api/list-items/${item.id}`,
@@ -181,7 +221,7 @@
 		if (r.sent || (!r.queued && r.status >= 400)) delete intent[item.id];
 	}
 
-	async function add(text: string) {
+	async function addRaw(text: string) {
 		if (!current) return;
 		const listId = current.id;
 		const temp: ListItem = {
@@ -193,20 +233,42 @@
 		};
 		placeholders.push(temp);
 		patchItems(listId, (all) => [...all, temp]);
+		let realId: string | null = null;
 		try {
-			await fetch(`/api/lists/${listId}/items`, {
+			const res = await fetch(`/api/lists/${listId}/items`, {
 				method: 'POST',
 				headers: JSON_HEADERS,
 				body: JSON.stringify({ text })
 			});
+			if (res.ok) realId = ((await res.json()) as ListItem).id;
 		} catch {
 			// Offline: the refresh below drops the placeholder.
+		}
+		// Replay taps made before the id existed; a failed add drops them with the row.
+		const replay = realId ? held.take(temp.id) : (held.drop(temp.id), []);
+		for (const a of replay) {
+			if (a.kind === 'done') {
+				intent[realId!] = a.done;
+				const r = await deliver({
+					kind: 'check',
+					url: `/api/list-items/${realId}`,
+					body: { done: a.done },
+					choreId: realId!
+				});
+				if (r.sent || (!r.queued && r.status >= 400)) delete intent[realId!];
+			} else {
+				await fetch(`/api/list-items/${realId}`, {
+					method: 'DELETE',
+					headers: JSON_HEADERS,
+					body: '{}'
+				}).catch(() => undefined);
+			}
 		}
 		generation++;
 		await refresh(() => (placeholders = placeholders.filter((p) => p.id !== temp.id)));
 	}
 
-	async function clearChecked() {
+	async function clearCheckedRaw() {
 		if (!current) return;
 		const listId = current.id;
 		const gone = current.items.filter((i) => i.done).map((i) => i.id);
@@ -225,9 +287,15 @@
 		await refresh(() => gone.forEach((id) => delete removing[id]));
 	}
 
-	async function remove(item: ListItem) {
+	async function removeRaw(item: ListItem) {
 		armed = null;
 		error = '';
+		if (isTempId(item.id)) {
+			placeholders = placeholders.filter((p) => p.id !== item.id);
+			patchItems(item.listId, (all) => all.filter((i) => i.id !== item.id));
+			held.hold(item.id, { kind: 'delete' });
+			return;
+		}
 		removing[item.id] = true;
 		patchItems(item.listId, (all) => all.filter((i) => i.id !== item.id));
 		let ok = false;
@@ -250,6 +318,24 @@
 		generation++;
 		await refresh();
 	}
+
+	/** Local mutations in flight. Their own refresh follows, so an echoed event must not race it. */
+	let pending = 0;
+	const guard =
+		<A extends unknown[]>(fn: (...args: A) => Promise<void>) =>
+		async (...args: A) => {
+			pending++;
+			try {
+				await fn(...args);
+			} finally {
+				pending--;
+			}
+		};
+	const createNew = guard(createNewRaw);
+	const removeList = guard(removeListRaw);
+	const add = guard(addRaw);
+	const clearChecked = guard(clearCheckedRaw);
+	const remove = guard(removeRaw);
 
 	/** Tapping anywhere outside the revealed row dismisses its Delete action. */
 	function dismissArmed(event: PointerEvent) {

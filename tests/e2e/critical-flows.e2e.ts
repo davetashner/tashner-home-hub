@@ -8,6 +8,7 @@ import { PIN, ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
 import { seedCalendar } from './calendar';
 import { choreCard, seedKid, type KidSeed } from './kid';
+import { gotoHydrated } from './hydrated';
 
 // Tier 2 critical flows (ADR 0002): each test chains several features the way the family uses them.
 // Page routes must see every request; a service worker would answer some from the real server.
@@ -55,17 +56,14 @@ async function wallRefresh(wall: Page, settled: () => Promise<void>) {
 }
 
 /**
- * The kid taps "I did it" on the wall. A tap before the page hydrates is lost, so retry until the
- * card turns pending, then wait until the server has stored it: the tap is optimistic, and a
+ * The kid taps "I did it" on the wall. The page is already hydrated (gotoHydrated), so the tap
+ * counts. Wait until the server has stored it: the tap is optimistic, and a
  * phone that opens the approvals page straight away would otherwise load it before it lands.
  */
 async function tapDidIt(wall: Page, s: KidSeed, title: string) {
 	const chore = choreCard(wall, title);
-	await expect(async () => {
-		if ((await chore.getAttribute('data-status')) !== 'pending')
-			await chore.getByTestId('did-it').click();
-		await expect(chore).toHaveAttribute('data-status', 'pending', { timeout: 1000 });
-	}).toPass();
+	await chore.getByTestId('did-it').click();
+	await expect(chore).toHaveAttribute('data-status', 'pending');
 	await expect
 		.poll(() => {
 			const db = new Database('data/hub.db', { readonly: true });
@@ -95,7 +93,7 @@ async function openWall(wall: Page, s: KidSeed, asWall = false) {
 			: route.fallback()
 	);
 	await wall.clock.install();
-	await wall.goto(`/chores?member=${s.memberId}`);
+	await gotoHydrated(wall, `/chores?member=${s.memberId}`);
 	await expect(wall.getByTestId('star-jar')).toBeVisible();
 	await expect(wall.getByTestId('jar-counts')).toContainText('2 gold stars, 0 waiting');
 }
@@ -116,7 +114,7 @@ test('chore to gold star: kid taps, parent approves on a phone, the wall shows t
 	const phone = await openPhone(browser);
 	try {
 		await signInAsAdult(phone, `adult-flow1-${info.project.name.replace(/\W/g, '')}`);
-		await phone.goto('/settings/approvals');
+		await gotoHydrated(phone, '/settings/approvals');
 		const row = card(phone, s).getByTestId('approval-row').filter({ hasText: 'Brush teeth' });
 		await expect(row).toBeVisible();
 		await row.getByTestId('approve').click();
@@ -158,13 +156,11 @@ test('reward redemption: earn the last star, then a parent redeems with the PIN'
 	const phone = await openPhone(browser);
 	try {
 		// Nothing on the phone works without the PIN: the approvals page sends it to unlock first.
-		await phone.goto('/settings/approvals');
+		await gotoHydrated(phone, '/settings/approvals');
 		await expect(phone).toHaveURL(/\/unlock/);
-		// Retry the pick: a tap before the page hydrates is lost.
-		await expect(async () => {
-			await phone.getByRole('button', { name: parent, exact: true }).click();
-			await expect(phone.getByTestId('pinpad')).toBeVisible({ timeout: 1000 });
-		}).toPass();
+		await expect(phone.locator('html[data-hydrated]')).toBeAttached();
+		await phone.getByRole('button', { name: parent, exact: true }).click();
+		await expect(phone.getByTestId('pinpad')).toBeVisible();
 		for (const d of PIN) await phone.getByRole('button', { name: d, exact: true }).click();
 		await phone.getByRole('button', { name: 'Enter PIN' }).click();
 		await expect(phone).toHaveURL(/\/settings\/approvals/);
@@ -206,7 +202,7 @@ test('reward redemption: earn the last star, then a parent redeems with the PIN'
 
 test('calendar: agenda, week and month each show the seeded events', async ({ page }) => {
 	seedCalendar();
-	await page.goto('/calendar');
+	await gotoHydrated(page, '/calendar');
 	await page.waitForLoadState('networkidle');
 	const pane = page.getByTestId('calendar-pane');
 	const view = page.getByRole('group', { name: 'View' });
@@ -264,7 +260,7 @@ test('photo frame: idle goes home, then the frame shows a photo; a touch leaves 
 			: route.fallback()
 	);
 	await page.clock.install();
-	await page.goto('/meals');
+	await gotoHydrated(page, '/meals');
 	await page.waitForLoadState('networkidle');
 
 	await page.clock.fastForward(2 * MIN);

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
@@ -9,7 +10,7 @@ test('a grown-up sets the screen direction and the display endpoint reports it',
 	page
 }, info) => {
 	await signInAsAdult(page, `e2e-orientation-adult-${info.project.name}`);
-	await page.goto('/settings');
+	await gotoHydrated(page, '/settings');
 	await page.getByRole('link', { name: /Orientation/ }).click();
 	await expect(page.getByRole('heading', { level: 1, name: 'Orientation' })).toBeVisible();
 

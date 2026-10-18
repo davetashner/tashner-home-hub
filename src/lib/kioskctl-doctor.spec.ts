@@ -3,6 +3,8 @@ import {
 	diagnose,
 	parseFlags,
 	parseSpeaker,
+	parseSpotify,
+	parseCec,
 	parseWake,
 	parseWlrRandr,
 	remoteFacts,
@@ -246,6 +248,42 @@ describe('diagnose', () => {
 		expect(check({ defaultSink: false })).toMatchObject({ status: 'fail' });
 	});
 
+	it('reads the Spotify Connect section, only when the option is on', () => {
+		const text = 'enabled yes\nunit active\ncredentials yes\nadvertised no';
+		expect(parseSpotify(text)).toEqual({ unit: 'active', credentials: true, advertised: false });
+		expect(parseSpotify('unit inactive\ncredentials no\nadvertised unknown')).toEqual({
+			unit: 'inactive',
+			credentials: false,
+			advertised: null
+		});
+		expect(remoteFacts(`=== spotify\n${text}\n=== end`).spotify?.unit).toBe('active');
+		expect(remoteFacts('=== host\nkiosk').spotify).toBeUndefined();
+		expect(remoteFactsScript(null)).toContain('_spotify-connect._tcp');
+	});
+
+	it('checks that the Hub Spotify Connect device is up and signed in', () => {
+		const check = (over: object | null) =>
+			status(
+				healthy({
+					remote: remote(
+						over
+							? { spotify: { unit: 'active', credentials: true, advertised: true, ...over } }
+							: {}
+					)
+				}),
+				'spotify-connect'
+			);
+		expect(check(null)).toBeUndefined();
+		expect(check({})).toMatchObject({ status: 'pass' });
+		expect(check({ advertised: null })).toMatchObject({ status: 'pass' });
+		expect(check({ advertised: false })).toMatchObject({ status: 'warn' });
+		expect(check({ unit: 'failed' })).toMatchObject({ status: 'fail', detail: 'service failed' });
+		expect(check({ unit: '' })).toMatchObject({ status: 'fail', detail: 'service not installed' });
+		expect(check({ credentials: false })).toMatchObject({ status: 'warn' });
+		expect(check({ credentials: false })?.hint).toContain('"Hub"');
+		expect(check({ credentials: false, advertised: false })).toMatchObject({ status: 'fail' });
+	});
+
 	it('fails when nothing at the screen can wake it', () => {
 		const agent: Record<string, string> = { 'hub-kiosk-display-agent.service': 'active' };
 		const check = (wake: { input: string; devices: string[] }, units = agent) =>
@@ -257,6 +295,29 @@ describe('diagnose', () => {
 		expect(check({ input: 'mouse', devices: [] })).toMatchObject({ status: 'fail' });
 		expect(check({ input: 'touch', devices: [] })?.hint).toContain('INPUT="mouse"');
 		expect(check({ input: 'touch', devices: [] }, {})).toBeUndefined(); // the unit check covers it
+	});
+
+	it('warns when CEC_MODE=also cannot reach the TV', () => {
+		const check = (cec?: { device: string; present: boolean; backend: string | null }) =>
+			status(healthy({ remote: remote({ cec }) }), 'cec');
+		expect(check()).toBeUndefined(); // fallback mode: nothing to check
+		expect(check({ device: '/dev/cec0', present: true, backend: 'cec-ctl' })).toMatchObject({
+			status: 'pass'
+		});
+		expect(check({ device: '/dev/cec0', present: false, backend: 'cec-ctl' })).toMatchObject({
+			status: 'warn',
+			detail: expect.stringContaining('/dev/cec0 is missing')
+		});
+		expect(check({ device: '/dev/cec0', present: true, backend: null })).toMatchObject({
+			status: 'warn'
+		});
+		expect(parseCec('device /dev/cec1\npresent no\nbackend cec-ctl')).toEqual({
+			device: '/dev/cec1',
+			present: false,
+			backend: 'cec-ctl'
+		});
+		expect(remoteFacts('=== cec\ndevice /dev/cec0\npresent yes\n=== end').cec?.present).toBe(true);
+		expect(remoteFacts('=== end').cec).toBeUndefined();
 	});
 
 	it('warns when this browser is not a wall display', () => {

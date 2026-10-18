@@ -3,6 +3,7 @@ import { ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
 import { expectTappable } from './tap';
 import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
+import { gotoHydrated } from './hydrated';
 
 // Page routes must see every request; a service worker would answer some from the real server.
 test.use({ serviceWorkers: 'block' });
@@ -92,7 +93,7 @@ test('the idle frame shows clock, date, weather and next event; a touch still ex
 }, info) => {
 	await stubFrame(page, `${info.project.name}-overlay`);
 	await page.clock.install();
-	await page.goto('/lists');
+	await gotoHydrated(page, '/lists');
 	await page.waitForLoadState('networkidle');
 	await page.clock.fastForward(60_000);
 	await expect(page).toHaveURL(/\/photos$/);
@@ -119,7 +120,7 @@ test('the idle frame shows clock, date, weather and next event; a touch still ex
 test('a grown-up turns an overlay off and the frame leaves it out', async ({ page }, info) => {
 	const saved = await stubFrame(page, `${info.project.name}-toggle`);
 	await signInAsAdult(page, `e2e-overlay-adult-${info.project.name}`);
-	await page.goto('/settings/screen');
+	await gotoHydrated(page, '/settings/screen');
 
 	const weather = page.getByRole('button', { name: 'Weather', exact: true });
 	await expect(weather).toHaveAttribute('aria-pressed', 'true');
@@ -129,7 +130,7 @@ test('a grown-up turns an overlay off and the frame leaves it out', async ({ pag
 	await expect(weather).toHaveAttribute('aria-pressed', 'false');
 	await expect.poll(() => saved).toEqual([{ weather: false }]);
 
-	await page.goto('/photos');
+	await gotoHydrated(page, '/photos');
 	await expect(page.getByTestId('overlay-time')).toBeVisible();
 	await expect(page.getByTestId('overlay-next')).toBeVisible();
 	await expect(page.getByTestId('overlay-weather')).toHaveCount(0);

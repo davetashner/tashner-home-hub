@@ -4,6 +4,7 @@ import errno
 import selectors
 import socket
 import struct
+import threading
 import unittest
 
 import hub_display_agent as h
@@ -15,10 +16,13 @@ WLR_OFF = 'HDMI-A-1 "ViewSonic (HDMI-A-1)"\n  Enabled: no\n'
 class FakeRun:
     def __init__(self, listing=WLR_ON, fail=()):
         self.calls, self.listing, self.fail = [], listing, set(fail)
+        self.cec_timeouts = []
 
-    def __call__(self, argv, input_text=None):
+    def __call__(self, argv, input_text=None, timeout=None):
         argv = tuple(argv)
         self.calls.append((argv, input_text))
+        if argv[0] == "cec-ctl" and timeout is not None:
+            self.cec_timeouts.append(timeout)
         if argv[0] in self.fail or (argv[0], argv[-1]) in self.fail:
             return 1, "boom"
         if argv == ("wlr-randr",):
@@ -119,6 +123,142 @@ class ScreenTests(unittest.TestCase):
         run = FakeRun()
         h.Screen(cfg, run).set_power(False)
         self.assertEqual(len(run.commands()), 1)
+
+
+class SyncScreen(h.Screen):
+    """Runs the background CEC wake inline so tests are deterministic."""
+
+    def _cec_async(self, on):
+        t = threading.Thread(target=self._cec_send, args=(on,))
+        t.start()
+        t.join()
+        return t
+
+
+CTL = "/dev/cec0"
+STANDBY = ("cec-ctl", "-d", CTL, "--to", "0", "--standby")
+IMAGE_ON = ("cec-ctl", "-d", CTL, "--to", "0", "--image-view-on")
+ACTIVE = ("cec-ctl", "-d", CTL, "--active-source")
+
+
+def also(backend="cec-ctl", fail=(), **kw):
+    cfg = h.Config(output="HDMI-A-1", cec_backend=backend, cec_mode="also", **kw)
+    run = FakeRun(fail=fail)
+    return SyncScreen(cfg, run), run
+
+
+class CecAlsoTests(unittest.TestCase):
+    def test_config_parsing(self):
+        self.assertEqual(h.config_from({}).cec_mode, "fallback")
+        self.assertEqual(h.config_from({"CEC_MODE": "also"}).cec_mode, "also")
+        self.assertEqual(h.config_from({"CEC_MODE": "bogus"}).cec_mode, "fallback")
+        self.assertEqual(h.config_from({"CEC_TIMEOUT_SECONDS": "0"}).cec_timeout_seconds, 1.0)
+
+    def test_off_blanks_hdmi_then_standby(self):
+        s, run = also()
+        self.assertTrue(s.set_power(False))
+        self.assertEqual(run.commands(), [("wlr-randr", "--output", "HDMI-A-1", "--off"), STANDBY])
+
+    def test_on_sends_power_on_and_active_source_and_hdmi_on(self):
+        s, run = also()
+        self.assertTrue(s.set_power(True))
+        cmds = run.commands()
+        self.assertEqual(cmds[0], IMAGE_ON)  # CEC started first, HDMI not held up behind it
+        self.assertEqual(cmds[1], ACTIVE)
+        self.assertEqual(cmds[2], ("wlr-randr", "--output", "HDMI-A-1", "--on"))
+
+    def test_only_on_transitions(self):
+        s, run = also()
+        s.set_power(False)
+        s.set_power(False)
+        self.assertEqual(run.commands().count(STANDBY), 1)
+        s.set_power(True)
+        s.set_power(True)
+        self.assertEqual(run.commands().count(IMAGE_ON), 1)
+
+    def test_cec_failure_never_breaks_power(self):
+        s, run = also(fail=["cec-ctl"])
+        self.assertTrue(s.set_power(False))
+        self.assertTrue(s.set_power(True))
+        self.assertIsNone(s.cec_state)  # failed sends are retried on the next transition
+
+    def test_cec_exception_is_contained(self):
+        s, run = also()
+        orig = s.run
+
+        def boom(argv, input_text=None, timeout=None):
+            if argv[0] == "cec-ctl":
+                raise RuntimeError("bus gone")
+            return orig(argv, input_text, timeout)
+
+        s.run = boom
+        self.assertTrue(s.set_power(False))
+
+    def test_timeout_passed_to_cec_only_in_also_mode(self):
+        s, run = also(cec_timeout_seconds=3.0)
+        s.set_power(False)
+        self.assertEqual(run.cec_timeouts, [3.0])
+        cfg = h.Config(output="HDMI-A-1", cec_backend="cec-ctl")
+        run2 = FakeRun(fail=[("wlr-randr", "--off")])
+        h.Screen(cfg, run2).set_power(False)
+        self.assertEqual(run2.cec_timeouts, [])
+
+    def test_wlr_failure_uses_cec_without_double_standby(self):
+        s, run = also(fail=[("wlr-randr", "--off")])
+        self.assertTrue(s.set_power(False))
+        self.assertEqual(run.commands().count(STANDBY), 1)
+
+    def test_wlr_failure_on_wake_counts_cec_result(self):
+        s, run = also(fail=[("wlr-randr", "--on")])
+        self.assertTrue(s.set_power(True))
+        s2, _ = also(fail=[("wlr-randr", "--on"), "cec-ctl"])
+        self.assertFalse(s2.set_power(True))
+
+    def test_cec_client_commands(self):
+        s, run = also("cec-client")
+        s.set_power(False)
+        s.set_power(True)
+        cc = [c for c in run.calls if c[0][0] == "cec-client"]
+        self.assertEqual(cc[0], (("cec-client", "-s", "-d", "1"), "standby 0\n"))
+        self.assertEqual(cc[1], (("cec-client", "-s", "-d", "1"), "on 0\nas\n"))
+
+    def test_fallback_mode_unchanged(self):
+        cfg = h.Config(output="HDMI-A-1", cec_backend="cec-ctl")  # cec_mode defaults to fallback
+        run = FakeRun()
+        h.Screen(cfg, run).set_power(False)
+        h.Screen(cfg, run).set_power(True)
+        self.assertEqual(len(run.commands()), 2)
+
+    def test_wake_does_not_wait_for_a_slow_cec(self):
+        started, release = threading.Event(), threading.Event()
+        cfg = h.Config(output="HDMI-A-1", cec_backend="cec-ctl", cec_mode="also")
+        inner = FakeRun()
+
+        def run(argv, input_text=None, timeout=None):
+            if argv[0] == "cec-ctl":
+                started.set()
+                release.wait(5)
+            return inner(argv, input_text, timeout)
+
+        s = h.Screen(cfg, run)
+        self.assertTrue(s.set_power(True))  # returns while the cec-ctl call is still blocked
+        self.assertTrue(started.wait(2))
+        self.assertIn(("wlr-randr", "--output", "HDMI-A-1", "--on"), inner.commands())
+        self.assertFalse(release.is_set())
+        release.set()
+
+    def test_agent_sends_cec_once_per_transition(self):
+        cfg = h.Config(output="HDMI-A-1", cec_backend="cec-ctl", cec_mode="also")
+        run = FakeRun()
+        hub, clock = FakeHub(power="off"), Clock()
+        a = h.Agent(cfg, SyncScreen(cfg, run), hub, clock)
+        for _ in range(3):
+            a.poll()
+        hub.state = {"power": "on", "reason": "schedule"}
+        for _ in range(3):
+            a.poll()
+        self.assertEqual(run.commands().count(STANDBY), 1)
+        self.assertEqual(run.commands().count(IMAGE_ON), 1)
 
 
 class AgentTests(unittest.TestCase):
