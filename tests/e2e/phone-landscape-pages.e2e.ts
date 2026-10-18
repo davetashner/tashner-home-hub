@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { seedKid, type KidSeed } from './kid';
 import { px } from './tap';
+import { gotoHydrated } from './hydrated';
 
 // DEV-1/UI-8: every page works on an iPhone turned sideways (only ~290px of height under the
 // compact top bar): nothing scrolls sideways, headings fit, controls are tap-sized (96px on the
@@ -121,7 +122,7 @@ for (const route of routes) {
 		for (const vp of viewportsFor(info.project.name)) {
 			await test.step(label(vp), async () => {
 				await page.setViewportSize(vp);
-				await page.goto(route);
+				await gotoHydrated(page, route);
 				await settle(page);
 				await expectFits(page);
 				expect(await smallTargets(page, 60)).toEqual([]);
@@ -138,7 +139,7 @@ test('phone landscape: /chores shows the first chore to do without scrolling', a
 		await test.step(label(vp), async () => {
 			await page.setViewportSize(vp);
 			const kid = await seedChoresKid(page, `${label(vp)}-${info.project.name}`);
-			await page.goto(`/chores?member=${kid.memberId}`);
+			await gotoHydrated(page, `/chores?member=${kid.memberId}`);
 			await expect(page.getByTestId('star-jar')).toBeVisible();
 			await settle(page);
 			await expectFits(page);
@@ -174,7 +175,7 @@ test('phone landscape: /chores celebration banner stays on screen', async ({ pag
 		await test.step(label(vp), async () => {
 			await page.setViewportSize(vp);
 			const kid = await seedChoresKid(page, `done-${label(vp)}-${info.project.name}`);
-			await page.goto(`/chores?member=${kid.memberId}`);
+			await gotoHydrated(page, `/chores?member=${kid.memberId}`);
 			await expect(page.getByTestId('star-jar')).toBeVisible();
 			await settle(page);
 			const todo = await page.getByTestId('did-it').count();
@@ -213,7 +214,7 @@ test('phone landscape: /chores "you earned it" banner stays on screen', async ({
 			await page.request.put(`/api/members/${kid.memberId}/goal`, {
 				data: { rewardId: reward.id }
 			});
-			await page.goto(`/chores?member=${kid.memberId}`);
+			await gotoHydrated(page, `/chores?member=${kid.memberId}`);
 			const banner = page.getByTestId('goal-earned');
 			await expect(banner).toBeVisible();
 			await page.waitForTimeout(700);
@@ -244,7 +245,7 @@ test('phone landscape: a three-digit approvals count keeps the adult header on s
 	db.close();
 	await signInAsAdult(page, `adult-phone-${info.project.name}`);
 	await page.setViewportSize({ width: 667, height: 375 });
-	await page.goto('/calendar');
+	await gotoHydrated(page, '/calendar');
 	await settle(page);
 	// innerText skips the hidden wall-size label, so this is what the phone actually shows.
 	await expect

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
+import { gotoHydrated } from './hydrated';
 
 // The shared server's real power state is global, so the endpoints are mocked here.
 test.use({ serviceWorkers: 'block' });
@@ -21,7 +22,7 @@ test('Wake the wall and Sleep now show the wall power state', async ({ page }, i
 		state = { power: 'off', reason: 'sleep-now', mode: 'off', until: undefined as never };
 		return route.fulfill({ status: 202, json: { power: 'off', reason: 'sleep-now', mode: 'off' } });
 	});
-	await page.goto('/settings/screen');
+	await gotoHydrated(page, '/settings/screen');
 	const text = page.getByTestId('wall-power');
 	await expect(text).toHaveText(/^Asleep until \d{1,2}:\d{2} [AP]M$/);
 	await page.getByRole('button', { name: 'Wake the wall' }).click();
@@ -38,7 +39,7 @@ test('a failed wake restores the state and says why', async ({ page }, info) => 
 		route.fulfill({ json: { power: 'off', reason: 'sleep-now', mode: 'off' } })
 	);
 	await page.route('**/api/display/wake', (route) => route.fulfill({ status: 503, body: '' }));
-	await page.goto('/settings/screen');
+	await gotoHydrated(page, '/settings/screen');
 	await expect(page.getByTestId('wall-power')).toHaveText('Asleep until someone wakes it');
 	await page.getByRole('button', { name: 'Wake the wall' }).click();
 	await expect(page.getByRole('alert')).toContainText("Couldn't reach the hub");

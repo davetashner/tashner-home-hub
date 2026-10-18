@@ -1,5 +1,6 @@
 import { expect, test, type Locator } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 // The shared server's saved choice never changes here: saves are answered by the test.
@@ -14,7 +15,7 @@ test.beforeEach(({ page }) =>
 const drawn = (bg: Locator) => bg.locator('canvas[data-drawn=false]');
 
 test('the wave layer sits behind the home screen and never takes a tap', async ({ page }) => {
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	const bg = page.getByTestId('wave-background');
 	await expect(bg).toBeAttached();
 	await expect(bg).toHaveAttribute('aria-hidden', 'true');
@@ -27,7 +28,7 @@ test('the wave layer sits behind the home screen and never takes a tap', async (
 
 test('reduced motion still shows the background', async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	const bg = page.getByTestId('wave-background');
 	await expect(bg).toBeAttached();
 	await expect(drawn(bg)).toHaveCount(0);
@@ -35,17 +36,13 @@ test('reduced motion still shows the background', async ({ page }) => {
 
 test('a grown-up turns the background off and back on', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wave-adult-${info.project.name}`);
-	await page.goto('/settings/background');
+	await gotoHydrated(page, '/settings/background');
 	const bg = page.getByTestId('wave-background');
 	await expect(bg).toBeAttached();
-	await expect(async () => {
-		await page.getByRole('button', { name: 'Off' }).click();
-		await expect(bg).toHaveCount(0, { timeout: 500 });
-	}).toPass();
-	await expect(async () => {
-		await page.getByRole('button', { name: 'Sorbet' }).click();
-		await expect(bg).toBeAttached({ timeout: 500 });
-	}).toPass();
+	await page.getByRole('button', { name: 'Off' }).click();
+	await expect(bg).toHaveCount(0);
+	await page.getByRole('button', { name: 'Sorbet' }).click();
+	await expect(bg).toBeAttached();
 });
 
 // The sunset windows are unit-tested on the pure functions; seeding a location here would change
@@ -55,34 +52,30 @@ test('Auto draws a valid palette, and a picked palette applies and resets', asyn
 }, info) => {
 	await signInAsAdult(page, `e2e-wave-auto-${info.project.name}`);
 	// No holiday, whatever the date the suite runs on.
-	await page.goto('/settings/background?season=none');
+	await gotoHydrated(page, '/settings/background?season=none');
 	const bg = page.getByTestId('wave-background');
 	const valid = /^(dusk|sorbet)$/;
 	await expect(bg).toHaveAttribute('data-palette', valid);
-	await expect(async () => {
-		await page.getByRole('button', { name: 'Seafoam' }).click();
-		await expect(bg).toHaveAttribute('data-palette', 'seafoam', { timeout: 500 });
-	}).toPass();
-	await expect(async () => {
-		await page.getByRole('button', { name: 'Auto' }).click();
-		await expect(bg).toHaveAttribute('data-palette', valid, { timeout: 500 });
-	}).toPass();
+	await page.getByRole('button', { name: 'Seafoam' }).click();
+	await expect(bg).toHaveAttribute('data-palette', 'seafoam');
+	await page.getByRole('button', { name: 'Auto' }).click();
+	await expect(bg).toHaveAttribute('data-palette', valid);
 });
 
 // The calendar is unit-tested; `?season=` pins a holiday the way a preview does (hub-6pv.6).
 test('a pinned holiday takes over Auto', async ({ page }) => {
-	await page.goto('/?season=halloween');
+	await gotoHydrated(page, '/?season=halloween');
 	const bg = page.getByTestId('wave-background');
 	await expect(bg).toHaveAttribute('data-season', 'halloween');
 	await expect(bg).toHaveAttribute('data-palette', /^halloween(-night)?$/);
-	await page.goto('/?season=none');
+	await gotoHydrated(page, '/?season=none');
 	await expect(bg).toHaveAttribute('data-season', 'none');
 	await expect(bg).toHaveAttribute('data-palette', /^(dusk|sorbet|night)$/);
 });
 
 // hub-6pv.6.2: holiday pictures ride on the wave layer and never take a tap.
 test('Halloween brings pumpkins, bats and a ghost; a plain day brings none', async ({ page }) => {
-	await page.goto('/?season=halloween');
+	await gotoHydrated(page, '/?season=halloween');
 	const layer = page.getByTestId('seasonal-layer');
 	await expect(layer).toHaveAttribute('data-season', 'halloween');
 	await expect(layer).toHaveCSS('pointer-events', 'none');
@@ -96,7 +89,7 @@ test('Halloween brings pumpkins, bats and a ghost; a plain day brings none', asy
 				.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)
 		)
 		.toBe(true);
-	await page.goto('/?season=none');
+	await gotoHydrated(page, '/?season=none');
 	await expect(page.getByTestId('wave-background')).toHaveAttribute('data-season', 'none');
 	await expect(page.getByTestId('seasonal-layer')).toHaveCount(0);
 	await expect(page.locator('img[src^="/seasons/"]')).toHaveCount(0);
@@ -104,7 +97,7 @@ test('Halloween brings pumpkins, bats and a ghost; a plain day brings none', asy
 
 test('this device can hide the waves and remembers it', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wave-device-${info.project.name}`);
-	await page.goto('/settings/background');
+	await gotoHydrated(page, '/settings/background');
 	const bg = page.getByTestId('wave-background');
 	await expect(bg).toHaveAttribute('data-device', 'show');
 	const device = page.getByRole('group', { name: 'On this device' });
@@ -112,7 +105,7 @@ test('this device can hide the waves and remembers it', async ({ page }, info) =
 	await expect(bg).toHaveAttribute('data-device', 'off');
 	await expect(bg.locator('canvas')).toHaveCount(0);
 	expect(await page.evaluate(() => localStorage.getItem('hub.wave.device'))).toBe('off');
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(bg).toHaveAttribute('data-device', 'off');
 	await page
 		.getByRole('group', { name: 'On this device' })

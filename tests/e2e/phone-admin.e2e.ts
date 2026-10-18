@@ -30,7 +30,7 @@ for (const route of routes) {
 	test(`phone: ${route} fits 390px with short headings`, async ({ page }, info) => {
 		await signInAsAdult(page, `e2e-phone-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
-		await page.goto(route);
+		await gotoHydrated(page, route);
 		await page.waitForLoadState('networkidle');
 
 		const main = page.locator('main');
@@ -188,7 +188,7 @@ test.describe('phone flows', () => {
 			'INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
 		).run(key, JSON.stringify(all), Date.now());
 		try {
-			await page.goto('/settings/calendars');
+			await gotoHydrated(page, '/settings/calendars');
 			const banner = page
 				.getByTestId('reauth-banner')
 				.getByRole('listitem')
@@ -214,7 +214,7 @@ test.describe('phone flows', () => {
 		page
 	}, info) => {
 		await signInAsAdult(page, `e2e-phone-photo-${info.project.name}`);
-		await page.goto('/settings/photo-library');
+		await gotoHydrated(page, '/settings/photo-library');
 		const form = page.getByTestId('add-folder');
 		await page.getByLabel('Folder path').fill('/mnt/user/Photos/Family/2026/Summer/Holiday');
 		expect(await pastEdge(form)).toEqual([]);
@@ -254,7 +254,7 @@ test.describe('phone flows', () => {
 		await request.put(`/api/members/${member.id}/goal`, { data: { rewardId: reward.id } });
 		await request.post(`/api/members/${member.id}/bonus`, { data: { delta: 7, note: 'seed' } });
 
-		await page.goto('/settings/approvals');
+		await gotoHydrated(page, '/settings/approvals');
 		const card = page.locator(`[data-testid="child-card"][data-member="${member.id}"]`);
 		// Open it from the bottom of a scrolled page, where a sheet used to land off-screen.
 		await card.getByTestId('redeem').scrollIntoViewIfNeeded();

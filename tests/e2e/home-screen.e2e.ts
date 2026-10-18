@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { ensureHousehold } from './adult';
+import { gotoHydrated } from './hydrated';
 
 // DEV-2: Add to Home Screen on iPhone and iPad opens the hub full screen with its own icon.
 test.beforeAll(ensureHousehold);
@@ -14,7 +15,7 @@ async function pngSize(request: APIRequestContext, href: string) {
 }
 
 test('the page links the manifest, touch icon and Home Screen title', async ({ page }) => {
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	const head = page.locator('head');
 	// Compare resolved paths: the browser may report a link's href as an absolute URL.
 	const path = (rel: string) =>

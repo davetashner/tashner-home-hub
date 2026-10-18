@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 interface Counts {
 	pending: number;
@@ -16,7 +17,7 @@ const counts = async (page: Page): Promise<Counts> =>
 // it converges as soon as the system is quiet for a moment.
 const badgeMatchesServer = (page: Page) =>
 	expect(async () => {
-		await page.reload();
+		await reloadHydrated(page);
 		const badge = page.getByTestId('approvals-badge');
 		await expect(page.getByRole('banner')).toBeVisible();
 		const total = (await counts(page)).total;
@@ -54,7 +55,7 @@ test('the header badge counts a reached goal and drops it after redemption', asy
 	).json();
 	await page.request.post(`/api/chores/${chore.id}/complete`, { data: { memberId: member.id } });
 
-	await page.goto('/settings/approvals');
+	await gotoHydrated(page, '/settings/approvals');
 	const card = page.locator(`[data-testid="child-card"][data-member="${member.id}"]`);
 	await expect(card.getByTestId('approval-row')).toHaveCount(1);
 	await expect(card.getByTestId(`goal-reached-${member.id}`)).toHaveCount(0);

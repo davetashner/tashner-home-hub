@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 
@@ -10,7 +11,7 @@ test('Settings > Music > Speaker explains the setup when the hub cannot reach th
 	page
 }) => {
 	await signInAsAdult(page, 'e2e-speaker-adult');
-	await page.goto('/settings/music');
+	await gotoHydrated(page, '/settings/music');
 	// No HUB_KIOSK_SPEAKER_* in the e2e server: the real route answers not_configured.
 	await expect(page.getByTestId('speaker-state')).toHaveText(
 		'The hub is not set up to reach the wall display'
@@ -53,7 +54,7 @@ test('Change speaker scans, pairs the picked speaker and plays a test sound', as
 	);
 
 	await signInAsAdult(page, 'e2e-speaker-adult');
-	await page.goto('/settings/music');
+	await gotoHydrated(page, '/settings/music');
 	await expect(page.getByTestId('speaker-state')).toHaveText('No speaker yet');
 	const find = page.getByTestId('speaker-scan');
 	await expectTappable(find);

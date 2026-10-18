@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
+import { gotoHydrated } from './hydrated';
 
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
@@ -26,7 +27,7 @@ async function power(page: Page, mode: string, until?: string) {
 test('the night clock is a dim, warm, large clock; a touch wakes the app', async ({ page }) => {
 	const wakes = await power(page, 'night-clock');
 	await page.clock.install({ time: FROZEN });
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	const overlay = page.getByTestId('night-clock');
 	await expect(overlay).toBeVisible();
 	await expect(page.getByTestId('night-clock-time')).toHaveText(/^\d{1,2}:07\s?(AM|PM)$/);
@@ -89,7 +90,7 @@ test('the night clock names the morning first event, dim and warm', async ({ pag
 		});
 	});
 	await page.clock.install({ time: FROZEN });
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	const line = page.getByTestId('night-clock-event');
 	await expect(line).toHaveText(/^(Today|Tomorrow) \d{1,2}:\d{2}\s?(AM|PM) · Swim practice$/);
 	expect(asked.length).toBeGreaterThan(0);
@@ -116,7 +117,7 @@ test('with no event the night clock shows no event line', async ({ page }) => {
 	await power(page, 'night-clock', new Date('2026-10-20T06:30:00Z').toISOString());
 	await page.route('**/api/calendar/events**', (route) => route.fulfill({ json: [] }));
 	await page.clock.install({ time: FROZEN });
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await expect(page.getByTestId('night-clock-time')).toBeVisible();
 	await expect(page.getByTestId('night-clock-event')).toHaveCount(0);
 });
@@ -124,7 +125,7 @@ test('with no event the night clock shows no event line', async ({ page }) => {
 test('normal and off modes show no night clock', async ({ page }) => {
 	for (const mode of ['normal', 'off']) {
 		await power(page, mode);
-		await page.goto('/');
+		await gotoHydrated(page, '/');
 		await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
 		await expect(page.getByTestId('night-clock')).toHaveCount(0);
 		// Leave the page first so no power poll is in flight, then let running handlers finish:
@@ -137,7 +138,7 @@ test('normal and off modes show no night clock', async ({ page }) => {
 test('a personal device never shows the night clock', async ({ page, context }) => {
 	await context.clearCookies();
 	await power(page, 'night-clock');
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
 	await expect(page.getByTestId('night-clock')).toHaveCount(0);
 });
@@ -151,12 +152,10 @@ test('grown-ups turn the night clock on and off', async ({ page }, info) => {
 		return route.fulfill({ json: route.request().postDataJSON() });
 	});
 	await signInAsAdult(page, `e2e-night-clock-${info.project.name}`);
-	await page.goto('/settings/sleep-schedule');
+	await gotoHydrated(page, '/settings/sleep-schedule');
 	const summary = page.getByTestId('night-clock-summary');
 	await expect(summary).toContainText('turns fully off');
-	await expect(async () => {
-		await page.getByRole('button', { name: 'Night clock On' }).click();
-		await expect(summary).toContainText('very dim clock', { timeout: 1000 });
-	}).toPass();
+	await page.getByRole('button', { name: 'Night clock On' }).click();
+	await expect(summary).toContainText('very dim clock');
 	await expect.poll(() => saved).toContainEqual({ enabled: true });
 });

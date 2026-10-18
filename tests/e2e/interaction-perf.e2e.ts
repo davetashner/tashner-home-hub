@@ -2,6 +2,7 @@ import { expect, test, type CDPSession, type Locator, type Page } from '@playwri
 import { ensureHousehold, signInAsAdult } from './adult';
 import { choreCard, type KidSeed, seedKid, stubAudio } from './kid';
 import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
+import { gotoHydrated } from './hydrated';
 
 /**
  * ADR 0002, Tier 2: tap latency and animation smoothness at 4x CPU throttle (a rough Pi 5).
@@ -25,7 +26,7 @@ test.beforeAll(ensureHousehold);
  * been seen to take longer than the default 5 s (a setup wait, not part of any measurement).
  */
 async function openKid(page: Page, s: KidSeed) {
-	await page.goto(`/chores?member=${s.memberId}`);
+	await gotoHydrated(page, `/chores?member=${s.memberId}`);
 	await expect(page.getByTestId('star-jar')).toBeVisible({ timeout: 20_000 });
 }
 
@@ -269,7 +270,7 @@ test(
 	{ tag: '@perf' },
 	async ({ page }, info) => {
 		await signInAsAdult(page, `adult-navperf-${info.project.name.replace(/\W/g, '')}`);
-		await page.goto('/');
+		await gotoHydrated(page, '/');
 		await page.waitForLoadState('networkidle');
 		await arm(page, `() => false`);
 		const cdp = await page.context().newCDPSession(page);
@@ -332,7 +333,7 @@ test(
 				data: { memberId: member.id }
 			});
 		}
-		await page.goto('/settings/approvals');
+		await gotoHydrated(page, '/settings/approvals');
 		const card = page.locator(`[data-testid="child-card"][data-member="${member.id}"]`);
 		await expect(card.getByTestId('approval-row')).toHaveCount(TAPS);
 		await arm(page, `() => false`);
@@ -459,7 +460,7 @@ test(
 			Math.random = () => 0.999;
 		});
 		await signInAsAdult(page, `adult-fade-${info.project.name.replace(/\W/g, '')}`);
-		await page.goto('/photos');
+		await gotoHydrated(page, '/photos');
 		const front = page.getByTestId('slideshow').locator('[data-front="true"]');
 		await expect(front).toHaveAttribute('data-photo-id', photos[0].id);
 		await page.waitForTimeout(1800); // first fade finished

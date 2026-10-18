@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
-import { gotoHydrated } from './hydrated';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 interface Seed {
 	name: string;
@@ -147,7 +147,7 @@ test('a chore without approval can be undone in its 10 seconds, taking the gold 
 	await expect(cress.getByTestId('did-it')).toBeVisible();
 	await expect(page.getByTestId('jar-counts')).toContainText('0 gold stars');
 	expect((await undone).ok()).toBe(true);
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(card(page, 'Water cress')).toHaveAttribute('data-status', 'undone');
 });
 
@@ -180,7 +180,7 @@ test('an any-day job shows under This week until done, then stays done today', a
 	await room.getByTestId('did-it').click();
 	await expect(room).toHaveAttribute('data-status', 'pending');
 	expect((await saved).ok()).toBe(true);
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(card(page, 'Tidy my room')).toHaveAttribute('data-status', 'pending');
 });
 
@@ -200,7 +200,7 @@ test('a new to-do is self-serve by default: gold at once, star flies, nothing wa
 	).json();
 	expect(chore.requiresApproval).toBe(false);
 	await page.context().clearCookies();
-	await page.goto(`/chores?member=${member.id}`);
+	await gotoHydrated(page, `/chores?member=${member.id}`);
 	const shelf = card(page, 'Tidy shelf');
 	const saved = page.waitForResponse((r) => r.url().includes('/complete'));
 	await shelf.getByTestId('did-it').click();

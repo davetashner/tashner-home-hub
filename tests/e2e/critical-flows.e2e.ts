@@ -114,7 +114,7 @@ test('chore to gold star: kid taps, parent approves on a phone, the wall shows t
 	const phone = await openPhone(browser);
 	try {
 		await signInAsAdult(phone, `adult-flow1-${info.project.name.replace(/\W/g, '')}`);
-		await phone.goto('/settings/approvals');
+		await gotoHydrated(phone, '/settings/approvals');
 		const row = card(phone, s).getByTestId('approval-row').filter({ hasText: 'Brush teeth' });
 		await expect(row).toBeVisible();
 		await row.getByTestId('approve').click();
@@ -156,7 +156,7 @@ test('reward redemption: earn the last star, then a parent redeems with the PIN'
 	const phone = await openPhone(browser);
 	try {
 		// Nothing on the phone works without the PIN: the approvals page sends it to unlock first.
-		await phone.goto('/settings/approvals');
+		await gotoHydrated(phone, '/settings/approvals');
 		await expect(phone).toHaveURL(/\/unlock/);
 		await expect(phone.locator('html[data-hydrated]')).toBeAttached();
 		await phone.getByRole('button', { name: parent, exact: true }).click();
@@ -202,7 +202,7 @@ test('reward redemption: earn the last star, then a parent redeems with the PIN'
 
 test('calendar: agenda, week and month each show the seeded events', async ({ page }) => {
 	seedCalendar();
-	await page.goto('/calendar');
+	await gotoHydrated(page, '/calendar');
 	await page.waitForLoadState('networkidle');
 	const pane = page.getByTestId('calendar-pane');
 	const view = page.getByRole('group', { name: 'View' });
@@ -260,7 +260,7 @@ test('photo frame: idle goes home, then the frame shows a photo; a touch leaves 
 			: route.fallback()
 	);
 	await page.clock.install();
-	await page.goto('/meals');
+	await gotoHydrated(page, '/meals');
 	await page.waitForLoadState('networkidle');
 
 	await page.clock.fastForward(2 * MIN);

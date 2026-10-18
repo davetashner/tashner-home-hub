@@ -3,6 +3,7 @@ import { ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
 import { expectTappable } from './tap';
 import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
+import { gotoHydrated } from './hydrated';
 
 // Page routes must see every request; a service worker would answer some from the real server.
 test.use({ serviceWorkers: 'block' });
@@ -64,7 +65,7 @@ test('the slideshow plays on the interval, preloads, and fills both photo shapes
 	const wide = { id: `${info.project.name}-wide`, w: 640, h: 360 };
 	const requested = await stubFrame(page, [tall, wide]);
 	await page.clock.install();
-	await page.goto('/photos');
+	await gotoHydrated(page, '/photos');
 
 	const frame = page.getByTestId('slideshow');
 	const front = frame.locator('[data-front="true"]');
@@ -103,7 +104,7 @@ test('each start reshuffles, so the frame does not always open on the same photo
 	const b = { id: `${info.project.name}-second`, w: 640, h: 360 };
 	// Math.random() = 0 swaps a two-photo list: the photo served second opens the show.
 	await stubFrame(page, [a, b], { intervalSeconds: 600, transition: 'fade' }, 0);
-	await page.goto('/photos');
+	await gotoHydrated(page, '/photos');
 	await expect(page.getByTestId('slideshow').locator('[data-front="true"]')).toHaveAttribute(
 		'data-photo-id',
 		b.id
@@ -121,7 +122,7 @@ test('the idle photo frame covers the whole screen; a touch goes back', async ({
 			: route.fallback()
 	);
 	await page.clock.install();
-	await page.goto('/lists');
+	await gotoHydrated(page, '/lists');
 	await page.waitForLoadState('networkidle');
 	await page.clock.fastForward(60_000);
 	await expect(page).toHaveURL(/\/photos$/);
@@ -145,7 +146,7 @@ test('the idle photo frame covers the whole screen; a touch goes back', async ({
 
 test('an empty library explains how to add photos', async ({ page }) => {
 	await stubFrame(page, []);
-	await page.goto('/photos');
+	await gotoHydrated(page, '/photos');
 	await expect(page.getByText('No photos to show yet')).toBeVisible();
 });
 
@@ -162,7 +163,7 @@ test('grown-ups set the photo interval and transition', async ({ page }) => {
 		return route.fulfill({ json: { intervalSeconds: 45, transition: 'kenburns' } });
 	});
 	await signInAsAdult(page, 'e2e-slideshow-adult');
-	await page.goto('/settings/screen');
+	await gotoHydrated(page, '/settings/screen');
 	await expect(page.getByTestId('interval')).toHaveText('30 seconds');
 
 	const more = page.getByRole('button', { name: 'Next photo: more' });
@@ -198,7 +199,7 @@ test('a grown-up long-presses a photo to hide it from the slideshow', async ({ p
 		return route.fulfill({ json: { hidden: true } });
 	});
 	await signInAsAdult(page, `e2e-hide-${info.project.name}`);
-	await page.goto('/photos');
+	await gotoHydrated(page, '/photos');
 
 	const frame = page.getByTestId('slideshow');
 	const front = frame.locator('[data-front="true"]');
@@ -232,7 +233,7 @@ test('long-pressing without an adult session asks for the PIN first', async ({ p
 		intervalSeconds: 600,
 		transition: 'fade'
 	});
-	await page.goto('/photos');
+	await gotoHydrated(page, '/photos');
 	await expect(page.getByTestId('slideshow').locator('[data-front="true"]')).toBeVisible();
 	await expect(async () => {
 		await longPress(page);

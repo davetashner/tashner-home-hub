@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 // Page routes must see every request; the shared server's sound settings never change here.
 test.use({ serviceWorkers: 'block' });
@@ -15,7 +16,7 @@ test('grown-ups mute sounds and move quiet hours past midnight', async ({ page }
 		return route.fulfill({ json: { muted: true, quietStart: '00:00', quietEnd: '07:00' } });
 	});
 	await signInAsAdult(page, `e2e-sound-adult-${info.project.name}`);
-	await page.goto('/settings');
+	await gotoHydrated(page, '/settings');
 	const loaded = page.waitForResponse('**/api/settings/sound');
 	await page.getByRole('link', { name: /Sound/ }).click();
 	await expect(page.getByRole('heading', { level: 1, name: 'Sound' })).toBeVisible();
@@ -56,7 +57,7 @@ test('a failed save puts the setting back', async ({ page }, info) => {
 	);
 	await signInAsAdult(page, `e2e-sound-fail-${info.project.name}`);
 	const loaded = page.waitForResponse('**/api/settings/sound');
-	await page.goto('/settings/sound');
+	await gotoHydrated(page, '/settings/sound');
 	await loaded;
 	await page.getByRole('button', { name: 'Until: earlier' }).click();
 	await expect(page.getByRole('alert')).toHaveText('Could not save. Try again.');

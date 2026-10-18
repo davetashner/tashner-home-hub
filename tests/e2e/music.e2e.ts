@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 
@@ -9,7 +10,7 @@ test('Settings > Music says Spotify is not set up when there is no client id', a
 		r.fulfill({ json: { state: 'not_configured' } })
 	);
 	await signInAsAdult(page, 'e2e-music-adult');
-	await page.goto('/settings/music');
+	await gotoHydrated(page, '/settings/music');
 	await expect(page.getByTestId('spotify-state')).toHaveText("Spotify isn't set up");
 	await expect(page.getByText('docs/setup/spotify.md')).toBeVisible();
 });
@@ -23,13 +24,13 @@ test('Connect Spotify is a big tap target and Connected shows the name with Disc
 		r.fulfill({ json: { state: 'disconnected' } })
 	);
 	await signInAsAdult(page, 'e2e-music-adult');
-	await page.goto('/settings/music');
+	await gotoHydrated(page, '/settings/music');
 	const connect = page.getByTestId('spotify-connect');
 	await expect(connect).toBeVisible();
 	await expectTappable(connect);
 
 	state = { state: 'connected', displayName: 'Pat Example' };
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(page.getByTestId('spotify-state')).toHaveText('Connected as Pat Example');
 	await page.getByRole('button', { name: 'Disconnect' }).click();
 	await expect(connect).toBeVisible();
@@ -64,7 +65,7 @@ test('Settings > Music curates playlists and saves limits', async ({ page }) => 
 		await r.fulfill({ json: config });
 	});
 	await signInAsAdult(page, 'e2e-music-adult');
-	await page.goto('/settings/music');
+	await gotoHydrated(page, '/settings/music');
 
 	const switches = page.getByTestId('playlist-switch');
 	await expect(switches).toHaveCount(2);

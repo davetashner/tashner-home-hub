@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 test.describe('collapsible nav rail', () => {
 	test('collapse widens the content, survives reload, handle restores', async ({ page }) => {
-		await page.goto('/photos');
+		await gotoHydrated(page, '/photos');
 		await page.waitForLoadState('networkidle');
 		const viewport = page.viewportSize()!;
 		if (viewport.height > viewport.width) {
@@ -29,7 +30,7 @@ test.describe('collapsible nav rail', () => {
 		expect(handle.width).toBeGreaterThanOrEqual(96);
 		expect(handle.height).toBeGreaterThanOrEqual(96);
 
-		await page.reload();
+		await reloadHydrated(page);
 		await page.waitForLoadState('networkidle');
 		await expect(page.getByTestId('nav-handle')).toBeVisible();
 		await expect.poll(async () => (await main.boundingBox())!.width).toBeCloseTo(viewport.width, 0);
@@ -58,7 +59,7 @@ test.describe('collapsible nav rail', () => {
 			route.fulfill({ json: [{ id, w: 640, h: 360 }] })
 		);
 		await page.addInitScript(() => localStorage.setItem('hub.nav.collapsed', '1'));
-		await page.goto('/photos');
+		await gotoHydrated(page, '/photos');
 		await expect(page.getByTestId('overlay-time')).toBeVisible();
 		await expect(page.getByTestId('nav-handle')).toBeVisible();
 		await expect(page.getByTestId('corner-clock')).toHaveCount(0);

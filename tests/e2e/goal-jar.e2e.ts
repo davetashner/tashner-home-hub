@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openKid, seedKid, stubAudio, type KidSeed } from './kid';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 /** A synthetic 5-star reward set as the kid's goal. The kid starts with 2 approved stars. */
 async function seedGoal(page: Page, s: KidSeed): Promise<string> {
@@ -48,7 +49,7 @@ test('goal jar fills toward the cost and celebrates once per reaching', async ({
 	await expect(banner).toHaveCount(0, { timeout: 7000 });
 
 	// Same reaching: no second party after a reload.
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(page.getByTestId('goal-caption')).toHaveText('5 of 5 stars');
 	await page.waitForTimeout(800);
 	await expect(page.getByTestId('goal-earned')).toHaveCount(0);
@@ -63,13 +64,13 @@ test('goal jar fills toward the cost and celebrates once per reaching', async ({
 test('grown-ups see a reached goal on the approvals screen', async ({ page }, info) => {
 	const s = await seedKid(page, `goaladult ${info.project.name}`);
 	const title = await seedGoal(page, s);
-	await page.goto('/settings/approvals');
+	await gotoHydrated(page, '/settings/approvals');
 	const card = page.getByTestId('child-card').and(page.locator(`[data-member="${s.memberId}"]`));
 	await expect(card).toBeVisible();
 	await expect(card.getByTestId(`goal-reached-${s.memberId}`)).toHaveCount(0);
 	await page.request.post(`/api/members/${s.memberId}/bonus`, {
 		data: { delta: 3, note: 'Test bonus' }
 	});
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(card.getByTestId(`goal-reached-${s.memberId}`)).toContainText(`earned ${title}`);
 });

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { px } from './tap';
+import { gotoHydrated } from './hydrated';
 
 // CD-1: countdowns on the home screen. Each project freezes the clock in its own far-off year so
 // parallel projects sharing one database never crowd each other out of the (capped) home list.
@@ -27,12 +28,10 @@ test('adults add, edit and delete countdowns; home counts down in days', async (
 
 	const created: string[] = [];
 	try {
-		await page.goto('/settings/countdowns');
+		await gotoHydrated(page, '/settings/countdowns');
 		const add = async (name: string, date: string, icon: string) => {
-			await expect(async () => {
-				await page.getByTestId('add-countdown').click();
-				await expect(page.getByTestId('countdown-form')).toBeVisible({ timeout: 1000 });
-			}).toPass();
+			await page.getByTestId('add-countdown').click();
+			await expect(page.getByTestId('countdown-form')).toBeVisible();
 			await page.getByTestId('countdown-icon').fill(icon);
 			await page.getByTestId('countdown-title').fill(name);
 			await page.getByTestId('countdown-date').fill(date);
@@ -53,7 +52,7 @@ test('adults add, edit and delete countdowns; home counts down in days', async (
 		const box = await trip.getByRole('button', { name: `Edit Trip ${tag}` }).boundingBox();
 		expect(px(box!.height)).toBeGreaterThanOrEqual(60);
 
-		await page.goto('/');
+		await gotoHydrated(page, '/');
 		const cards = page.getByTestId('home-countdown');
 		await expect(cards).toHaveCount(3);
 		await expect(cards.nth(0)).toContainText('Today');
@@ -70,19 +69,17 @@ test('adults add, edit and delete countdowns; home counts down in days', async (
 
 		// Tomorrow: Birthday has expired, Party is today.
 		await page.clock.setFixedTime(new Date(`${addDays(today, 1)}T12:00:00`));
-		await page.goto('/');
+		await gotoHydrated(page, '/');
 		await expect(cards.nth(0)).toContainText('Today');
 		await expect(cards.nth(0)).toContainText(`Party ${tag}`);
 		await expect(page.getByTestId('home-countdowns')).not.toContainText(`Birthday ${tag}`);
 
 		// Delete.
-		await page.goto('/settings/countdowns');
-		await expect(async () => {
-			await page.getByRole('button', { name: `Delete Trip ${tag}` }).click();
-			await expect(
-				page.getByTestId('countdown-row').filter({ hasText: `Trip ${tag}` })
-			).toHaveCount(0, { timeout: 1500 });
-		}).toPass();
+		await gotoHydrated(page, '/settings/countdowns');
+		await page.getByRole('button', { name: `Delete Trip ${tag}` }).click();
+		await expect(page.getByTestId('countdown-row').filter({ hasText: `Trip ${tag}` })).toHaveCount(
+			0
+		);
 	} finally {
 		const list = await (await page.request.get('/api/countdowns')).json();
 		for (const c of list as { id: string; title: string }[])

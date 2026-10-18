@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { px } from './tap';
 import { ensureHousehold, signInAsAdult } from './adult';
+import { gotoHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 
@@ -24,7 +25,7 @@ async function swipe(page: Page, from: number, to: number) {
 }
 
 test('every destination is reachable by tap and marks itself active', async ({ page }) => {
-	await page.goto('/');
+	await gotoHydrated(page, '/');
 	await page.waitForLoadState('networkidle');
 	const nav = page.getByRole('navigation', { name: 'Main' });
 	for (const [name, path] of destinations) {
@@ -38,14 +39,14 @@ test('every destination is reachable by tap and marks itself active', async ({ p
 
 test('settings gear opens settings', async ({ page }) => {
 	await signInAsAdult(page, 'e2e-shell-adult');
-	await page.goto('/chores');
+	await gotoHydrated(page, '/chores');
 	await page.waitForLoadState('networkidle');
 	await page.getByRole('link', { name: 'Settings' }).click();
 	await expect(page).toHaveURL(/\/settings$/);
 });
 
 test('shell controls meet the 60px touch minimum', async ({ page }) => {
-	await page.goto('/chores');
+	await gotoHydrated(page, '/chores');
 	const controls = page.locator('header a, header button, nav a');
 	const count = await controls.count();
 	expect(count).toBeGreaterThanOrEqual(8);
@@ -59,7 +60,7 @@ test('shell controls meet the 60px touch minimum', async ({ page }) => {
 });
 
 test('swiping moves to the adjacent destination', async ({ page }) => {
-	await page.goto('/chores');
+	await gotoHydrated(page, '/chores');
 	await page.waitForLoadState('networkidle');
 	await swipe(page, 0.8, 0.2);
 	await expect(page).toHaveURL(/\/photos$/);
@@ -68,7 +69,7 @@ test('swiping moves to the adjacent destination', async ({ page }) => {
 });
 
 test('sleep button posts to the display endpoint', async ({ page }) => {
-	await page.goto('/calendar');
+	await gotoHydrated(page, '/calendar');
 	await page.waitForLoadState('networkidle');
 	const request = page.waitForRequest(
 		(r) => r.url().endsWith('/api/display/sleep') && r.method() === 'POST'
@@ -87,7 +88,7 @@ test('sleep endpoint answers 202 with the power state', async ({ request }) => {
 });
 
 test('header clock and date are visible away from home', async ({ page }) => {
-	await page.goto('/lists');
+	await gotoHydrated(page, '/lists');
 	await expect(page.getByTestId('header-clock-time')).toBeVisible();
 	await expect(page.getByTestId('header-clock-date')).toBeVisible();
 });
@@ -126,7 +127,7 @@ test('the header clock keeps the time on one line with a crowded header', async 
 	await page.request.post(`/api/chores/${chore.id}/complete`, { data: { memberId: ids[0] } });
 
 	await page.clock.setFixedTime(new Date('2026-09-23T10:06:00'));
-	await page.goto('/chores');
+	await gotoHydrated(page, '/chores');
 	await page.waitForLoadState('networkidle');
 	await expect(page.getByTestId('approvals-badge')).toBeVisible();
 	if (page.viewportSize()!.width < 640) return; // the phone header hides the clock

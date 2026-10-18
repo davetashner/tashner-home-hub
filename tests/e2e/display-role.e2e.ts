@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
-import { gotoHydrated } from './hydrated';
+import { gotoHydrated, reloadHydrated } from './hydrated';
 
 // Page routes must see every request; a service worker would answer some from the real server.
 test.use({ serviceWorkers: 'block' });
@@ -24,7 +24,7 @@ test('a personal device (the default) never goes home or shows the photo frame',
 }) => {
 	await idleSettings(page);
 	await page.clock.install();
-	await page.goto('/meals');
+	await gotoHydrated(page, '/meals');
 	await page.waitForLoadState('networkidle');
 	await page.clock.fastForward(30 * MIN);
 	await expect(page).toHaveURL(/\/meals$/);
@@ -35,7 +35,7 @@ test('a wall display goes home and shows the photo frame when idle', async ({ pa
 	await asWallDisplay(context);
 	await idleSettings(page);
 	await page.clock.install();
-	await page.goto('/meals');
+	await gotoHydrated(page, '/meals');
 	await page.waitForLoadState('networkidle');
 	await page.clock.fastForward(2 * MIN);
 	await expect(page).toHaveURL(/:\d+\/$/);
@@ -46,12 +46,12 @@ test('a wall display goes home and shows the photo frame when idle', async ({ pa
 test('?display=wall makes the device a wall, drops the query, and survives a reload', async ({
 	page
 }) => {
-	await page.goto('/meals?display=wall');
+	await gotoHydrated(page, '/meals?display=wall');
 	await expect(page).toHaveURL(/\/meals$/);
 	expect(await (await page.request.get('/api/display/role')).json()).toEqual({ role: 'wall' });
-	await page.reload();
+	await reloadHydrated(page);
 	expect(await (await page.request.get('/api/display/role')).json()).toEqual({ role: 'wall' });
-	await page.goto('/meals?display=personal');
+	await gotoHydrated(page, '/meals?display=personal');
 	expect(await (await page.request.get('/api/display/role')).json()).toEqual({
 		role: 'personal'
 	});
@@ -63,7 +63,7 @@ test('Settings > Screen switches this device between personal and wall', async (
 		route.fulfill({ json: { power: 'on', reason: 'schedule', mode: 'normal' } })
 	);
 	await signInAsAdult(page, 'e2e-display-role-adult');
-	await page.goto('/settings/screen');
+	await gotoHydrated(page, '/settings/screen');
 	await page.waitForLoadState('networkidle');
 	const group = page.getByRole('group', { name: 'This device' });
 	await expect(group.getByRole('button', { name: 'Personal' })).toHaveAttribute(
@@ -81,7 +81,7 @@ test('Settings > Screen switches this device between personal and wall', async (
 	);
 	expect((await saved).ok()).toBe(true);
 	await refreshed;
-	await page.reload();
+	await reloadHydrated(page);
 	await expect(group.getByRole('button', { name: 'Wall display' })).toHaveAttribute(
 		'aria-pressed',
 		'true'

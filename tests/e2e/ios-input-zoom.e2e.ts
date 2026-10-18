@@ -43,7 +43,7 @@ for (const route of routes) {
 	test(`ios: fields on ${route} are at least 16px at 390px`, async ({ page }, info) => {
 		await signInAsAdult(page, `e2e-zoom-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
-		await page.goto(route);
+		await gotoHydrated(page, route);
 		await page.waitForLoadState('networkidle');
 		expect(await smallFields(page)).toEqual([]);
 	});
@@ -66,7 +66,7 @@ for (const f of [
 
 test('ios: a bare input with no classes is at least 16px at 390px', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
-	await page.goto('/unlock');
+	await gotoHydrated(page, '/unlock');
 	const size = await page.evaluate(() => {
 		const input = document.createElement('input');
 		document.body.append(input);

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { ensureHousehold } from './adult';
 import { seedKid } from './kid';
 import { px } from './tap';
+import { gotoHydrated } from './hydrated';
 
 // ADR 0002 Tier 2 (kid-friendly touch): every interactive element on every screen is at least
 // 60px in both dimensions, and 96px on kid screens. Each project is measured at its own wall
@@ -150,7 +151,7 @@ test.describe('every interactive element meets the tap-target minimum', () => {
 
 			const isKid = KID_ROUTES.has(route);
 			const url = isKid ? `${route}?member=${kidId}` : route;
-			await page.goto(url);
+			await gotoHydrated(page, url);
 			await settle(page);
 			const landed = new URL(page.url()).pathname;
 			const min = isKid ? KID_MIN : MIN;

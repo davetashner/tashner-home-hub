@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { seedKid, type KidSeed } from './kid';
 import { px } from './tap';
+import { gotoHydrated } from './hydrated';
 
 // DEV-4/UI-1/UI-8: every page has a designed layout at iPad sizes (both orientations, Split View):
 // nothing scrolls sideways, headings fit, and controls are tap-sized (96px on the kid screen).
@@ -125,7 +126,7 @@ for (const route of routes) {
 		for (const vp of viewportsFor(info.project.name)) {
 			await test.step(label(vp), async () => {
 				await page.setViewportSize(vp);
-				await page.goto(route);
+				await gotoHydrated(page, route);
 				await settle(page);
 				await expectFits(page);
 				expect(await smallTargets(page, 60)).toEqual([]);
@@ -140,7 +141,7 @@ test('iPad: /chores shows the first chore to do without scrolling', async ({ pag
 		await test.step(label(vp), async () => {
 			await page.setViewportSize(vp);
 			const kid = await seedChoresKid(page, `${label(vp)}-${info.project.name}`);
-			await page.goto(`/chores?member=${kid.memberId}`);
+			await gotoHydrated(page, `/chores?member=${kid.memberId}`);
 			await expect(page.getByTestId('star-jar')).toBeVisible();
 			await settle(page);
 			await expectFits(page);
@@ -176,7 +177,7 @@ test('iPad: /chores celebration banner stays on screen', async ({ page }, info) 
 		await test.step(label(vp), async () => {
 			await page.setViewportSize(vp);
 			const kid = await seedChoresKid(page, `done-${label(vp)}-${info.project.name}`);
-			await page.goto(`/chores?member=${kid.memberId}`);
+			await gotoHydrated(page, `/chores?member=${kid.memberId}`);
 			await expect(page.getByTestId('star-jar')).toBeVisible();
 			await settle(page);
 			const todo = await page.getByTestId('did-it').count();

@@ -3,7 +3,7 @@ import { px } from './tap';
 import { gotoHydrated } from './hydrated';
 
 test('every showcase button meets the touch target minimums', async ({ page }) => {
-	await page.goto('/dev/design');
+	await gotoHydrated(page, '/dev/design');
 	const buttons = page.getByRole('button');
 	const count = await buttons.count();
 	expect(count).toBeGreaterThan(8);
@@ -21,14 +21,14 @@ test('every showcase button meets the touch target minimums', async ({ page }) =
 });
 
 test('kid-size buttons are at least 96px', async ({ page }) => {
-	await page.goto('/dev/design');
+	await gotoHydrated(page, '/dev/design');
 	const kid = page.getByRole('button', { name: 'Tap for a star' });
 	const box = await kid.boundingBox();
 	expect(px(box!.height)).toBeGreaterThanOrEqual(96);
 });
 
 test('swipe pad reports the swipe direction', async ({ page }) => {
-	await page.goto('/dev/design');
+	await gotoHydrated(page, '/dev/design');
 	await page.waitForLoadState('networkidle');
 	const pad = page.getByTestId('swipe-pad');
 	await pad.scrollIntoViewIfNeeded();

@@ -1,13 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { seedCalendar } from './calendar';
+import { gotoHydrated } from './hydrated';
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
 test.beforeEach(async ({ page }) => {
 	seedCalendar({ fresh: false });
 	await signInAsAdult(page, 'e2e-cal-phone-adult');
-	await page.goto('/calendar');
+	await gotoHydrated(page, '/calendar');
 	await page.waitForLoadState('networkidle');
 });
 

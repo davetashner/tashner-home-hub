@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 // DEV-4/UI-8: on an iPad (or a Split View pane) the shell is a tablet tier: a one-row header and a
 // slim rail or bar, so the page gets the screen, not the chrome.
@@ -27,7 +28,7 @@ for (const vp of viewports) {
 
 		for (const route of routes) {
 			test(`${route}: compact shell leaves the page the screen`, async ({ page }) => {
-				await page.goto(route);
+				await gotoHydrated(page, route);
 				await page.waitForLoadState('networkidle');
 
 				const shell = page.locator('nav[aria-label="Main"]').locator('xpath=..');
