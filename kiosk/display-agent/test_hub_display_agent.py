@@ -318,5 +318,102 @@ class GrabTests(unittest.TestCase):
         self.assertTrue(w.grabbed)
 
 
+class MouseWakeTests(unittest.TestCase):
+    ev = staticmethod(TouchParseTests.ev)
+    EV_REL, REL_X = 0x02, 0x00
+
+    def test_input_mouse_enables_it(self):
+        self.assertTrue(h.config_from({"INPUT": "mouse"}).mouse)
+        self.assertFalse(h.config_from({"INPUT": "touch"}).mouse)
+        self.assertFalse(h.config_from({}).mouse)
+
+    def test_press_wakes_but_movement_and_repeat_do_not(self):
+        self.assertTrue(h.parse_key_press(self.ev(h.EV_KEY, h.BTN_LEFT, 1)))
+        self.assertTrue(h.parse_key_press(self.ev(h.EV_KEY, h.KEY_SPACE, 1)))
+        self.assertFalse(h.parse_key_press(self.ev(self.EV_REL, self.REL_X, 5)))
+        self.assertFalse(h.parse_key_press(self.ev(h.EV_KEY, h.BTN_LEFT, 0)))
+        self.assertFalse(h.parse_key_press(self.ev(h.EV_KEY, h.KEY_A, 2)))  # auto-repeat
+
+    def test_keys_held(self):
+        down = h.keys_held(self.ev(h.EV_KEY, h.BTN_LEFT, 1) + self.ev(h.EV_KEY, h.KEY_A, 1), frozenset())
+        self.assertEqual(down, {h.BTN_LEFT, h.KEY_A})
+        self.assertEqual(h.keys_held(self.ev(h.EV_KEY, h.KEY_A, 0), down), {h.BTN_LEFT})
+        self.assertEqual(h.keys_held(self.ev(self.EV_REL, self.REL_X, 1), down), down)
+
+    def test_wake_devices(self):
+        def mask(*bits, size=96):
+            m = bytearray(size)
+            for b in bits:
+                m[b // 8] |= 1 << (b % 8)
+            return bytes(m)
+
+        no_abs = mask(size=8)
+        mouse, keyboard = mask(h.BTN_LEFT), mask(h.KEY_A, h.KEY_Z, h.KEY_SPACE)
+        self.assertTrue(h.is_wake_device(no_abs, mouse, True))
+        self.assertTrue(h.is_wake_device(no_abs, keyboard, True))
+        self.assertFalse(h.is_wake_device(no_abs, mouse, False))  # touch mode: touch only
+        self.assertFalse(h.is_wake_device(no_abs, mask(116), True))  # KEY_POWER: power button
+        self.assertFalse(h.is_wake_device(no_abs, mask(1, 28, 103), True))  # CEC remote keys
+        self.assertTrue(h.is_wake_device(mask(h.ABS_MT_POSITION_X, size=8), mask(), True))
+
+    def _watcher(self, mouse=True):
+        w = h.TouchWatcher("", ioctl=lambda fd, req, arg: None, mouse=mouse)
+        w.last_scan = float("inf")  # no rescans of the real /dev/input
+        a, b = socket.socketpair()
+        self.addCleanup(a.close)
+        self.addCleanup(b.close)
+        w.sel.register(a.fileno(), selectors.EVENT_READ, "/dev/input/event9")
+        w.down[a.fileno()] = False
+        w.keys[a.fileno()] = frozenset()
+        return w, b
+
+    def test_click_wakes_and_holds_the_grab_until_release(self):
+        w, b = self._watcher()
+        b.send(self.ev(self.EV_REL, self.REL_X, 3))
+        self.assertFalse(w.wait(0.2))  # a bumped mouse
+        b.send(self.ev(h.EV_KEY, h.BTN_LEFT, 1))
+        self.assertTrue(w.wait(0.2))
+        self.assertTrue(w.touching)  # Agent.waking holds the grab until this clears
+        b.send(self.ev(h.EV_KEY, h.BTN_LEFT, 0))
+        self.assertFalse(w.wait(0.2))
+        self.assertFalse(w.touching)
+
+    def test_touch_mode_ignores_clicks(self):
+        w, b = self._watcher(mouse=False)
+        b.send(self.ev(h.EV_KEY, h.BTN_LEFT, 1))
+        self.assertFalse(w.wait(0.2))
+        self.assertFalse(w.touching)
+
+
+class HubClientTests(unittest.TestCase):
+    def test_wake_is_a_json_post(self):
+        """SvelteKit rejects form-encoded cross-site POSTs with 403, so the body must be JSON."""
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        seen = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_POST(self):
+                seen.append((self.path, self.headers.get("Content-Type")))
+                self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                ok = self.headers.get("Content-Type") == "application/json"
+                body = b'{"power": "on", "reason": "wake"}' if ok else b"Cross-site POST"
+                self.send_response(200 if ok else 403)
+                self.end_headers()
+                self.wfile.write(body)
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        hub = h.HubClient("http://127.0.0.1:%d/" % server.server_address[1])
+        self.assertEqual(hub.post_wake()["power"], "on")
+        self.assertEqual(seen, [("/api/display/wake", "application/json")])
+
+
 if __name__ == "__main__":
     unittest.main()

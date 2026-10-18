@@ -3,6 +3,7 @@ import {
 	diagnose,
 	parseFlags,
 	parseSpeaker,
+	parseWake,
 	parseWlrRandr,
 	remoteFacts,
 	remoteFactsScript,
@@ -111,6 +112,20 @@ describe('parsers', () => {
 		expect(parseSpeaker('mac \ndefault ')).toMatchObject({ mac: null, connected: false });
 		expect(remoteFacts('=== speaker\nmac \n=== end').speaker).toMatchObject({ mac: null });
 		expect(remoteFacts('=== host\nkiosk').speaker).toBeUndefined();
+	});
+
+	it('reads the input mode and the devices the display agent watches', () => {
+		expect(
+			parseWake('input mouse\ndev event6 Synthetic Mouse\ndev event4 Synthetic Keyboard')
+		).toEqual({
+			input: 'mouse',
+			devices: ['Synthetic Mouse', 'Synthetic Keyboard']
+		});
+		expect(parseWake('dev event3')).toEqual({ input: 'touch', devices: ['event3'] });
+		expect(remoteFacts('=== wake\ninput touch\n=== end').wake).toEqual({
+			input: 'touch',
+			devices: []
+		});
 	});
 
 	it('only probes the server when it knows where it is', () => {
@@ -229,6 +244,19 @@ describe('diagnose', () => {
 		expect(check({ paired: false, connected: false })).toMatchObject({ status: 'warn' });
 		expect(check({ connected: false })).toMatchObject({ status: 'warn', hint: 'switch it on' });
 		expect(check({ defaultSink: false })).toMatchObject({ status: 'fail' });
+	});
+
+	it('fails when nothing at the screen can wake it', () => {
+		const agent: Record<string, string> = { 'hub-kiosk-display-agent.service': 'active' };
+		const check = (wake: { input: string; devices: string[] }, units = agent) =>
+			status(healthy({ remote: remote({ wake, units }) }), 'wake-input');
+		expect(check({ input: 'mouse', devices: ['Mouse', 'Mouse'] })).toMatchObject({
+			status: 'pass',
+			detail: 'mouse: Mouse'
+		});
+		expect(check({ input: 'mouse', devices: [] })).toMatchObject({ status: 'fail' });
+		expect(check({ input: 'touch', devices: [] })?.hint).toContain('INPUT="mouse"');
+		expect(check({ input: 'touch', devices: [] }, {})).toBeUndefined(); // the unit check covers it
 	});
 
 	it('warns when this browser is not a wall display', () => {
