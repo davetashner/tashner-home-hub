@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
+	import { buildGuide } from '#lib/domain/siri-guide.js';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import { SCOPE_LABELS, SIRI_SCOPES, TOKEN_NAME_MAX, type SiriScope } from '#lib/domain/siri.js';
@@ -25,6 +27,19 @@
 	/** The just-created secret: held in memory only, shown once. */
 	let secret = $state('');
 	let copied = $state(false);
+	/** Which guide copy button was last pressed (label key). */
+	let copiedKey = $state('');
+	let guideToken = $state('');
+	const guide = $derived(buildGuide(page.url.origin, guideToken || null));
+
+	async function copyValue(key: string, value: string) {
+		try {
+			await navigator.clipboard.writeText(value);
+			copiedKey = key;
+		} catch {
+			message = 'Could not copy. Press and hold the text to select it.';
+		}
+	}
 
 	async function load() {
 		const res = await fetch('/api/api-tokens');
@@ -51,6 +66,7 @@
 			return;
 		}
 		secret = body.token;
+		guideToken = body.token;
 		copied = false;
 		creating = false;
 		name = '';
@@ -86,6 +102,7 @@
 			onclick={() => {
 				creating = true;
 				secret = '';
+				guideToken = '';
 				message = '';
 			}}>New token</Button
 		>
@@ -105,8 +122,13 @@
 			<code class="text-body break-all select-all" data-testid="token-secret">{secret}</code>
 			<div class="flex gap-4">
 				<Button data-testid="token-copy" onclick={copy}>{copied ? 'Copied' : 'Copy'}</Button>
-				<Button variant="secondary" data-testid="token-done" onclick={() => (secret = '')}
-					>Done</Button
+				<Button
+					variant="secondary"
+					data-testid="token-done"
+					onclick={() => {
+						secret = '';
+						guideToken = '';
+					}}>Done</Button
 				>
 			</div>
 		</Card>
@@ -150,6 +172,52 @@
 		</Card>
 	{/if}
 	{#if message}<p class="text-danger" role="alert">{message}</p>{/if}
+
+	<details class="group" open={!!secret} data-testid="siri-guide">
+		<summary class="flex min-h-tap cursor-pointer items-center text-lead font-bold">
+			How to set up Siri
+		</summary>
+		<div class="mt-4 flex flex-col gap-6">
+			<p class="text-body text-ink-muted">
+				{guideToken
+					? 'Your new token is filled in below. Copy each value into the matching Shortcut action.'
+					: 'Paste the token you saved where the header value says so.'}
+				This works on home Wi-Fi only until remote access exists. In the Shortcuts app, tap + to make
+				a new Shortcut, name it as shown, then add these actions in order. Siri runs a Shortcut when you
+				say its name.
+			</p>
+			{#each guide as sc (sc.id)}
+				<Card class="flex flex-col gap-4" data-testid="guide-{sc.id}">
+					<p class="text-lead font-bold">{sc.name}</p>
+					<p class="text-caption text-ink-muted">Say: "Hey Siri, {sc.phrase}"</p>
+					<ol class="flex list-decimal flex-col gap-4 ps-8 text-body">
+						{#each sc.steps as step, i (i)}
+							<li>
+								<span class="font-bold">{step.action}</span>
+								<span class="text-ink-muted"> {step.detail}</span>
+								{#if step.copy}
+									<div class="mt-2 flex flex-wrap gap-4">
+										{#each step.copy as c (c.label)}
+											<Button
+												variant="secondary"
+												data-testid="guide-copy"
+												data-value={c.value}
+												onclick={() => copyValue(`${sc.id}-${i}-${c.label}`, c.value)}
+												>{copiedKey === `${sc.id}-${i}-${c.label}` ? 'Copied' : c.label}</Button
+											>
+										{/each}
+									</div>
+									<code class="mt-2 block text-caption break-all select-all"
+										>{step.copy.map((c) => c.value).join('  ·  ')}</code
+									>
+								{/if}
+							</li>
+						{/each}
+					</ol>
+				</Card>
+			{/each}
+		</div>
+	</details>
 
 	{#if loaded && tokens.length === 0}
 		<p class="text-lead text-ink-muted">No tokens yet. Make one for each phone.</p>
