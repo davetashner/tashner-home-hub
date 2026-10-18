@@ -85,12 +85,27 @@
 
 	onMount(() => {
 		void refresh();
-		const timer = setInterval(() => void refresh(), POLL_MS);
-		const onVisible = () => document.visibilityState === 'visible' && void refresh();
-		document.addEventListener('visibilitychange', onVisible);
+		let timer: ReturnType<typeof setInterval> | null = null;
+		const stop = () => {
+			if (timer !== null) clearInterval(timer);
+			timer = null;
+		};
+		const start = () => {
+			stop();
+			timer = setInterval(() => void refresh(), POLL_MS);
+		};
+		// No polling while the tab is hidden; coming back refreshes at once and restarts it.
+		const onVisibility = () => {
+			if (document.visibilityState === 'visible') {
+				void refresh();
+				start();
+			} else stop();
+		};
+		if (document.visibilityState === 'visible') start();
+		document.addEventListener('visibilitychange', onVisibility);
 		return () => {
-			clearInterval(timer);
-			document.removeEventListener('visibilitychange', onVisible);
+			stop();
+			document.removeEventListener('visibilitychange', onVisibility);
 		};
 	});
 
