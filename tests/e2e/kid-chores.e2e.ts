@@ -241,7 +241,8 @@ test('six Star Jobs and six habits fit the wall without page scrolling (hub-3yg)
 		}
 	}
 	await page.context().clearCookies();
-	// Only this child: leftover children from other runs would add rows of avatars above the board.
+	// Only this child: kids other projects and workers seed in this run (the DB is fresh per run, but
+	// shared by all projects within it) would add rows of avatars above the board.
 	await page.route('**/api/members', async (route) => {
 		const res = await route.fetch();
 		const all = (await res.json()) as { id: string }[];
