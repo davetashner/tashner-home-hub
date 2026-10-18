@@ -14,6 +14,8 @@
 	import { isVacationDay } from '#lib/domain/vacation.js';
 	import StreakBadge from '#lib/components/kid/StreakBadge.svelte';
 	import StreakBanner from '#lib/components/kid/StreakBanner.svelte';
+	import StickerBanner from '#lib/components/kid/StickerBanner.svelte';
+	import { badgeDecision, badgesSeenKey, earnedIds, type Sticker } from '#lib/domain/badges.js';
 	import RoutineIcon from '#lib/components/kid/RoutineIcon.svelte';
 	import RoutinePlayer from '#lib/components/kid/RoutinePlayer.svelte';
 	import {
@@ -90,6 +92,9 @@
 	let streaks = $state<Record<string, { days: number; next: Milestone | null }>>({});
 	let streakParty = $state<Milestone | null>(null);
 	let streakTimer: ReturnType<typeof setTimeout> | undefined;
+	let stickerParty = $state<Sticker | null>(null);
+	let stickerTimer: ReturnType<typeof setTimeout> | undefined;
+	const badgesMemo: Record<string, string | null> = {};
 	let earnedTimer: ReturnType<typeof setTimeout> | undefined;
 	let routinesBy = $state<Record<string, KidRoutine[]>>({});
 	let playing = $state<string | null>(null);
@@ -174,6 +179,7 @@
 		]);
 		starsBy[id] = { balance: s.balance, pending: s.pending };
 		void loadStreak(id).catch(() => {});
+		if (id === selectedId) void loadBadges(id).catch(() => {});
 		// Only the child on screen: warming every jar must not cost a week of habit math per kid.
 		if (id === selectedId) void loadHabits(id).catch(() => {});
 		goals[id] = g && {
@@ -234,6 +240,36 @@
 				streakParty = hit;
 				celebrateGoal(jar);
 				streakTimer = setTimeout(() => (streakParty = null), 4500);
+			},
+			Math.max(0, allDoneUntil - Date.now()) + 300
+		);
+	}
+
+	/** New stickers (CHO-14) are derived on the server; this screen celebrates each one once. */
+	async function loadBadges(id: string) {
+		const book = await api<Sticker[]>(`/api/members/${id}/badges?tz=${encodeURIComponent(tz)}`);
+		const key = badgesSeenKey(id);
+		let stored = badgesMemo[key] ?? null;
+		try {
+			stored = localStorage.getItem(key);
+		} catch {
+			// no storage: use the in-memory memo
+		}
+		const decision = badgeDecision(stored, earnedIds(book));
+		badgesMemo[key] = decision.store;
+		try {
+			localStorage.setItem(key, decision.store);
+		} catch {
+			// memo only
+		}
+		const fresh = book.find((s) => s.id === decision.celebrate[0]);
+		if (!fresh || id !== selectedId) return;
+		clearTimeout(stickerTimer);
+		stickerTimer = setTimeout(
+			() => {
+				stickerParty = fresh;
+				celebrateGoal(jar);
+				stickerTimer = setTimeout(() => (stickerParty = null), 4500);
 			},
 			Math.max(0, allDoneUntil - Date.now()) + 300
 		);
@@ -391,6 +427,7 @@
 			clearTimeout(allDoneTimer);
 			clearTimeout(earnedTimer);
 			clearTimeout(streakTimer);
+			clearTimeout(stickerTimer);
 			clearTimeout(bonusTimer);
 		};
 	});
@@ -403,9 +440,11 @@
 		clearTimeout(allDoneTimer);
 		clearTimeout(earnedTimer);
 		clearTimeout(streakTimer);
+		clearTimeout(stickerTimer);
 		clearTimeout(bonusTimer);
 		bonusParty = null;
 		streakParty = null;
+		stickerParty = null;
 		allDone = false;
 		earned = null;
 		allDoneUntil = 0;
@@ -740,6 +779,10 @@
 
 {#if streakParty}
 	<StreakBanner days={streakParty.days} stars={streakParty.stars} />
+{/if}
+
+{#if stickerParty}
+	<StickerBanner emoji={stickerParty.emoji} title={stickerParty.title} />
 {/if}
 
 {#if bonusParty}

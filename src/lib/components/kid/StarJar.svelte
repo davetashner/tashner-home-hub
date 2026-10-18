@@ -3,6 +3,7 @@
 	import { jarCaption, jarFill } from '#lib/domain/goal-jar.js';
 	import Button from '#lib/components/ui/Button.svelte';
 	import RewardShop from './RewardShop.svelte';
+	import StickerBook from './StickerBook.svelte';
 	import StarIcon from './StarIcon.svelte';
 
 	export interface Goal {
@@ -31,6 +32,7 @@
 	} = $props();
 
 	let shopOpen = $state(false);
+	let stickersOpen = $state(false);
 
 	const fill = $derived(goal ? jarFill(balance, pending, goal.cost) : null);
 	const slots = $derived(jarSlots(balance, pending, goal?.cost ?? null));
@@ -59,12 +61,21 @@
 			{balance}
 			{balance === 1 ? 'star' : 'stars'}{pending > 0 ? ` · ${pending} waiting` : ''}
 		</p>
-		<Button
-			size="kid"
-			class="shrink-0 short:px-6 tablet:px-6"
-			data-testid="open-shop"
-			onclick={() => (shopOpen = true)}>Shop</Button
-		>
+		<div class="flex shrink-0 gap-3">
+			<Button
+				variant="secondary"
+				size="kid"
+				class="short:px-6 tablet:px-6"
+				data-testid="open-stickers"
+				onclick={() => (stickersOpen = true)}>Stickers</Button
+			>
+			<Button
+				size="kid"
+				class="short:px-6 tablet:px-6"
+				data-testid="open-shop"
+				onclick={() => (shopOpen = true)}>Shop</Button
+			>
+		</div>
 	</div>
 
 	<div
@@ -132,6 +143,10 @@
 		</div>
 	{/if}
 </section>
+
+{#if stickersOpen}
+	<StickerBook {memberId} onclose={() => (stickersOpen = false)} />
+{/if}
 
 {#if shopOpen}
 	<RewardShop
