@@ -1,7 +1,7 @@
 /** Per-device bearer tokens for Siri / Shortcuts (hub-6tr). Only a SHA-256 hash is ever stored. */
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { desc, eq } from 'drizzle-orm';
-import { SIRI_SCOPES, TOKEN_NAME_MAX, isScope, type SiriScope } from '#lib/domain/siri.js';
+import { TOKEN_NAME_MAX, TOKEN_SCOPES, isScope, type SiriScope } from '#lib/domain/siri.js';
 import type { Db } from '../db/index.js';
 import { apiTokens } from '../db/schema.js';
 import { LedgerError } from './ledger.js';
@@ -46,7 +46,7 @@ export function createToken(db: Db, name: unknown, scopes: unknown): TokenView &
 	if (n.length < 1 || n.length > TOKEN_NAME_MAX)
 		throw invalid(`Name must be 1-${TOKEN_NAME_MAX} characters`);
 	if (!Array.isArray(scopes) || scopes.length === 0 || !scopes.every(isScope))
-		throw invalid(`Pick at least one of: ${SIRI_SCOPES.join(', ')}`);
+		throw invalid(`Pick at least one of: ${TOKEN_SCOPES.join(', ')}`);
 	const token = randomBytes(32).toString('base64url');
 	const row = db
 		.insert(apiTokens)

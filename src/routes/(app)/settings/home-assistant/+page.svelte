@@ -2,7 +2,10 @@
 	import { onMount } from 'svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
+	import { page } from '$app/state';
 	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
+	import { restCommandYaml } from '#lib/domain/ha-display.js';
+	import { DISPLAY_SCOPE, type SiriScope } from '#lib/domain/siri.js';
 	import {
 		fallbackName,
 		MAX_TILES,
@@ -29,6 +32,58 @@
 	let entityError = $state('');
 	let busy = $state(false);
 
+	interface ScreenToken {
+		id: string;
+		name: string;
+		scopes: SiriScope[];
+		lastUsedAt: number | null;
+	}
+	let screenTokens = $state<ScreenToken[]>([]);
+	/** The just-created secret: memory only, shown once. */
+	let screenSecret = $state('');
+	let screenError = $state('');
+	let yamlCopied = $state(false);
+	const yaml = $derived(restCommandYaml(page.url.origin, screenSecret || null));
+
+	async function loadScreenTokens() {
+		const res = await safeFetch('/api/api-tokens');
+		if (res.ok)
+			screenTokens = ((await res.json()) as ScreenToken[]).filter((t) =>
+				t.scopes.includes(DISPLAY_SCOPE)
+			);
+	}
+
+	async function makeScreenToken() {
+		screenError = '';
+		const res = await safeFetch('/api/api-tokens', {
+			method: 'POST',
+			headers: json,
+			body: JSON.stringify({ name: 'Home Assistant screen', scopes: [DISPLAY_SCOPE] })
+		});
+		if (!res.ok) {
+			screenError = await errorMessage(res);
+			return;
+		}
+		screenSecret = ((await res.json()) as { token: string }).token;
+		yamlCopied = false;
+		await loadScreenTokens();
+	}
+
+	async function revokeScreenToken(t: ScreenToken) {
+		screenTokens = screenTokens.filter((x) => x.id !== t.id);
+		await safeFetch(`/api/api-tokens/${t.id}`, { method: 'DELETE', headers: json, body: '{}' });
+		await loadScreenTokens();
+	}
+
+	async function copyYaml() {
+		try {
+			await navigator.clipboard.writeText(yaml);
+			yamlCopied = true;
+		} catch {
+			screenError = 'Could not copy. Press and hold the text to select it.';
+		}
+	}
+
 	const json = { 'content-type': 'application/json' };
 	const field =
 		'min-h-tap w-full rounded-control border-2 border-line bg-surface px-6 text-body text-ink';
@@ -52,6 +107,7 @@
 	}
 
 	onMount(async () => {
+		void loadScreenTokens();
 		const res = await safeFetch('/api/settings/home-assistant');
 		if (res.ok) {
 			apply((await res.json()) as Config);
@@ -204,6 +260,55 @@
 			</p>
 		{/if}
 		{#if error}<p role="alert" class="text-body text-danger">{error}</p>{/if}
+	</Card>
+
+	<Card class="flex flex-col gap-4" data-testid="ha-screen">
+		<h2 class="text-title font-bold">Wake or sleep the screen</h2>
+		<p class="text-body text-ink-muted">
+			Let a Home Assistant automation wake the wall (a hallway motion sensor) or put it to sleep (a
+			goodnight scene). Make a token, then paste the snippet into Home Assistant's
+			<code class="break-all">configuration.yaml</code>
+			and call <code class="break-all">rest_command.hub_wake_screen</code> or
+			<code class="break-all">rest_command.hub_sleep_screen</code> from an automation. The token only
+			works for the screen. It is shown once; revoke it here at any time.
+		</p>
+		<div class="flex flex-wrap gap-3">
+			<Button onclick={makeScreenToken} data-testid="ha-screen-new">New screen token</Button>
+		</div>
+		{#if screenSecret}
+			<p class="text-body font-bold">Copy this token now</p>
+			<code class="text-body break-all select-all" data-testid="ha-screen-secret"
+				>{screenSecret}</code
+			>
+		{/if}
+		<pre
+			class="rounded-control border-2 border-line bg-surface p-4 text-caption break-all whitespace-pre-wrap select-all"
+			data-testid="ha-screen-yaml">{yaml}</pre>
+		<div class="flex flex-wrap gap-3">
+			<button type="button" class={secondary} onclick={copyYaml} data-testid="ha-screen-copy"
+				>{yamlCopied ? 'Copied' : 'Copy snippet'}</button
+			>
+		</div>
+		{#each screenTokens as t (t.id)}
+			<div class="flex flex-wrap items-center gap-3" data-testid="ha-screen-token">
+				<span class="min-w-0 flex-1 text-body">
+					{t.name}
+					<span class="text-caption text-ink-muted"
+						>{t.lastUsedAt
+							? `last used ${new Date(t.lastUsedAt).toLocaleString()}`
+							: 'never used'}</span
+					>
+				</span>
+				<button
+					type="button"
+					class={secondary}
+					aria-label="Revoke {t.name}"
+					onclick={() => revokeScreenToken(t)}
+					data-testid="ha-screen-revoke">Revoke</button
+				>
+			</div>
+		{/each}
+		{#if screenError}<p role="alert" class="text-body text-danger">{screenError}</p>{/if}
 	</Card>
 
 	{#if config?.configured}
