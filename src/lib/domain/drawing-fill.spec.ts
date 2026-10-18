@@ -64,9 +64,10 @@ describe('floodFill', () => {
 		const w = 3840,
 			h = 2160;
 		const d = new Uint8ClampedArray(w * h * 4).fill(255);
+		// Generous: coverage instrumentation slows this a lot; it only guards against a quadratic blowup.
 		const t = performance.now();
 		expect(spanArea(floodFill(d, w, h, 100, 100))).toBe(w * h);
-		expect(performance.now() - t).toBeLessThan(3000);
+		expect(performance.now() - t).toBeLessThan(20000);
 	});
 });
 
