@@ -12,6 +12,9 @@
 	import Clock from './Clock.svelte';
 	import Icon from './Icon.svelte';
 	import { frameOverlay } from './frame-overlay-state.svelte.js';
+	import TimerHost from '#lib/components/timers/TimerHost.svelte';
+	import TimerPills from '#lib/components/timers/TimerPills.svelte';
+	import { timerState } from '#lib/components/timers/timers-state.svelte.js';
 	import IdleWatcher from './IdleWatcher.svelte';
 	import NavItem from './NavItem.svelte';
 	import NightClock from './NightClock.svelte';
@@ -143,6 +146,7 @@
 {/if}
 
 <WaveBackground />
+<TimerHost />
 
 <div
 	class:bg-surface={wave.choice === 'off'}
@@ -174,8 +178,18 @@
 		<div
 			class="ml-auto flex items-center justify-end gap-2 sm:flex-wrap sm:gap-4 portrait:sm:gap-2 landscape:sm:gap-2 short:flex-nowrap short:gap-0.5 tablet:flex-nowrap tablet:gap-3 portrait:tablet:gap-3 landscape:tablet:gap-3"
 		>
+			{#if !(collapsed && sideRail)}<TimerPills />{/if}
 			<OfflineBadge />
 			<ApprovalsBadge />
+			<button
+				type="button"
+				onclick={() => (timerState.panel = true)}
+				aria-label="Timers"
+				data-testid="timer-open"
+				class="press-link inline-flex size-tap-kid shrink-0 items-center justify-center rounded-chip border-2 border-line bg-surface-raised text-title text-ink shadow-raised max-sm:hidden short:hidden tablet:hidden"
+			>
+				<Icon name="timer" />
+			</button>
 			<Button
 				onclick={sleep}
 				size="kid"
@@ -245,6 +259,7 @@
 			>
 				<Icon name="menu" />
 			</button>
+			<div class="pointer-events-auto"><TimerPills /></div>
 			{#if !frameOverlay.clock}
 				<div
 					class="rounded-chip bg-scrim px-4 py-2 text-on-frame"

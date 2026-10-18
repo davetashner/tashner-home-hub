@@ -115,3 +115,8 @@ export const playTap = (stars = 1) => play('tap', stars);
 /** Bell-like ding for an approval. */
 export const playDing = () => play('ding');
 export const playFanfare = () => play('fanfare');
+
+/** Kitchen timer alarm: the theme's ding three times. Obeys mute, but not quiet hours. */
+export function playAlarm(): void {
+	if (!settings.muted && settings.volume > 0) play('alarm', 1, settings);
+}

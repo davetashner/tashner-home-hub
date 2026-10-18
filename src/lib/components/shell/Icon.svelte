@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { IconName } from '#lib/domain/nav.js';
 
-	let { name }: { name: IconName | 'moon' | 'lock' | 'menu' | 'collapse' } = $props();
+	let { name }: { name: IconName | 'moon' | 'timer' | 'lock' | 'menu' | 'collapse' } = $props();
 
 	// 24x24 stroke icons (Lucide-style geometry, drawn inline to keep the bundle tiny).
-	const paths: Record<IconName | 'moon' | 'lock' | 'menu' | 'collapse', string> = {
+	const paths: Record<IconName | 'moon' | 'timer' | 'lock' | 'menu' | 'collapse', string> = {
 		home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
 		calendar:
 			'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
@@ -21,6 +21,7 @@
 		lock: 'M7 11V7a5 5 0 0 1 10 0v4M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z',
 		menu: 'M4 6h16M4 12h16M4 18h16',
 		collapse: 'M11 17l-5-5 5-5M18 17l-5-5 5-5',
+		timer: 'M10 2h4M12 14l3-3M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
 		moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'
 	};
 </script>
