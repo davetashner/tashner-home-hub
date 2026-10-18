@@ -290,3 +290,44 @@ test('insert shapes and stamps, outline or filled, undo @J18.4', async ({ page }
 		wipe(kidId);
 	}
 });
+
+test('paint bucket fills a closed shape and undo takes it back @J18.5', async ({ page }, info) => {
+	const kidId = `e2e-draw-kid5-${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, 'Kid Bucket');
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		const canvas = page.getByTestId('draw-canvas');
+
+		// Outline a square, then switch to the bucket.
+		await page.getByTestId('draw-shapes-open').click();
+		await page.getByTestId('draw-shape').and(page.locator('[data-shape="square"]')).click();
+		await pointerStroke(page, 'touch', 0.5, [0.2, 0.2], [0.6, 0.6], 1);
+		const outline = await inkPixels(page);
+		await expectTappable(page.getByTestId('draw-bucket'), 96);
+		await page.getByTestId('draw-bucket').click();
+		await expect(page.getByTestId('draw-bucket')).toHaveAttribute('aria-pressed', 'true');
+
+		// Tapping inside fills only the inside: more ink, but far from the whole canvas.
+		await page.getByTestId('draw-color').and(page.locator('[data-color="draw-red"]')).click();
+		await pointerStroke(page, 'touch', 0.5, [0.4, 0.4], [0.4, 0.4], 2);
+		await expect(canvas).toHaveAttribute('data-strokes', '2');
+		const inside = await inkPixels(page);
+		expect(inside).toBeGreaterThan(outline * 2);
+		const total = await canvas.evaluate((c: HTMLCanvasElement) => c.width * c.height);
+		expect(inside).toBeLessThan(total / 2);
+
+		// Tapping outside floods the rest of the page.
+		await pointerStroke(page, 'touch', 0.5, [0.9, 0.9], [0.9, 0.9], 3);
+		expect(await inkPixels(page)).toBeGreaterThan(total * 0.9);
+
+		// Each fill is one undo step.
+		await page.getByTestId('draw-undo').click();
+		expect(await inkPixels(page)).toBe(inside);
+		await page.getByTestId('draw-undo').click();
+		expect(await inkPixels(page)).toBe(outline);
+		await page.getByTestId('draw-close').click();
+	} finally {
+		wipe(kidId);
+	}
+});
