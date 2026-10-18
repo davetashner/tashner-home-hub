@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signInAsAdult } from './adult';
+import { ensureHousehold, signInAsAdult } from './adult';
 import Database from 'better-sqlite3';
 
 // The service worker is off for automated browsers unless a test opts in (see lib/offline/client).
@@ -197,6 +197,75 @@ test('a routine step tapped offline survives a reload and is saved once back onl
 	await context.setOffline(false);
 	await expect.poll(savedSteps).toBe(1); // delivered, and once
 });
+
+test('a meal edited offline survives a reload and is saved once back online', async ({
+	page,
+	context
+}, info) => {
+	await page.addInitScript(() => localStorage.setItem('hub.sw', 'on'));
+	ensureHousehold();
+	const k = Math.max(0, MEAL_PROJECTS.indexOf(info.project.name));
+	const monday = new Date(Date.UTC(2045, 5, 5 + 7 * k)).toISOString().slice(0, 10);
+	await page.clock.setFixedTime(new Date(`${monday}T12:00:00`));
+	const title = `Offline stew ${Date.now().toString(36)}`;
+	const saved = async () => {
+		const res = await page.request.get(`/api/meals?week=${monday}`);
+		const all = (await res.json()) as { date: string; meal: string; title: string }[];
+		return all.filter((m) => m.date === monday && m.meal === 'dinner').map((m) => m.title);
+	};
+	const cell = page
+		.locator(`[data-testid="meals-day"][data-date="${monday}"]`)
+		.locator('[data-slot="dinner"]');
+	try {
+		await page.goto('/meals');
+		await page.evaluate(() => navigator.serviceWorker.ready);
+		await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+		await page.goto('/meals'); // under the worker's control, so the saved copies are filled
+		await expect(cell).toBeVisible();
+
+		await context.setOffline(true);
+		await expect(async () => {
+			await cell.click();
+			await expect(page.getByTestId('meal-input')).toBeVisible({ timeout: 1000 });
+		}).toPass();
+		await page.getByTestId('meal-input').fill(title);
+		await page.getByTestId('meal-save').click();
+		await expect(cell).toContainText(title);
+		await expect
+			.poll(() =>
+				page.evaluate(
+					() =>
+						new Promise<number>((resolve) => {
+							const req = indexedDB.open('hub-offline', 1);
+							req.onsuccess = () => {
+								const get = req.result.transaction('kv').objectStore('kv').get('write-queue');
+								get.onsuccess = () => resolve(((get.result as unknown[]) ?? []).length);
+							};
+						})
+				)
+			)
+			.toBe(1);
+		await page.reload();
+		await expect(cell).toContainText(title);
+
+		await context.setOffline(false);
+		await expect.poll(saved).toEqual([title]); // delivered, and once
+	} finally {
+		await context.setOffline(false);
+		await page.request.delete('/api/meals', {
+			headers: { 'content-type': 'application/json' },
+			data: { date: monday, meal: 'dinner' }
+		});
+	}
+});
+
+const MEAL_PROJECTS = [
+	'wall-landscape-1440p',
+	'wall-portrait-1440p',
+	'iphone-webkit',
+	'ipad-portrait-webkit',
+	'ipad-landscape-webkit'
+];
 
 /** Today's date as the kid screen sees it (the browser's local date). */
 const today = (page: Page) =>

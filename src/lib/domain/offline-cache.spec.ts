@@ -14,6 +14,7 @@ describe('routeKind', () => {
 		expect(kind('/api/calendar/status')).toBe('api');
 		expect(kind('/api/approvals/count')).toBe('api');
 		expect(kind('/api/routines')).toBe('api');
+		expect(kind('/api/meals')).toBe('api');
 	});
 
 	it('keeps photos separate', () => {

@@ -5,14 +5,16 @@
  */
 
 import { setStatus, type KidGroup } from './kid-chores.js';
+import { mealKey, mondayOf, isMealSlot } from './meals.js';
 import { advance, type KidRoutine } from './routines.js';
 
 /**
  * 'complete' | 'undo' | 'check' are kid chore taps (they carry a choreId); 'routine-step' is a
- * routine step tap (body `{ date, step }`, step index idempotent server-side). A new feature adds
+ * routine step tap (body `{ date, step }`, step index idempotent server-side); 'meal' is a meal
+ * plan edit (PUT `{ date, meal, title }` sets, DELETE `{ date, meal }` clears; both idempotent). A new feature adds
  * a kind here, sets `method` if it is not a POST, and (optionally) an overlay for reloads.
  */
-export type WriteKind = 'complete' | 'undo' | 'check' | 'routine-step';
+export type WriteKind = 'complete' | 'undo' | 'check' | 'routine-step' | 'meal';
 export type WriteMethod = 'POST' | 'PUT' | 'DELETE';
 export type SendResult = 'ok' | 'retry' | 'drop';
 export type DropReason = 'expired' | 'rejected';
@@ -195,4 +197,27 @@ export function overlayRoutineSteps(
 			)
 		])
 	);
+}
+
+/**
+ * Re-applies queued meal edits (in order) to one week's `date|slot -> text` map loaded from the
+ * server or a saved copy, so a reload offline still shows them.
+ */
+export function overlayMeals(
+	week: Record<string, string>,
+	monday: string,
+	writes: readonly QueuedWrite[]
+): Record<string, string> {
+	const edits = writes.filter((w) => w.kind === 'meal');
+	if (edits.length === 0) return week;
+	return edits.reduce((acc, w) => {
+		const b = w.body as { date?: unknown; meal?: unknown; title?: unknown } | null;
+		if (typeof b?.date !== 'string' || !isMealSlot(b.meal)) return acc;
+		if (mondayOf(b.date) !== monday) return acc;
+		const key = mealKey(b.date, b.meal);
+		if (w.method === 'DELETE') {
+			return Object.fromEntries(Object.entries(acc).filter(([k]) => k !== key));
+		}
+		return typeof b.title === 'string' ? { ...acc, [key]: b.title } : acc;
+	}, week);
 }
