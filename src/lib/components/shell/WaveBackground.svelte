@@ -18,12 +18,14 @@
 		waveHeld,
 		waveProfile,
 		resolvePalette,
+		seasonPalette,
 		tokenName,
 		WAVE_SPEED,
 		WAVE_START_TIME,
 		type PaletteValues,
 		type WavePalette
 	} from '#lib/domain/wave-background.js';
+	import { currentSeason } from '#lib/domain/season.js';
 	import { createWaveRenderer, type WaveRenderer } from './wave-gl.js';
 	import { powerState } from '#lib/display/power-state.svelte.js';
 	import { device, wave } from './wave-state.svelte.js';
@@ -43,8 +45,18 @@
 	let now = $state(Date.now());
 	const location = $derived(parseLocation(page.data.waveLocation));
 	const zone = $derived(typeof page.data.timeZone === 'string' ? page.data.timeZone : undefined);
+	// Holidays take over Auto (hub-6pv.6); `?season=` pins one for previews.
+	const season = $derived(currentSeason(page.url.searchParams, now, zone));
 	const palette = $derived(
-		covered ? null : resolvePalette(wave.choice, theme, autoPalette(theme, now, location, zone))
+		covered
+			? null
+			: resolvePalette(
+					wave.choice,
+					theme,
+					season.season
+						? seasonPalette(season.season, theme)
+						: autoPalette(theme, now, location, zone)
+				)
 	);
 	const wall = $derived(page.data.displayRole === 'wall');
 	const profile = $derived(waveProfile(wall));
@@ -206,6 +218,7 @@
 		aria-hidden="true"
 		data-testid="wave-background"
 		data-palette={palette}
+		data-season={season.season ?? 'none'}
 		data-device={device.off ? 'off' : 'show'}
 	>
 		{#if !failed && !device.off}

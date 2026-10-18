@@ -54,7 +54,8 @@ test('Auto draws a valid palette, and a picked palette applies and resets', asyn
 	page
 }, info) => {
 	await signInAsAdult(page, `e2e-wave-auto-${info.project.name}`);
-	await page.goto('/settings/background');
+	// No holiday, whatever the date the suite runs on.
+	await page.goto('/settings/background?season=none');
 	const bg = page.getByTestId('wave-background');
 	const valid = /^(dusk|sorbet)$/;
 	await expect(bg).toHaveAttribute('data-palette', valid);
@@ -66,6 +67,17 @@ test('Auto draws a valid palette, and a picked palette applies and resets', asyn
 		await page.getByRole('button', { name: 'Auto' }).click();
 		await expect(bg).toHaveAttribute('data-palette', valid, { timeout: 500 });
 	}).toPass();
+});
+
+// The calendar is unit-tested; `?season=` pins a holiday the way a preview does (hub-6pv.6).
+test('a pinned holiday takes over Auto', async ({ page }) => {
+	await page.goto('/?season=halloween');
+	const bg = page.getByTestId('wave-background');
+	await expect(bg).toHaveAttribute('data-season', 'halloween');
+	await expect(bg).toHaveAttribute('data-palette', /^halloween(-night)?$/);
+	await page.goto('/?season=none');
+	await expect(bg).toHaveAttribute('data-season', 'none');
+	await expect(bg).toHaveAttribute('data-palette', /^(dusk|sorbet|night)$/);
 });
 
 test('this device can hide the waves and remembers it', async ({ page }, info) => {
