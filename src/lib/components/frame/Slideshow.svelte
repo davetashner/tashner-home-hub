@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { longpress } from '#lib/actions/longpress.js';
 	import FrameOverlay from '#lib/components/frame/FrameOverlay.svelte';
+	import LiveClip from '#lib/components/frame/LiveClip.svelte';
 	import HidePhotoSheet from '#lib/components/frame/HidePhotoSheet.svelte';
 	import EmptyState from '#lib/components/shell/EmptyState.svelte';
 	import {
@@ -10,6 +11,7 @@
 		daySeed,
 		DEFAULT_SLIDESHOW,
 		kenBurns,
+		motionSrc,
 		needsBackdrop,
 		parseSlideshowSettings,
 		photoSrc,
@@ -33,6 +35,10 @@
 		bg: string | null;
 		motion: Motion | null;
 		caption: string | null;
+		/** Live Photo clip to play over the still, when the setting is on. */
+		clip: string | null;
+		/** Set once the clip has played or failed, so it is not retried. */
+		clipDone?: boolean;
 		ready: boolean;
 	}
 
@@ -89,7 +95,17 @@
 			settings.onThisDay === 'off'
 				? null
 				: onThisDayCaption(photo.takenAt, calendarDay(new Date()));
-		return { key: steps, id: photo.id, main, bg: bgOk ? bg : null, motion, caption, ready: false };
+		const clip = settings.livePhotos === 'on' && photo.motion ? motionSrc(photo.id) : null;
+		return {
+			key: steps,
+			id: photo.id,
+			main,
+			bg: bgOk ? bg : null,
+			motion,
+			caption,
+			clip,
+			ready: false
+		};
 	}
 
 	function preload(photo: SlidePhoto) {
@@ -259,6 +275,14 @@
 								class="absolute inset-0 size-full object-contain"
 								data-part="main"
 							/>
+							{#if slot.clip && slot.ready && i === front && !slot.clipDone}
+								<LiveClip
+									src={slot.clip}
+									ondone={() => {
+										if (slots[i]?.key === slot.key) slots[i] = { ...slot, clipDone: true };
+									}}
+								/>
+							{/if}
 						</div>
 						{#if slot.caption}
 							<p

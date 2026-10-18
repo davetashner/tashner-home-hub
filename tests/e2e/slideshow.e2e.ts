@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
@@ -16,6 +17,7 @@ interface Photo {
 	w: number;
 	h: number;
 	takenAt?: number | null;
+	motion?: boolean;
 }
 
 /**
@@ -361,4 +363,85 @@ test('grown-ups choose the on this day mode @J8.4', async ({ page }) => {
 	);
 	await group.getByRole('button', { name: 'Only' }).click();
 	await expect.poll(() => saved).toEqual([{ onThisDay: 'favor' }, { onThisDay: 'only' }]);
+});
+
+// A 1 s, 64x36 solid-colour WebM (under 1 KB): the tiniest clip Chromium plays without H.264.
+const clip = readFileSync(new URL('./fixtures/clip.webm', import.meta.url));
+
+/** Stubs the Live Photo clip route; returns the requests made. */
+async function stubClip(page: Page, status = 200) {
+	const requested: string[] = [];
+	await page.route(/\/api\/photo\/[^/?]+\/motion$/, (route) => {
+		requested.push(route.request().url());
+		return status === 200
+			? route.fulfill({ contentType: 'video/webm', body: clip })
+			: route.fulfill({ status });
+	});
+	return requested;
+}
+
+const live = { intervalSeconds: 600, transition: 'kenburns', livePhotos: 'on' };
+
+test('a Live Photo plays its clip once over the still, then holds on the still', async ({
+	page
+}, info) => {
+	const photo = { id: `${info.project.name}-live`, w: 640, h: 360, motion: true };
+	await stubFrame(page, [photo], live);
+	await stubClip(page);
+	await gotoHydrated(page, '/photos');
+
+	const front = page.getByTestId('slideshow').locator('[data-front="true"]');
+	const video = front.getByTestId('live-clip');
+	await expect(front.locator('[data-part="main"]')).toBeVisible();
+	await expect(video).toHaveAttribute('data-visible', 'true');
+	await expect(video).toHaveJSProperty('muted', true);
+	await expect(front.locator('video')).toHaveCount(1);
+	// Played once: the element goes away after it ends and the still is all that is left.
+	await expect(video).toHaveCount(0, { timeout: 10_000 });
+	await expect(front.locator('[data-part="main"]')).toBeVisible();
+	await expect(front).toHaveAttribute('data-photo-id', photo.id);
+});
+
+test('with Live Photos off, or no clip, no video is loaded', async ({ page }, info) => {
+	const photo = { id: `${info.project.name}-off`, w: 640, h: 360, motion: true };
+	await stubFrame(page, [photo], { ...live, livePhotos: 'off' });
+	const requested = await stubClip(page);
+	await gotoHydrated(page, '/photos');
+	await expect(page.locator('[data-part="main"]')).toBeVisible();
+	await page.waitForTimeout(1500);
+	await expect(page.locator('video')).toHaveCount(0);
+	expect(requested).toEqual([]);
+});
+
+test('a clip that fails to load leaves the still alone', async ({ page }, info) => {
+	const photo = { id: `${info.project.name}-broken`, w: 640, h: 360, motion: true };
+	await stubFrame(page, [photo], live);
+	const requested = await stubClip(page, 500);
+	await gotoHydrated(page, '/photos');
+	await expect.poll(() => requested.length).toBeGreaterThan(0);
+	await expect(page.locator('video')).toHaveCount(0, { timeout: 5_000 });
+	await expect(page.locator('[data-front="true"] [data-part="main"]')).toBeVisible();
+});
+
+test('grown-ups turn Live Photos on in Settings, Screen', async ({ page }) => {
+	await page.route('**/api/settings/slideshow', (route) =>
+		route.request().method() === 'GET'
+			? route.fulfill({ json: { intervalSeconds: 30, transition: 'fade', livePhotos: 'off' } })
+			: route.fallback()
+	);
+	const saved: unknown[] = [];
+	await page.route('**/api/settings/slideshow', (route) => {
+		if (route.request().method() !== 'PUT') return route.fallback();
+		saved.push(route.request().postDataJSON());
+		return route.fulfill({ json: { intervalSeconds: 30, transition: 'fade', livePhotos: 'on' } });
+	});
+	await signInAsAdult(page, 'e2e-live-photos-adult');
+	await gotoHydrated(page, '/settings/screen');
+	const group = page.getByRole('group', { name: 'Play Live Photos' });
+	await expect(group.getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true');
+	const on = group.getByRole('button', { name: 'On' });
+	await expectTappable(on);
+	await on.click();
+	await expect(on).toHaveAttribute('aria-pressed', 'true');
+	await expect.poll(() => saved).toEqual([{ livePhotos: 'on' }]);
 });

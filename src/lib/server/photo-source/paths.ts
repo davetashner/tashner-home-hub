@@ -30,7 +30,11 @@ export async function validateRoot(root: unknown, env = process.env): Promise<st
 }
 
 /** Cache resolver: folder-source paths are relative to the source root; others are absolute or cwd-relative. */
-export function resolvePhotoPath(db: Db, photo: typeof schema.photos.$inferSelect): string {
+export function resolvePhotoPath(
+	db: Db,
+	photo: typeof schema.photos.$inferSelect,
+	rel = photo.filePath
+): string {
 	const source = db
 		.select()
 		.from(schema.photoSources)
@@ -38,9 +42,14 @@ export function resolvePhotoPath(db: Db, photo: typeof schema.photos.$inferSelec
 		.get();
 	const root = source?.kind === 'folder' ? parseConfig(source.config).root : '';
 	if (root) {
-		const full = safeJoin(root, photo.filePath);
+		const full = safeJoin(root, rel);
 		if (!full) throw new PhotoSourceError('Photo path escapes its folder');
 		return full;
 	}
-	return isAbsolute(photo.filePath) ? photo.filePath : join(process.cwd(), photo.filePath);
+	return isAbsolute(rel) ? rel : join(process.cwd(), rel);
+}
+
+/** The Live Photo clip of a photo, or null; held to the same path-safety checks as the still. */
+export function resolveMotionPath(db: Db, photo: typeof schema.photos.$inferSelect): string | null {
+	return photo.motionPath ? resolvePhotoPath(db, photo, photo.motionPath) : null;
 }

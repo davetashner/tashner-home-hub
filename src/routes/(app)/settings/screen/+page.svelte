@@ -30,6 +30,7 @@
 		intervalLabel,
 		parseSlideshowSettings,
 		stepInterval,
+		type LivePhotoMode,
 		type SlideshowSettings,
 		type Transition
 	} from '#lib/domain/slideshow.js';
@@ -184,6 +185,11 @@
 		only: 'Only photos from this time of year in earlier years, once there are enough of them.'
 	};
 
+	const livePhotoModes: { value: LivePhotoMode; label: string }[] = [
+		{ value: 'off', label: 'Off' },
+		{ value: 'on', label: 'On' }
+	];
+
 	const rows = [
 		{
 			key: 'homeMinutes',
@@ -334,6 +340,23 @@
 				</div>
 				<p class="text-body text-ink-muted">
 					{onThisDayLines[slideshow.onThisDay]} Within three days of today.
+				</p>
+			</div>
+			<div class="flex flex-col gap-4">
+				<div class="flex flex-wrap items-center justify-between gap-6">
+					<h2 class="text-title font-bold">Play Live Photos</h2>
+					<div class="flex flex-wrap gap-4" role="group" aria-label="Play Live Photos">
+						{#each livePhotoModes as m (m.value)}
+							<Button
+								variant={slideshow.livePhotos === m.value ? 'primary' : 'secondary'}
+								aria-pressed={slideshow.livePhotos === m.value}
+								onclick={() => changeSlideshow({ livePhotos: m.value })}>{m.label}</Button
+							>
+						{/each}
+					</div>
+				</div>
+				<p class="text-body text-ink-muted">
+					Photos with a short clip play it once, without sound, then stay on the still.
 				</p>
 			</div>
 		</div>
