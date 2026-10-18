@@ -17,9 +17,11 @@
 		type MealEntry,
 		type MealSlot
 	} from '#lib/domain/meals.js';
+	import { overlayMeals } from '#lib/domain/write-queue.js';
+	import { deliver, onWriteDropped, writeQueue } from '#lib/offline/client.js';
+	import { offline } from '#lib/offline/state.svelte.js';
 	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 
-	const JSON_HEADERS = { 'content-type': 'application/json' };
 	const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 	let tz = $state('UTC');
@@ -43,7 +45,11 @@
 	async function load(monday: DateKey) {
 		try {
 			const res = await fetch(`/api/meals?week=${monday}`);
-			if (res.ok) cache[monday] = Object.fromEntries(mealMap((await res.json()) as MealEntry[]));
+			if (res.ok) {
+				const fresh = Object.fromEntries(mealMap((await res.json()) as MealEntry[]));
+				// Edits still waiting in the write queue win over what the server (or a saved copy) says.
+				cache[monday] = overlayMeals(fresh, monday, await writeQueue.pending().catch(() => []));
+			}
 		} catch {
 			// Offline: keep whatever is cached.
 		}
@@ -53,7 +59,16 @@
 		if (mounted) void load(week);
 	});
 
+	// Queued edits just reached the server: pick up the real state.
+	$effect(() => {
+		if (offline.synced > 0 && mounted) void load(week);
+	});
+
 	onMount(() => {
+		onWriteDropped(() => {
+			failed = true;
+			void load(week);
+		});
 		tz = resolveTimeZone(page.data.timeZone, runtimeZone());
 		today = dateKeyOf(Date.now(), tz);
 		week = currentWeek(Date.now(), tz);
@@ -80,24 +95,13 @@
 		else next[key] = text;
 		cache[monday] = next;
 		failed = false;
-		let ok: boolean;
-		try {
-			const res =
-				text === null
-					? await fetch('/api/meals', {
-							method: 'DELETE',
-							headers: JSON_HEADERS,
-							body: JSON.stringify({ date, meal })
-						})
-					: await fetch('/api/meals', {
-							method: 'PUT',
-							headers: JSON_HEADERS,
-							body: JSON.stringify({ date, meal, title: text })
-						});
-			ok = res.ok;
-		} catch {
-			ok = false;
-		}
+		// Through the write queue: offline, the edit waits in IndexedDB and replays when the hub is back.
+		const sent = await deliver(
+			text === null
+				? { kind: 'meal', method: 'DELETE', url: '/api/meals', body: { date, meal } }
+				: { kind: 'meal', method: 'PUT', url: '/api/meals', body: { date, meal, title: text } }
+		).catch(() => ({ sent: false, queued: false }) as const);
+		const ok = sent.sent || sent.queued;
 		if (!ok) {
 			failed = true;
 			const back = { ...cache[monday] };

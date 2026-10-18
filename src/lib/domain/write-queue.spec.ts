@@ -3,6 +3,7 @@ import type { KidGroup } from './kid-chores';
 import type { KidRoutine } from './routines';
 import {
 	backoffMs,
+	overlayMeals,
 	overlayQueued,
 	overlayRoutineSteps,
 	classifyStatus,
@@ -310,5 +311,66 @@ describe('routine step writes', () => {
 	it('overlayQueued ignores writes with no chore', () => {
 		const board: KidGroup[] = [{ timeOfDay: 'morning', chores: [] }];
 		expect(overlayQueued(board, 'm', [queued('r1', 'routine-step', 0)])).toEqual(board);
+	});
+});
+
+describe('meal writes', () => {
+	const meal = (method: 'PUT' | 'DELETE', body: unknown, kind: QueuedWrite['kind'] = 'meal') =>
+		({
+			id: 'i',
+			key: 'i',
+			kind,
+			url: '/api/meals',
+			method,
+			body,
+			queuedAt: 0,
+			expiresAt: null,
+			attempts: 0,
+			nextAt: 0
+		}) satisfies QueuedWrite;
+	const MON = '2026-10-12';
+	const week = { '2026-10-12|dinner': 'Soup', '2026-10-13|lunch': 'Rice' };
+
+	it('queues PUT and DELETE with their url and body, replaying in order', async () => {
+		const s = setup();
+		await s.queue.enqueue({
+			kind: 'meal',
+			method: 'PUT',
+			url: '/api/meals',
+			body: { date: MON, meal: 'dinner', title: 'Soup' }
+		});
+		await s.queue.enqueue({
+			kind: 'meal',
+			method: 'DELETE',
+			url: '/api/meals',
+			body: { date: MON, meal: 'dinner' }
+		});
+		expect(await s.queue.flush()).toBe(2);
+		expect(s.sent.map((w) => w.method)).toEqual(['PUT', 'DELETE']);
+		expect(s.sent[0]).not.toHaveProperty('choreId');
+	});
+
+	it('overlays sets and clears in order on the right week only', () => {
+		expect(overlayMeals(week, MON, [])).toBe(week);
+		const out = overlayMeals(week, MON, [
+			meal('PUT', { date: MON, meal: 'dinner', title: 'Pasta' }),
+			meal('PUT', { date: '2026-10-14', meal: 'snack', title: 'Apple' }),
+			meal('DELETE', { date: '2026-10-13', meal: 'lunch' }),
+			meal('PUT', { date: '2026-10-19', meal: 'dinner', title: 'Other week' }),
+			meal('PUT', { date: MON, meal: 'brunch', title: 'bad slot' }),
+			meal('PUT', { date: MON, meal: 'lunch' }),
+			meal('PUT', null),
+			meal('PUT', { date: MON, meal: 'lunch', title: 'ignored' }, 'complete')
+		]);
+		expect(out).toEqual({ '2026-10-12|dinner': 'Pasta', '2026-10-14|snack': 'Apple' });
+		expect(week['2026-10-13|lunch']).toBe('Rice');
+	});
+
+	it('a later set after a clear wins', () => {
+		const out = overlayMeals(week, MON, [
+			meal('DELETE', { date: MON, meal: 'dinner' }),
+			meal('PUT', { date: MON, meal: 'dinner', title: 'Back' })
+		]);
+		expect(out['2026-10-12|dinner']).toBe('Back');
 	});
 });
