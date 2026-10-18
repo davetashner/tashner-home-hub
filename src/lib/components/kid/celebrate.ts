@@ -16,6 +16,8 @@ export interface CelebrateDetail {
 	origin: HTMLElement | null;
 	/** The star jar element (bound from StarJar), for the star's landing position. */
 	jar: HTMLElement | null;
+	/** True when the stars count at once (no grown-up's OK): they land as gold, not outline. */
+	gold?: boolean;
 }
 
 const FLIGHT_MS = 820;
@@ -123,7 +125,7 @@ function slots(jar: HTMLElement, kind: 'outline' | 'gold', n: number): SVGElemen
 
 /** Called synchronously from the tap handler, right after the optimistic update. */
 export function celebrate(detail: CelebrateDetail): void {
-	const { origin, jar, stars } = detail;
+	const { origin, jar, stars, gold } = detail;
 	const t0 = performance.now();
 	playTap(stars);
 	const from = origin ? center(origin.getBoundingClientRect()) : null; // before Svelte re-renders
@@ -137,12 +139,12 @@ export function celebrate(detail: CelebrateDetail): void {
 			origin: { x: from.x / innerWidth, y: from.y / innerHeight }
 		});
 	}
-	// The pending slot is rendered in a microtask (after Svelte flushes); this runs right after it.
+	// The new jar slot (outline, or gold when self-serve) is rendered in a microtask (after Svelte flushes); this runs right after it.
 	const syncMs = performance.now() - t0;
 	queueMicrotask(() => {
 		const t1 = performance.now();
 		const t2 = performance.now();
-		const targets = jar ? slots(jar, 'outline', stars) : [];
+		const targets = jar ? slots(jar, gold ? 'gold' : 'outline', stars) : [];
 		targets.forEach((slot, i) => {
 			if (!motion || !from) {
 				slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' });

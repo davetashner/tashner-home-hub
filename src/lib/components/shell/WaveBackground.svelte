@@ -26,6 +26,8 @@
 		type WavePalette
 	} from '#lib/domain/wave-background.js';
 	import { currentSeason } from '#lib/domain/season.js';
+	import { showSprites } from '#lib/domain/season-sprites.js';
+	import SeasonalLayer from './SeasonalLayer.svelte';
 	import { createWaveRenderer, type WaveRenderer } from './wave-gl.js';
 	import { powerState } from '#lib/display/power-state.svelte.js';
 	import { device, wave } from './wave-state.svelte.js';
@@ -57,6 +59,10 @@
 						? seasonPalette(season.season, theme)
 						: autoPalette(theme, now, location, zone)
 				)
+	);
+	// Holiday sprites (hub-6pv.6.2) go with the holiday palette: Auto only, never behind the frame.
+	const sprites = $derived(
+		showSprites({ choice: wave.choice, season: season.season, covered, deviceOff: device.off })
 	);
 	const wall = $derived(page.data.displayRole === 'wall');
 	const profile = $derived(waveProfile(wall));
@@ -223,6 +229,9 @@
 	>
 		{#if !failed && !device.off}
 			<canvas bind:this={canvas} data-palette={palette} data-drawn={drawn}></canvas>
+		{/if}
+		{#if sprites}
+			<SeasonalLayer season={season.season} still={paused || reduced} />
 		{/if}
 	</div>
 {/if}

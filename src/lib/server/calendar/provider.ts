@@ -1,4 +1,5 @@
 import type { schema } from '../db/index.js';
+import type { NewEvent } from '../domain/calendar/ics-build.js';
 import type { RemoteCalendar, RemoteEvent, Window } from '../domain/calendar/types.js';
 
 export type { RemoteCalendar, RemoteEvent, RemoteTime, Window } from '../domain/calendar/types.js';
@@ -8,6 +9,8 @@ export interface CalendarProvider {
 	listCalendars(): Promise<RemoteCalendar[]>;
 	/** Raw events (masters and overrides, unexpanded) that may overlap `window`. */
 	fetchEvents(calendarId: string, window: Window): Promise<RemoteEvent[]>;
+	/** Writes a new event to `calendarId` (CAL-9). Absent on read-only providers. Returns the new UID. */
+	createEvent?(calendarId: string, event: NewEvent): Promise<{ uid: string }>;
 }
 
 export type CalendarSource = typeof schema.calendarSources.$inferSelect;

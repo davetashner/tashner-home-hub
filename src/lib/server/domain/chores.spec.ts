@@ -14,6 +14,7 @@ import {
 } from './chores.js';
 import { completeChore, approveCompletion, rejectCompletion, undoCompletion } from './ledger.js';
 import { LedgerError } from './ledger.js';
+import { setApprovalDefault } from './approval-setting.js';
 
 const TZ = 'America/Chicago';
 const clock = { now: Date.UTC(2026, 0, 5, 18), timeZone: TZ }; // 2026-01-05, a Monday
@@ -53,10 +54,18 @@ describe('validation', () => {
 			memberIds: ['kid', 'mom'],
 			stars: 1,
 			timeOfDay: 'anytime',
-			requiresApproval: true,
+			requiresApproval: false,
 			archived: false,
 			schedule: { type: 'daily', start: '2026-01-05' }
 		});
+		expect(createChore(db, { title: 'x', requiresApproval: true }, clock).requiresApproval).toBe(
+			true
+		);
+	});
+
+	it('starts new chores with approval when the household setting is on', () => {
+		setApprovalDefault(db, true);
+		expect(createChore(db, { title: 'Dishes' }, clock).requiresApproval).toBe(true);
 		expect(createChore(db, { title: 'x', requiresApproval: false }, clock).requiresApproval).toBe(
 			false
 		);
@@ -281,7 +290,11 @@ describe('choresForDay', () => {
 	});
 
 	it("joins today's completion status (best state wins, other days ignored)", () => {
-		const c = createChore(db, { title: 'Dishes', memberIds: ['kid'] }, clock);
+		const c = createChore(
+			db,
+			{ title: 'Dishes', memberIds: ['kid'], requiresApproval: true },
+			clock
+		);
 		const status = (date = '2026-01-05') => choresForDay(db, 'kid', date, TZ)[0].chores[0];
 		expect(status()).toMatchObject({ status: 'none', completionId: null });
 
@@ -356,5 +369,31 @@ describe('habits (hub-esf)', () => {
 		expect(undoCompletion(db, completion.id, { now: clock.now, byAdult: false }).status).toBe(
 			'undone'
 		);
+	});
+});
+
+describe('habit follow-ups (hub-obz)', () => {
+	const habit = () =>
+		createChore(db, { title: 'Feed the fish', kind: 'habit', memberIds: ['kid'] }, clock);
+
+	it('accepts requiresApproval:false on a habit, as a no-op', () => {
+		const h = habit();
+		expect(updateChore(db, h.id, { requiresApproval: false }, clock)).toMatchObject({
+			kind: 'habit',
+			requiresApproval: false
+		});
+	});
+
+	it('cannot approve or reject a habit completion, which is already approved', () => {
+		const h = habit();
+		const { completion } = completeChore(db, {
+			choreId: h.id,
+			memberId: 'kid',
+			date: '2026-01-05',
+			now: clock.now
+		});
+		expect(code(() => approveCompletion(db, completion.id))).not.toBe('none');
+		expect(code(() => rejectCompletion(db, completion.id))).not.toBe('none');
+		expect(db.select().from(schema.starTransactions).all()).toEqual([]);
 	});
 });

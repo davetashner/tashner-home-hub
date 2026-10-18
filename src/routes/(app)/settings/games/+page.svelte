@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
 	import { onMount } from 'svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
@@ -32,13 +33,13 @@
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
-		const res = await fetch(editing ? `/api/games/${editing}` : '/api/games', {
+		const res = await safeFetch(editing ? `/api/games/${editing}` : '/api/games', {
 			method: editing ? 'PATCH' : 'POST',
 			headers: JSON_HEADERS,
 			body: JSON.stringify({ title, url, image: image.trim() || null })
 		});
 		if (!res.ok) {
-			message = (await res.json().catch(() => null))?.message ?? 'Could not save';
+			message = await errorMessage(res);
 			return;
 		}
 		editing = null;
