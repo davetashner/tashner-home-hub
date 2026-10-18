@@ -23,6 +23,7 @@ say() { echo "==> $*"; }
 : "${RESOLUTION:=2560x1440}"
 : "${TOUCH_MATRIX:=}"
 : "${INPUT:=touch}"
+: "${CEC_MODE:=fallback}"
 : "${BT_SPEAKER:=}"
 : "${SPEAKER_API_TOKEN_FILE:=/etc/hub-kiosk/speaker-api.token}"
 : "${SPOTIFY_CONNECT:=off}"
@@ -32,6 +33,8 @@ case "$ORIENTATION" in normal | 90 | 180 | 270) ;; *) die "ORIENTATION must be n
 [[ "$RESOLUTION" =~ ^[0-9]+x[0-9]+$ ]] || die "RESOLUTION must look like 2560x1440"
 [[ "$HUB_URL" =~ ^https?:// ]] || die "HUB_URL must start with http:// or https://"
 case "$INPUT" in touch | mouse) ;; *) die "INPUT must be touch|mouse" ;; esac
+case "$CEC_MODE" in fallback | also) ;; *) die "CEC_MODE must be fallback|also" ;; esac
+[ "$CEC_MODE" != also ] || [ -n "${CEC_BACKEND:-}" ] || die "CEC_MODE=also needs CEC_BACKEND=cec-ctl|cec-client"
 case "$SPOTIFY_CONNECT" in on | off) ;; *) die "SPOTIFY_CONNECT must be on|off" ;; esac
 [[ "$SPOTIFY_INITIAL_VOLUME" =~ ^([0-9]|[1-9][0-9]|100)$ ]] || die "SPOTIFY_INITIAL_VOLUME must be 0-100"
 

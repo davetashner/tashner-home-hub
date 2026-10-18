@@ -20,6 +20,8 @@ export interface RemoteFacts {
 	health: string | null;
 	/** Absent when the remote script had no wake section. */
 	wake?: WakeFacts;
+	/** Absent unless kiosk.conf has CEC_MODE=also. */
+	cec?: CecFacts;
 	/** Absent when the remote script had no speaker section. */
 	speaker?: SpeakerFacts;
 	/** Absent unless kiosk.conf has SPOTIFY_CONNECT=on. */
@@ -32,6 +34,12 @@ export interface SpotifyFacts {
 	credentials: boolean;
 	/** "Hub" is advertised over mDNS; null when avahi-browse is missing. */
 	advertised: boolean | null;
+}
+export interface CecFacts {
+	device: string;
+	/** The CEC device node exists on the Pi. */
+	present: boolean;
+	backend: string | null;
 }
 export interface WakeFacts {
 	input: string;
@@ -91,3 +99,4 @@ export declare function summarize(checks: Check[]): {
 	warn: number;
 	fail: number;
 };
+export declare function parseCec(text: string): CecFacts;
