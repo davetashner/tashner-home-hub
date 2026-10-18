@@ -24,6 +24,7 @@ export const EXPORT_TABLES = [
 	'photos',
 	'chores',
 	'chore_completions',
+	'missed_judgments',
 	'rewards',
 	'star_transactions',
 	'goals',

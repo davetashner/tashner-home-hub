@@ -6,6 +6,7 @@ import { startBackupScheduler } from '#lib/server/backup.js';
 import { resolveAdult } from '#lib/server/auth.js';
 import { startPhotoScanner } from '#lib/server/photo-source/scheduler.js';
 import { startCalendarScheduler } from '#lib/server/calendar/scheduler.js';
+import { startMissedScheduler } from '#lib/server/missed-scheduler.js';
 import { startWeatherScheduler } from '#lib/server/weather.js';
 // Side-effect imports register the real calendar providers before the first scheduled sync.
 import '#lib/server/calendar/ics.js';
@@ -51,5 +52,6 @@ export function init(): void {
 	trackJob(startBackupScheduler());
 	trackJob(startCalendarScheduler());
 	trackJob(startWeatherScheduler());
+	trackJob(startMissedScheduler());
 	trackJob(startPhotoScanner());
 }
