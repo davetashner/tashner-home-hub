@@ -1,0 +1,6 @@
+{
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": { "@playwright/test": ["./fixture.mjs"] }
+	}
+}

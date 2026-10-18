@@ -66,7 +66,11 @@ and so only cover the `IOS_SPECS` tests.
 For each device it builds the app, starts it on a fresh data dir, runs the step-tagged tests one at
 a time in one browser with Playwright video on, and (with ffmpeg) assembles one video per journey:
 a title card, a clip per test, and an end card with the pass and fail counts. Without ffmpeg the
-per-test `.webm` clips and the report are kept.
+per-test `.webm` clips and the report are kept. Each page gets a caption banner (step id, the
+registry's text, test file and name, Running then Passed, or Failed in red with the assertion), a
+drawn cursor and a tap ripple. The overlay comes from a fixture that stands in for
+`@playwright/test` through `scripts/journey-videos/tsconfig.json`, so the specs run unchanged and
+the app is never touched. The banner is drawn over the top of the page and does not move the layout.
 
 Output goes to `reports/journeys/<timestamp>/`: `index.html` lists every step with its result and
 links the videos. `/reports` is gitignored. Never commit or attach the videos: the data is
