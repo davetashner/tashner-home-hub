@@ -33,6 +33,24 @@ export function scopedId(calendarId: string, instanceId: string): string {
 	return `${encodeURIComponent(calendarId)}::${instanceId}`;
 }
 
+/** Inverse of `scopedId` for a stored event: its calendar, the iCalendar UID and the instance key. */
+export function parseScopedId(
+	externalId: string
+): { calendarId: string; uid: string; instance: string } | null {
+	const first = externalId.indexOf('::');
+	const last = externalId.lastIndexOf('::');
+	if (first < 0 || last <= first) return null;
+	try {
+		return {
+			calendarId: decodeURIComponent(externalId.slice(0, first)),
+			uid: externalId.slice(first + 2, last),
+			instance: externalId.slice(last + 2)
+		};
+	} catch {
+		return null;
+	}
+}
+
 const FIELDS = [
 	'title',
 	'startsAt',
