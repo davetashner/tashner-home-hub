@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { seedKid, stubAudio } from './kid';
+import { gotoHydrated } from './hydrated';
 import { expectTappable } from './tap';
 
 test('the kid steps through a routine, a reload resumes, and it celebrates at the end', async ({
@@ -119,6 +120,48 @@ test('a kid scrolls to and opens a routine at tablet and phone-landscape sizes',
 				await expectTappable(control, 96);
 			}
 			await page.getByTestId('routine-close').click();
+			await expect(player).toHaveCount(0);
+		});
+	}
+});
+
+test('the routine complete screen fits without scrolling at tablet and phone-landscape sizes', async ({
+	page
+}, info) => {
+	const seed = await seedKid(page, `routine-done-${info.project.name}`);
+	await stubAudio(page);
+
+	// A finished routine disappears for the day, so each size gets its own.
+	const names = new Map<number, string>();
+	for (const screen of smallScreens) {
+		const name = `Finish ${screen.width}x${screen.height} ${Date.now() % 1e9}`;
+		names.set(screen.height, name);
+		const made = await page.request.post('/api/routines', {
+			data: { memberId: seed.memberId, name, steps: [{ label: 'Pajamas on', icon: 'shirt' }] }
+		});
+		expect(made.status()).toBe(201);
+	}
+	await page.context().clearCookies();
+
+	for (const screen of smallScreens) {
+		await test.step(screen.name, async () => {
+			const name = names.get(screen.height)!;
+			await page.setViewportSize({ width: screen.width, height: screen.height });
+			await gotoHydrated(page, `/chores?member=${seed.memberId}`);
+			const button = page.getByTestId('routine-button').filter({ hasText: name });
+			await button.scrollIntoViewIfNeeded();
+			await button.click();
+			await expect(page.getByTestId('routine-step')).toContainText('Pajamas on');
+			await page.getByTestId('routine-done').click();
+
+			const player = page.getByTestId('routine-player');
+			await expect(page.getByTestId('routine-complete')).toBeVisible();
+			expect(await player.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+			await expect(page.getByTestId('routine-complete')).toBeInViewport({ ratio: 1 });
+			const close = page.getByTestId('routine-close');
+			await expect(close).toBeInViewport({ ratio: 1 });
+			await expectTappable(close, 96);
+			await close.click();
 			await expect(player).toHaveCount(0);
 		});
 	}

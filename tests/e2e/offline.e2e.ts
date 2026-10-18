@@ -127,3 +127,81 @@ test('one child whose chores will not load does not blank the other kids', async
 	await expect(page.getByText('No one is here yet')).toHaveCount(0);
 	await expect(page.getByTestId('partial-note')).toBeVisible();
 });
+
+test('a routine step tapped offline survives a reload and is saved once back online', async ({
+	page,
+	context
+}, info) => {
+	await page.addInitScript(() => localStorage.setItem('hub.sw', 'on'));
+	const s = await seed(page, `${info.project.name}-routine`);
+	await signInAsAdult(page, s.adult);
+	const name = `Offline ${Date.now() % 1e9}`;
+	const made = await page.request.post('/api/routines', {
+		data: {
+			memberId: s.memberId,
+			name,
+			steps: [
+				{ label: 'Pajamas on', icon: 'shirt' },
+				{ label: 'Brush teeth', icon: 'toothbrush' }
+			]
+		}
+	});
+	expect(made.status()).toBe(201);
+	const routine = (await made.json()) as { id: string };
+	await page.context().clearCookies();
+
+	const chores = `/chores?member=${s.memberId}`;
+	const open = async () => {
+		const button = page.getByTestId('routine-button').filter({ hasText: name });
+		await expect(async () => {
+			await button.click();
+			await expect(page.getByTestId('routine-player')).toBeVisible();
+		}).toPass();
+	};
+	const savedSteps = async () => {
+		const res = await page.request.get(`/api/routines?date=${await today(page)}`);
+		const all = (await res.json()) as { id: string; done: number }[];
+		return all.find((r) => r.id === routine.id)?.done;
+	};
+
+	await page.goto(chores);
+	await page.evaluate(() => navigator.serviceWorker.ready);
+	await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+	await page.goto(chores); // under the worker's control, so the saved copies are filled
+	await expect(page.getByTestId('routine-button').filter({ hasText: name })).toBeVisible();
+
+	await context.setOffline(true);
+	await open();
+	await page.getByTestId('routine-done').click();
+	await expect(page.getByTestId('routine-step')).toContainText('Brush teeth');
+
+	// The tap is parked in IndexedDB (the write queue) a moment after the optimistic update.
+	await expect
+		.poll(() =>
+			page.evaluate(
+				() =>
+					new Promise<number>((resolve) => {
+						const req = indexedDB.open('hub-offline', 1);
+						req.onsuccess = () => {
+							const get = req.result.transaction('kv').objectStore('kv').get('write-queue');
+							get.onsuccess = () => resolve(((get.result as unknown[]) ?? []).length);
+						};
+					})
+			)
+		)
+		.toBe(1);
+	await page.reload(); // the tap is only in the write queue now
+	await open();
+	await expect(page.getByTestId('routine-step')).toContainText('Brush teeth');
+
+	await context.setOffline(false);
+	await expect.poll(savedSteps).toBe(1); // delivered, and once
+});
+
+/** Today's date as the kid screen sees it (the browser's local date). */
+const today = (page: Page) =>
+	page.evaluate(() => {
+		const d = new Date();
+		const p = (n: number) => String(n).padStart(2, '0');
+		return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+	});
