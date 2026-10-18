@@ -60,6 +60,12 @@
 			line: 'Everyday things with no stars; doing them all earns one.'
 		},
 		{
+			href: resolve('/(app)/settings/vacation'),
+			emoji: '🏖️',
+			title: 'Vacation',
+			line: 'Pause streaks while the family is away.'
+		},
+		{
 			href: resolve('/(app)/settings/routines'),
 			emoji: '🪥',
 			title: 'Routines',

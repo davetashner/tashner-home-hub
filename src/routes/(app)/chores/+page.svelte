@@ -10,6 +10,8 @@
 	import StarJar, { type Goal } from '#lib/components/kid/StarJar.svelte';
 	import AllDoneBanner from '#lib/components/kid/AllDoneBanner.svelte';
 	import EarnedBanner from '#lib/components/kid/EarnedBanner.svelte';
+	import VacationCard from '#lib/components/kid/VacationCard.svelte';
+	import { isVacationDay } from '#lib/domain/vacation.js';
 	import StreakBadge from '#lib/components/kid/StreakBadge.svelte';
 	import StreakBanner from '#lib/components/kid/StreakBanner.svelte';
 	import RoutineIcon from '#lib/components/kid/RoutineIcon.svelte';
@@ -119,6 +121,8 @@
 	const kids = $derived(kidsToShow(members, boards, routinesBy, nowMinutes));
 	const stars = $derived((selectedId && starsBy[selectedId]) || { balance: 0, pending: 0 });
 	const streak = $derived(selectedId ? (streaks[selectedId] ?? null) : null);
+	/** Household vacation (hub-k0w): the board shows a paused card instead of the day's to-dos. */
+	const onVacation = $derived(isVacationDay(page.data.vacation ?? null, localDate(Date.now(), tz)));
 	const routines = $derived(selectedId ? (routinesBy[selectedId] ?? []) : []);
 	const offered = $derived(activeRoutines(routines, nowMinutes));
 	const player = $derived(routines.find((r) => r.id === playing) ?? null);
@@ -581,7 +585,7 @@
 						</p>
 					{/if}
 				</div>
-				{#if streak && streak.days > 0}
+				{#if streak && streak.days > 0 && !onVacation}
 					<StreakBadge days={streak.days} nextDays={streak.next?.days ?? null} />
 				{/if}
 				{#if kids.length > 1}
@@ -615,7 +619,9 @@
 			<div
 				class="flex grow flex-col gap-10 portrait:order-3 short:col-start-2 short:row-span-3 short:row-start-1 short:gap-3 tablet:gap-5"
 			>
-				{#if jobGroups.length === 0 && habitsToday.total === 0}
+				{#if onVacation}
+					<VacationCard days={streak?.days ?? 0} back={page.data.vacation?.back ?? null} />
+				{:else if jobGroups.length === 0 && habitsToday.total === 0}
 					<div
 						class="flex grow flex-col items-center justify-center gap-6 py-16 text-center"
 						data-testid="all-free"

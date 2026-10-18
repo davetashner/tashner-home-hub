@@ -23,7 +23,9 @@ import {
 	streakRef,
 	type Milestone
 } from '#lib/domain/streaks.js';
+import { isVacationDay } from '#lib/domain/vacation.js';
 import { isDueOn, localDateIn, parseSchedule } from './chores.js';
+import { readVacation } from './vacation.js';
 
 export interface StreakSummary {
 	days: number;
@@ -60,7 +62,10 @@ export function streakFor(db: Db, memberId: string, today: string) {
 			.filter((c) => c.date >= from && c.date <= today)
 			.map((c) => `${c.date}|${c.choreId}`)
 	);
+	const vacation = readVacation(db);
 	return computeStreak((date) => {
+		// Vacation days are skipped: nothing is due, so they neither extend nor break a run.
+		if (isVacationDay(vacation, date)) return 'none';
 		const due = mine.filter((c) => isDueOn(c.schedule, date));
 		return dayOutcome(due.length, due.filter((c) => approved.has(`${date}|${c.id}`)).length);
 	}, today);

@@ -22,6 +22,8 @@ import {
 import { householdTimeZone } from '../household.js';
 import { isDueOn, localDateIn, parseSchedule } from './chores.js';
 import { listRoutines } from './routines.js';
+import { readVacation } from './vacation.js';
+import { isVacationDay } from '#lib/domain/vacation.js';
 
 /** Habits due for a member on a day, and how many are done. */
 export function habitDay(db: Db, memberId: string, date: string): HabitDay {
@@ -117,7 +119,11 @@ export interface HabitSummary {
 
 /** Today's habit counter, the week's tally so far, and whether today's star is in. */
 export function habitSummary(db: Db, memberId: string, today: string): HabitSummary {
-	const days = weekSoFar(today).map((d) => habitDay(db, memberId, d));
+	const vacation = readVacation(db);
+	// Vacation days are skipped in the week's tally.
+	const days = weekSoFar(today).map((d) =>
+		isVacationDay(vacation, d) ? { due: 0, done: 0 } : habitDay(db, memberId, d)
+	);
 	const todayDay = days.at(-1)!;
 	return { today: todayDay, week: tally(days), starEarned: dayComplete(todayDay) };
 }
