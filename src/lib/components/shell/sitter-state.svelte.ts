@@ -12,7 +12,11 @@ export const sitter = $state({
 	/** The session the card belongs to, so a new session never inherits an old card. */
 	cardFor: null as string | null,
 	/** House rules and bedtimes: sent while active, before any PIN. */
-	tonight: null as { rules: string[]; bedtimes: { memberId: string; bedtime: string }[] } | null,
+	tonight: null as {
+		rules: string[];
+		bedtimes: { memberId: string; bedtime: string }[];
+		pets: { name: string; feedTimes: string[] }[];
+	} | null,
 	now: Date.now(),
 	emergencyOpen: false,
 	approvalsOpen: false,

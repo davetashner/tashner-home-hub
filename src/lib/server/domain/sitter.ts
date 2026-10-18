@@ -247,18 +247,23 @@ export function sitterApprover(db: Db, pin: unknown, now: number): SitterSession
 export interface TonightInfo {
 	rules: string[];
 	bedtimes: { memberId: string; bedtime: string }[];
+	/** Pet names and feeding times (notes and vet details stay sealed in the card). */
+	pets: { name: string; feedTimes: string[] }[];
 }
+
+const NO_INFO: TonightInfo = { rules: [], bedtimes: [], pets: [] };
 
 export function readTonightInfo(db: Db): TonightInfo {
 	const row = db.select().from(settings).where(eq(settings.key, SITTER_CARD_KEY)).get();
-	if (!row) return { rules: [], bedtimes: [] };
+	if (!row) return NO_INFO;
 	try {
 		const { plain } = JSON.parse(row.value) as Stored;
 		return {
 			rules: plain.rules ?? [],
-			bedtimes: (plain.kids ?? []).map(({ memberId, bedtime }) => ({ memberId, bedtime }))
+			bedtimes: (plain.kids ?? []).map(({ memberId, bedtime }) => ({ memberId, bedtime })),
+			pets: (plain.pets ?? []).map(({ name, feedTimes }) => ({ name, feedTimes }))
 		};
 	} catch {
-		return { rules: [], bedtimes: [] };
+		return NO_INFO;
 	}
 }

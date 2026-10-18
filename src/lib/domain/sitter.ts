@@ -167,6 +167,24 @@ export interface KidInfo {
 	medical: string;
 }
 
+export interface Pet {
+	name: string;
+	/** "Dog", "Cat", ... */
+	kind: string;
+	/** Feeding, medicine and quirks. */
+	notes: string;
+	/** "HH:MM" times the pet is fed; they show in tonight's plan. */
+	feedTimes: string[];
+}
+
+/** A vet or an after-hours pet emergency hospital. */
+export interface Clinic {
+	name: string;
+	phone: string;
+	hours: string;
+	address: string;
+}
+
 export interface SitterCard {
 	contacts: Contact[];
 	address: string;
@@ -175,11 +193,18 @@ export interface SitterCard {
 	wifiName: string;
 	wifiPassword: string;
 	tonight: string;
+	pets: Pet[];
+	vet: Clinic;
+	petER: Clinic;
 }
 
+export const MAX_PETS = 10;
+export const MAX_FEED_TIMES = 6;
 export const MAX_CONTACTS = 10;
 export const MAX_RULES = 15;
 export const MAX_KIDS = 12;
+
+export const emptyClinic = (): Clinic => ({ name: '', phone: '', hours: '', address: '' });
 
 export function emptyCard(): SitterCard {
 	return {
@@ -189,7 +214,10 @@ export function emptyCard(): SitterCard {
 		rules: [],
 		wifiName: '',
 		wifiPassword: '',
-		tonight: ''
+		tonight: '',
+		pets: [],
+		vet: emptyClinic(),
+		petER: emptyClinic()
 	};
 }
 
@@ -198,6 +226,18 @@ const text = (v: unknown, max: number): string =>
 const obj = (v: unknown): Record<string, unknown> =>
 	v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 const list = (v: unknown, max: number): unknown[] => (Array.isArray(v) ? v.slice(0, max) : []);
+
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function normalizeClinic(v: unknown): Clinic {
+	const o = obj(v);
+	return {
+		name: text(o.name, 80),
+		phone: text(o.phone, 30),
+		hours: text(o.hours, 120),
+		address: text(o.address, 200)
+	};
+}
 
 /** Coerces untrusted input into a well-formed card: trims, caps lengths and counts, drops blanks. */
 export function normalizeCard(raw: unknown): SitterCard {
@@ -229,7 +269,22 @@ export function normalizeCard(raw: unknown): SitterCard {
 			.filter(Boolean),
 		wifiName: text(r.wifiName, 64),
 		wifiPassword: text(r.wifiPassword, 64),
-		tonight: text(r.tonight, 1000)
+		tonight: text(r.tonight, 1000),
+		pets: list(r.pets, MAX_PETS)
+			.map((p) => {
+				const o = obj(p);
+				return {
+					name: text(o.name, 60),
+					kind: text(o.kind, 40),
+					notes: text(o.notes, 1000),
+					feedTimes: list(o.feedTimes, MAX_FEED_TIMES)
+						.map((t) => text(t, 5))
+						.filter((t) => TIME.test(t))
+				};
+			})
+			.filter((p) => p.name),
+		vet: normalizeClinic(r.vet),
+		petER: normalizeClinic(r.petER)
 	};
 }
 
@@ -239,6 +294,10 @@ export interface SensitiveCard {
 	address: string;
 	kids: { memberId: string; allergies: string; medical: string }[];
 	wifiPassword: string;
+	/** Optional: cards sealed before pets existed lack these. */
+	petNotes?: string[];
+	vet?: Clinic;
+	petER?: Clinic;
 }
 
 export type PlainCard = {
@@ -247,6 +306,8 @@ export type PlainCard = {
 	rules: string[];
 	wifiName: string;
 	tonight: string;
+	/** Optional: cards stored before pets existed lack it. Notes and clinics are sealed. */
+	pets?: { name: string; kind: string; feedTimes: string[] }[];
 };
 
 export function splitCard(card: SitterCard): { plain: PlainCard; sensitive: SensitiveCard } {
@@ -256,13 +317,17 @@ export function splitCard(card: SitterCard): { plain: PlainCard; sensitive: Sens
 			kids: card.kids.map(({ memberId, bedtime }) => ({ memberId, bedtime })),
 			rules: card.rules,
 			wifiName: card.wifiName,
-			tonight: card.tonight
+			tonight: card.tonight,
+			pets: card.pets.map(({ name, kind, feedTimes }) => ({ name, kind, feedTimes }))
 		},
 		sensitive: {
 			phones: card.contacts.map((c) => c.phone),
 			address: card.address,
 			kids: card.kids.map(({ memberId, allergies, medical }) => ({ memberId, allergies, medical })),
-			wifiPassword: card.wifiPassword
+			wifiPassword: card.wifiPassword,
+			petNotes: card.pets.map((p) => p.notes),
+			vet: card.vet,
+			petER: card.petER
 		}
 	};
 }
@@ -278,7 +343,10 @@ export function joinCard(plain: PlainCard, sensitive: SensitiveCard): SitterCard
 		rules: plain.rules,
 		wifiName: plain.wifiName,
 		wifiPassword: sensitive.wifiPassword,
-		tonight: plain.tonight
+		tonight: plain.tonight,
+		pets: (plain.pets ?? []).map((p, i) => ({ ...p, notes: sensitive.petNotes?.[i] ?? '' })),
+		vet: sensitive.vet ?? emptyClinic(),
+		petER: sensitive.petER ?? emptyClinic()
 	};
 }
 

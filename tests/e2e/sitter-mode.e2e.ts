@@ -38,6 +38,19 @@ async function journey(page: Page, info: TestInfo, tag: string) {
 			await page.getByTestId('sitter-wifi').fill('TestNet');
 			await page.getByTestId('sitter-wifipw').fill('not-a-real-password');
 			await page.getByTestId('sitter-tonight').fill(`Pizza in the freezer ${tag}`);
+			// The card is shared across projects: start from no pets.
+			while ((await page.getByTestId('sitter-pet').count()) > 0)
+				await page.getByRole('button', { name: 'Remove pet' }).first().click();
+			await page.getByTestId('sitter-add-pet').click();
+			const pet = page.getByTestId('sitter-pet').last();
+			await pet.getByLabel('Pet name').fill('Rex');
+			await pet.getByLabel('Pet kind').fill('Dog');
+			await pet.getByLabel('Feeding times for pet').fill('18:00, 07:30');
+			await pet.getByLabel('Pet notes').fill('Pill in cheese');
+			await page.getByLabel('Regular vet name').fill('Test Vet');
+			await page.getByLabel('Regular vet phone').fill('555-0102');
+			await page.getByLabel('After-hours pet emergency hospital name').fill('Test Pet ER');
+			await page.getByLabel('After-hours pet emergency hospital phone').fill('555-0103');
 			await page.getByTestId('sitter-save').click();
 			await expect(page.getByRole('status')).toHaveText('Saved');
 
@@ -47,6 +60,13 @@ async function journey(page: Page, info: TestInfo, tag: string) {
 				'Inhaler in the blue bag'
 			);
 			await expect(page.getByTestId('sitter-tonight')).toHaveValue(`Pizza in the freezer ${tag}`);
+			await expect(page.getByLabel('Pet name')).toHaveValue('Rex');
+			await expect(page.getByLabel('Feeding times for pet')).toHaveValue('18:00, 07:30');
+			await expect(page.getByLabel('Pet notes')).toHaveValue('Pill in cheese');
+			await expect(page.getByLabel('Regular vet phone')).toHaveValue('555-0102');
+			await expect(page.getByLabel('After-hours pet emergency hospital name')).toHaveValue(
+				'Test Pet ER'
+			);
 			await expect(page.getByTestId('sitter-rules')).toHaveValue(
 				'No screens after 7\nLights out at bedtime'
 			);

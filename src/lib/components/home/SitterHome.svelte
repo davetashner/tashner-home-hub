@@ -61,6 +61,11 @@
 			return kid ? [{ name: kid.name, bedtime: b.bedtime }] : [];
 		})
 	);
+	const feedings = $derived(
+		(sitter.card?.pets ?? sitter.tonight?.pets ?? []).flatMap((p) =>
+			p.feedTimes.map((time) => ({ name: p.name, time }))
+		)
+	);
 	const plan = $derived(
 		session
 			? buildPlan({
@@ -75,6 +80,7 @@
 						return kid ? [{ ...r, kidName: kid.name }] : [];
 					}),
 					bedtimes,
+					feedings,
 					parents: parentsLabel(adults)
 				})
 			: []
@@ -221,6 +227,7 @@
 		dinner: '🍽️',
 		routine: '🛁',
 		bedtime: '🌙',
+		pet: '🐾',
 		home: '🏠'
 	};
 </script>

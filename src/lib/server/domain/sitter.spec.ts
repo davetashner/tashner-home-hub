@@ -39,7 +39,10 @@ describe('card storage', () => {
 		rules: ['No screens'],
 		wifiName: 'TestNet',
 		wifiPassword: 'hunter2',
-		tonight: 'Pizza'
+		tonight: 'Pizza',
+		pets: [{ name: 'Rex', kind: 'Dog', notes: 'Pill in cheese at 8', feedTimes: ['18:00'] }],
+		vet: { name: 'Test Vet', phone: '555-0102', hours: '9-5', address: '2 Test Road' },
+		petER: { name: 'Test Pet ER', phone: '555-0103', hours: '24h', address: '3 Test Road' }
 	};
 	it('is empty before it is saved', () => {
 		expect(readCard(db, ring).contacts).toEqual([]);
@@ -52,8 +55,12 @@ describe('card storage', () => {
 			.from(settings)
 			.all()
 			.find((r) => r.key === SITTER_CARD_KEY)!.value;
-		expect(stored).not.toMatch(/555-0101|Test Lane|Peanuts|Inhaler|hunter2/);
+		expect(stored).not.toMatch(
+			/555-0101|555-0102|555-0103|Test Lane|Test Road|Peanuts|Inhaler|hunter2|Pill in cheese|Test Vet/
+		);
 		expect(stored).toMatch(/TestNet/);
+		// Names and feeding times are not sealed: the wall's plan needs them before the PIN.
+		expect(stored).toMatch(/Rex/);
 		saveCard(db, ring, { ...card, tonight: 'Soup' });
 		expect(readCard(db, ring).tonight).toBe('Soup');
 	});
@@ -211,22 +218,25 @@ describe('sitterApprover', () => {
 
 describe('tonight info', () => {
 	it('shows rules and bedtimes without the sensitive parts', () => {
-		expect(readTonightInfo(db)).toEqual({ rules: [], bedtimes: [] });
+		expect(readTonightInfo(db)).toEqual({ rules: [], bedtimes: [], pets: [] });
 		saveCard(db, ring, {
 			contacts: [{ name: 'Grandma', relation: 'Grandmother', phone: '555-0101' }],
 			address: '1 Test Lane',
 			kids: [{ memberId: 'a', bedtime: '19:30', allergies: 'Peanuts', medical: 'Inhaler' }],
-			rules: ['No screens']
+			rules: ['No screens'],
+			pets: [{ name: 'Rex', notes: 'Pill in cheese', feedTimes: ['18:00', 'bad'] }],
+			vet: { name: 'Test Vet', phone: '555-0102' }
 		});
 		const info = readTonightInfo(db);
 		expect(info).toEqual({
 			rules: ['No screens'],
-			bedtimes: [{ memberId: 'a', bedtime: '19:30' }]
+			bedtimes: [{ memberId: 'a', bedtime: '19:30' }],
+			pets: [{ name: 'Rex', feedTimes: ['18:00'] }]
 		});
-		expect(JSON.stringify(info)).not.toMatch(/Test Lane|Peanuts|555-0101/);
+		expect(JSON.stringify(info)).not.toMatch(/Test Lane|Peanuts|555-01|Pill|Test Vet/);
 	});
 	it('survives a damaged card row', () => {
 		db.insert(settings).values({ key: SITTER_CARD_KEY, value: 'not json' }).run();
-		expect(readTonightInfo(db)).toEqual({ rules: [], bedtimes: [] });
+		expect(readTonightInfo(db)).toEqual({ rules: [], bedtimes: [], pets: [] });
 	});
 });

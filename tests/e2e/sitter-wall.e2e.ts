@@ -79,6 +79,11 @@ test(
 				await expect(wall.getByTestId('emergency-kid')).toContainText('Peanuts');
 				await expect(wall.getByTestId('emergency-kid')).toContainText('19:30');
 				await expect(wall.getByTestId('emergency-wifi')).toContainText('TestNet');
+				await expect(wall.getByTestId('emergency-pets')).toContainText('Rex (Dog)');
+				await expect(wall.getByTestId('emergency-pets')).toContainText('Pill in cheese');
+				await expect(wall.getByTestId('emergency-clinic')).toHaveCount(2);
+				await expect(wall.getByTestId('emergency-pets')).toContainText('Test Pet ER');
+				await expect(wall.getByTestId('emergency-pets')).toContainText('555-0103');
 				// Entered once: closing and reopening shows the card straight away.
 				await wall.getByTestId('emergency-close').click();
 				await expect(wall.getByTestId('emergency-sheet')).toHaveCount(0);
@@ -318,6 +323,7 @@ test(
 				await expect(items.filter({ hasText: `Dinner: Tacos ${tag}` })).toHaveCount(1);
 				await expect(items.filter({ hasText: `Bath time ${tag}` })).toHaveCount(1);
 				await expect(items.filter({ hasText: `${kidName}'s bedtime` })).toHaveCount(1);
+				await expect(items.filter({ hasText: 'Feed Rex' })).toHaveCount(1);
 				await expect(items.last()).toContainText('home');
 				await expect(wall.getByTestId('plan-now')).toHaveCount(1);
 				await expect(
