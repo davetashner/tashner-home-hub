@@ -5,6 +5,7 @@
 	import HomeCountdowns from '#lib/components/home/HomeCountdowns.svelte';
 	import Icon from '#lib/components/shell/Icon.svelte';
 	import { timerState } from '#lib/components/timers/timers-state.svelte.js';
+	import HomeNotes from '#lib/components/home/HomeNotes.svelte';
 	import { page } from '$app/state';
 	import { TODO_FALLBACK } from '#lib/domain/nav.js';
 
@@ -48,4 +49,5 @@
 		Timers
 	</button>
 	<HomeCountdowns />
+	<HomeNotes />
 </div>

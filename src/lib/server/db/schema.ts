@@ -280,6 +280,25 @@ export const countdowns = sqliteTable('countdowns', {
 	icon: text('icon')
 });
 
+/** Sticky notes on the family board (MSG-1). Short-lived: expired rows are swept on read. */
+export const notes = sqliteTable(
+	'notes',
+	{
+		id: id(),
+		authorId: text('author_id')
+			.notNull()
+			.references(() => members.id, { onDelete: 'cascade' }),
+		body: text('body').notNull(),
+		/** A note color token name (`--color-note-*`). */
+		color: text('color').notNull(),
+		pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
+		createdAt: createdAt(),
+		/** Epoch ms after which the note is gone, or null to stay until dismissed. */
+		expiresAt: ms('expires_at')
+	},
+	(t) => [index('notes_created_idx').on(t.createdAt)]
+);
+
 export const routines = sqliteTable('routines', {
 	id: id(),
 	memberId: text('member_id')
