@@ -10,6 +10,7 @@ import {
 	isTransition,
 	kenBurns,
 	needsBackdrop,
+	shuffle,
 	parseSlideshowSettings,
 	photoSrc,
 	pickTarget,
@@ -138,6 +139,28 @@ describe('advance', () => {
 it('seeds the shuffle by local day', () => {
 	expect(daySeed(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
 	expect(daySeed(new Date(2026, 11, 25))).toBe('2026-12-25');
+});
+
+describe('shuffle', () => {
+	const ids = ['a', 'b', 'c', 'd', 'e'];
+
+	it('returns every item once, without touching the input', () => {
+		const out = shuffle(ids);
+		expect([...out].sort()).toEqual(ids);
+		expect(ids).toEqual(['a', 'b', 'c', 'd', 'e']);
+	});
+
+	it('follows the random source, so the first photo varies', () => {
+		expect(shuffle(ids, () => 0)).toEqual(['b', 'c', 'd', 'e', 'a']);
+		expect(shuffle(ids, () => 0.999)).toEqual(ids);
+		const firsts = new Set(Array.from({ length: 200 }, () => shuffle(ids)[0]));
+		expect(firsts.size).toBeGreaterThan(1);
+	});
+
+	it('handles empty and single lists', () => {
+		expect(shuffle([])).toEqual([]);
+		expect(shuffle(['a'], () => 0)).toEqual(['a']);
+	});
 });
 
 it('varies the Ken Burns move and only uses transforms', () => {
