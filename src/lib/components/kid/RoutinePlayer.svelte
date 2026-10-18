@@ -48,7 +48,7 @@
 				class="step flex min-h-0 grow flex-col items-center justify-center gap-8 short:flex-row short:gap-6"
 				data-testid="routine-step"
 			>
-				<div class="size-64 text-accent portrait:size-96 short:size-20">
+				<div class="size-64 text-accent portrait:size-96 short:size-20 tablet:landscape:size-40">
 					<RoutineIcon name={step.icon} />
 				</div>
 				<div class="flex flex-col items-center gap-8 short:items-start short:gap-1">
