@@ -39,9 +39,10 @@ export const EXPORT_TABLES = [
 
 /**
  * App tables deliberately left out of exports: `events` is a calendar sync cache, and
- * `routine_progress` is per-day state that resets itself each morning.
+ * `routine_progress` is per-day state that resets itself each morning, and `api_tokens` are
+ * device credentials that stay on this server (re-create them after a restore).
  */
-export const EXCLUDED_TABLES = ['events', 'routine_progress'] as const;
+export const EXCLUDED_TABLES = ['events', 'routine_progress', 'api_tokens'] as const;
 
 /** Settings keys that stay local to this server: kept on import, never exported. */
 export const LOCAL_SETTING_PREFIXES = [
