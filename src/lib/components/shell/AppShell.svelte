@@ -24,6 +24,7 @@
 	import { parseWaveChoice } from '#lib/domain/wave-background.js';
 	import { isFunPath, sitterLocks } from '#lib/domain/sitter.js';
 	import SitterEmergency from './SitterEmergency.svelte';
+	import SitterApprovals from './SitterApprovals.svelte';
 	import { sitter, watchSitter } from './sitter-state.svelte.js';
 
 	const NAV_KEY = 'hub.nav.collapsed';
@@ -115,6 +116,7 @@
 	});
 	$effect(() => {
 		if (!locks.sitterView) sitter.emergencyOpen = false;
+		if (!locks.canApprove) sitter.approvalsOpen = false;
 	});
 
 	// The saved background choice comes with the page data; the settings page edits it optimistically.
@@ -205,7 +207,16 @@
 			{#if locks.sitterView}{@render emergencyButton()}{/if}
 			{#if !(collapsed && sideRail)}<TimerPills />{/if}
 			<OfflineBadge />
-			{#if !locks.adultLocked}<ApprovalsBadge />{/if}
+			{#if !locks.adultLocked}<ApprovalsBadge />{:else if locks.canApprove}
+				<button
+					type="button"
+					onclick={() => (sitter.approvalsOpen = true)}
+					data-testid="sitter-approvals-open"
+					class="press-link inline-flex min-h-tap-kid shrink-0 items-center justify-center gap-2 rounded-chip bg-star px-6 text-body font-extrabold text-on-star shadow-raised max-sm:!min-h-tap short:!min-h-tap short:px-3 short:text-caption tablet:max-md:!min-h-tap"
+				>
+					Check jobs <span aria-hidden="true">⭐</span>
+				</button>
+			{/if}
 			<button
 				type="button"
 				onclick={() => (timerState.panel = true)}
@@ -326,6 +337,10 @@
 
 {#if sitter.emergencyOpen && locks.sitterView}
 	<SitterEmergency onclose={() => (sitter.emergencyOpen = false)} />
+{/if}
+
+{#if sitter.approvalsOpen && locks.canApprove}
+	<SitterApprovals onclose={() => (sitter.approvalsOpen = false)} />
 {/if}
 
 {#snippet emergencyButton()}

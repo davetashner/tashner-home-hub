@@ -11,6 +11,7 @@ import {
 	overlapsOpenSession,
 	pinUsable,
 	sessionStatus,
+	sitterCan,
 	splitCard,
 	validateSitterPin,
 	validateWindow,
@@ -228,4 +229,16 @@ export function sessionLog(db: Db, now: number, limit = LOG_SESSIONS): SessionLo
 		.filter((r) => sessionStatus(r, now) === 'ended')
 		.slice(0, limit)
 		.map((r) => ({ ...toView(r, now), checkins: listCheckins(db, r.id) }));
+}
+
+/**
+ * The session whose sitter PIN this is, if the parents let the sitter approve Star Jobs.
+ * Wrong or missing PIN, no active session, or approving not allowed: forbidden.
+ */
+export function sitterApprover(db: Db, pin: unknown, now: number): SitterSessionView {
+	const session = checkSitterPin(db, pin, now);
+	if (!session) throw new LedgerError('forbidden', 'Wrong PIN.');
+	if (!sitterCan(session, 'approveJobs', now))
+		throw new LedgerError('forbidden', 'The grown-ups did not allow approving Star Jobs tonight.');
+	return session;
 }

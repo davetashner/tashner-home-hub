@@ -12,7 +12,10 @@ export const sitter = $state({
 	/** The session the card belongs to, so a new session never inherits an old card. */
 	cardFor: null as string | null,
 	now: Date.now(),
-	emergencyOpen: false
+	emergencyOpen: false,
+	approvalsOpen: false,
+	/** The sitter PIN once accepted, kept in memory only so each approval is not a new PIN entry. */
+	pin: null as string | null
 });
 
 export const POLL_MS = 15_000;
@@ -22,13 +25,17 @@ function setSession(session: WallSession | null, card: SitterCard | null) {
 	if (session?.id !== sitter.cardFor) {
 		sitter.card = null;
 		sitter.cardFor = null;
+		sitter.pin = null;
 	}
 	sitter.session = session;
 	if (session && card) {
 		sitter.card = card;
 		sitter.cardFor = session.id;
 	}
-	if (!session) sitter.emergencyOpen = false;
+	if (!session) {
+		sitter.emergencyOpen = false;
+		sitter.approvalsOpen = false;
+	}
 }
 
 export async function refreshSitter(): Promise<void> {
