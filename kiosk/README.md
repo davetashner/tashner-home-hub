@@ -183,3 +183,7 @@ node scripts/kiosk/kioskctl.mjs reload | restart | sw status | sw reset | logs -
 ## Offline caching and automation flags
 
 The hub's service worker (offline tolerance, NFR-6) stays on in headed Chromium, including with `--remote-debugging-port`. It switches itself off only for headless automation (`HeadlessChrome` user agent). Do not launch the kiosk with `--enable-automation`, which sets `navigator.webdriver` and is meant for test drivers, not the wall. Set `localStorage['hub.sw']` to `on` or `off` to force the worker either way.
+
+## Scrollbars
+
+`hub-kiosk-launch` passes `--hide-scrollbars`, so the thin overlay scrollbar no longer shows at the right edge of the wall (the content area scrolls). Scrolling still works by touch. The flag is still a valid Chromium content switch on Pi OS trixie, so the app CSS is unchanged. It only affects the kiosk's Chromium; phones and other browsers keep normal scrollbars. Re-run `sudo ./install.sh` and restart the kiosk to apply.
