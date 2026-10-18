@@ -31,7 +31,10 @@ const tapKeys = async (page: Page, text: string) => {
 		await page.getByTestId(ch === ' ' ? 'key-space' : `key-${ch}`).click();
 };
 
-test('wall keyboard: add, check off, reload and clear checked', async ({ page, context }, info) => {
+test('wall keyboard: add, check off, reload and clear checked @J6.1', async ({
+	page,
+	context
+}, info) => {
 	ensureHousehold();
 	await asWallDisplay(context);
 	const tag = `e2e${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
@@ -69,7 +72,7 @@ test('wall keyboard: add, check off, reload and clear checked', async ({ page, c
 	}
 });
 
-test('phone: add through the input', async ({ browser }, info) => {
+test('phone: add through the input @J6.2', async ({ browser }, info) => {
 	ensureHousehold();
 	const context = await browser.newContext({
 		baseURL: info.project.use.baseURL,
@@ -96,7 +99,10 @@ test('phone: add through the input', async ({ browser }, info) => {
 	}
 });
 
-test('long-press an item to delete it, gone after reload', async ({ page, context }, info) => {
+test('long-press an item to delete it, gone after reload @J6.5', async ({
+	page,
+	context
+}, info) => {
 	ensureHousehold();
 	await asWallDisplay(context);
 	const tag = `del${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
@@ -142,7 +148,7 @@ test('long-press an item to delete it, gone after reload', async ({ page, contex
 	}
 });
 
-test('create a list from the wall keyboard, keep it across reload, adult deletes it', async ({
+test('create a list from the wall keyboard, keep it across reload, adult deletes it @J6.5', async ({
 	page,
 	context
 }, info) => {
@@ -234,7 +240,10 @@ async function ownerFlow(page: Page, adultId: string, tag: string) {
 	await expect(tab).toContainText('0 left');
 }
 
-test('wall: reassign a list to an adult, then filter by owner', async ({ page, context }, info) => {
+test('wall: reassign a list to an adult, then filter by owner @J6.6', async ({
+	page,
+	context
+}, info) => {
 	ensureHousehold();
 	await asWallDisplay(context);
 	const tag = `own${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
@@ -249,7 +258,7 @@ test('wall: reassign a list to an adult, then filter by owner', async ({ page, c
 	}
 });
 
-test('phone: reassign a list and filter by owner', async ({ browser }, info) => {
+test('phone: reassign a list and filter by owner @J6.6', async ({ browser }, info) => {
 	ensureHousehold();
 	const context = await browser.newContext({
 		baseURL: info.project.use.baseURL,

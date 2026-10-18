@@ -121,7 +121,7 @@ async function seedChoresKid(page: Page, tag: string): Promise<KidSeed> {
 }
 
 for (const route of routes) {
-	test(`iPad: ${route} fits with tap-sized controls`, async ({ page }, info) => {
+	test(`iPad: ${route} fits with tap-sized controls @J16.3`, async ({ page }, info) => {
 		await signInAsAdult(page, `adult-ipad-${info.project.name}`);
 		for (const vp of viewportsFor(info.project.name)) {
 			await test.step(label(vp), async () => {
@@ -135,7 +135,9 @@ for (const route of routes) {
 	});
 }
 
-test('iPad: /chores shows the first chore to do without scrolling', async ({ page }, info) => {
+test('iPad: /chores shows the first chore to do without scrolling @J16.3', async ({
+	page
+}, info) => {
 	await signInAsAdult(page, `adult-ipad-${info.project.name}`);
 	for (const vp of viewportsFor(info.project.name)) {
 		await test.step(label(vp), async () => {
@@ -171,7 +173,7 @@ test('iPad: /chores shows the first chore to do without scrolling', async ({ pag
 	}
 });
 
-test('iPad: /chores celebration banner stays on screen', async ({ page }, info) => {
+test('iPad: /chores celebration banner stays on screen @J16.3', async ({ page }, info) => {
 	await signInAsAdult(page, `adult-ipad-${info.project.name}`);
 	for (const vp of viewportsFor(info.project.name)) {
 		await test.step(label(vp), async () => {

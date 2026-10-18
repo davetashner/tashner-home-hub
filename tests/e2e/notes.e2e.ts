@@ -96,7 +96,7 @@ async function kidPostsAdultPinsAnyoneDismisses(
 	}
 }
 
-test('a kid posts without a PIN, an adult pins, anyone dismisses', async ({
+test('a kid posts without a PIN, an adult pins, anyone dismisses @J12.1', async ({
 	page,
 	browser
 }, info) => {
@@ -105,7 +105,7 @@ test('a kid posts without a PIN, an adult pins, anyone dismisses', async ({
 
 test.describe('phone viewport', () => {
 	test.use({ viewport: { width: 390, height: 844 } });
-	test('the same flow works on a phone', async ({ page, browser }, info) => {
+	test('the same flow works on a phone @J12.3', async ({ page, browser }, info) => {
 		await kidPostsAdultPinsAnyoneDismisses(page, browser, info);
 		await expect
 			.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
@@ -113,7 +113,7 @@ test.describe('phone viewport', () => {
 	});
 });
 
-test('a note that has expired is gone', async ({ page }, info) => {
+test('a note that has expired is gone @J12.2', async ({ page }, info) => {
 	const tag = `x${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
 	const kidId = `e2e-notes-kid-${tag}`;
 	const kidName = `Kid ${tag}`;

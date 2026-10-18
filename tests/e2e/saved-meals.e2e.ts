@@ -5,7 +5,7 @@ import { gotoHydrated } from './hydrated';
 // MEAL-2. Names carry a per-project tag so parallel projects sharing one database stay apart.
 const JSON_HEADERS = { 'content-type': 'application/json' };
 
-test('save a meal, add its ingredients to Grocery twice, plan a day from it', async ({
+test('save a meal, add its ingredients to Grocery twice, plan a day from it @J7.3', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `e2e-saved-meals-${info.project.name}`);
@@ -57,7 +57,7 @@ test('save a meal, add its ingredients to Grocery twice, plan a day from it', as
 	}
 });
 
-test('saved meal writes need an adult; reading and adding to Grocery do not', async ({
+test('saved meal writes need an adult; reading and adding to Grocery do not @J7.6', async ({
 	page,
 	request
 }, info) => {

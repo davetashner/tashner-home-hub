@@ -62,7 +62,7 @@ test.beforeEach(async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-cal-edit-${info.project.name}`);
 });
 
-test('edit the title and time: the change shows at once and is saved', async ({ page }) => {
+test('edit the title and time: the change shows at once and is saved @J5.5', async ({ page }) => {
 	const stored = [ev('ev-1', 'Orchestra rehearsal', 15)];
 	await mockApple(page, stored);
 	let body: Record<string, unknown> = {};
@@ -97,7 +97,7 @@ test('edit the title and time: the change shows at once and is saved', async ({ 
 	await expect(page.getByTestId('add-event-error')).toBeHidden();
 });
 
-test('a conflict rolls the edit back and says the event changed', async ({ page }) => {
+test('a conflict rolls the edit back and says the event changed @J5.5', async ({ page }) => {
 	await mockApple(page, [ev('ev-1', 'Orchestra rehearsal', 15)]);
 	await page.route('**/api/calendar/events/ev-1', (route) =>
 		route.fulfill({
@@ -115,7 +115,7 @@ test('a conflict rolls the edit back and says the event changed', async ({ page 
 	await expect(page.getByText('Other name')).toHaveCount(0);
 });
 
-test('delete asks first, then hides the event at once', async ({ page }) => {
+test('delete asks first, then hides the event at once @J5.5', async ({ page }) => {
 	const stored = [ev('ev-1', 'Orchestra rehearsal', 15), ev('ev-2', 'Dentist', 11)];
 	await mockApple(page, stored);
 	let release: () => void = () => {};
@@ -140,7 +140,7 @@ test('delete asks first, then hides the event at once', async ({ page }) => {
 	await expect(page.getByTestId('add-event-error')).toBeHidden();
 });
 
-test('a repeating event says to edit it on the phone', async ({ page }) => {
+test('a repeating event says to edit it on the phone @J5.5', async ({ page }) => {
 	await mockApple(page, [ev('ev-3', 'Swim lessons', 15, 'FREQ=WEEKLY')]);
 	await page.goto('/calendar');
 	await page.getByText('Swim lessons').first().click();

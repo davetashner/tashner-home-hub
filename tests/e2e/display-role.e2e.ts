@@ -19,7 +19,7 @@ async function idleSettings(page: Page) {
 	await page.route('**/api/photo/slideshow?**', (route) => route.fulfill({ json: [] }));
 }
 
-test('a personal device (the default) never goes home or shows the photo frame', async ({
+test('a personal device (the default) never goes home or shows the photo frame @J9.5', async ({
 	page
 }) => {
 	await idleSettings(page);
@@ -31,7 +31,10 @@ test('a personal device (the default) never goes home or shows the photo frame',
 	await expect(page.getByRole('heading', { level: 1, name: 'Meals' })).toBeVisible();
 });
 
-test('a wall display goes home and shows the photo frame when idle', async ({ page, context }) => {
+test('a wall display goes home and shows the photo frame when idle @J9.5 @J8.1', async ({
+	page,
+	context
+}) => {
 	await asWallDisplay(context);
 	await idleSettings(page);
 	await page.clock.install();
@@ -43,7 +46,7 @@ test('a wall display goes home and shows the photo frame when idle', async ({ pa
 	await expect(page).toHaveURL(/\/photos$/);
 });
 
-test('?display=wall makes the device a wall, drops the query, and survives a reload', async ({
+test('?display=wall makes the device a wall, drops the query, and survives a reload @J9.5', async ({
 	page
 }) => {
 	await gotoHydrated(page, '/meals?display=wall');
@@ -57,7 +60,7 @@ test('?display=wall makes the device a wall, drops the query, and survives a rel
 	});
 });
 
-test('Settings > Screen switches this device between personal and wall', async ({ page }) => {
+test('Settings > Screen switches this device between personal and wall @J9.5', async ({ page }) => {
 	// Once this is a wall display the wake guard follows the power state, so pin it on.
 	await page.route('**/api/display/power', (route) =>
 		route.fulfill({ json: { power: 'on', reason: 'schedule', mode: 'normal' } })
@@ -96,12 +99,12 @@ test('Settings > Screen switches this device between personal and wall', async (
 	);
 });
 
-test('changing the role needs an adult session', async ({ request }) => {
+test('changing the role needs an adult session @J9.5', async ({ request }) => {
 	const res = await request.put('/api/display/role', { data: { role: 'wall' } });
 	expect(res.status()).toBe(401);
 });
 
-test('the unlock page remembers by default on a personal device, not on a wall', async ({
+test('the unlock page remembers by default on a personal device, not on a wall @J9.5', async ({
 	page,
 	context
 }) => {

@@ -4,7 +4,7 @@ import { expectTappable } from './tap';
 import { gotoHydrated, reloadHydrated } from './hydrated';
 
 // FAM-4: member chips narrow Agenda, Week and Month, and the choice survives a reload.
-test('member chips filter the calendar and are remembered', async ({ page }) => {
+test('member chips filter the calendar and are remembered @J5.3', async ({ page }) => {
 	seedCalendar();
 	await gotoHydrated(page, '/calendar');
 	const filter = page.getByTestId('member-filter');
@@ -53,7 +53,7 @@ test('member chips filter the calendar and are remembered', async ({ page }) => 
 	await expect(pane.getByText('Grandma visits').first()).toBeVisible();
 });
 
-test('member chips stay inside a phone-width screen', async ({ page }) => {
+test('member chips stay inside a phone-width screen @J5.3', async ({ page }) => {
 	seedCalendar();
 	await page.setViewportSize({ width: 393, height: 659 });
 	await gotoHydrated(page, '/calendar');
@@ -64,7 +64,7 @@ test('member chips stay inside a phone-width screen', async ({ page }) => {
 	expect(overflow).toBeLessThanOrEqual(0);
 });
 
-test("a member chip's avatar sits in the pill's rounded left end", async ({ page }) => {
+test("a member chip's avatar sits in the pill's rounded left end @J5.3", async ({ page }) => {
 	seedCalendar({ fresh: false });
 	await gotoHydrated(page, '/calendar');
 	const chip = page

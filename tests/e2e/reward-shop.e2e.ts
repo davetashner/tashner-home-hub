@@ -17,7 +17,7 @@ async function reward(page: Page, title: string, cost: number, image: string): P
 const stars = async (page: Page, memberId: string) =>
 	(await (await page.request.get(`/api/members/${memberId}/stars`)).json()).balance as number;
 
-test('shop cards, make it my goal, and get it now with a preview then the PIN', async ({
+test('shop cards, make it my goal, and get it now with a preview then the PIN @J4.1 @J4.3', async ({
 	page
 }, info) => {
 	const kid = await seedKid(page, `shop ${info.project.name}`);

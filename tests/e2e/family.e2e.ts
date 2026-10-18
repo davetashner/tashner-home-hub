@@ -3,7 +3,7 @@ import { expectTappable } from './tap';
 import { signInAsAdult } from './adult';
 import { gotoHydrated } from './hydrated';
 
-test('add and edit a family member with tappable controls', async ({ page }, info) => {
+test('add and edit a family member with tappable controls @J9.2', async ({ page }, info) => {
 	// Unique per project so the two orientations never collide on the shared database.
 	const name = `Test ${info.project.name}`;
 	await signInAsAdult(page, `e2e-family-${info.project.name}`);
@@ -53,7 +53,7 @@ test('add and edit a family member with tappable controls', async ({ page }, inf
 	await expect(page.getByText(`${name} Edited`)).toHaveCount(0);
 });
 
-test('a 502 with an empty body says the hub is unreachable', async ({ page }, info) => {
+test('a 502 with an empty body says the hub is unreachable @J9.2', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-family-502-${info.project.name}`);
 	await gotoHydrated(page, '/settings/family');
 	await page.route('**/api/members', (route) =>

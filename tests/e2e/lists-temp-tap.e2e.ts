@@ -4,7 +4,7 @@ import { gotoHydrated } from './hydrated';
 
 // hub-8mg: a tap on an item whose add is still in flight must not be lost to a temp-id 404.
 
-test('checking an item before its add returns still checks it on the server', async ({
+test('checking an item before its add returns still checks it on the server @J6.4', async ({
 	browser
 }, info) => {
 	ensureHousehold();

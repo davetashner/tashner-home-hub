@@ -129,7 +129,7 @@ async function settle(page: Page): Promise<void> {
 
 test.beforeAll(ensureHousehold);
 
-test('route discovery finds the home page and settings sub-pages', () => {
+test('route discovery finds the home page and settings sub-pages @J16.2', () => {
 	expect(routes).toContain('/');
 	expect(routes).toContain('/settings/family');
 });
@@ -141,7 +141,7 @@ const viewportFor = (projectName: string) =>
 
 test.describe('portrait layout has no horizontal overflow or clipped controls', () => {
 	for (const route of routes) {
-		test(`${route}`, async ({ page }, testInfo) => {
+		test(`${route} @J16.2`, async ({ page }, testInfo) => {
 			const viewport = viewportFor(testInfo.project.name);
 			await page.setViewportSize(viewport);
 			await signInAsAdult(page, 'e2e-portrait-adult');

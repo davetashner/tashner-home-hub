@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }) => {
 	);
 });
 
-test('Auto is light at noon and night in the evening, and the wall dims in the evening', async ({
+test('Auto is light at noon and night in the evening, and the wall dims in the evening @J9.6', async ({
 	page,
 	context
 }) => {
@@ -42,7 +42,7 @@ test('Auto is light at noon and night in the evening, and the wall dims in the e
 	await expect(overlay(page)).toHaveCSS('opacity', '0.2');
 });
 
-test('without the test seam, an automated browser is pinned to light and undimmed', async ({
+test('without the test seam, an automated browser is pinned to light and undimmed @J9.6', async ({
 	page,
 	context
 }) => {
@@ -56,14 +56,14 @@ test('without the test seam, an automated browser is pinned to light and undimme
 	await expect(overlay(page)).toHaveCSS('opacity', '0');
 });
 
-test('a personal device is not dimmed in the evening', async ({ page }) => {
+test('a personal device is not dimmed in the evening @J9.6', async ({ page }) => {
 	await page.clock.install({ time: await localInstant(page, 22) });
 	await gotoHydrated(page, '/');
 	await expect(html(page)).toHaveAttribute('data-theme', 'night');
 	await expect(overlay(page)).toHaveCount(0);
 });
 
-test('a grown-up picks Dark, then Light, and it applies at once', async ({ page }, info) => {
+test('a grown-up picks Dark, then Light, and it applies at once @J9.6', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-appearance-adult-${info.project.name}`);
 	await page.clock.install({ time: await localInstant(page, 12) });
 	await gotoHydrated(page, '/settings/appearance');

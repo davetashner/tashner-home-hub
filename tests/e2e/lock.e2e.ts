@@ -5,13 +5,13 @@ import { gotoHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 
-test('no Lock control without an adult session', async ({ page }) => {
+test('no Lock control without an adult session @J9.3', async ({ page }) => {
 	await gotoHydrated(page, '/chores');
 	await expect(page.getByRole('heading', { level: 1, name: 'To-Dos' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Lock' })).toHaveCount(0);
 });
 
-test('Lock ends the adult session and settings ask for the PIN again', async ({ page }) => {
+test('Lock ends the adult session and settings ask for the PIN again @J9.3', async ({ page }) => {
 	await signInAsAdult(page, 'e2e-lock-adult');
 	await gotoHydrated(page, '/settings');
 	await page.waitForLoadState('networkidle');
@@ -33,7 +33,7 @@ test('Lock ends the adult session and settings ask for the PIN again', async ({ 
 test.describe('phone width', () => {
 	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
-	test('Lock fits the header without sideways scroll', async ({ page }) => {
+	test('Lock fits the header without sideways scroll @J9.3', async ({ page }) => {
 		await signInAsAdult(page, 'e2e-lock-phone-adult');
 		await gotoHydrated(page, '/chores');
 		await page.waitForLoadState('networkidle');
@@ -45,7 +45,7 @@ test.describe('phone width', () => {
 	});
 });
 
-test('Lock revokes a copied session cookie', async ({ page, browser, baseURL }) => {
+test('Lock revokes a copied session cookie @J9.3', async ({ page, browser, baseURL }) => {
 	await signInAsAdult(page, 'e2e-revoke-adult');
 	const stolen = (await page.context().cookies()).filter((c) => c.name === 'hub_session');
 	expect(stolen).toHaveLength(1);

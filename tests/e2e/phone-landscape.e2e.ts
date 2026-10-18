@@ -20,7 +20,7 @@ for (const phone of phones) {
 		});
 
 		for (const route of routes) {
-			test(`${route} does not overflow the width`, async ({ page }) => {
+			test(`${route} does not overflow the width @J16.3`, async ({ page }) => {
 				await gotoHydrated(page, route);
 				await page.waitForLoadState('networkidle');
 				const { scrollWidth, innerWidth } = await page.evaluate(() => ({
@@ -31,7 +31,7 @@ for (const phone of phones) {
 			});
 		}
 
-		test('a Home control returns to the home page', async ({ page }) => {
+		test('a Home control returns to the home page @J16.3', async ({ page }) => {
 			await gotoHydrated(page, '/chores');
 			await page.waitForLoadState('networkidle');
 			const home = page.getByRole('link', { name: 'Home' });
@@ -41,7 +41,7 @@ for (const phone of phones) {
 			await expect(page).toHaveURL(/\/$/);
 		});
 
-		test('the shell fits on screen with 60px tap targets', async ({ page }) => {
+		test('the shell fits on screen with 60px tap targets @J16.3', async ({ page }) => {
 			await gotoHydrated(page, '/chores');
 			await page.waitForLoadState('networkidle');
 			// Only the shell's own bar: page content may carry its own headers.

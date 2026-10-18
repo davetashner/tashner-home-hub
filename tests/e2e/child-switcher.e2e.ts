@@ -36,7 +36,7 @@ async function seedTwo(page: Page, project: string) {
 const card = (page: Page, title: string) =>
 	page.getByTestId('chore-card').filter({ has: page.getByRole('heading', { name: title }) });
 
-test('the avatar switcher swaps kids instantly and keeps each child’s undo', async ({
+test('the avatar switcher swaps kids instantly and keeps each child’s undo @J1.1', async ({
 	page
 }, info) => {
 	const { a, b } = await seedTwo(page, info.project.name);

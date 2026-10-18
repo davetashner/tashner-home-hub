@@ -7,7 +7,7 @@ import { gotoHydrated } from './hydrated';
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
 
-test('grown-ups mute sounds and move quiet hours past midnight', async ({ page }, info) => {
+test('grown-ups mute sounds and move quiet hours past midnight @J9.6', async ({ page }, info) => {
 	const saved: unknown[] = [];
 	await page.route('**/api/settings/sound', (route) => {
 		if (route.request().method() === 'GET')
@@ -49,7 +49,7 @@ test('grown-ups mute sounds and move quiet hours past midnight', async ({ page }
 		.toEqual([{ muted: true }, { quietStart: '23:45' }, { quietStart: '00:00' }]);
 });
 
-test('a failed save puts the setting back', async ({ page }, info) => {
+test('a failed save puts the setting back @J9.6', async ({ page }, info) => {
 	await page.route('**/api/settings/sound', (route) =>
 		route.request().method() === 'GET'
 			? route.fulfill({ json: { muted: false, quietStart: '20:00', quietEnd: '07:00' } })

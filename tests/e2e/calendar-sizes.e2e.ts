@@ -36,7 +36,7 @@ async function expectTitleWidth(page: Page, text: string | RegExp) {
 }
 
 for (const size of SIZES) {
-	test(`calendar fits at ${size.name} ${size.width}x${size.height}`, async ({ page }) => {
+	test(`calendar fits at ${size.name} ${size.width}x${size.height} @J5.8`, async ({ page }) => {
 		seedCalendar();
 		await page.setViewportSize({ width: size.width, height: size.height });
 		await gotoHydrated(page, '/calendar');

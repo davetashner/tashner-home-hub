@@ -7,7 +7,7 @@ test.beforeAll(ensureHousehold);
 const JSON_HEADERS = { 'content-type': 'application/json' };
 
 // Synthetic games site, served by the test itself.
-test('an adult adds a game, it shows on the Games tab, opens in a frame and Back returns', async ({
+test('an adult adds a game, it shows on the Games tab, opens in a frame and Back returns @J14.1', async ({
 	page
 }, info) => {
 	// The hub's address must never reach a game host: record every Referer it sees.
@@ -82,7 +82,7 @@ test('an adult adds a game, it shows on the Games tab, opens in a frame and Back
 	}
 });
 
-test('a game that cannot load shows a friendly message', async ({ page }, info) => {
+test('a game that cannot load shows a friendly message @J14.2', async ({ page }, info) => {
 	await page.route('https://games.example.com/**', (route) => route.abort('internetdisconnected'));
 	await signInAsAdult(page, 'e2e-games-adult');
 	const name = `Offline ${info.project.name.slice(5, 9)}${Date.now().toString(36)}`;
@@ -110,7 +110,7 @@ test('a game that cannot load shows a friendly message', async ({ page }, info) 
 	}
 });
 
-test('the game form warns about home-network addresses but still lets them save', async ({
+test('the game form warns about home-network addresses but still lets them save @J14.3', async ({
 	page
 }) => {
 	await signInAsAdult(page, 'e2e-games-adult');

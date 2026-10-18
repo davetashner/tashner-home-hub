@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
 	await page.waitForLoadState('networkidle');
 });
 
-test('agenda shows today, members, location, and opens a details sheet', async ({ page }) => {
+test('agenda shows today, members, location, and opens a details sheet @J5.1', async ({ page }) => {
 	const pane = page.getByTestId('calendar-pane');
 	for (const title of ['Soccer practice', 'Dentist', 'Grandma visits', 'School holiday']) {
 		await expect(pane.getByText(title).first()).toBeVisible();
@@ -39,7 +39,7 @@ test('agenda shows today, members, location, and opens a details sheet', async (
 	await expect(sheet).toBeHidden();
 });
 
-test('week view shows timed and spanning events, and swipe changes the period', async ({
+test('week view shows timed and spanning events, and swipe changes the period @J5.2', async ({
 	page
 }) => {
 	await chooseView(page, 'Week');
@@ -57,7 +57,9 @@ test('week view shows timed and spanning events, and swipe changes the period', 
 	await expect(page.getByTestId('period-title')).toHaveText(before);
 });
 
-test('week view blocks and bars are tappable, unclipped, and open near now', async ({ page }) => {
+test('week view blocks and bars are tappable, unclipped, and open near now @J5.2', async ({
+	page
+}) => {
 	await chooseView(page, 'Week');
 	const pane = page.getByTestId('calendar-pane');
 	await expect(pane.locator('.bar').first()).toBeVisible();
@@ -98,7 +100,9 @@ test('week view blocks and bars are tappable, unclipped, and open near now', asy
 		.toBe(true);
 });
 
-test('tapping empty space in a week column opens that day in the agenda', async ({ page }) => {
+test('tapping empty space in a week column opens that day in the agenda @J5.2', async ({
+	page
+}) => {
 	await chooseView(page, 'Week');
 	const pane = page.getByTestId('calendar-pane');
 	const hit = pane.locator('.day-hit').nth(3);
@@ -109,7 +113,9 @@ test('tapping empty space in a week column opens that day in the agenda', async 
 	).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('month view lists events and a day tap opens that day in the agenda', async ({ page }) => {
+test('month view lists events and a day tap opens that day in the agenda @J5.2', async ({
+	page
+}) => {
 	await chooseView(page, 'Month');
 	const pane = page.getByTestId('calendar-pane');
 	await expect(pane.getByText('Grandma visits').first()).toBeVisible();
@@ -122,7 +128,9 @@ test('month view lists events and a day tap opens that day in the agenda', async
 	await expect(page.getByTestId('calendar-pane').getByText('Dentist')).toBeVisible();
 });
 
-test('remembers the last view and shows the stale badge without blocking', async ({ page }) => {
+test('remembers the last view and shows the stale badge without blocking @J5.7', async ({
+	page
+}) => {
 	await chooseView(page, 'Week');
 	await reloadHydrated(page);
 	await expect(page.getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'true');
@@ -130,7 +138,7 @@ test('remembers the last view and shows the stale badge without blocking', async
 	await expect(page.getByTestId('calendar-pane').getByText('Dentist')).toBeVisible();
 });
 
-test('calendar controls meet the 60px minimum', async ({ page }) => {
+test('calendar controls meet the 60px minimum @J16.1', async ({ page }) => {
 	for (const name of ['Agenda', 'Week', 'Month', 'Previous', 'Today', 'Next']) {
 		await expectTappable(page.getByRole('button', { name, exact: true }));
 	}

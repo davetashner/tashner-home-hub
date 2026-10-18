@@ -12,7 +12,9 @@ import { fakeTimerApi } from './timers-api';
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
 
-test('start, pause, add a minute and cancel timers; the pill follows along', async ({ page }) => {
+test('start, pause, add a minute and cancel timers; the pill follows along @J11.1 @J11.2', async ({
+	page
+}) => {
 	const timers: KitchenTimer[] = [];
 	await fakeTimerApi(page, timers);
 	await gotoHydrated(page, '/');
@@ -45,7 +47,9 @@ test('start, pause, add a minute and cancel timers; the pill follows along', asy
 	await expect.poll(() => timers.length).toBe(0);
 });
 
-test('a finished timer shows a banner, sounds the alarm and is dismissed', async ({ page }) => {
+test('a finished timer shows a banner, sounds the alarm and is dismissed @J11.3', async ({
+	page
+}) => {
 	await page.addInitScript(
 		() => ((window as unknown as { __hubSounds: unknown[] }).__hubSounds = [])
 	);

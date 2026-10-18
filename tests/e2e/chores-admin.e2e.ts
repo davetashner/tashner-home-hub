@@ -4,7 +4,7 @@ import { signInAsAdult } from './adult';
 import { trackMember } from './cleanup';
 import { gotoHydrated } from './hydrated';
 
-test('create, edit and archive a weekday chore', async ({ page }, info) => {
+test('create, edit and archive a weekday chore @J9.4', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-chores-${info.project.name}`);
 	// Unique per run, not just per project: projects and repeats share one database, and a kid or
 	// chore left over with the same name would make the locators below match several rows.

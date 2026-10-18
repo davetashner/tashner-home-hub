@@ -3,7 +3,7 @@ import { seedKid, stubAudio } from './kid';
 import { gotoHydrated } from './hydrated';
 import { expectTappable } from './tap';
 
-test('the kid steps through a routine, a reload resumes, and it celebrates at the end', async ({
+test('the kid steps through a routine, a reload resumes, and it celebrates at the end @J2.2', async ({
 	page
 }, info) => {
 	const seed = await seedKid(page, `routine-${info.project.name}`);
@@ -65,7 +65,7 @@ const smallScreens = [
 	{ name: 'iPhone landscape', width: 852, height: 393 }
 ];
 
-test('a kid scrolls to and opens a routine at tablet and phone-landscape sizes', async ({
+test('a kid scrolls to and opens a routine at tablet and phone-landscape sizes @J2.1', async ({
 	page
 }, info) => {
 	const seed = await seedKid(page, `routine-sizes-${info.project.name}`);
@@ -125,7 +125,7 @@ test('a kid scrolls to and opens a routine at tablet and phone-landscape sizes',
 	}
 });
 
-test('the routine complete screen fits without scrolling at tablet and phone-landscape sizes', async ({
+test('the routine complete screen fits without scrolling at tablet and phone-landscape sizes @J2.2', async ({
 	page
 }, info) => {
 	const seed = await seedKid(page, `routine-done-${info.project.name}`);

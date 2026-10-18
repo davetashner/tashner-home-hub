@@ -118,7 +118,7 @@ async function seedChoresKid(page: Page, tag: string): Promise<KidSeed> {
 }
 
 for (const route of routes) {
-	test(`phone landscape: ${route} fits with tap-sized controls`, async ({ page }, info) => {
+	test(`phone landscape: ${route} fits with tap-sized controls @J16.3`, async ({ page }, info) => {
 		await signInAsAdult(page, `adult-phone-${info.project.name}`);
 		for (const vp of viewportsFor(info.project.name)) {
 			await test.step(label(vp), async () => {
@@ -132,7 +132,7 @@ for (const route of routes) {
 	});
 }
 
-test('phone landscape: /chores shows the first chore to do without scrolling', async ({
+test('phone landscape: /chores shows the first chore to do without scrolling @J16.3', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `adult-phone-${info.project.name}`);
@@ -170,7 +170,9 @@ test('phone landscape: /chores shows the first chore to do without scrolling', a
 	}
 });
 
-test('phone landscape: /chores celebration banner stays on screen', async ({ page }, info) => {
+test('phone landscape: /chores celebration banner stays on screen @J16.3', async ({
+	page
+}, info) => {
 	await signInAsAdult(page, `adult-phone-${info.project.name}`);
 	for (const vp of viewportsFor(info.project.name)) {
 		await test.step(label(vp), async () => {
@@ -200,7 +202,9 @@ test('phone landscape: /chores celebration banner stays on screen', async ({ pag
 	}
 });
 
-test('phone landscape: /chores "you earned it" banner stays on screen', async ({ page }, info) => {
+test('phone landscape: /chores "you earned it" banner stays on screen @J16.3', async ({
+	page
+}, info) => {
 	await signInAsAdult(page, `adult-phone-${info.project.name}`);
 	for (const vp of viewportsFor(info.project.name)) {
 		await test.step(label(vp), async () => {
@@ -228,7 +232,7 @@ test('phone landscape: /chores "you earned it" banner stays on screen', async ({
 	}
 });
 
-test('phone landscape: a three-digit approvals count keeps the adult header on screen', async ({
+test('phone landscape: a three-digit approvals count keeps the adult header on screen @J16.3', async ({
 	page
 }, info) => {
 	// CI's shared database can hold 100+ pending approvals; the badge caps its count at "99+" so

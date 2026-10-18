@@ -4,7 +4,7 @@ import { trackMember } from './cleanup';
 import { expectTappable } from './tap';
 import { gotoHydrated } from './hydrated';
 
-test('Star Jobs and habits each count, and finishing every habit earns a star', async ({
+test('Star Jobs and habits each count, and finishing every habit earns a star @J1.3', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `adult-habits-${info.project.name.replace(/\W/g, '')}`);

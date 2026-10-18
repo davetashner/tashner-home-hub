@@ -22,7 +22,9 @@ async function idleSettings(page: Page, homeMinutes: number, frameMinutes: numbe
 	);
 }
 
-test('idle returns home, then starts the photo frame; a touch goes back home', async ({ page }) => {
+test('idle returns home, then starts the photo frame; a touch goes back home @J8.1', async ({
+	page
+}) => {
 	await idleSettings(page, 2, 5);
 	// An empty library keeps the nav visible under the frame (slideshow.e2e.ts covers the fullscreen frame).
 	await page.route('**/api/photo/slideshow?**', (route) => route.fulfill({ json: [] }));
@@ -49,7 +51,7 @@ test('idle returns home, then starts the photo frame; a touch goes back home', a
 	await expect(page).toHaveURL(HOME);
 });
 
-test('the photo frame returns to the screen it interrupted when going home is off', async ({
+test('the photo frame returns to the screen it interrupted when going home is off @J8.1', async ({
 	page
 }) => {
 	await idleSettings(page, 0, 1);
@@ -62,7 +64,7 @@ test('the photo frame returns to the screen it interrupted when going home is of
 	await expect(page).toHaveURL(/\/lists$/);
 });
 
-test('grown-ups set the idle timers on the Screen settings page', async ({ page }) => {
+test('grown-ups set the idle timers on the Screen settings page @J9.5', async ({ page }) => {
 	await idleSettings(page, 2, 5);
 	const saved: unknown[] = [];
 	await page.route('**/api/settings/idle', (route) => {

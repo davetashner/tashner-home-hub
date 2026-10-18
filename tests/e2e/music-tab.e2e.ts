@@ -71,7 +71,9 @@ async function mockMusic(page: Page, over: Partial<Mock> = {}): Promise<Mock> {
 	return m;
 }
 
-test('picking a playlist shows it playing, controls are big, pause works', async ({ page }) => {
+test('picking a playlist shows it playing, controls are big, pause works @J10.1', async ({
+	page
+}) => {
 	const m = await mockMusic(page);
 	await page.goto('/music');
 	await expect(
@@ -101,7 +103,7 @@ test('picking a playlist shows it playing, controls are big, pause works', async
 	expect(m.calls).toEqual(['play', 'pause', 'resume']);
 });
 
-test('volume stops at the parent cap', async ({ page }) => {
+test('volume stops at the parent cap @J10.2', async ({ page }) => {
 	const m = await mockMusic(page, { playing: true, playlist: 'pl1', volume: 40 });
 	await page.goto('/music');
 	await expect(page.getByTestId('now-playing')).toBeVisible();
@@ -111,7 +113,9 @@ test('volume stops at the parent cap', async ({ page }) => {
 	expect(m.volumes).toEqual([50]);
 });
 
-test('an asleep speaker shows the sheet and Try again starts the music', async ({ page }) => {
+test('an asleep speaker shows the sheet and Try again starts the music @J10.3', async ({
+	page
+}) => {
 	const m = await mockMusic(page, { asleep: true });
 	await page.goto('/music');
 	await expect(page.getByTestId('speaker-chip')).toHaveText(/Speaker asleep/);
@@ -131,7 +135,7 @@ test('an asleep speaker shows the sheet and Try again starts the music', async (
 	expect(m.calls).toEqual(['play', 'play', 'play']);
 });
 
-test('with no playlists the tab says to ask a grown-up', async ({ page }) => {
+test('with no playlists the tab says to ask a grown-up @J10.1', async ({ page }) => {
 	await page.route('**/api/music/playlists', (r) => r.fulfill({ json: [] }));
 	await page.route('**/api/music/state', (r) => r.fulfill({ status: 500, body: '' }));
 	await page.goto('/music');

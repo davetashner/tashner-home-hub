@@ -3,7 +3,7 @@ import { px } from './tap';
 import { signInAsAdult } from './adult';
 import { gotoHydrated } from './hydrated';
 
-test('add and edit a reward', async ({ page }, info) => {
+test('add and edit a reward @J9.4', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-rewards-${info.project.name}`);
 	const name = `Ice cream trip ${Date.now()}`;
 	await gotoHydrated(page, '/settings/rewards');
@@ -27,7 +27,7 @@ test('add and edit a reward', async ({ page }, info) => {
 	expect(px(box!.height)).toBeGreaterThanOrEqual(60);
 });
 
-test('emoji picker tap targets and free-entry validation', async ({ page }, info) => {
+test('emoji picker tap targets and free-entry validation @J9.4', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-rewards-emoji-${info.project.name}`);
 	await gotoHydrated(page, '/settings/rewards');
 	await page.getByTestId('add-reward').click();
@@ -42,7 +42,7 @@ test('emoji picker tap targets and free-entry validation', async ({ page }, info
 	await expect(page.getByRole('alert')).toContainText('emoji');
 });
 
-test('saving a reward while the hub is unreachable says so', async ({ page }, info) => {
+test('saving a reward while the hub is unreachable says so @J9.4', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-rewards-502-${info.project.name}`);
 	await gotoHydrated(page, '/settings/rewards');
 	await page.route('**/api/rewards', (route) =>

@@ -25,7 +25,7 @@ async function mockWeather(page: Page, body: unknown) {
 	await page.route('**/api/weather', (route) => route.fulfill({ json: body }));
 }
 
-test('the home widget shows temperature, condition and forecast', async ({ page }) => {
+test('the home widget shows temperature, condition and forecast @J0.2', async ({ page }) => {
 	await mockWeather(page, snapshot(NOW));
 	await gotoHydrated(page, '/');
 	const widget = page.getByTestId('weather-widget');
@@ -39,20 +39,20 @@ test('the home widget shows temperature, condition and forecast', async ({ page 
 	await expect(widget.getByText('Weather may be out of date.')).toHaveCount(0);
 });
 
-test('stale data carries an out-of-date note', async ({ page }) => {
+test('stale data carries an out-of-date note @J0.2', async ({ page }) => {
 	await mockWeather(page, snapshot(NOW - 4 * 60 * 60 * 1000));
 	await gotoHydrated(page, '/');
 	await expect(page.getByText('Weather may be out of date.')).toBeVisible();
 });
 
-test('with no location the widget is absent and home still renders', async ({ page }) => {
+test('with no location the widget is absent and home still renders @J0.2', async ({ page }) => {
 	await mockWeather(page, { enabled: false });
 	await gotoHydrated(page, '/');
 	await expect(page.getByTestId('weather-widget')).toHaveCount(0);
 	await expect(page.locator('main')).toBeVisible();
 });
 
-test('the widget does not overflow at phone and tablet sizes', async ({ page }) => {
+test('the widget does not overflow at phone and tablet sizes @J0.2', async ({ page }) => {
 	await mockWeather(page, snapshot(NOW));
 	for (const [width, height] of [
 		[390, 844],
@@ -76,7 +76,9 @@ test('the widget does not overflow at phone and tablet sizes', async ({ page }) 
 	}
 });
 
-test('grown-ups search, pick, save and remove a weather location', async ({ page }, info) => {
+test('grown-ups search, pick, save and remove a weather location @J9.7 @J0.2', async ({
+	page
+}, info) => {
 	await signInAsAdult(page, `e2e-weather-${info.project.name}`);
 	await page.route('**/api/settings/weather/search*', (route) =>
 		route.fulfill({

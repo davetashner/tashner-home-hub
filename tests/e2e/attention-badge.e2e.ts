@@ -25,7 +25,7 @@ const badgeMatchesServer = (page: Page) =>
 		else await expect(badge).toHaveAttribute('data-count', String(total), { timeout: 1000 });
 	}).toPass({ timeout: 20_000 });
 
-test('the header badge counts a reached goal and drops it after redemption', async ({
+test('the header badge counts a reached goal and drops it after redemption @J4.2', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `adult-ab-${info.project.name.replace(/\W/g, '')}`);

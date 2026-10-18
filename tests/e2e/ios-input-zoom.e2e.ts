@@ -40,7 +40,7 @@ async function smallFields(page: Page): Promise<string[]> {
 const routes = discover();
 
 for (const route of routes) {
-	test(`ios: fields on ${route} are at least 16px at 390px`, async ({ page }, info) => {
+	test(`ios: fields on ${route} are at least 16px at 390px @J16.3`, async ({ page }, info) => {
 		await signInAsAdult(page, `e2e-zoom-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
 		await gotoHydrated(page, route);
@@ -54,7 +54,7 @@ for (const f of [
 	{ path: '/settings/rewards', open: 'Add reward' },
 	{ path: '/settings/family', open: 'Add person' }
 ]) {
-	test(`ios: the ${f.open} form fields are at least 16px`, async ({ page }, info) => {
+	test(`ios: the ${f.open} form fields are at least 16px @J16.3`, async ({ page }, info) => {
 		await signInAsAdult(page, `e2e-zoom-form-${info.project.name}`);
 		await page.setViewportSize({ width: 390, height: 844 });
 		await gotoHydrated(page, f.path);
@@ -64,7 +64,7 @@ for (const f of [
 	});
 }
 
-test('ios: a bare input with no classes is at least 16px at 390px', async ({ page }) => {
+test('ios: a bare input with no classes is at least 16px at 390px @J16.3', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await gotoHydrated(page, '/unlock');
 	const size = await page.evaluate(() => {

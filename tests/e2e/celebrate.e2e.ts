@@ -5,7 +5,7 @@ import { reloadHydrated } from './hydrated';
 const outlineStars = (page: import('@playwright/test').Page) =>
 	page.getByTestId('jar-glass').locator('[data-star="outline"]');
 
-test('tap: stars fly to the jar and land as pending, with sound', async ({ page }, info) => {
+test('tap: stars fly to the jar and land as pending, with sound @J1.2', async ({ page }, info) => {
 	const notes = await stubAudio(page);
 	const s = await seedKid(page, `fly ${info.project.name}`);
 	await openKid(page, s);
@@ -17,7 +17,7 @@ test('tap: stars fly to the jar and land as pending, with sound', async ({ page 
 	expect(await notes()).toBeGreaterThan(0);
 });
 
-test('all done: banner after the last chore, once per day', async ({ page }, info) => {
+test('all done: banner after the last chore, once per day @J1.6', async ({ page }, info) => {
 	const s = await seedKid(page, `alldone ${info.project.name}`);
 	await openKid(page, s);
 	await choreCard(page, 'Brush teeth').getByTestId('did-it').click();
@@ -32,7 +32,9 @@ test('all done: banner after the last chore, once per day', async ({ page }, inf
 	await expect(page.getByTestId('all-done')).toHaveCount(0);
 });
 
-test('reduced motion: no flight, a gentle fade, sound still plays', async ({ page }, info) => {
+test('reduced motion: no flight, a gentle fade, sound still plays @J1.2', async ({
+	page
+}, info) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	const notes = await stubAudio(page);
 	const s = await seedKid(page, `reduced ${info.project.name}`);
@@ -44,7 +46,7 @@ test('reduced motion: no flight, a gentle fade, sound still plays', async ({ pag
 	expect(await notes()).toBeGreaterThan(0);
 });
 
-test('muted: no sound is made', async ({ page }, info) => {
+test('muted: no sound is made @J1.2', async ({ page }, info) => {
 	const notes = await stubAudio(page);
 	await page.route('**/api/settings/sound', (route) =>
 		route.fulfill({ json: { muted: true, quietStart: '20:00', quietEnd: '07:00' } })
@@ -58,7 +60,7 @@ test('muted: no sound is made', async ({ page }, info) => {
 	expect(await notes()).toBe(0);
 });
 
-test('approval: a grown-up approving rings a ding and pops the gold star', async ({
+test('approval: a grown-up approving rings a ding and pops the gold star @J3.2', async ({
 	page
 }, info) => {
 	const notes = await stubAudio(page);

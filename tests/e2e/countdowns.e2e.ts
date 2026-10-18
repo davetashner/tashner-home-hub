@@ -19,7 +19,9 @@ const addDays = (date: string, n: number) => {
 	return d.toISOString().slice(0, 10);
 };
 
-test('adults add, edit and delete countdowns; home counts down in days', async ({ page }, info) => {
+test('adults add, edit and delete countdowns; home counts down in days @J0.4', async ({
+	page
+}, info) => {
 	const k = Math.max(0, PROJECTS.indexOf(info.project.name));
 	const today = `${2041 + k}-06-10`;
 	await page.clock.setFixedTime(new Date(`${today}T12:00:00`));

@@ -3,7 +3,7 @@ import { gotoHydrated } from './hydrated';
 import { openKid, seedKid } from './kid';
 import { expectTappable } from './tap';
 
-test('set the rate, cash out, the kid sees it, then mark it paid', async ({ page }, info) => {
+test('set the rate, cash out, the kid sees it, then mark it paid @J4.7', async ({ page }, info) => {
 	const kid = await seedKid(page, `allowance ${info.project.name}`);
 	const bonus = await page.request.post(`/api/members/${kid.memberId}/bonus`, {
 		data: { delta: 12, note: 'seed' }

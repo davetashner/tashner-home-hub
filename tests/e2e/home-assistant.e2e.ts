@@ -43,7 +43,9 @@ async function stubTiles(page: Page, state: { reachable: boolean; toggleStatus: 
 	return posts;
 }
 
-test('Home controls: big tiles flip at once and settle with the server', async ({ page }) => {
+test('Home controls: big tiles flip at once and settle with the server @J17.1', async ({
+	page
+}) => {
 	const posts = await stubTiles(page, { reachable: true, toggleStatus: 200 });
 	await gotoHydrated(page, '/');
 	const lamp = page.getByTestId('ha-tile').filter({ hasText: 'Kitchen light' });
@@ -62,7 +64,7 @@ test('Home controls: big tiles flip at once and settle with the server', async (
 	await expect(page.getByTestId('ha-unreachable')).toHaveCount(0);
 });
 
-test('Home controls: a failed tap rolls back and says so', async ({ page }) => {
+test('Home controls: a failed tap rolls back and says so @J17.2', async ({ page }) => {
 	await stubTiles(page, { reachable: true, toggleStatus: 502 });
 	await gotoHydrated(page, '/');
 	const fan = page.getByTestId('ha-tile').filter({ hasText: 'Porch fan' });
@@ -73,14 +75,14 @@ test('Home controls: a failed tap rolls back and says so', async ({ page }) => {
 	await expect(page.getByRole('alert')).toContainText('Porch fan');
 });
 
-test('Home controls: shows Home Assistant unreachable gracefully', async ({ page }) => {
+test('Home controls: shows Home Assistant unreachable gracefully @J17.3', async ({ page }) => {
 	await stubTiles(page, { reachable: false, toggleStatus: 200 });
 	await gotoHydrated(page, '/');
 	await expect(page.getByTestId('ha-unreachable')).toHaveText('Home Assistant unreachable');
 	await expect(page.getByTestId('ha-tile')).toHaveCount(3);
 });
 
-test('Home controls: hidden when nothing is configured', async ({ page }) => {
+test('Home controls: hidden when nothing is configured @J17.3', async ({ page }) => {
 	await page.route('**/api/home-assistant/tiles', (route) =>
 		route.fulfill({ json: { configured: false } })
 	);
@@ -88,7 +90,7 @@ test('Home controls: hidden when nothing is configured', async ({ page }) => {
 	await expect(page.getByTestId('home-controls')).toHaveCount(0);
 });
 
-test('Settings: connect, test, pick, rename and reorder', async ({ page }) => {
+test('Settings: connect, test, pick, rename and reorder @J17.4', async ({ page }) => {
 	await signInAsAdult(page, 'e2e-ha-adult');
 	let config = { configured: false, baseUrl: '', hasToken: false, tiles: [] as unknown[] };
 	const puts: unknown[] = [];

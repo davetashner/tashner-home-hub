@@ -34,7 +34,9 @@ const card = (page: Page, s: Seed) =>
 const balance = async (page: Page, s: Seed) =>
 	(await (await page.request.get(`/api/members/${s.memberId}/stars`)).json()).balance as number;
 
-test('a grown-up redeems the goal, stars come off, and it is logged', async ({ page }, info) => {
+test('a grown-up redeems the goal, stars come off, and it is logged @J4.4', async ({
+	page
+}, info) => {
 	const s = await seed(page, `ok ${info.project.name}`);
 	await gotoHydrated(page, '/settings/approvals');
 	const redeem = card(page, s).getByTestId('redeem');
@@ -61,7 +63,7 @@ test('a grown-up redeems the goal, stars come off, and it is logged', async ({ p
 	await expect(row).toContainText('by Test Adult');
 });
 
-test('a failed redeem puts the stars back', async ({ page }, info) => {
+test('a failed redeem puts the stars back @J4.5', async ({ page }, info) => {
 	const s = await seed(page, `fail ${info.project.name}`);
 	await gotoHydrated(page, '/settings/approvals');
 	await page.route('**/api/redemptions', (route) => route.fulfill({ status: 500 }));
@@ -73,7 +75,7 @@ test('a failed redeem puts the stars back', async ({ page }, info) => {
 	expect(await balance(page, s)).toBe(7);
 });
 
-test('without a grown-up, nothing can be redeemed or read', async ({ page }, info) => {
+test('without a grown-up, nothing can be redeemed or read @J4.4', async ({ page }, info) => {
 	const s = await seed(page, `kid ${info.project.name}`);
 	const rewards = await (await page.request.get('/api/rewards')).json();
 	const reward = (rewards as { id: string; title: string }[]).find((r) => r.title === s.reward)!;

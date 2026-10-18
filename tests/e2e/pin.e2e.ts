@@ -54,7 +54,7 @@ async function openPad(page: Page, name: string, next = '/') {
 	await expect(page.getByTestId('pinpad')).toBeVisible();
 }
 
-test('keys are at least 96px', async ({ page }, info) => {
+test('keys are at least 96px @J9.3', async ({ page }, info) => {
 	await openPad(page, `Keys ${info.project.name}`);
 	// locator.all() does not wait: let the pad render before measuring it.
 	await expect(page.locator('[data-testid="pinpad"] button')).toHaveCount(12);
@@ -67,7 +67,7 @@ test('keys are at least 96px', async ({ page }, info) => {
 	}
 });
 
-test('wrong PIN shakes and clears the dots', async ({ page }, info) => {
+test('wrong PIN shakes and clears the dots @J9.3', async ({ page }, info) => {
 	await openPad(page, `Shake ${info.project.name}`);
 	await enter(page, WRONG);
 	await expect(page.getByTestId('pin-message')).toHaveText('Wrong PIN.');
@@ -75,7 +75,7 @@ test('wrong PIN shakes and clears the dots', async ({ page }, info) => {
 	await expect(page.getByTestId('pin-dots')).toHaveAttribute('data-count', '0');
 });
 
-test('correct PIN redirects to next', async ({ page }, info) => {
+test('correct PIN redirects to next @J9.3', async ({ page }, info) => {
 	await openPad(page, `Redirect ${info.project.name}`, '/healthz');
 	await enter(page, PIN);
 	await expect(page).toHaveURL(/\/healthz$/);
@@ -86,7 +86,7 @@ test('correct PIN redirects to next', async ({ page }, info) => {
 	});
 });
 
-test('locks after five wrong attempts', async ({ page }, info) => {
+test('locks after five wrong attempts @J9.3', async ({ page }, info) => {
 	await openPad(page, `Lock ${info.project.name}`);
 	for (let i = 0; i < 5; i++) {
 		await enter(page, WRONG);

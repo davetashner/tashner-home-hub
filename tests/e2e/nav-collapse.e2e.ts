@@ -3,7 +3,7 @@ import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
 import { gotoHydrated, reloadHydrated } from './hydrated';
 
 test.describe('collapsible nav rail', () => {
-	test('collapse widens the content, survives reload, handle restores', async ({ page }) => {
+	test('collapse widens the content, survives reload, handle restores @J0.3', async ({ page }) => {
 		await gotoHydrated(page, '/photos');
 		await page.waitForLoadState('networkidle');
 		const viewport = page.viewportSize()!;
@@ -42,7 +42,7 @@ test.describe('collapsible nav rail', () => {
 		await expect.poll(async () => (await main.boundingBox())!.width).toBeCloseTo(before.width, 0);
 	});
 
-	test('on the photo frame the overlay clock stands alone and the handle stays clear of it', async ({
+	test('on the photo frame the overlay clock stands alone and the handle stays clear of it @J0.3', async ({
 		page
 	}, info) => {
 		const viewport = page.viewportSize()!;

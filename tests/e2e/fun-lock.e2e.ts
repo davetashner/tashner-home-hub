@@ -48,7 +48,7 @@ async function seedMissed(page: Page, label: string) {
 	};
 }
 
-test('a kid with a missed job sees the wait on Games and Music, and finishing today unlocks them', async ({
+test('a kid with a missed job sees the wait on Games and Music, and finishing today unlocks them @J1.8', async ({
 	page
 }, info) => {
 	const kid = await seedMissed(page, info.project.name);
@@ -69,7 +69,7 @@ test('a kid with a missed job sees the wait on Games and Music, and finishing to
 	await expect(page.getByTestId('fun-locked')).toHaveCount(0);
 });
 
-test('a grown-up unlocks Games and Music from Approvals', async ({ page }, info) => {
+test('a grown-up unlocks Games and Music from Approvals @J1.8', async ({ page }, info) => {
 	const kid = await seedMissed(page, info.project.name);
 	await page.goto(`/games?member=${kid.memberId}`);
 	await expect(page.getByTestId('fun-locked')).toBeVisible();

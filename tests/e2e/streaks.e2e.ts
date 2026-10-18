@@ -41,7 +41,7 @@ test.afterEach(async ({ page }) => {
 	seededKid = null;
 });
 
-test('the kid sees the streak badge, then a 3-day milestone banner paid exactly once', async ({
+test('the kid sees the streak badge, then a 3-day milestone banner paid exactly once @J13.3', async ({
 	page
 }, info) => {
 	await stubAudio(page);

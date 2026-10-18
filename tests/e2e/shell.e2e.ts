@@ -24,7 +24,7 @@ async function swipe(page: Page, from: number, to: number) {
 	await page.mouse.up();
 }
 
-test('every destination is reachable by tap and marks itself active', async ({ page }) => {
+test('every destination is reachable by tap and marks itself active @J0.3', async ({ page }) => {
 	await gotoHydrated(page, '/');
 	await page.waitForLoadState('networkidle');
 	const nav = page.getByRole('navigation', { name: 'Main' });
@@ -37,7 +37,7 @@ test('every destination is reachable by tap and marks itself active', async ({ p
 	}
 });
 
-test('settings gear opens settings', async ({ page }) => {
+test('settings gear opens settings @J0.3', async ({ page }) => {
 	await signInAsAdult(page, 'e2e-shell-adult');
 	await gotoHydrated(page, '/chores');
 	await page.waitForLoadState('networkidle');
@@ -45,7 +45,7 @@ test('settings gear opens settings', async ({ page }) => {
 	await expect(page).toHaveURL(/\/settings$/);
 });
 
-test('shell controls meet the 60px touch minimum', async ({ page }) => {
+test('shell controls meet the 60px touch minimum @J16.1', async ({ page }) => {
 	await gotoHydrated(page, '/chores');
 	const controls = page.locator('header a, header button, nav a');
 	const count = await controls.count();
@@ -59,7 +59,7 @@ test('shell controls meet the 60px touch minimum', async ({ page }) => {
 	}
 });
 
-test('swiping moves to the adjacent destination', async ({ page }) => {
+test('swiping moves to the adjacent destination @J0.3', async ({ page }) => {
 	await gotoHydrated(page, '/chores');
 	await page.waitForLoadState('networkidle');
 	await swipe(page, 0.8, 0.2);
@@ -68,7 +68,7 @@ test('swiping moves to the adjacent destination', async ({ page }) => {
 	await expect(page).toHaveURL(/\/chores$/);
 });
 
-test('sleep button posts to the display endpoint', async ({ page }) => {
+test('sleep button posts to the display endpoint @J8.5', async ({ page }) => {
 	await gotoHydrated(page, '/calendar');
 	await page.waitForLoadState('networkidle');
 	const request = page.waitForRequest(
@@ -79,7 +79,7 @@ test('sleep button posts to the display endpoint', async ({ page }) => {
 	expect(response?.status()).toBe(202);
 });
 
-test('sleep endpoint answers 202 with the power state', async ({ request }) => {
+test('sleep endpoint answers 202 with the power state @J8.5', async ({ request }) => {
 	const response = await request.post('/api/display/sleep', {
 		data: {}
 	});
@@ -87,13 +87,13 @@ test('sleep endpoint answers 202 with the power state', async ({ request }) => {
 	expect(await response.json()).toMatchObject({ power: 'off' });
 });
 
-test('header clock and date are visible away from home', async ({ page }) => {
+test('header clock and date are visible away from home @J0.2', async ({ page }) => {
 	await gotoHydrated(page, '/lists');
 	await expect(page.getByTestId('header-clock-time')).toBeVisible();
 	await expect(page.getByTestId('header-clock-date')).toBeVisible();
 });
 
-test('the header clock keeps the time on one line with a crowded header', async ({
+test('the header clock keeps the time on one line with a crowded header @J0.2', async ({
 	page
 }, info) => {
 	// Crowded header: adult session (Lock), a pending approval (badge), two kids (child switcher),

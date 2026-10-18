@@ -62,7 +62,9 @@ async function seed(page: Page, label: string) {
 	};
 }
 
-test('an adult sees a child card with the week numbers, on a phone', async ({ page }, info) => {
+test('an adult sees a child card with the week numbers, on a phone @J3.6', async ({
+	page
+}, info) => {
 	const s = await seed(page, info.project.name);
 	try {
 		await page.setViewportSize({ width: 390, height: 844 });
@@ -99,7 +101,7 @@ test('an adult sees a child card with the week numbers, on a phone', async ({ pa
 	}
 });
 
-test('the summary needs a grown-up', async ({ page }) => {
+test('the summary needs a grown-up @J3.6', async ({ page }) => {
 	const res = await page.request.get('/api/summary/weekly');
 	expect(res.status()).toBe(401);
 	await gotoHydrated(page, '/settings/weekly-summary');

@@ -5,7 +5,9 @@ import { gotoHydrated, reloadHydrated } from './hydrated';
 
 test.beforeAll(ensureHousehold);
 
-test('Settings > Music says Spotify is not set up when there is no client id', async ({ page }) => {
+test('Settings > Music says Spotify is not set up when there is no client id @J10.4', async ({
+	page
+}) => {
 	await page.route('**/api/spotify/status', (r) =>
 		r.fulfill({ json: { state: 'not_configured' } })
 	);
@@ -15,7 +17,7 @@ test('Settings > Music says Spotify is not set up when there is no client id', a
 	await expect(page.getByText('docs/setup/spotify.md')).toBeVisible();
 });
 
-test('Connect Spotify is a big tap target and Connected shows the name with Disconnect', async ({
+test('Connect Spotify is a big tap target and Connected shows the name with Disconnect @J10.4', async ({
 	page
 }) => {
 	let state: object = { state: 'disconnected' };
@@ -36,7 +38,7 @@ test('Connect Spotify is a big tap target and Connected shows the name with Disc
 	await expect(connect).toBeVisible();
 });
 
-test('Settings > Music curates playlists and saves limits', async ({ page }) => {
+test('Settings > Music curates playlists and saves limits @J10.4', async ({ page }) => {
 	const run = Date.now().toString(36);
 	const lists = [
 		{ id: 'pl1', name: `Wake up ${run}`, cover: null, tracks: 12 },

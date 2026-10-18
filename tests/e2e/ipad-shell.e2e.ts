@@ -27,7 +27,7 @@ for (const vp of viewports) {
 		});
 
 		for (const route of routes) {
-			test(`${route}: compact shell leaves the page the screen`, async ({ page }) => {
+			test(`${route}: compact shell leaves the page the screen @J16.3`, async ({ page }) => {
 				await gotoHydrated(page, route);
 				await page.waitForLoadState('networkidle');
 

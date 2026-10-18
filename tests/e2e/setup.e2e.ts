@@ -47,7 +47,7 @@ async function pad(page: import('@playwright/test').Page, pin: string) {
 	await page.getByRole('button', { name: 'Enter PIN' }).click();
 }
 
-test('fresh hub: setup, session, then guards', async ({ page }) => {
+test('fresh hub: setup, session, then guards @J9.1', async ({ page }) => {
 	const url = (path: string) => `${baseURL}${path}`;
 
 	await gotoHydrated(page, url('/'));

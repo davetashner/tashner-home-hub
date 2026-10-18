@@ -6,7 +6,7 @@ import { gotoHydrated } from './hydrated';
 test.use({ serviceWorkers: 'block' });
 test.beforeAll(ensureHousehold);
 
-test('a grown-up sets the screen direction and the display endpoint reports it', async ({
+test('a grown-up sets the screen direction and the display endpoint reports it @J9.5', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `e2e-orientation-adult-${info.project.name}`);
@@ -30,7 +30,7 @@ test('a grown-up sets the screen direction and the display endpoint reports it',
 		.toEqual({ rotation: 'normal', orientation: 'landscape' });
 });
 
-test('signed-out callers cannot change the direction', async ({ request }) => {
+test('signed-out callers cannot change the direction @J9.5', async ({ request }) => {
 	const res = await request.put('/api/settings/orientation', { data: { rotation: '180' } });
 	expect(res.status()).toBe(401);
 });

@@ -235,7 +235,7 @@ const TAPS = 5;
 
 test(
 	'"I did it!" responds within 100 ms of our own work at 4x throttle',
-	{ tag: '@perf' },
+	{ tag: ['@perf', '@J16.5'] },
 	async ({ page }, info) => {
 		test.setTimeout(90_000); // five taps, each preceded by a wait for a quiet page
 		await stubAudio(page);
@@ -267,7 +267,7 @@ test(
 
 test(
 	'primary nav responds within 100 ms of our own work at 4x throttle',
-	{ tag: '@perf' },
+	{ tag: ['@perf', '@J16.5'] },
 	async ({ page }, info) => {
 		await signInAsAdult(page, `adult-navperf-${info.project.name.replace(/\W/g, '')}`);
 		await gotoHydrated(page, '/');
@@ -305,7 +305,7 @@ test(
 
 test(
 	'parent Approve responds within 100 ms of our own work at 4x throttle',
-	{ tag: '@perf' },
+	{ tag: ['@perf', '@J16.5'] },
 	async ({ page }, info) => {
 		const adultId = `adult-apperf-${info.project.name.replace(/\W/g, '')}`;
 		await signInAsAdult(page, adultId);
@@ -406,7 +406,7 @@ function checkSmooth(label: string, info: { project: { name: string } }, p: Perf
 
 test(
 	'the star flight animates only composited properties and keeps the main thread free',
-	{ tag: '@perf' },
+	{ tag: ['@perf', '@J16.5'] },
 	async ({ page }, info) => {
 		test.setTimeout(60_000);
 		await stubAudio(page);
@@ -433,7 +433,7 @@ test(
 
 test(
 	'the photo crossfade animates only composited properties and keeps the main thread free',
-	{ tag: '@perf' },
+	{ tag: ['@perf', '@J16.5'] },
 	async ({ page }, info) => {
 		test.setTimeout(45_000); // the shortest slideshow interval is 10 s, played in real time
 		const tall = await syntheticJpeg(360, 640);

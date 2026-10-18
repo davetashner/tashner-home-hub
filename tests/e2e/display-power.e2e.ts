@@ -3,7 +3,7 @@ import { ensureHousehold, signInAsAdult } from './adult';
 
 test.beforeAll(ensureHousehold);
 
-test('an adult sets the schedule; sleep now and wake answer with the power state', async ({
+test('an adult sets the schedule; sleep now and wake answer with the power state @J8.5', async ({
 	page
 }, info) => {
 	await signInAsAdult(page, `e2e-sleep-adult-${info.project.name}`);
@@ -36,7 +36,7 @@ test('an adult sets the schedule; sleep now and wake answer with the power state
 	}
 });
 
-test('signed-out callers cannot read or change the schedule', async ({ request }) => {
+test('signed-out callers cannot read or change the schedule @J8.5', async ({ request }) => {
 	expect((await request.get('/api/settings/sleep-schedule')).status()).toBe(401);
 	const res = await request.put('/api/settings/sleep-schedule', { data: { enabled: false } });
 	expect(res.status()).toBe(401);

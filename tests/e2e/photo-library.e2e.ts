@@ -7,7 +7,7 @@ import { signInAsAdult } from './adult';
 import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
 import { gotoHydrated } from './hydrated';
 
-test('add a folder, pick albums, scan, hide a photo', async ({ page }, info) => {
+test('add a folder, pick albums, scan, hide a photo @J8.7', async ({ page }, info) => {
 	const name = info.project.name;
 	// Unique per run too (not just per project), so a leftover or concurrent source never shares the card.
 	const run = `${Date.now().toString(36)}-${info.parallelIndex}-${info.repeatEachIndex}`;

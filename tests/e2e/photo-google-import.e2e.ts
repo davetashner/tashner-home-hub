@@ -3,7 +3,7 @@ import { signInAsAdult } from './adult';
 import { gotoHydrated } from './hydrated';
 
 // Google is never called: every /api/photo-import/google route is stubbed.
-test('connect Google, start a picker import, see progress', async ({ page }, info) => {
+test('connect Google, start a picker import, see progress @J8.8', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-gimport-${info.project.name}`);
 	let connected = false;
 	let job: Record<string, unknown> | null = null;

@@ -23,7 +23,9 @@ async function bonus(page: Page, s: KidSeed, delta: number) {
 	await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 }
 
-test('goal jar fills toward the cost and celebrates once per reaching', async ({ page }, info) => {
+test('goal jar fills toward the cost and celebrates once per reaching @J1.7', async ({
+	page
+}, info) => {
 	const notes = await stubAudio(page);
 	const s = await seedKid(page, `goal ${info.project.name}`);
 	const title = await seedGoal(page, s);
@@ -61,7 +63,7 @@ test('goal jar fills toward the cost and celebrates once per reaching', async ({
 	await expect(page.getByTestId('goal-earned')).toContainText('You earned it!');
 });
 
-test('grown-ups see a reached goal on the approvals screen', async ({ page }, info) => {
+test('grown-ups see a reached goal on the approvals screen @J4.2', async ({ page }, info) => {
 	const s = await seedKid(page, `goaladult ${info.project.name}`);
 	const title = await seedGoal(page, s);
 	await gotoHydrated(page, '/settings/approvals');
