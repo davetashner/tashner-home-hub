@@ -52,7 +52,8 @@ export const LOCAL_SETTING_PREFIXES = [
 	'session.epoch.',
 	'weather.cache',
 	'notify.last',
-	'notify.goals'
+	'notify.goals',
+	'timers.list'
 ] as const;
 
 /**

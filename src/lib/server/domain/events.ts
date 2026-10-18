@@ -1,6 +1,6 @@
 /** In-process pub/sub behind `GET /api/events` (ADR 0001: SSE for live updates). */
 
-export const EVENT_TOPICS = ['lists'] as const;
+export const EVENT_TOPICS = ['lists', 'timers'] as const;
 export type EventTopic = (typeof EVENT_TOPICS)[number];
 
 /** What changed, never why or by whom. Clients refetch; the payload only says where to look. */
