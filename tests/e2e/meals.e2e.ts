@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold } from './adult';
 import { seedCalendar } from './calendar';
+import { asWallDisplay } from './display';
+import { expectTappable } from './tap';
 
 // MEAL-1. Each project plans a different far-future week so parallel projects sharing one database
 // never see each other's dinner. Mondays: 2043-06-01 is a Monday; offset by project.
@@ -121,3 +123,36 @@ for (const { w, h, perRow } of [
 		if (perRow) expect(layout.perRow).toBe(perRow);
 	});
 }
+
+test('wall: plan a meal with the on-screen keyboard, it survives a reload', async ({
+	page,
+	context
+}, info) => {
+	ensureHousehold();
+	await asWallDisplay(context);
+	const k = Math.max(0, PROJECTS.indexOf(info.project.name));
+	const monday = new Date(Date.UTC(2044, 5, 6 + 7 * k)).toISOString().slice(0, 10);
+	await page.clock.setFixedTime(new Date(`${monday}T12:00:00`));
+	const word = `soup${Date.now().toString(36)}`.replace(/[^a-z0-9]/g, '');
+	try {
+		await page.goto('/meals');
+		const day = page.locator(`[data-testid="meals-day"][data-date="${monday}"]`);
+		await expect(async () => {
+			await day.locator('[data-slot="lunch"]').click();
+			await expect(page.getByTestId('keyboard')).toBeVisible({ timeout: 1000 });
+		}).toPass();
+		await expect(page.getByTestId('meal-input')).toHaveCount(0);
+		await expectTappable(page.getByTestId('key-q'));
+		await expectTappable(page.getByTestId('key-enter'));
+		for (const ch of word) await page.getByTestId(`key-${ch}`).click();
+		await page.getByTestId('key-enter').click();
+		await expect(day).toContainText(word, { ignoreCase: true });
+		await page.reload();
+		await expect(day).toContainText(word, { ignoreCase: true });
+	} finally {
+		await page.request.delete('/api/meals', {
+			headers: JSON_HEADERS,
+			data: { date: monday, meal: 'lunch' }
+		});
+	}
+});
