@@ -23,8 +23,13 @@ interface Photo {
 async function stubFrame(
 	page: Page,
 	photos: Photo[],
-	settings = { intervalSeconds: 10, transition: 'kenburns' }
+	settings = { intervalSeconds: 10, transition: 'kenburns' },
+	random = 0.999
 ) {
+	// The frame reshuffles every list; pinning Math.random fixes that order (0.999 keeps it as served).
+	await page.addInitScript((r) => {
+		Math.random = () => r;
+	}, random);
 	const tall = await syntheticJpeg(360, 640);
 	const wide = await syntheticJpeg(640, 360);
 	const requested: string[] = [];
@@ -89,6 +94,20 @@ test('the slideshow plays on the interval, preloads, and fills both photo shapes
 		.getByRole('link', { name: 'Calendar' })
 		.click();
 	await expect(page).toHaveURL(/\/calendar$/);
+});
+
+test('each start reshuffles, so the frame does not always open on the same photo', async ({
+	page
+}, info) => {
+	const a = { id: `${info.project.name}-first`, w: 640, h: 360 };
+	const b = { id: `${info.project.name}-second`, w: 640, h: 360 };
+	// Math.random() = 0 swaps a two-photo list: the photo served second opens the show.
+	await stubFrame(page, [a, b], { intervalSeconds: 600, transition: 'fade' }, 0);
+	await page.goto('/photos');
+	await expect(page.getByTestId('slideshow').locator('[data-front="true"]')).toHaveAttribute(
+		'data-photo-id',
+		b.id
+	);
 });
 
 test('the idle photo frame covers the whole screen; a touch goes back', async ({ page }, info) => {
