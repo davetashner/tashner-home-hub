@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { errorMessage, safeFetch } from '#lib/domain/api-error.js';
 	import { onMount } from 'svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
@@ -49,13 +50,13 @@
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
-		const res = await fetch(editing ? `/api/countdowns/${editing}` : '/api/countdowns', {
+		const res = await safeFetch(editing ? `/api/countdowns/${editing}` : '/api/countdowns', {
 			method: editing ? 'PATCH' : 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ title, targetDate, icon: icon.trim() || null })
 		});
 		if (!res.ok) {
-			message = (await res.json().catch(() => null))?.message ?? 'Could not save';
+			message = await errorMessage(res);
 			return;
 		}
 		editing = null;

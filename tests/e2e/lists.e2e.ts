@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { asWallDisplay } from './display';
 import { expectTappable } from './tap';
+import { gotoHydrated } from './hydrated';
 
 // LST-1 / LST-2: shared lists. The wall types with its own on-screen keyboard; phones use the input.
 
@@ -19,15 +20,10 @@ async function dropList(page: Page, id: string | null) {
 }
 
 async function openList(page: Page, name: string) {
-	await page.goto('/lists');
-	await expect(async () => {
-		await page.getByTestId('list-tab').filter({ hasText: name }).click({ timeout: 1000 });
-		await expect(page.getByTestId('list-tab').filter({ hasText: name })).toHaveAttribute(
-			'aria-selected',
-			'true',
-			{ timeout: 1000 }
-		);
-	}).toPass();
+	await gotoHydrated(page, '/lists');
+	const tab = page.getByTestId('list-tab').filter({ hasText: name });
+	await tab.click();
+	await expect(tab).toHaveAttribute('aria-selected', 'true');
 }
 
 const tapKeys = async (page: Page, text: string) => {
@@ -46,13 +42,11 @@ test('wall keyboard: add, check off, reload and clear checked', async ({ page, c
 		listId = await makeList(page, tag);
 		await openList(page, tag);
 		// Only digits and lowercase letters are keys; the tag is already both.
-		await expect(async () => {
-			await page.getByTestId('key-shift').click();
-			await page.getByTestId('key-shift').click();
-			await tapKeys(page, tag);
-			await page.getByTestId('key-enter').click();
-			await expect(row()).toHaveCount(1, { timeout: 1500 });
-		}).toPass();
+		await page.getByTestId('key-shift').click();
+		await page.getByTestId('key-shift').click();
+		await tapKeys(page, tag);
+		await page.getByTestId('key-enter').click();
+		await expect(row()).toHaveCount(1);
 		await expectTappable(page.getByTestId('key-q'));
 		await expectTappable(page.getByTestId('key-enter'));
 		await expectTappable(row().getByTestId('item-check'));
@@ -159,7 +153,7 @@ test('create a list from the wall keyboard, keep it across reload, adult deletes
 	await signInAsAdult(page, `e2e-lists-${info.project.name}`);
 	let created = false;
 	try {
-		await page.goto('/lists');
+		await gotoHydrated(page, '/lists');
 		await expectTappable(page.getByTestId('list-new'));
 		await page.getByTestId('list-new').click();
 		await page.getByTestId('key-shift').click();

@@ -9,12 +9,21 @@
 		/** What a new item is; an edited one keeps its own. Habits have no stars or approval. */
 		choreKind?: ChoreKind;
 		members: Member[];
+		/** Whether a new item starts out needing a grown-up's OK (the household setting). */
+		approvalDefault?: boolean;
 		/** Saves the chore; resolves to an error message, or undefined on success. */
 		onsave: (input: ChoreInput) => Promise<string | undefined>;
 		oncancel: () => void;
 	}
 
-	let { chore, choreKind = 'star_job', members, onsave, oncancel }: Props = $props();
+	let {
+		chore,
+		choreKind = 'star_job',
+		members,
+		approvalDefault = false,
+		onsave,
+		oncancel
+	}: Props = $props();
 	const habit = $derived((chore?.kind ?? choreKind) === 'habit');
 
 	const ICONS = [
@@ -82,7 +91,7 @@
 	/* svelte-ignore state_referenced_locally */
 	let onceDate = $state(chore?.schedule.type === 'once' ? chore.schedule.start : '');
 	/* svelte-ignore state_referenced_locally */
-	let approval = $state(chore?.requiresApproval ?? true);
+	let approval = $state(chore?.requiresApproval ?? approvalDefault);
 	let message = $state<string>();
 
 	const choice =

@@ -14,6 +14,7 @@ import type { RRule } from 'rrule';
 import type { Db } from '../db/index.js';
 import { CHORE_KINDS, choreCompletions, chores, members } from '../db/schema.js';
 import { householdTimeZone } from '../household.js';
+import { approvalDefault } from './approval-setting.js';
 import { FLEX_MARK, flexOf, flexPeriod, type FlexEvery } from './flex.js';
 import { LedgerError, createChore as insertChore } from './ledger.js';
 
@@ -133,7 +134,7 @@ function validStars(value: unknown): number {
 	return value;
 }
 
-function validKind(value: unknown): ChoreKind {
+export function validKind(value: unknown): ChoreKind {
 	if (!(CHORE_KINDS as readonly unknown[]).includes(value))
 		throw invalid(`kind must be one of ${CHORE_KINDS.join(', ')}`);
 	return value as ChoreKind;
@@ -261,7 +262,7 @@ function toView(row: Row, today: string): ChoreView {
 const todayOf = (db: Db, clock: Clock) =>
 	localDateIn(clock.now ?? Date.now(), clock.timeZone ?? householdTimeZone(db));
 
-/** Creates a chore. Approval is required unless `requiresApproval: false` (owner default). */
+/** Creates a chore. Without an explicit `requiresApproval` it follows the household setting (default off). */
 export function createChore(db: Db, input: ChoreInput, clock: Clock = {}): ChoreView {
 	const today = todayOf(db, clock);
 	const kind = input.kind === undefined ? 'star_job' : validKind(input.kind);
@@ -276,7 +277,7 @@ export function createChore(db: Db, input: ChoreInput, clock: Clock = {}): Chore
 		stars: habit ? 0 : input.stars === undefined ? 1 : validStars(input.stars),
 		schedule: scheduleToRRule(schedule),
 		timeOfDay: input.timeOfDay === undefined ? 'anytime' : validTimeOfDay(input.timeOfDay),
-		requiresApproval: habit ? false : input.requiresApproval
+		requiresApproval: habit ? false : (input.requiresApproval ?? approvalDefault(db))
 	});
 	return toView(row, today);
 }

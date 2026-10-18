@@ -124,10 +124,23 @@ export function advance(p: Playlist, fresh: SlidePhoto[] | null = null): Step {
 	return { photos, index, wrapped: p.index >= 0 };
 }
 
-/** Same seed all day, so a reload keeps the order but each day shuffles anew. */
+/**
+ * Same seed all day, so the list request (and the worker's saved copy of it) keeps one URL per
+ * day. Play order does not depend on it: the frame reshuffles every list it receives.
+ */
 export function daySeed(now: Date): string {
 	const pad = (n: number) => `${n}`.padStart(2, '0');
 	return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/** A shuffled copy (Fisher-Yates), so each start and each pass opens on a different photo. */
+export function shuffle<T>(items: readonly T[], random: () => number = Math.random): T[] {
+	const out = [...items];
+	for (let i = out.length - 1; i > 0; i--) {
+		const j = Math.floor(random() * (i + 1));
+		[out[i], out[j]] = [out[j], out[i]];
+	}
+	return out;
 }
 
 export interface Motion {
