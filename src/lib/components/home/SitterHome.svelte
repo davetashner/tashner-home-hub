@@ -2,7 +2,9 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { deliver } from '#lib/offline/client.js';
+	import TodoRow from '#lib/components/kid/TodoRow.svelte';
 	import RoutinePlayer from '#lib/components/kid/RoutinePlayer.svelte';
+	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import { sitter } from '#lib/components/shell/sitter-state.svelte.js';
 	import { backAroundLabel } from '#lib/domain/sitter.js';
 	import {
@@ -13,12 +15,19 @@
 		type PlanItem
 	} from '#lib/domain/sitter-plan.js';
 	import { advance, minutesInZone, type KidRoutine } from '#lib/domain/routines.js';
-	import { localDate } from '#lib/domain/kid-chores.js';
+	import {
+		localDate,
+		setStatus,
+		UNDO_WINDOW_MS,
+		type KidChore,
+		type KidGroup
+	} from '#lib/domain/kid-chores.js';
 	import type { MemberColor } from '#lib/domain/member-colors.js';
 	import { resolveTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 
 	/**
-	 * The wall's home while a sitter session runs (hub-7pj.2): tonight's plan and the house rules.
+	 * The wall's home while a sitter session runs (hub-7pj.2): tonight's plan on the left, each
+	 * child's To-Dos for tonight, the house rules and the check-in buttons on the right.
 	 */
 	interface Member {
 		id: string;
@@ -30,9 +39,13 @@
 
 	const tz = $derived(resolveTimeZone(page.data.timeZone, runtimeZone()));
 	let members = $state<Member[]>([]);
+	let boards = $state<Record<string, KidGroup[]>>({});
 	let routines = $state<(KidRoutine & { memberId: string })[]>([]);
 	let dinner = $state<string | null>(null);
 	let playing = $state<string | null>(null);
+	let undoStarts = $state<Record<string, number>>({});
+	let sent = $state<string | null>(null);
+	let sentTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const kids = $derived(members.filter((m) => m.role !== 'adult'));
 	const adults = $derived(members.filter((m) => m.role === 'adult').map((m) => m.name));
@@ -79,14 +92,22 @@
 		try {
 			const list = await api<Member[]>('/api/members');
 			members = list;
-			const [rows, meals] = await Promise.all([
+			const [rows, meals, ...results] = await Promise.all([
 				api<(KidRoutine & { memberId: string })[]>(`/api/routines?date=${date}`).catch(() => null),
 				api<{ meal: string; title: string }[]>(`/api/meals?from=${date}&to=${date}`).catch(
 					() => null
-				)
+				),
+				...list
+					.filter((m) => m.role !== 'adult')
+					.map((m) =>
+						api<KidGroup[]>(`/api/members/${m.id}/chores?date=${date}&tz=${encodeURIComponent(tz)}`)
+							.then((groups) => [m.id, groups] as const)
+							.catch(() => null)
+					)
 			]);
 			if (rows) routines = rows;
 			if (meals) dinner = meals.find((e) => e.meal === 'dinner')?.title ?? null;
+			for (const r of results) if (r) boards[r[0]] = r[1];
 		} catch {
 			// Offline blip: keep what is on the wall; the next refresh tries again.
 		}
@@ -95,8 +116,62 @@
 	onMount(() => {
 		void refresh();
 		const timer = setInterval(() => void refresh(), 60_000);
-		return () => clearInterval(timer);
+		return () => {
+			clearInterval(timer);
+			clearTimeout(sentTimer);
+			clearTimeout(failedTimer);
+		};
 	});
+
+	/** To-Dos for tonight: the evening group and the "anytime" ones. */
+	const tonightOf = (id: string): KidChore[] =>
+		(boards[id] ?? [])
+			.filter((g) => g.timeOfDay === 'evening' || g.timeOfDay === 'anytime')
+			.flatMap((g) => g.chores);
+
+	const tapKey = (memberId: string, choreId: string) => `${memberId}:${choreId}`;
+
+	function done(memberId: string, chore: KidChore) {
+		const optimistic = chore.requiresApproval === false ? 'approved' : 'pending';
+		boards[memberId] = setStatus(boards[memberId] ?? [], chore.id, optimistic, null);
+		undoStarts[tapKey(memberId, chore.id)] = Date.now();
+		void deliver<{ completion: { id: string | null; status: KidChore['status'] } }>({
+			kind: 'complete',
+			url: `/api/chores/${chore.id}/complete`,
+			body: { memberId, date: localDate(Date.now(), tz) },
+			choreId: chore.id
+		})
+			.then((r) => {
+				if (r.sent)
+					boards[memberId] = setStatus(
+						boards[memberId] ?? [],
+						chore.id,
+						r.data.completion.status,
+						r.data.completion.id
+					);
+				else if (!r.queued) throw new Error(String(r.status));
+			})
+			.catch(() => {
+				boards[memberId] = setStatus(boards[memberId] ?? [], chore.id, 'none', null);
+			});
+	}
+
+	function undo(memberId: string, chore: KidChore) {
+		const startedAt = undoStarts[tapKey(memberId, chore.id)] ?? Date.now();
+		boards[memberId] = setStatus(boards[memberId] ?? [], chore.id, 'none', null);
+		if (!chore.completionId) return;
+		void deliver({
+			kind: 'undo',
+			url: `/api/completions/${chore.completionId}/undo`,
+			body: {},
+			choreId: chore.id,
+			expiresAt: startedAt + UNDO_WINDOW_MS
+		}).catch(() => {});
+	}
+
+	function dropUndo(key: string) {
+		undoStarts = Object.fromEntries(Object.entries(undoStarts).filter(([k]) => k !== key));
+	}
 
 	function routineDone(routine: KidRoutine, index: number) {
 		const next = advance(routine.done, index, routine.steps.length);
@@ -107,6 +182,39 @@
 			body: { date: localDate(Date.now(), tz), step: index },
 			routineId: routine.id
 		}).catch(() => {});
+	}
+
+	const CHECKINS = [
+		{ kind: 'in-bed', label: 'Kids in bed' },
+		{ kind: 'all-good', label: 'All good' },
+		{ kind: 'call-me', label: 'Call me' }
+	] as const;
+
+	let failed = $state<string | null>(null);
+	let failedTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/** Optimistic: shows "Sent" at once and rolls back with a message if the hub says no. */
+	async function checkin(c: (typeof CHECKINS)[number]) {
+		clearTimeout(sentTimer);
+		clearTimeout(failedTimer);
+		failed = null;
+		sent = c.kind;
+		sentTimer = setTimeout(() => (sent = null), 5000);
+		let ok = false;
+		try {
+			const res = await fetch('/api/sitter/checkin', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ kind: c.kind })
+			});
+			ok = res.ok;
+		} catch {
+			// Offline: treated like a refusal below.
+		}
+		if (ok) return;
+		if (sent === c.kind) sent = null;
+		failed = 'That did not send. Try again, or call the grown-ups.';
+		failedTimer = setTimeout(() => (failed = null), 6000);
 	}
 
 	const ICON: Record<PlanItem['kind'], string> = {
@@ -184,6 +292,32 @@
 		</section>
 
 		<div class="flex flex-col gap-6 short:gap-3">
+			{#each kids as kid (kid.id)}
+				{@const chores = tonightOf(kid.id)}
+				<section
+					aria-label="{kid.name}'s To-Dos tonight"
+					data-testid="sitter-kid"
+					class="flex flex-col gap-2 rounded-card bg-surface-sunken p-4 short:p-2"
+				>
+					<h2 class="flex items-center gap-3 text-lead font-extrabold">
+						<MemberAvatar name={kid.name} color={kid.color} avatar={kid.avatar} size="md" />
+						{kid.name}
+					</h2>
+					{#each chores as chore (chore.id)}
+						{@const key = tapKey(kid.id, chore.id)}
+						<TodoRow
+							{chore}
+							undoStartedAt={undoStarts[key] ?? null}
+							ondone={() => done(kid.id, chore)}
+							onundo={() => undo(kid.id, chore)}
+							onundoexpire={() => dropUndo(key)}
+						/>
+					{:else}
+						<p class="text-body text-ink-muted">Nothing left tonight.</p>
+					{/each}
+				</section>
+			{/each}
+
 			<section
 				class="flex flex-col gap-2 rounded-card bg-surface-raised p-6 shadow-raised short:p-3"
 			>
@@ -194,6 +328,26 @@
 					</ul>
 				{:else}
 					<p class="text-body text-ink-muted">No special rules tonight.</p>
+				{/if}
+			</section>
+
+			<section aria-label="Check in" class="flex flex-col gap-2">
+				<div class="flex flex-wrap gap-3">
+					{#each CHECKINS as c (c.kind)}
+						<button
+							type="button"
+							onclick={() => checkin(c)}
+							data-testid="checkin-{c.kind}"
+							class="min-h-tap-kid grow rounded-card bg-surface-raised px-6 text-body font-extrabold shadow-raised active:scale-95"
+						>
+							{sent === c.kind ? 'Sent ✓' : c.label}
+						</button>
+					{/each}
+				</div>
+				{#if failed}
+					<p role="alert" class="text-body font-bold text-danger" data-testid="checkin-failed">
+						{failed}
+					</p>
 				{/if}
 			</section>
 		</div>
