@@ -118,7 +118,8 @@ test('the header clock keeps the time on one line with a crowded header', async 
 				icon: '🧸',
 				stars: 1,
 				memberIds: ids,
-				schedule: { type: 'daily' }
+				schedule: { type: 'daily' },
+				requiresApproval: true
 			}
 		})
 	).json();
