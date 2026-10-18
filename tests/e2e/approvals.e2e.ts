@@ -2,6 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
 
+// Page routes must see every request: a service worker that activates mid-test answers the
+// stubbed approve from the real server, so the failure (and its toast) never happens.
+test.use({ serviceWorkers: 'block' });
+
 interface Seed {
 	adultId: string;
 	name: string;
