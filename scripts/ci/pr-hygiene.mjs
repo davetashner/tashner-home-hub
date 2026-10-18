@@ -3,7 +3,13 @@
 import { baseRef, fail, git, pass, prLabels } from './lib.mjs';
 
 const MAX_CHANGED_LINES = 800;
-const EXCLUDED = [/^pnpm-lock\.yaml$/, /^\.beads\//, /^tests\/visual\/baselines\//];
+// Drizzle snapshots are generated (~1500 lines each); the migration SQL and journal still count.
+const EXCLUDED = [
+	/^pnpm-lock\.yaml$/,
+	/^\.beads\//,
+	/^tests\/visual\/baselines\//,
+	/^drizzle\/meta\/\d{4}_snapshot\.json$/
+];
 
 const base = baseRef();
 if (!base) {
