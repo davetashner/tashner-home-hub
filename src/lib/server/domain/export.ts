@@ -25,6 +25,7 @@ export const EXPORT_TABLES = [
 	'chores',
 	'chore_completions',
 	'missed_judgments',
+	'fun_unlocks',
 	'rewards',
 	'star_transactions',
 	'goals',

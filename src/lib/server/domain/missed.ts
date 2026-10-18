@@ -26,7 +26,9 @@ import {
 	starTransactions
 } from '../db/schema.js';
 import { householdTimeZone } from '../household.js';
-import { isDueOn, localDateIn, parseSchedule } from './chores.js';
+import rrulePkg from 'rrule';
+import type { RRule } from 'rrule';
+import { localDateIn, parseSchedule, scheduleToRRule } from './chores.js';
 import { flexPeriod } from './flex.js';
 
 /** How far back one run looks, so a long outage cannot cause a pile of deductions. */
@@ -92,8 +94,13 @@ function endedPeriods(
 		}
 		return out;
 	}
-	for (let d = addDays(from, 0); d < today; d = addDays(d, 1)) {
-		if (d > created && isDueOn(schedule, d)) out.push({ key: d, start: d, end: d });
+	// One recurrence expansion for the whole window (parsing a rule per day is far too slow).
+	const rule = rrulePkg.rrulestr(scheduleToRRule(schedule)) as RRule;
+	const first = new Date(`${from}T00:00:00Z`);
+	const last = new Date(`${addDays(today, -1)}T23:59:59.999Z`);
+	for (const hit of rule.between(first, last, true)) {
+		const d = hit.toISOString().slice(0, 10);
+		if (d > created && d >= schedule.start) out.push({ key: d, start: d, end: d });
 	}
 	return out;
 }
@@ -139,22 +146,29 @@ export function judgeMissedPeriods(
 			)
 		)
 		.all();
-	const judged = new Set(
-		db
-			.select()
-			.from(missedJudgments)
-			.where(gte(missedJudgments.periodEnd, from))
-			.all()
-			.map((j) => `${j.choreId}|${j.memberId}|${j.periodKey}`)
-	);
+	const judged = new Set<string>();
+	/** Latest judged period end per job and kid: a job judged through yesterday needs no scan. */
+	const through = new Map<string, string>();
+	for (const j of db
+		.select()
+		.from(missedJudgments)
+		.where(gte(missedJudgments.periodEnd, from))
+		.all()) {
+		judged.add(`${j.choreId}|${j.memberId}|${j.periodKey}`);
+		const k = `${j.choreId}|${j.memberId}`;
+		if ((through.get(k) ?? '') < j.periodEnd) through.set(k, j.periodEnd);
+	}
+	const yesterday = addDays(today, -1);
 
 	const todo: { job: typeof chores.$inferSelect; memberId: string; period: Period }[] = [];
 	for (const job of jobs) {
+		const assigned = (JSON.parse(job.memberIds) as string[]).filter((m) => kids.has(m));
+		if (assigned.length === 0) continue;
+		if (assigned.every((m) => (through.get(`${job.id}|${m}`) ?? '') >= yesterday)) continue;
 		const created = localDateIn(job.createdAt, timeZone);
 		const periods = endedPeriods(job, created, from, today);
 		if (periods.length === 0) continue;
-		for (const memberId of JSON.parse(job.memberIds) as string[]) {
-			if (!kids.has(memberId)) continue;
+		for (const memberId of assigned) {
 			for (const period of periods) {
 				if (judged.has(`${job.id}|${memberId}|${period.key}`)) continue;
 				todo.push({ job, memberId, period });
