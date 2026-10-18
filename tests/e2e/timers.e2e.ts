@@ -41,7 +41,8 @@ test('start, pause, add a minute and cancel timers; the pill follows along', asy
 	await page.getByTestId('timer-pill').click();
 	await page.getByTestId('timer-cancel').click();
 	await expect(page.getByTestId('timer-pill')).toHaveCount(0);
-	expect(timers).toHaveLength(0);
+	// The tap is optimistic: the request lands after the UI updates.
+	await expect.poll(() => timers.length).toBe(0);
 });
 
 test('a finished timer shows a banner, sounds the alarm and is dismissed', async ({ page }) => {
@@ -63,5 +64,6 @@ test('a finished timer shows a banner, sounds the alarm and is dismissed', async
 
 	await page.getByTestId('timer-dismiss').click();
 	await expect(page.getByTestId('timer-banner')).toHaveCount(0);
-	expect(timers).toHaveLength(0);
+	// The tap is optimistic: the request lands after the UI updates.
+	await expect.poll(() => timers.length).toBe(0);
 });
