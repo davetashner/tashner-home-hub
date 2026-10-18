@@ -8,7 +8,7 @@ const EXCLUDED = [
 	/^pnpm-lock\.yaml$/,
 	/^\.beads\//,
 	/^tests\/visual\/baselines\//,
-	/^drizzle\/meta\/\d{4}_snapshot\.json$/
+	/^drizzle\/meta\/(\d{4}|\d{14})_snapshot\.json$/
 ];
 
 const base = baseRef();
