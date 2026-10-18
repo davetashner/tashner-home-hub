@@ -5,7 +5,7 @@ import Database from 'better-sqlite3';
 import { expect, test } from '@playwright/test';
 import { hashPin } from '../../src/lib/server/domain/pin';
 import { PIN } from './adult';
-import { DB_PATH } from './data-dir';
+import { DATA_DIR, DB_PATH } from './data-dir';
 
 // hub-7az.9: adapter-node rejects bodies over 512 KB unless BODY_SIZE_LIMIT is set, which broke
 // big data imports. The image sets it in the Dockerfile; this boots the production build with
@@ -31,7 +31,7 @@ async function withServer(
 	run: (base: string) => Promise<void>
 ): Promise<void> {
 	const port = await freePort();
-	const env = { ...process.env, HOST: '127.0.0.1', PORT: String(port) };
+	const env = { ...process.env, HOST: '127.0.0.1', PORT: String(port), DATA_DIR };
 	delete (env as Record<string, unknown>).BODY_SIZE_LIMIT;
 	if (limit) env.BODY_SIZE_LIMIT = limit;
 	const child: ChildProcess = spawn('node', ['build'], { env, stdio: 'ignore' });

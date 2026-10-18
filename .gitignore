@@ -49,3 +49,4 @@ kiosk/kiosk.conf
 # Stryker (mutation testing) output and cache
 /.stryker-tmp
 /reports
+/.e2e-data

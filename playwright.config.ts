@@ -1,8 +1,19 @@
+import { mkdirSync, rmSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 // E2E_PORT lets parallel worktrees run the suite side by side without testing each other's build.
 const port = Number(process.env.E2E_PORT ?? 4173);
 const baseURL = `http://127.0.0.1:${port}`;
+
+// A fresh data dir per run under .e2e-data/<port>/, never the dev data/. Workers re-load this
+// file with TEST_WORKER_INDEX set, so only the main process wipes it. Specs read E2E_DATA_DIR.
+const dataDir = resolve(`.e2e-data/${port}`);
+if (process.env.TEST_WORKER_INDEX === undefined) {
+	rmSync(dataDir, { recursive: true, force: true });
+	mkdirSync(dataDir, { recursive: true });
+}
+process.env.E2E_DATA_DIR = dataDir;
 
 // Flows people use from an iPhone or iPad. Specs that need Chromium-only APIs (CDP) stay out.
 // WebKit keeps the service worker on under automation, and page.route can't see requests it
@@ -26,7 +37,7 @@ export default defineConfig({
 	// `pnpm test:e2e` builds first.
 	webServer: {
 		command: 'node build',
-		env: { HOST: '127.0.0.1', PORT: String(port) },
+		env: { HOST: '127.0.0.1', PORT: String(port), DATA_DIR: dataDir },
 		url: `${baseURL}/healthz`,
 		// Never reuse: a server left on the port may be another checkout's build.
 		reuseExistingServer: false,
