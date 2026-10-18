@@ -403,3 +403,18 @@ export const savedMeals = sqliteTable('saved_meals', {
 		.notNull()
 		.$defaultFn(() => Date.now())
 });
+
+/** Sitter sessions (hub-7pj): a parent hands the wall to a sitter for a window of time. */
+export const sitterSessions = sqliteTable('sitter_sessions', {
+	id: id(),
+	sitterName: text('sitter_name'),
+	/** scrypt hash of the optional 4-digit sitter PIN. */
+	pinHash: text('pin_hash'),
+	startAt: ms('start_at').notNull(),
+	endAt: ms('end_at').notNull(),
+	/** Set when a parent ends the session early. */
+	endedAt: ms('ended_at'),
+	approveJobs: integer('approve_jobs', { mode: 'boolean' }).notNull().default(false),
+	funAllowed: integer('fun_allowed', { mode: 'boolean' }).notNull().default(true),
+	createdAt: createdAt()
+});
