@@ -6,7 +6,7 @@
 //   node scripts/db/rebase-migration.mjs [--base origin/main] [--continue]
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const JOURNAL = 'drizzle/meta/_journal.json';
@@ -68,7 +68,7 @@ export function rebaseMigration(opts = {}) {
 	};
 	const inRebase = () =>
 		['rebase-merge', 'rebase-apply'].some((d) =>
-			existsSync(join(cwd, git(['rev-parse', '--git-path', d]).trim()))
+			existsSync(resolve(cwd, git(['rev-parse', '--git-path', d]).trim()))
 		);
 	const show = (rev, path) => {
 		const r = tryGit(['show', `${rev}:${path}`]);
