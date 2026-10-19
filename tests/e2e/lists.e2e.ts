@@ -15,7 +15,9 @@ async function makeList(page: Page, name: string): Promise<string> {
 
 async function dropList(page: Page, id: string | null) {
 	if (id === null) return;
-	const res = await page.request.delete(`/api/lists/${id}`, { data: {} });
+	// The test is often idle for longer than the server's 5s keep-alive, so the pooled socket can
+	// be closed just as this goes out (ECONNRESET). A DELETE is safe to send again.
+	const res = await page.request.delete(`/api/lists/${id}`, { data: {}, maxRetries: 3 });
 	expect(res.ok()).toBe(true);
 }
 
@@ -63,8 +65,13 @@ test('wall keyboard: add, check off, reload and clear checked @J6.1', async ({
 		await openList(page, tag);
 		await expect(row()).toHaveAttribute('data-done', 'true');
 
+		// The row goes at once; reloading before the server has answered would cancel the request.
+		const cleared = page.waitForResponse(
+			(r) => r.url().includes('/clear') && r.request().method() === 'POST'
+		);
 		await page.getByTestId('clear-checked').click();
 		await expect(row()).toHaveCount(0);
+		expect((await cleared).ok()).toBe(true);
 		await openList(page, tag);
 		await expect(row()).toHaveCount(0);
 	} finally {
