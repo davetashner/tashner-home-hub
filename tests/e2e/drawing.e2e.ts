@@ -380,14 +380,32 @@ test('save a drawing, reopen it from My drawings, delete it @J18.6', async ({ pa
 	}
 });
 
-/** Opaque pixels on the coloring page's line layer. */
-const lineInk = (page: Page) =>
-	page.getByTestId('draw-lines').evaluate((c: HTMLCanvasElement) => {
+/**
+ * Opaque pixels on the coloring page's line layer. Picking a page closes the picker, which
+ * resizes the board; the ResizeObserver then refits and redraws the lines a frame later. Wait
+ * until the layer matches the board's laid-out size, so the count is never from a stale size.
+ */
+const lineInk = async (page: Page) => {
+	const lines = page.getByTestId('draw-lines');
+	await expect
+		.poll(() =>
+			lines.evaluate((c: HTMLCanvasElement) => {
+				const box = c.parentElement!;
+				const dpr = window.devicePixelRatio || 1;
+				return (
+					c.width === Math.max(1, Math.round(box.clientWidth * dpr)) &&
+					c.height === Math.max(1, Math.round(box.clientHeight * dpr))
+				);
+			})
+		)
+		.toBe(true);
+	return lines.evaluate((c: HTMLCanvasElement) => {
 		const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
 		let n = 0;
 		for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++;
 		return n;
 	});
+};
 
 /** The canvas fraction of a point on the 1000 x 700 coloring page (fitted and centred). */
 const pageSpot = (page: Page, x: number, y: number) =>
