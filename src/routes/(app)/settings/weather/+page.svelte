@@ -11,10 +11,16 @@
 	let message = $state('');
 	let searched = $state(false);
 
+	// Each save or turn-off stamps a number, so a late load or failure can't undo a newer change.
+	let edits = 0;
+
 	onMount(() => {
+		const at = edits;
 		void fetch('/api/settings/weather')
 			.then(async (res) => {
-				if (res.ok) loc = ((await res.json()) as { location: WeatherLocation | null }).location;
+				if (!res.ok) return;
+				const loaded = ((await res.json()) as { location: WeatherLocation | null }).location;
+				if (at === edits) loc = loaded;
 			})
 			.catch(() => {});
 	});
@@ -26,6 +32,7 @@
 		unit: WeatherUnit;
 	}) {
 		const before = loc;
+		const at = ++edits;
 		message = '';
 		try {
 			const res = await fetch('/api/settings/weather', {
@@ -37,7 +44,7 @@
 			loc = ((await res.json()) as { location: WeatherLocation }).location;
 			results = [];
 		} catch {
-			loc = before;
+			if (at === edits) loc = before;
 			message = 'Could not save. Check the numbers and try again.';
 		}
 	}
@@ -63,6 +70,7 @@
 
 	async function turnOff() {
 		const before = loc;
+		const at = ++edits;
 		loc = null;
 		const res = await fetch('/api/settings/weather', {
 			method: 'DELETE',
@@ -70,7 +78,7 @@
 			body: '{}'
 		}).catch(() => null);
 		if (!res?.ok) {
-			loc = before;
+			if (at === edits) loc = before;
 			message = 'Could not turn weather off. Try again.';
 		}
 	}
