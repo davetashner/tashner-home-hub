@@ -18,6 +18,15 @@
 		savedPhoto,
 		serializeDrawing
 	} from '#lib/domain/drawing-save.js';
+	import {
+		ALL_VISIBLE,
+		LAYER_LABELS,
+		layersFor,
+		revealForDrawing,
+		toggleLayer,
+		type Layer,
+		type LayerVisibility
+	} from '#lib/domain/drawing-layers.js';
 	import { containRect, photoSize, photoUrl, thumbUrl } from '#lib/domain/drawing-photo.js';
 	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
@@ -150,6 +159,7 @@
 		pagePicking = false;
 		if (id === page) return;
 		page = id;
+		if (id) layers = { ...layers, picture: true };
 		if (id && photoId) pickPhoto(null);
 		commit();
 		strokes = [];
@@ -254,9 +264,22 @@
 		if (id && page) pickPage(null); // page-space strokes do not belong on a photo
 		photoId = id;
 		photoImg = null; // never show the previous photo while the new one loads
+		if (id) layers = { ...layers, picture: true };
 		photoSrc = '';
 		loadPhoto();
 	}
+	/** Which layers are showing (not saved: a reopened drawing shows everything). */
+	let layers = $state<LayerVisibility>(ALL_VISIBLE);
+	let layersPicking = $state(false);
+	const hasPicture = $derived(photoId !== null || page !== null);
+	const layerName = (l: Layer): string =>
+		l === 'picture'
+			? photoId
+				? 'Photo'
+				: page
+					? PAGE_LABELS[page]
+					: LAYER_LABELS[l]
+			: LAYER_LABELS[l];
 	let dpr = 1;
 	let strokes: DrawItem[] = [];
 	let current: Stroke | null = null;
@@ -350,9 +373,9 @@
 		scratch.width = w;
 		scratch.height = h;
 		const c = scratch.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
-		if (photoId) c.drawImage(photoCanvas, 0, 0);
+		if (photoId && layers.picture) c.drawImage(photoCanvas, 0, 0);
 		c.drawImage(canvas, 0, 0);
-		if (page) c.drawImage(linesCanvas, 0, 0);
+		if (page && layers.picture) c.drawImage(linesCanvas, 0, 0);
 		return c.getImageData(0, 0, w, h).data;
 	}
 
@@ -533,6 +556,7 @@
 		if (!guard.accepts(e.pointerType) || activeId !== -1 || (e.pointerType === 'mouse' && e.button))
 			return;
 		e.preventDefault();
+		layers = revealForDrawing(layers);
 		try {
 			canvas.setPointerCapture(e.pointerId);
 		} catch {
@@ -664,9 +688,9 @@
 			const o = out.getContext('2d') as CanvasRenderingContext2D;
 			o.fillStyle = token(bg ?? 'draw-paper');
 			o.fillRect(0, 0, width, height);
-			if (photoId) o.drawImage(photoCanvas, 0, 0, width, height);
-			o.drawImage(canvas, 0, 0, width, height);
-			o.drawImage(linesCanvas, 0, 0, width, height);
+			if (photoId && layers.picture) o.drawImage(photoCanvas, 0, 0, width, height);
+			if (layers.drawing) o.drawImage(canvas, 0, 0, width, height);
+			if (layers.picture) o.drawImage(linesCanvas, 0, 0, width, height);
 			url = out.toDataURL('image/png');
 			if (dataUrlBytes(url) <= NOTE_IMAGE_MAX_BYTES) break;
 			({ width, height } = fitWithin(width, height, Math.max(width, height) * 0.75));
@@ -752,6 +776,7 @@
 			commit();
 			page = savedPage(data);
 			bg = savedBackground(data);
+			layers = ALL_VISIBLE;
 			photoId = savedPhoto(data);
 			photoImg = null;
 			photoSrc = '';
@@ -814,6 +839,7 @@
 	>
 		<canvas
 			bind:this={photoCanvas}
+			style:opacity={layers.picture ? undefined : 0}
 			class="pointer-events-none absolute inset-0 size-full"
 			aria-hidden="true"
 			data-testid="draw-photo-layer"
@@ -826,6 +852,9 @@
 			data-blank={blank}
 			data-page={page ?? ''}
 			data-photo={photoId ?? ''}
+			data-layer-drawing={layers.drawing}
+			data-layer-picture={layers.picture}
+			style:opacity={layers.drawing ? undefined : 0}
 			data-strokes={count}
 			data-selected={sel !== null}
 			data-sel-rot={sel ? sel.rot.toFixed(3) : ''}
@@ -838,6 +867,7 @@
 		></canvas>
 		<canvas
 			bind:this={linesCanvas}
+			style:opacity={layers.picture ? undefined : 0}
 			class="pointer-events-none absolute inset-0 size-full"
 			aria-hidden="true"
 			data-testid="draw-lines"
@@ -932,6 +962,32 @@
 			>
 			<Button variant="ghost" onclick={() => (pagePicking = false)} data-testid="draw-pages-close"
 				>Back</Button
+			>
+		{:else if layersPicking}
+			<p class="w-full text-body font-extrabold">Layers</p>
+			<p class="w-full text-body text-ink-muted">Top to bottom. Tap one to show or hide it.</p>
+			<div class="flex w-full flex-col gap-3" role="group" aria-label="Layers">
+				{#each layersFor(hasPicture) as l (l)}
+					<button
+						type="button"
+						class="{btn} justify-between gap-3 {layers[l]
+							? 'border-accent bg-accent-soft'
+							: 'border-line bg-surface'}"
+						aria-pressed={layers[l]}
+						data-testid="draw-layer"
+						data-layer={l}
+						onclick={() => (layers = toggleLayer(layers, l))}
+					>
+						<span>{layerName(l)}</span>
+						<span>{layers[l] ? 'Showing' : 'Hidden'}</span>
+					</button>
+				{/each}
+				<p class="text-body text-ink-muted">The background color is always under them.</p>
+			</div>
+			<Button
+				variant="ghost"
+				onclick={() => (layersPicking = false)}
+				data-testid="draw-layers-close">Back</Button
 			>
 		{:else if photoPicking}
 			<p class="w-full text-body font-extrabold">Draw on a photo</p>
@@ -1258,6 +1314,14 @@
 					aria-pressed={page !== null}
 					data-testid="draw-pages-open"
 					onclick={() => (pagePicking = true)}>{page ? PAGE_LABELS[page] : 'Coloring pages'}</button
+				>
+				<button
+					type="button"
+					class="{btn} {!layers.drawing || !layers.picture
+						? 'border-accent bg-accent-soft'
+						: 'border-line bg-surface'}"
+					data-testid="draw-layers-open"
+					onclick={() => (layersPicking = true)}>Layers</button
 				>
 				<button
 					type="button"
