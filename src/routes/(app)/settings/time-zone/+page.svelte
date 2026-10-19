@@ -25,12 +25,16 @@
 	const time = $derived(formatClock(new Date(now), { timeZone: zone }).time);
 	const isCurrent = (z: string) => canonicalZone(z) === canonicalZone(zone);
 
+	// Each pick stamps a number, so a late load or a late failure can't undo a newer pick.
+	let edits = 0;
+
 	onMount(() => {
+		const at = edits;
 		void fetch('/api/settings/household')
 			.then(async (res) => {
 				if (!res.ok) return;
 				const body = (await res.json()) as { timeZone?: unknown };
-				zone = resolveTimeZone(body.timeZone, zone);
+				if (at === edits) zone = resolveTimeZone(body.timeZone, zone);
 			})
 			.catch(() => {});
 		const timer = setInterval(() => (now = Date.now()), 15_000);
@@ -40,6 +44,7 @@
 	function pick(next: string) {
 		if (isCurrent(next)) return;
 		const before = zone;
+		const at = ++edits;
 		// Optimistic: the page shows the new zone before the save lands.
 		zone = next;
 		message = '';
@@ -53,7 +58,7 @@
 				await invalidateAll();
 			})
 			.catch(() => {
-				zone = before;
+				if (at === edits) zone = before;
 				message = 'Could not save. Try again.';
 			});
 	}

@@ -71,3 +71,29 @@ test('the time zone page fits a phone without sideways scrolling @J9.7', async (
 	);
 	expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test('a late household load does not undo the zone the adult picked @J9.7', async ({ page }) => {
+	let release!: () => void;
+	const gate = new Promise<void>((r) => (release = r));
+	let held = 0;
+	await page.route('**/api/settings/household', async (route) => {
+		const method = route.request().method();
+		if (method === 'GET') {
+			held++;
+			await gate;
+			return route.fulfill({ json: { timeZone: 'Europe/London' } });
+		}
+		return route.fulfill({ json: route.request().postDataJSON() });
+	});
+	await signInAsAdult(page, 'e2e-tz-adult');
+	await gotoHydrated(page, '/settings/time-zone');
+	await expect.poll(() => held).toBeGreaterThan(0);
+	const zones = page.getByRole('list', { name: 'Time zones' });
+	await page.getByRole('searchbox', { name: 'Find a city or region' }).fill('tokyo');
+	await zones.getByRole('button', { name: /Tokyo/ }).click();
+	await expect(page.getByTestId('tz-current')).toHaveText('Tokyo');
+	release();
+	// Let the held response land, then the pick must still stand.
+	await page.waitForTimeout(300);
+	await expect(page.getByTestId('tz-current')).toHaveText('Tokyo');
+});
