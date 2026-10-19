@@ -767,6 +767,12 @@
 					"text": "Save an unfinished drawing, then reopen or delete it later from My drawings.",
 					"status": "built",
 					"beads": ["hub-cn7.7"]
+				},
+				{
+					"id": "J18.7",
+					"text": "Pick a coloring page and color it in with Fill and the pens; the outlines stay put.",
+					"status": "built",
+					"beads": ["hub-cn7.8"]
 				}
 			]
 		},

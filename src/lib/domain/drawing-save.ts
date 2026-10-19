@@ -4,6 +4,7 @@
  * module validates what comes back from the API and refits a drawing to a different canvas
  * (the wall can rotate between landscape and portrait). Pure: no canvas, no storage.
  */
+import { PAGE_SIZE, isPageId, pageFit, type PageId } from './drawing-pages.js';
 import { FILL_TOLERANCE, isFill, type FillItem } from './drawing-fill.js';
 import {
 	ALL_SHAPES,
@@ -35,6 +36,8 @@ type WireItem = WireStroke | WireShape | WireFill;
 interface Wire {
 	v: 1;
 	size: Size;
+	/** A coloring page under the drawing: items are then stored in page space. */
+	page?: PageId;
 	items: WireItem[];
 }
 
@@ -42,24 +45,40 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
 
 /**
  * JSON for a drawing made on a canvas of `size` CSS px; `dpr` converts a fill's device-pixel seed.
- * Fill runs are dropped: they are recomputed from the seed when the drawing reopens.
+ * Fill runs are dropped: they are recomputed from the seed when the drawing reopens. With a
+ * coloring `page`, items are stored in the page's own space, so they stay on its lines whatever
+ * shape the canvas is when the drawing reopens.
  */
-export function serializeDrawing(items: readonly DrawItem[], size: Size, dpr = 1): string {
+export function serializeDrawing(
+	items: readonly DrawItem[],
+	size: Size,
+	dpr = 1,
+	page: PageId | null = null
+): string {
+	const fit = page ? pageFit(size) : { s: 1, ox: 0, oy: 0 };
+	const X = (x: number) => r1((x - fit.ox) / fit.s);
+	const Y = (y: number) => r1((y - fit.oy) / fit.s);
+	const K = (k: number) => r1(k / fit.s);
 	const wire: Wire = {
 		v: 1,
-		size: { w: r1(size.w), h: r1(size.h) },
+		size: page ? { ...PAGE_SIZE } : { w: r1(size.w), h: r1(size.h) },
+		...(page ? { page } : {}),
 		items: items.map((it): WireItem => {
 			if (isFill(it))
-				return { k: 1, c: it.color, x: r1(it.x / dpr), y: r1(it.y / dpr), o: it.tolerance };
+				return { k: 1, c: it.color, x: X(it.x / dpr), y: Y(it.y / dpr), o: it.tolerance };
 			if (isShape(it))
 				return {
 					s: it.shape,
 					c: it.color,
 					f: it.filled,
-					w: r1(it.width),
-					b: [it.x0, it.y0, it.x1, it.y1].map(r1)
+					w: K(it.width),
+					b: [X(it.x0), Y(it.y0), X(it.x1), Y(it.y1)]
 				};
-			return { t: it.tool, c: it.color, p: it.points.flatMap((p) => [r1(p.x), r1(p.y), r1(p.w)]) };
+			return {
+				t: it.tool,
+				c: it.color,
+				p: it.points.flatMap((p) => [X(p.x), Y(p.y), K(p.w)])
+			};
 		})
 	};
 	return JSON.stringify(wire);
@@ -89,6 +108,7 @@ function parseWire(json: unknown): Wire | null {
 		w.size.h < 1
 	)
 		return null;
+	if (w.page !== undefined && !isPageId(w.page)) return null;
 	if (!Array.isArray(w.items) || w.items.length > SAVED_MAX_ITEMS) return null;
 	let points = 0;
 	for (const it of w.items as Record<string, unknown>[]) {
@@ -124,6 +144,9 @@ function parseWire(json: unknown): Wire | null {
 
 /** True when `json` is a drawing this module would load. */
 export const isSavedDrawing = (json: unknown): boolean => parseWire(json) !== null;
+
+/** The coloring page a saved drawing sits on, or null for a plain board. */
+export const savedPage = (json: unknown): PageId | null => parseWire(json)?.page ?? null;
 
 /** The canvas size a saved drawing was made on, or null when it is not valid. */
 export function savedSize(json: unknown): Size | null {

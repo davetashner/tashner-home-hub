@@ -379,3 +379,84 @@ test('save a drawing, reopen it from My drawings, delete it @J18.6', async ({ pa
 		wipe(kidId);
 	}
 });
+
+/** Opaque pixels on the coloring page's line layer. */
+const lineInk = (page: Page) =>
+	page.getByTestId('draw-lines').evaluate((c: HTMLCanvasElement) => {
+		const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+		let n = 0;
+		for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++;
+		return n;
+	});
+
+/** The canvas fraction of a point on the 1000 x 700 coloring page (fitted and centred). */
+const pageSpot = (page: Page, x: number, y: number) =>
+	page.getByTestId('draw-canvas').evaluate(
+		(c, p) => {
+			const r = c.getBoundingClientRect();
+			const s = Math.min(r.width / 1000, r.height / 700);
+			return [
+				((r.width - 1000 * s) / 2 + p.x * s) / r.width,
+				((r.height - 700 * s) / 2 + p.y * s) / r.height
+			] as [number, number];
+		},
+		{ x, y }
+	);
+
+test('coloring page: lines stay, fill stops at them, saves with its page @J18.7', async ({
+	page
+}, info) => {
+	const kidId = `e2e-draw-kid7-${info.workerIndex}${info.repeatEachIndex}`;
+	const name = `Kid Colorer ${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, name);
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		const canvas = page.getByTestId('draw-canvas');
+		await expectTappable(page.getByTestId('draw-pages-open'), 96);
+		await page.getByTestId('draw-pages-open').click();
+		await expect(page.getByTestId('draw-page')).toHaveCount(4);
+		await expectTappable(page.getByTestId('draw-page').first(), 96);
+		await page.getByTestId('draw-page').and(page.locator('[data-page="house"]')).click();
+		await expect(canvas).toHaveAttribute('data-page', 'house');
+		const lines = await lineInk(page);
+		expect(lines).toBeGreaterThan(2000);
+		// A page alone is not a drawing yet, and the ink layer is empty.
+		await expect(canvas).toHaveAttribute('data-blank', 'true');
+		expect(await inkPixels(page)).toBe(0);
+
+		// The eraser cannot rub the lines out.
+		await page.getByTestId('draw-eraser').click();
+		await pointerStroke(page, 'touch', 0.5, [0.1, 0.5], [0.9, 0.5], 1);
+		expect(await lineInk(page)).toBe(lines);
+		await page.getByTestId('draw-eraser').click();
+
+		// Fill the door: the color stays inside its lines.
+		await page.getByTestId('draw-bucket').click();
+		await page.getByTestId('draw-color').and(page.locator('[data-color="draw-red"]')).click();
+		const door = await pageSpot(page, 500, 500);
+		await pointerStroke(page, 'touch', 0.5, door, door, 2);
+		await expect(canvas).toHaveAttribute('data-blank', 'false');
+		const painted = await inkPixels(page);
+		const total = await canvas.evaluate((c: HTMLCanvasElement) => c.width * c.height);
+		expect(painted).toBeGreaterThan(total * 0.01);
+		expect(painted).toBeLessThan(total * 0.1);
+
+		// Save it, switch to a blank page, and reopen: the page and the color come back.
+		await page.getByTestId('draw-save').click();
+		await page.getByTestId('draw-author').filter({ hasText: name }).click();
+		await expect(page.getByTestId('draw-note')).toHaveText('Saved!');
+		await page.getByTestId('draw-pages-open').click();
+		await page.getByTestId('draw-page-none').click();
+		await expect(canvas).toHaveAttribute('data-page', '');
+		expect(await lineInk(page)).toBe(0);
+		await page.getByTestId('draw-browse').click();
+		await page.getByRole('button', { name: `Open drawing by ${name}` }).click();
+		await expect(canvas).toHaveAttribute('data-page', 'house');
+		expect(await lineInk(page)).toBe(lines);
+		await expect.poll(() => inkPixels(page)).toBeGreaterThan(painted * 0.8);
+		await page.getByTestId('draw-close').click();
+	} finally {
+		wipe(kidId);
+	}
+});
