@@ -208,6 +208,10 @@ async function runFlow(page: Page, info: TestInfo): Promise<void> {
 		await expect(row.getByText('OK', { exact: true })).toBeVisible();
 		await expect(row.getByText(/Updated (just now|\d+ min ago)/)).toBeVisible();
 		await expect(row.getByText('127.0.0.1')).toBeVisible();
+		// The seeded Google connection has no write grant: it is asked to reconnect for edits.
+		const writePrompt = page.getByTestId('write-reconnect').filter({ hasText: googleLabel });
+		await expect(writePrompt).toContainText('Reconnect Google to add and edit events');
+		await expectTappable(writePrompt.getByRole('button', { name: 'Reconnect' }));
 		if (info.title.includes('phone')) await expectFitsPhone(page, tag);
 		await shot(page, info, 'list');
 		if (process.env.SHOTS && info.title.includes('phone')) {

@@ -19,7 +19,7 @@ export const GET: RequestHandler = ({ url }) => {
 	return json(listEvents(getDb(), start, end));
 };
 
-/** CAL-9: adults add an event to an iCloud calendar. */
+/** CAL-9: adults add an event to an iCloud or Google calendar. */
 export const POST: RequestHandler = async (event) => {
 	requireAdult(event);
 	const body = await readJson(event.request);

@@ -12,7 +12,7 @@ import { syncSource } from './sync.js';
 /** A failure with an HTTP status and a message that is safe to show an adult. */
 export class CreateEventError extends Error {
 	constructor(
-		readonly status: 400 | 401 | 404 | 502,
+		readonly status: 400 | 401 | 403 | 404 | 502,
 		message: string
 	) {
 		super(message);
@@ -24,14 +24,14 @@ interface Mapping {
 	selected?: boolean;
 }
 
-/** The writable calendar the household has added: an iCloud source's shown calendar. */
+/** The writable calendar the household has added: an iCloud or Google source's shown calendar. */
 function findSource(db: Db, calendarId: string): CalendarSource | undefined {
 	return db
 		.select()
 		.from(calendarSources)
 		.all()
 		.find((s) => {
-			if (s.provider !== 'icloud') return false;
+			if (s.provider !== 'icloud' && s.provider !== 'google') return false;
 			const cals: unknown = JSON.parse(s.calendars);
 			return (
 				Array.isArray(cals) &&
@@ -68,10 +68,12 @@ export async function createCalendarEvent(
 	try {
 		({ uid } = await provider.createEvent(body.calendarId, resolved));
 	} catch (e) {
-		// Provider messages are already secret-free (IcloudError); anything else is not trusted.
-		const safe = e instanceof Error && e.name === 'IcloudError';
+		// Provider messages are already secret-free; anything else is not trusted.
+		const safe = e instanceof Error && (e.name === 'IcloudError' || e.name === 'GoogleError');
 		if ((e as { needsReauth?: boolean }).needsReauth === true && safe)
 			throw new CreateEventError(401, (e as Error).message);
+		if ((e as { code?: string }).code === 'scope' && safe)
+			throw new CreateEventError(403, (e as Error).message);
 		throw new CreateEventError(502, safe ? (e as Error).message : 'Could not save the event');
 	}
 	// Pull the fresh calendar so the hub's cache matches Apple. Never throws.

@@ -1,17 +1,34 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { expandAll } from '../domain/calendar/expand.js';
 import { mapGoogleEvent, type GoogleEvent } from '../domain/calendar/google-map.js';
+import type { NewEvent } from '../domain/calendar/ics-build.js';
 import { decryptSecret, encryptSecret, type Keyring } from '../domain/secrets.js';
 import { getKeyring } from '../keys.js';
 import {
 	providerRegistry,
 	type CalendarProvider,
 	type CalendarSource,
+	type EditFailure,
+	type EventRef,
 	type RemoteCalendar,
 	type RemoteEvent,
 	type Window
 } from './provider.js';
 
-export const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+/** Events read and write, plus the calendar list (events access alone cannot list calendars). */
+export const WRITE_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+export const SCOPE = `${WRITE_SCOPE} https://www.googleapis.com/auth/calendar.calendarlist.readonly`;
+
+/** True when a granted scope string lets the hub write events (an old `calendar.readonly` grant does not). */
+export function hasWriteScope(scope: string | undefined): boolean {
+	return (scope ?? '')
+		.split(/\s+/)
+		.some((s) => s === WRITE_SCOPE || s === 'https://www.googleapis.com/auth/calendar');
+}
+export const WRITE_SCOPE_MESSAGE =
+	'Reconnect Google to add and edit events: this connection was only allowed to read the calendar.';
+export const CHANGED_MESSAGE = 'This event changed on another device — check it and try again.';
+export const RECURRING_MESSAGE = 'This event repeats. Edit this on your phone.';
 /** Google accepts any port on a loopback address for Desktop clients; nothing listens here. */
 export const REDIRECT_URI = 'http://127.0.0.1:9004';
 export const REAUTH_MESSAGE = `This Google account needs to be reconnected: Google no longer accepts the saved sign-in. Reconnect it from the admin screen.`;
@@ -29,7 +46,9 @@ export const endpoints = {
 export class GoogleError extends Error {
 	constructor(
 		message: string,
-		readonly needsReauth = false
+		readonly needsReauth = false,
+		/** Set when a write was refused for a reason the adult can act on. */
+		readonly code?: EditFailure | 'scope'
 	) {
 		super(message);
 		this.name = 'GoogleError';
@@ -83,6 +102,7 @@ interface TokenResponse {
 	access_token?: string;
 	refresh_token?: string;
 	expires_in?: number;
+	scope?: string;
 	error?: string;
 }
 
@@ -113,7 +133,7 @@ export async function exchangeCode(
 	cfg: GoogleConfig,
 	code: string,
 	verifier: string
-): Promise<{ refreshToken: string; accessToken: string; expiresAt: number }> {
+): Promise<{ refreshToken: string; accessToken: string; expiresAt: number; scope: string }> {
 	try {
 		const t = await tokenRequest({
 			grant_type: 'authorization_code',
@@ -130,7 +150,8 @@ export async function exchangeCode(
 		return {
 			refreshToken: t.refresh_token,
 			accessToken: t.access_token!,
-			expiresAt: Date.now() + (t.expires_in ?? 3600) * 1000
+			expiresAt: Date.now() + (t.expires_in ?? 3600) * 1000,
+			scope: t.scope ?? ''
 		};
 	} catch (e) {
 		// A used or expired code is invalid_grant too, but there is nothing to "reconnect" yet.
@@ -142,17 +163,31 @@ export async function exchangeCode(
 
 const aad = (sourceId: string) => `calendar_source:${sourceId}`;
 
-export function sealRefreshToken(keyring: Keyring, sourceId: string, refreshToken: string): string {
-	return encryptSecret(keyring, JSON.stringify({ refreshToken }), aad(sourceId));
+/** `scope` is what Google granted at consent; connections made before write support have none. */
+export function sealRefreshToken(
+	keyring: Keyring,
+	sourceId: string,
+	refreshToken: string,
+	scope?: string
+): string {
+	return encryptSecret(keyring, JSON.stringify({ refreshToken, scope }), aad(sourceId));
 }
 
-function openRefreshToken(keyring: Keyring, source: Pick<CalendarSource, 'id' | 'credentials'>) {
+export function openGoogleCredentials(
+	keyring: Keyring,
+	source: Pick<CalendarSource, 'id' | 'credentials'>
+): { refreshToken: string; scope?: string } {
 	if (!source.credentials) throw new GoogleError('This Google account has no stored sign-in', true);
-	return (
-		JSON.parse(decryptSecret(keyring, source.credentials, aad(source.id))) as {
-			refreshToken: string;
-		}
-	).refreshToken;
+	return JSON.parse(decryptSecret(keyring, source.credentials, aad(source.id)));
+}
+
+/** Whether this stored connection may write events. False for old read-only grants. */
+export function canWriteGoogle(keyring: Keyring, source: CalendarSource): boolean {
+	try {
+		return hasWriteScope(openGoogleCredentials(keyring, source).scope);
+	} catch {
+		return false;
+	}
 }
 
 interface ApiList<T> {
@@ -174,6 +209,8 @@ async function apiGet<T>(accessToken: string, path: string, query: URLSearchPara
 
 export interface DiscoveredCalendar extends RemoteCalendar {
 	selected: boolean;
+	/** Only set (false) when the account cannot add events here, e.g. a holiday calendar. */
+	writable?: false;
 }
 
 export async function listCalendarsWithToken(accessToken: string): Promise<DiscoveredCalendar[]> {
@@ -189,18 +226,124 @@ export async function listCalendarsWithToken(accessToken: string): Promise<Disco
 				summaryOverride?: string;
 				primary?: boolean;
 				selected?: boolean;
+				accessRole?: string;
 			}>
 		>(accessToken, '/users/me/calendarList', q);
 		for (const c of r.items ?? [])
 			out.push({
 				externalId: c.id,
 				name: c.summaryOverride || c.summary || c.id,
-				selected: c.primary === true || c.selected === true
+				selected: c.primary === true || c.selected === true,
+				...(c.accessRole === 'reader' || c.accessRole === 'freeBusyReader'
+					? { writable: false as const }
+					: {})
 			});
 		pageToken = r.nextPageToken;
 		if (!pageToken) break;
 	}
 	return out;
+}
+
+type GoogleBody = Record<string, unknown>;
+
+/** The Google `start`/`end` pair for an event; PATCH sends nulls so a timed/all-day switch clears the other form. */
+export function googleEventBody(e: NewEvent, patch: boolean): GoogleBody {
+	const t = e.time;
+	const clear = patch ? null : undefined;
+	const when = t.allDay
+		? {
+				start: { date: t.startDate, dateTime: clear },
+				end: { date: t.endDate, dateTime: clear }
+			}
+		: {
+				start: { dateTime: new Date(t.startMs).toISOString(), date: clear },
+				end: { dateTime: new Date(t.endMs).toISOString(), date: clear }
+			};
+	return {
+		summary: e.title,
+		location: e.location ?? clear,
+		description: e.notes ?? clear,
+		...when
+	};
+}
+
+async function apiWrite(
+	accessToken: string,
+	method: 'POST' | 'PATCH' | 'DELETE',
+	path: string,
+	body?: GoogleBody,
+	etag?: string
+): Promise<GoogleEvent | null> {
+	const res = await call(`${endpoints.api}${path}`, {
+		method,
+		headers: {
+			authorization: `Bearer ${accessToken}`,
+			accept: 'application/json',
+			...(body ? { 'content-type': 'application/json' } : {}),
+			...(etag ? { 'if-match': etag } : {})
+		},
+		body: body ? JSON.stringify(body) : undefined
+	});
+	if (res.ok) return method === 'DELETE' ? null : ((await res.json()) as GoogleEvent);
+	const detail = (await res.json().catch(() => null)) as {
+		error?: { errors?: { reason?: string }[] };
+	} | null;
+	if (res.status === 401) throw new GoogleError(REAUTH_MESSAGE, true);
+	if (res.status === 412) throw new GoogleError(CHANGED_MESSAGE, false, 'changed');
+	if (
+		res.status === 403 &&
+		detail?.error?.errors?.some((x) => x.reason === 'insufficientPermissions')
+	)
+		throw new GoogleError(WRITE_SCOPE_MESSAGE, false, 'scope');
+	if (res.status === 403)
+		throw new GoogleError('Google does not let this account change that calendar');
+	if (res.status === 404 || res.status === 410) {
+		if (method === 'DELETE') return null; // already gone counts as deleted
+		throw new GoogleError(CHANGED_MESSAGE, false, 'changed');
+	}
+	throw new GoogleError(`Google answered ${res.status}`);
+}
+
+const DAY = 86_400_000;
+const eventPath = (calendarId: string, uid: string) =>
+	`/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(uid)}`;
+
+/**
+ * Reads the event fresh and checks it is still the plain, unchanged event the hub showed. The
+ * returned etag goes in `If-Match` so a change landing between this read and the write is a 412.
+ */
+async function locate(token: string, ref: EventRef): Promise<{ etag: string }> {
+	const q = new URLSearchParams();
+	let g: GoogleEvent & { etag?: string };
+	try {
+		g = await apiGet(token, eventPath(ref.calendarId, ref.uid), q);
+	} catch (e) {
+		if (e instanceof GoogleError && !e.needsReauth && /\(404\)/.test(e.message))
+			throw new GoogleError(CHANGED_MESSAGE, false, 'changed');
+		throw e;
+	}
+	if (g.recurrence?.length || g.recurringEventId)
+		throw new GoogleError(RECURRING_MESSAGE, false, 'recurring');
+	const w = {
+		start: ref.cached.startsAt - DAY,
+		end: Math.max(ref.cached.endsAt, ref.cached.startsAt + 1) + DAY
+	};
+	const mapped = mapGoogleEvent(g);
+	const now =
+		mapped && expandAll([mapped], w).find((i) => i.externalId === `${ref.uid}::${ref.instance}`);
+	const c = ref.cached;
+	if (
+		!now ||
+		!g.etag ||
+		now.title !== c.title ||
+		now.startsAt !== c.startsAt ||
+		now.endsAt !== c.endsAt ||
+		now.allDay !== c.allDay ||
+		now.location !== c.location ||
+		now.notes !== c.notes
+	)
+		throw new GoogleError(CHANGED_MESSAGE, false, 'changed');
+	return { etag: g.etag };
 }
 
 export function createGoogleProvider(
@@ -218,13 +361,47 @@ export function createGoogleProvider(
 			grant_type: 'refresh_token',
 			client_id: cfg.clientId,
 			client_secret: cfg.clientSecret,
-			refresh_token: openRefreshToken(keyring, source)
+			refresh_token: openGoogleCredentials(keyring, source).refreshToken
 		});
 		cached = { token: t.access_token!, expiresAt: now() + (t.expires_in ?? 3600) * 1000 };
 		return cached.token;
 	}
 
+	/** A token for a write; refuses up front when the stored grant is read-only. */
+	async function writeToken(): Promise<string> {
+		if (!canWriteGoogle(keyring, source))
+			throw new GoogleError(WRITE_SCOPE_MESSAGE, false, 'scope');
+		return accessToken();
+	}
+
 	return {
+		async createEvent(calendarId, event) {
+			const token = await writeToken();
+			const made = await apiWrite(
+				token,
+				'POST',
+				`/calendars/${encodeURIComponent(calendarId)}/events`,
+				googleEventBody(event, false)
+			);
+			if (!made?.id) throw new GoogleError('Google did not confirm the new event');
+			return { uid: made.id };
+		},
+		async updateEvent(ref, event) {
+			const token = await writeToken();
+			const { etag } = await locate(token, ref);
+			await apiWrite(
+				token,
+				'PATCH',
+				eventPath(ref.calendarId, ref.uid),
+				googleEventBody(event, true),
+				etag
+			);
+		},
+		async deleteEvent(ref) {
+			const token = await writeToken();
+			const { etag } = await locate(token, ref);
+			await apiWrite(token, 'DELETE', eventPath(ref.calendarId, ref.uid), undefined, etag);
+		},
 		async listCalendars() {
 			return listCalendarsWithToken(await accessToken());
 		},

@@ -91,7 +91,7 @@
 	// Edit and delete: the event being edited, and stored events hidden while a change is in flight.
 	let editing = $state<CalEvent | null>(null);
 	let hidden = $state<string[]>([]);
-	let icloudSources = $state<string[]>([]);
+	let writableSources = $state<string[]>([]);
 	let notice = $state('');
 	let seq = 0;
 	const events = $derived.by(() => {
@@ -141,7 +141,7 @@
 		if (mounted && view === 'week') void loadMeals(keys);
 	});
 
-	// CAL-9: adults can add events to the iCloud calendars the household connected.
+	// CAL-9: adults can add events to the iCloud and Google calendars the household connected.
 	async function loadWritable() {
 		try {
 			const res = await fetch('/api/calendar/sources');
@@ -150,14 +150,15 @@
 				id: string;
 				provider: string;
 				label: string;
-				calendars: { externalId: string; name: string; selected: boolean }[];
+				canWrite: boolean;
+				calendars: { externalId: string; name: string; selected: boolean; writable?: false }[];
 			}[] = await res.json();
-			icloudSources = sources.filter((src) => src.provider === 'icloud').map((src) => src.id);
+			writableSources = sources.filter((src) => src.canWrite !== false).map((src) => src.id);
 			writable = sources
-				.filter((src) => src.provider === 'icloud')
+				.filter((src) => src.canWrite !== false)
 				.flatMap((src) =>
 					src.calendars
-						.filter((c) => c.selected)
+						.filter((c) => c.selected && c.writable !== false)
 						.map((c) => ({ id: c.externalId, name: c.name || 'Calendar', account: src.label }))
 				);
 		} catch {
@@ -211,7 +212,7 @@
 
 	/** What a change to a stored event may do: the sheet shows Edit/Delete, or the phone hint. */
 	function changeKind(ev: CalEvent): 'hub' | 'phone' | null {
-		if (!adult || ev.pending || !ev.sourceId || !icloudSources.includes(ev.sourceId)) return null;
+		if (!adult || ev.pending || !ev.sourceId || !writableSources.includes(ev.sourceId)) return null;
 		return editableInHub(ev, tz) ? 'hub' : 'phone';
 	}
 

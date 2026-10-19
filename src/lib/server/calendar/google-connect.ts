@@ -54,7 +54,13 @@ export function parsePasted(pasted: string): { code: string; state?: string } {
 
 export interface ConnectResult {
 	id: string;
-	calendars: { externalId: string; name: string; memberId: null; selected: boolean }[];
+	calendars: {
+		externalId: string;
+		name: string;
+		memberId: null;
+		selected: boolean;
+		writable?: false;
+	}[];
 }
 
 /** Finishes consent: exchanges the code, seals the refresh token and stores (or re-authorizes) a source. */
@@ -91,7 +97,7 @@ export async function finishConsent(
 		];
 		db.update(calendarSources)
 			.set({
-				credentials: sealRefreshToken(keyring, existing.id, tokens.refreshToken),
+				credentials: sealRefreshToken(keyring, existing.id, tokens.refreshToken, tokens.scope),
 				calendars: JSON.stringify(merged)
 			})
 			.where(eq(calendarSources.id, existing.id))
@@ -104,7 +110,7 @@ export async function finishConsent(
 			id,
 			provider: 'google',
 			label: input.label?.trim() || 'Google Calendar',
-			credentials: sealRefreshToken(keyring, id, tokens.refreshToken),
+			credentials: sealRefreshToken(keyring, id, tokens.refreshToken, tokens.scope),
 			calendars: JSON.stringify(calendars)
 		})
 		.run();

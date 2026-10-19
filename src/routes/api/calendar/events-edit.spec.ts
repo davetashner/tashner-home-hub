@@ -142,7 +142,7 @@ describe('PUT/DELETE /api/calendar/events/[id]', () => {
 
 	it('404s an unknown event and refuses non-iCloud sources', async () => {
 		expect((await outcome(() => put('nope', edit)))?.status).toBe(404);
-		db.update(calendarSources).set({ provider: 'google' }).run();
+		db.update(calendarSources).set({ provider: 'ics' }).run();
 		expect((await outcome(() => put(eventId, edit)))?.status).toBe(400);
 		expect((await outcome(() => del(eventId)))?.status).toBe(400);
 	});

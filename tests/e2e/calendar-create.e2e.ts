@@ -95,3 +95,54 @@ test('a phone types into the form; a refusal rolls the pending event back with a
 	await expect(error).toContainText('Apple rejected');
 	await expect(page.locator('[data-pending="true"]')).toHaveCount(0);
 });
+
+test('a Google connection without a write grant offers no Add event @J5.4', async ({ page }) => {
+	await page.unroute('**/api/calendar/sources');
+	await page.route('**/api/calendar/sources', (route) =>
+		route.request().method() === 'GET'
+			? route.fulfill({
+					json: [
+						{
+							id: 'e2e-google-ro',
+							provider: 'google',
+							label: 'Google',
+							canWrite: false,
+							needsWriteReconnect: true,
+							calendars: [{ externalId: 'a@example.test', name: 'Main', selected: true }]
+						}
+					]
+				})
+			: route.continue()
+	);
+	await page.goto('/calendar');
+	await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+	await expect(page.getByTestId('add-event')).toBeHidden();
+});
+
+test('a writable Google calendar can take a new event @J5.4', async ({ page }) => {
+	await page.unroute('**/api/calendar/sources');
+	await page.route('**/api/calendar/sources', (route) =>
+		route.request().method() === 'GET'
+			? route.fulfill({
+					json: [
+						{
+							id: 'e2e-google',
+							provider: 'google',
+							label: 'Google',
+							canWrite: true,
+							needsWriteReconnect: false,
+							calendars: [
+								{ externalId: 'a@example.test', name: 'Main', selected: true },
+								{ externalId: 'h@example.test', name: 'Holidays', selected: true, writable: false }
+							]
+						}
+					]
+				})
+			: route.continue()
+	);
+	await page.goto('/calendar');
+	await page.getByTestId('add-event').click();
+	const sheet = page.getByTestId('add-event-sheet');
+	await expect(sheet).toContainText('Main');
+	await expect(sheet).not.toContainText('Holidays');
+});

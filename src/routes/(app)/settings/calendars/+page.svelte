@@ -25,6 +25,10 @@
 	const icons = { google: '📅', icloud: '☁️', ics: '🔗' } as const;
 	const find = (id: string) => data.sources.find((s) => s.id === id);
 	const needing = $derived(data.sources.filter((s) => s.needsReauth));
+	// Google connections made before write support only hold a read-only grant.
+	const readOnlyGoogle = $derived(
+		data.sources.filter((s) => s.needsWriteReconnect && !s.needsReauth)
+	);
 
 	onMount(() => {
 		const want = page.url.searchParams.get('reconnect');
@@ -95,6 +99,17 @@
 
 	{#if view.kind === 'list'}
 		<ReauthBanner sources={needing} onreconnect={(id) => (view = { kind: 'reconnect', id })} />
+		{#each readOnlyGoogle as s (s.id)}
+			<div
+				class="flex flex-wrap items-center justify-between gap-4 rounded-card bg-star-soft p-6 text-ink"
+				data-testid="write-reconnect"
+			>
+				<p class="text-body font-bold" role="status">
+					Reconnect Google to add and edit events ({s.label}).
+				</p>
+				<Button onclick={() => (view = { kind: 'reconnect', id: s.id })}>Reconnect</Button>
+			</div>
+		{/each}
 		{#if message}<p role="alert" class="text-body font-bold text-danger">{message}</p>{/if}
 		<ul class="flex flex-col gap-4" data-testid="source-list">
 			{#each data.sources as s (s.id)}
