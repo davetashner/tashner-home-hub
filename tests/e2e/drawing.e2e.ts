@@ -924,3 +924,51 @@ test('layers: hide the drawing or the picture, drawing again brings it back @J18
 		wipe(kidId);
 	}
 });
+
+test('no background picked: the saved thumbnail and the posted PNG are paper, not black @J18.13', async ({
+	page
+}, info) => {
+	const kidId = `e2e-draw-kid13-${info.workerIndex}${info.repeatEachIndex}`;
+	const name = `Kid Paper ${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, name);
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		await expect(page.getByTestId('draw-holder')).toHaveAttribute('data-bg', '');
+		await pointerStroke(page, 'pen', 0.9, [0.4, 0.5], [0.6, 0.5], 1);
+
+		const light = (px: number[]) => {
+			expect(px[3]).toBe(255);
+			expect(Math.min(px[0], px[1], px[2])).toBeGreaterThan(230);
+		};
+
+		await page.getByTestId('draw-save').click();
+		await page.getByTestId('draw-author').filter({ hasText: name }).click();
+		await expect(page.getByTestId('draw-note')).toHaveText('Saved!');
+		const rows: { thumb: string }[] = await page.evaluate(() =>
+			fetch('/api/drawings').then((r) => r.json())
+		);
+		light(await thumbPixel(page, rows[0].thumb, 0.02, 0.02));
+
+		await page.getByTestId('draw-post').click();
+		await page.getByTestId('draw-author').filter({ hasText: name }).click();
+		await expect(page.getByTestId('draw-sheet')).toHaveCount(0);
+		await expect
+			.poll(async () => {
+				const notes = (await (await page.request.get('/api/notes')).json()) as {
+					authorId: string;
+					imageUrl: string | null;
+				}[];
+				return notes.some((n) => n.authorId === kidId && n.imageUrl);
+			})
+			.toBe(true);
+		const notes = (await (await page.request.get('/api/notes')).json()) as {
+			authorId: string;
+			imageUrl: string | null;
+		}[];
+		const mine = notes.find((n) => n.authorId === kidId)!;
+		light(await thumbPixel(page, mine.imageUrl!, 0.02, 0.02));
+	} finally {
+		wipe(kidId);
+	}
+});
