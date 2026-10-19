@@ -8,6 +8,7 @@ import { startPhotoScanner } from '#lib/server/photo-source/scheduler.js';
 import { startCalendarScheduler } from '#lib/server/calendar/scheduler.js';
 import { startMissedScheduler } from '#lib/server/missed-scheduler.js';
 import { startSitterScheduler } from '#lib/server/sitter-scheduler.js';
+import { startMotionWake } from '#lib/server/home-assistant/motion.js';
 import { startWeatherScheduler } from '#lib/server/weather.js';
 // Side-effect imports register the real calendar providers before the first scheduled sync.
 import '#lib/server/calendar/ics.js';
@@ -59,4 +60,5 @@ export function init(): void {
 	trackJob(startMissedScheduler());
 	trackJob(startSitterScheduler());
 	trackJob(startPhotoScanner());
+	trackJob(startMotionWake());
 }

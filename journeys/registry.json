@@ -722,6 +722,13 @@
 					"text": "A grown-up makes a screen token for Home Assistant (shown once, with a ready-to-paste snippet) so automations can wake or sleep the wall, and can revoke it.",
 					"status": "built",
 					"simulated": "Home Assistant is a fake server in the tests"
+				},
+				{
+					"id": "J17.7",
+					"text": "A grown-up picks a Home Assistant motion sensor (or None) and the wall wakes when it turns on, but not just because it was already on.",
+					"status": "built",
+					"beads": ["hub-bue"],
+					"simulated": "Home Assistant is a fake server in the tests"
 				}
 			]
 		},

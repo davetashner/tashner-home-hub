@@ -19,6 +19,7 @@
 		baseUrl: string;
 		hasToken: boolean;
 		tiles: HaSelection[];
+		motionSensor?: string | null;
 	}
 
 	let config = $state<Config | null>(null);
@@ -90,6 +91,44 @@
 	const secondary =
 		'min-h-tap min-w-tap rounded-control border-2 border-line bg-surface-raised px-6 text-body font-bold transition-transform duration-75 active:scale-95';
 
+	let motionSensors = $state<HaEntity[] | null>(null);
+	let motionSelected = $state<string | null>(null);
+	let motionError = $state('');
+	// Non-reactive. Once the adult picks, a late load or an older save reply must not undo it.
+	let motionTouched = false;
+	let motionSeq = 0;
+
+	async function loadMotion() {
+		motionError = '';
+		const res = await safeFetch('/api/settings/home-assistant/motion');
+		if (!res.ok) {
+			motionError = await errorMessage(res);
+			return;
+		}
+		const body = (await res.json()) as { sensors: HaEntity[]; selected: string | null };
+		motionSensors = body.sensors;
+		if (!motionTouched) motionSelected = body.selected ?? null;
+	}
+
+	/** Optimistic: the pick shows at once; only the newest save's failure rolls it back. */
+	async function pickMotion(entityId: string | null) {
+		if (entityId === motionSelected) return;
+		motionTouched = true;
+		const before = motionSelected;
+		const seq = ++motionSeq;
+		motionSelected = entityId;
+		motionError = '';
+		const res = await safeFetch('/api/settings/home-assistant/motion', {
+			method: 'PUT',
+			headers: json,
+			body: JSON.stringify({ entityId })
+		});
+		if (!res.ok && seq === motionSeq) {
+			motionSelected = before;
+			motionError = await errorMessage(res);
+		}
+	}
+
 	const picked = $derived(new Set(picks.map((p) => p.entityId)));
 	const nameOf = (id: string) => entities?.find((e) => e.entityId === id)?.name ?? fallbackName(id);
 
@@ -102,6 +141,11 @@
 		config = c;
 		baseUrl = c.baseUrl;
 		picks = c.tiles;
+		if (!c.configured) {
+			motionSensors = null;
+			motionSelected = null;
+			motionTouched = true;
+		}
 	}
 
 	function applyLoaded(c: Config) {
@@ -110,6 +154,7 @@
 		config = c;
 		if (!urlTouched) baseUrl = c.baseUrl;
 		picks = c.tiles;
+		if (!motionTouched) motionSelected = c.motionSensor ?? null;
 	}
 
 	async function loadEntities() {
@@ -124,7 +169,10 @@
 		const res = await safeFetch('/api/settings/home-assistant');
 		if (res.ok) {
 			applyLoaded((await res.json()) as Config);
-			if (config?.configured) void loadEntities();
+			if (config?.configured) {
+				void loadEntities();
+				void loadMotion();
+			}
 		}
 	});
 
@@ -145,6 +193,7 @@
 		apply((await res.json()) as Config);
 		token = '';
 		void loadEntities();
+		void loadMotion();
 	}
 
 	async function testIt() {
@@ -328,6 +377,66 @@
 	</Card>
 
 	{#if config?.configured}
+		<Card class="flex flex-col gap-4" data-testid="ha-motion">
+			<h2 class="text-title font-bold">Wake the screen on motion</h2>
+			<p class="text-body text-ink-muted">
+				Pick a motion or occupancy sensor. When it turns on, the hub wakes the wall, the same as a
+				touch (the sleep schedule still applies). Off unless you pick one.
+			</p>
+			{#if motionError}
+				<p role="alert" class="text-body text-danger" data-testid="ha-motion-error">
+					{motionError}
+				</p>
+			{/if}
+			{#if motionSensors === null && !motionError}
+				<p class="text-body text-ink-muted">Loading…</p>
+			{/if}
+			<ul class="flex flex-col gap-3" role="radiogroup" aria-label="Motion sensor">
+				{#if motionSensors !== null}
+					<li>
+						<button
+							type="button"
+							role="radio"
+							aria-checked={motionSelected === null}
+							data-testid="ha-motion-option"
+							data-entity=""
+							onclick={() => pickMotion(null)}
+							class="flex min-h-tap w-full items-center gap-4 rounded-control border-2 px-6 text-left text-body transition-transform duration-75 active:scale-95 {motionSelected ===
+							null
+								? 'border-accent bg-accent-soft'
+								: 'border-line bg-surface-raised'}"
+						>
+							<span aria-hidden="true" class="font-extrabold"
+								>{motionSelected === null ? '✓' : '○'}</span
+							>
+							<span class="min-w-0 flex-1 font-bold">None</span>
+						</button>
+					</li>
+				{/if}
+				{#each motionSensors ?? [] as m (m.entityId)}
+					<li>
+						<button
+							type="button"
+							role="radio"
+							aria-checked={motionSelected === m.entityId}
+							data-testid="ha-motion-option"
+							data-entity={m.entityId}
+							onclick={() => pickMotion(m.entityId)}
+							class="flex min-h-tap w-full items-center gap-4 rounded-control border-2 px-6 text-left text-body transition-transform duration-75 active:scale-95 {motionSelected ===
+							m.entityId
+								? 'border-accent bg-accent-soft'
+								: 'border-line bg-surface-raised'}"
+						>
+							<span aria-hidden="true" class="font-extrabold"
+								>{motionSelected === m.entityId ? '✓' : '○'}</span
+							>
+							<span class="min-w-0 flex-1 font-bold">{m.name}</span>
+						</button>
+					</li>
+				{/each}
+			</ul>
+		</Card>
+
 		<Card class="flex flex-col gap-4">
 			<h2 class="text-title font-bold">On the wall</h2>
 			{#if picks.length === 0}

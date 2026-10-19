@@ -6,7 +6,9 @@ import { getKeyring } from '../keys.js';
 import {
 	buildTiles,
 	normalizeBaseUrl,
+	isMotionSensorId,
 	normalizeSelection,
+	parseMotionSensors,
 	parseEntities,
 	serviceFor,
 	type HaEntity,
@@ -31,6 +33,10 @@ interface Stored {
 	/** Sealed with secret.key; the browser never receives it. */
 	token: string;
 	tiles: HaSelection[];
+	/** binary_sensor the hub polls to wake the wall (hub-bue); absent = off. */
+	motionSensor?: string | null;
+	/** When the pick was saved, so re-picking the same sensor starts a fresh watch. */
+	motionSetAt?: number;
 }
 
 export class HaError extends Error {
@@ -66,14 +72,21 @@ export interface HaConfig {
 	baseUrl: string;
 	hasToken: boolean;
 	tiles: HaSelection[];
+	motionSensor: string | null;
 }
 
 /** What the settings page sees. Never includes the token. */
 export function readConfig(deps: Deps = {}): HaConfig {
 	const s = read(deps.db ?? getDb());
 	return s
-		? { configured: true, baseUrl: s.baseUrl, hasToken: !!s.token, tiles: s.tiles }
-		: { configured: false, baseUrl: '', hasToken: false, tiles: [] };
+		? {
+				configured: true,
+				baseUrl: s.baseUrl,
+				hasToken: !!s.token,
+				tiles: s.tiles,
+				motionSensor: s.motionSensor ?? null
+			}
+		: { configured: false, baseUrl: '', hasToken: false, tiles: [], motionSensor: null };
 }
 
 /** Saves the address and, when given, a new token (blank keeps the saved one). Keeps the picks. */
@@ -89,7 +102,7 @@ export function saveConnection(
 	const typed = typeof input.token === 'string' ? input.token.trim() : '';
 	if (!typed && !old?.token) throw new HaError('Paste a long-lived access token', 'invalid');
 	const token = typed ? encryptSecret(deps.keyring ?? getKeyring(), typed, TOKEN_AAD) : old!.token;
-	write(db, { baseUrl, token, tiles: old?.tiles ?? [] });
+	write(db, { baseUrl, token, tiles: old?.tiles ?? [], motionSensor: old?.motionSensor ?? null });
 	return readConfig({ db });
 }
 
@@ -100,6 +113,17 @@ export function saveTiles(input: unknown, deps: Deps = {}): HaSelection[] {
 	const tiles = normalizeSelection(input);
 	write(db, { ...old, tiles });
 	return tiles;
+}
+
+/** Picks the motion sensor that wakes the wall; null (None) stops polling. */
+export function saveMotionSensor(input: unknown, deps: Deps = {}): string | null {
+	const db = deps.db ?? getDb();
+	const old = read(db);
+	if (!old) throw new HaError('Connect Home Assistant first', 'invalid');
+	if (input !== null && !isMotionSensorId(input))
+		throw new HaError('Pick a binary sensor', 'invalid');
+	write(db, { ...old, motionSensor: input, motionSetAt: Date.now() });
+	return input;
 }
 
 export function disconnect(deps: Deps = {}): void {
@@ -169,6 +193,37 @@ export async function testConnection(
 export async function listEntities(deps: Deps = {}): Promise<HaEntity[]> {
 	const res = await call(creds(deps), '/api/states', { method: 'GET' }, deps.fetch ?? fetch);
 	return parseEntities(await res.json().catch(() => []));
+}
+
+/** Motion, occupancy and presence sensors first, then any other binary_sensor. */
+export async function listMotionSensors(deps: Deps = {}): Promise<HaEntity[]> {
+	const res = await call(creds(deps), '/api/states', { method: 'GET' }, deps.fetch ?? fetch);
+	return parseMotionSensors(await res.json().catch(() => []));
+}
+
+/** The saved motion sensor and the connection's polling state, or null when none is picked. */
+export function readMotionSensor(deps: Deps = {}): string | null {
+	return read(deps.db ?? getDb())?.motionSensor ?? null;
+}
+
+/** The saved pick plus when it was saved: changes whenever the adult touches the picker. */
+export function readMotionWatch(deps: Deps = {}): { entityId: string; key: string } | null {
+	const s = read(deps.db ?? getDb());
+	return s?.motionSensor
+		? { entityId: s.motionSensor, key: `${s.motionSensor}@${s.motionSetAt ?? 0}` }
+		: null;
+}
+
+/** One reading of a binary_sensor: HA's state string. Throws HaError when HA cannot be reached. */
+export async function readEntityState(entityId: string, deps: Deps = {}): Promise<string> {
+	const res = await call(
+		creds(deps),
+		`/api/states/${encodeURIComponent(entityId)}`,
+		{ method: 'GET' },
+		deps.fetch ?? fetch
+	);
+	const body = (await res.json().catch(() => null)) as { state?: unknown } | null;
+	return typeof body?.state === 'string' ? body.state : 'unknown';
 }
 
 export type TilesResult =
