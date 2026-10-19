@@ -3,6 +3,8 @@
  * fitting the export under the note image limits. Pure: the canvas itself lives in the sheet.
  */
 
+import { isFill, type FillItem } from './drawing-fill.js';
+
 /** Ink and eraser choices. Colors are `--color-draw-*` tokens read at runtime (canvas cannot use classes). */
 export const DRAW_COLORS = [
 	'draw-black',
@@ -113,7 +115,7 @@ export function createPalmGuard() {
 }
 
 /** Everything on the board, in drawing order: freehand strokes and inserted shapes share one undo list. */
-export type DrawItem = Stroke | Shape;
+export type DrawItem = Stroke | Shape | FillItem;
 export const isShape = (item: DrawItem): item is Shape => 'shape' in item;
 
 /** The items after undoing the last one (a stroke or a whole inserted shape). */
@@ -385,4 +387,4 @@ export function dataUrlBytes(dataUrl: string): number {
 
 /** True when a stroke list would leave the board blank (nothing but erasing, or nothing). */
 export const isBlank = (strokes: readonly DrawItem[]): boolean =>
-	!strokes.some((s) => isShape(s) || (s.tool !== 'eraser' && s.points.length > 0));
+	!strokes.some((s) => isShape(s) || isFill(s) || (s.tool !== 'eraser' && s.points.length > 0));

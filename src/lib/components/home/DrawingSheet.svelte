@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
 		ALL_SHAPES,
 		BRUSH_SIZES,
@@ -67,6 +68,7 @@
 	}
 	const pickShape = (k: ShapeKind | null) => {
 		shapeKind = k;
+		if (k) bucket = false;
 		if (k && tool !== 'pen') tool = 'pen';
 		shapePicking = false;
 	};
@@ -84,6 +86,8 @@
 	/** The shape or stamp the next drag places; null means freehand drawing. */
 	let shapeKind = $state<ShapeKind | null>(null);
 	let filled = $state(false);
+	/** Paint-bucket mode: a tap fills the closed area under it. */
+	let bucket = $state(false);
 	let count = $state(0); // strokes drawn, for the undo/clear/post enabled state
 	let blank = $state(true);
 	let choosing = $state(false);
@@ -177,8 +181,36 @@
 			.join(' ');
 	}
 
+	/** Replay a fill as row runs; if the canvas was resized since, flood again from the same spot. */
+	function paintFill(f: FillItem) {
+		let spans = f.spans;
+		if (f.w !== canvas.width || f.h !== canvas.height) {
+			const again = makeFill(
+				ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+				canvas.width,
+				canvas.height,
+				(f.x * canvas.width) / f.w,
+				(f.y * canvas.height) / f.h,
+				f.color,
+				f.tolerance
+			);
+			if (!again) return;
+			Object.assign(f, again);
+			spans = f.spans;
+		}
+		ctx.save();
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.globalCompositeOperation = 'source-over';
+		ctx.globalAlpha = 1;
+		ctx.fillStyle = token(f.color);
+		for (let i = 0; i < spans.length; i += 3)
+			ctx.fillRect(spans[i + 1], spans[i], spans[i + 2] - spans[i + 1] + 1, 1);
+		ctx.restore();
+	}
+
 	function paint(s: DrawItem) {
-		if (isShape(s)) paintShape(s);
+		if (isFill(s)) paintFill(s);
+		else if (isShape(s)) paintShape(s);
 		else if (s.tool === 'highlighter') highlight(s);
 		else for (let i = 0; i < s.points.length; i++) segment(s, i);
 	}
@@ -222,6 +254,27 @@
 		}
 		activeId = e.pointerId;
 		rect = canvas.getBoundingClientRect();
+		if (bucket) {
+			// Tap to fill: look at the ink as it stands, flood the area under the finger.
+			activeId = -1;
+			redraw();
+			const item = makeFill(
+				ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+				canvas.width,
+				canvas.height,
+				(e.clientX - rect.left) * dpr,
+				(e.clientY - rect.top) * dpr,
+				color
+			);
+			if (item) {
+				strokes.push(item);
+				recent = pushRecent(recent, color);
+				count = strokes.length;
+				blank = isBlank(strokes);
+				paintFill(item);
+			}
+			return;
+		}
 		if (shapeKind) {
 			const p = sample(e);
 			anchor = { x: p.x, y: p.y };
@@ -524,6 +577,19 @@
 				>
 				<button
 					type="button"
+					class="{btn} {bucket ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+					aria-pressed={bucket}
+					data-testid="draw-bucket"
+					onclick={() => {
+						bucket = !bucket;
+						if (bucket) {
+							shapeKind = null;
+							tool = 'pen';
+						}
+					}}>Fill</button
+				>
+				<button
+					type="button"
 					class="{btn} {tool === 'highlighter'
 						? 'border-accent bg-accent-soft'
 						: 'border-line bg-surface'}"
@@ -531,6 +597,7 @@
 					data-testid="draw-highlighter"
 					onclick={() => {
 						shapeKind = null;
+						bucket = false;
 						tool = tool === 'highlighter' ? 'pen' : 'highlighter';
 					}}>Highlighter</button
 				>
@@ -543,6 +610,7 @@
 					data-testid="draw-eraser"
 					onclick={() => {
 						shapeKind = null;
+						bucket = false;
 						tool = tool === 'eraser' ? 'pen' : 'eraser';
 					}}>Eraser</button
 				>

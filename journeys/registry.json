@@ -749,6 +749,12 @@
 					"text": "Open Shapes, pick a shape or stamp, then tap or drag on the canvas to place it; Undo takes it back.",
 					"status": "built",
 					"beads": ["hub-cn7.2"]
+				},
+				{
+					"id": "J18.5",
+					"text": "Tap Fill, pick a color, then tap inside a closed area to paint it; Undo takes the fill back.",
+					"status": "built",
+					"beads": ["hub-cn7.6"]
 				}
 			]
 		},
