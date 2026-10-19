@@ -20,7 +20,16 @@
 	let back = $state(saved?.back ?? '');
 	let message = $state<string>();
 
-	async function send(method: 'PUT' | 'POST' | 'DELETE', body?: unknown): Promise<boolean> {
+	/** Writes go one at a time: two in flight could land out of order and leave the older one saved. */
+	let queue: Promise<unknown> = Promise.resolve();
+
+	function send(method: 'PUT' | 'POST' | 'DELETE', body?: unknown): Promise<boolean> {
+		const run = queue.then(() => sendNow(method, body));
+		queue = run.catch(() => undefined);
+		return run;
+	}
+
+	async function sendNow(method: 'PUT' | 'POST' | 'DELETE', body?: unknown): Promise<boolean> {
 		const res = await safeFetch('/api/settings/vacation', {
 			method,
 			headers: { 'content-type': 'application/json' },
