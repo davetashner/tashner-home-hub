@@ -43,7 +43,7 @@ export const EXPORT_TABLES = [
 
 /**
  * App tables deliberately left out of exports: `events` is a calendar sync cache, and
- * `notes` are short-lived sticky notes, and `routine_progress` is per-day state that resets itself each morning,, `api_tokens` are
+ * `notes` are short-lived sticky notes, `saved_drawings` are large unfinished kid drawings (the nightly backup of the database keeps them), and `routine_progress` is per-day state that resets itself each morning,, `api_tokens` are
  * device credentials that stay on this server (re-create them after a restore), and `sitter_sessions`
  * (and their `sitter_checkins`) are one-evening handovers with PIN hashes.
  */
@@ -52,6 +52,7 @@ export const EXCLUDED_TABLES = [
 	'routine_progress',
 	'api_tokens',
 	'notes',
+	'saved_drawings',
 	'sitter_sessions',
 	'sitter_checkins'
 ] as const;
