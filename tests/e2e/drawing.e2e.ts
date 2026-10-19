@@ -1,10 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
-import { ensureHousehold } from './adult';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { ensureHousehold, signInAsAdult } from './adult';
 import { gotoHydrated } from './hydrated';
 import { expectTappable } from './tap';
 import { trackMember } from './cleanup';
-import { DB_PATH } from './data-dir';
+import { DATA_DIR, DB_PATH } from './data-dir';
+import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
 
 // hub-fkp: the drawing board posts a PNG note. Runs in both wall orientations.
 
@@ -746,5 +749,105 @@ test('background color: erasing reveals it, and it saves and reopens @J18.10', a
 		await page.getByTestId('draw-close').click();
 	} finally {
 		wipe(kidId);
+	}
+});
+
+/** RGBA at a fraction of a layer canvas. */
+const layerPixel = (page: Page, testId: string, fx: number, fy: number) =>
+	page
+		.getByTestId(testId)
+		.evaluate(
+			(c: HTMLCanvasElement, f) =>
+				Array.from(
+					c
+						.getContext('2d')!
+						.getImageData(Math.floor(c.width * f.fx), Math.floor(c.height * f.fy), 1, 1).data
+				),
+			{ fx, fy }
+		);
+
+test('draw on a photo from the library: it stays when erased, and saves with the drawing @J18.11', async ({
+	page
+}, info) => {
+	const kidId = `e2e-draw-kid11-${info.workerIndex}${info.repeatEachIndex}`;
+	const name = `Kid Photographer ${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, name);
+	const run = `${Date.now().toString(36)}-${info.parallelIndex}-${info.repeatEachIndex}`;
+	const root = resolve(DATA_DIR, 'photo-library', `e2e-draw-${info.project.name}-${run}`);
+	rmSync(root, { recursive: true, force: true });
+	mkdirSync(root, { recursive: true });
+	// Synthetic picture (left red, right blue), never a real photo.
+	writeFileSync(`${root}/a.jpg`, await syntheticJpeg(640, 360));
+	await signInAsAdult(page, `e2e-draw-photo-${info.project.name}`);
+	const made = await page.request.post('/api/photo-sources', {
+		data: { kind: 'folder', label: `Draw ${run}`, root }
+	});
+	expect(made.status()).toBe(201);
+	const sourceId: string = (await made.json()).id;
+	try {
+		const images: { id: string }[] = await (
+			await page.request.get(`/api/photo-sources/${sourceId}/images`)
+		).json();
+		const photoId = images[0].id;
+
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		const canvas = page.getByTestId('draw-canvas');
+		await expectTappable(page.getByTestId('draw-photo-open'), 96);
+		await page.getByTestId('draw-photo-open').click();
+		const mine = page.getByTestId('draw-photo').and(page.locator(`[data-photo-id="${photoId}"]`));
+		await expectTappable(mine, 96);
+		await mine.click();
+		await expect(canvas).toHaveAttribute('data-photo', photoId);
+		// A photo alone is not a drawing yet; the ink layer is empty.
+		await expect(canvas).toHaveAttribute('data-blank', 'true');
+		expect(await inkPixels(page)).toBe(0);
+
+		// The picture is painted whole and centred: red on the left, blue on the right.
+		await expect
+			.poll(() => layerPixel(page, 'draw-photo-layer', 0.5, 0.5).then((p) => p[3]))
+			.toBe(255);
+		const left = await layerPixel(page, 'draw-photo-layer', 0.45, 0.5);
+		const right = await layerPixel(page, 'draw-photo-layer', 0.55, 0.5);
+		expect(left[0]).toBeGreaterThan(left[2]);
+		expect(right[2]).toBeGreaterThan(right[0]);
+
+		// Draw, then erase everywhere: the photo is still there.
+		await pointerStroke(page, 'pen', 0.9, [0.1, 0.5], [0.9, 0.5], 1);
+		expect(await inkPixels(page)).toBeGreaterThan(0);
+		await page.getByTestId('draw-eraser').click();
+		for (const [i, y] of [0.48, 0.5, 0.52].entries())
+			await pointerStroke(page, 'pen', 1, [0.05, y], [0.95, y], 2 + i);
+		expect(await inkPixels(page)).toBe(0);
+		await page.getByTestId('draw-eraser').click();
+		expect((await layerPixel(page, 'draw-photo-layer', 0.55, 0.5))[3]).toBe(255);
+		await pointerStroke(page, 'pen', 0.9, [0.1, 0.2], [0.9, 0.3], 5);
+
+		// Save, drop the photo, reopen: the photo comes back; the thumbnail has the picture in it.
+		await page.getByTestId('draw-save').click();
+		await page.getByTestId('draw-author').filter({ hasText: name }).click();
+		await expect(page.getByTestId('draw-note')).toHaveText('Saved!');
+		const rows: { thumb: string; memberName: string }[] = await page.evaluate(() =>
+			fetch('/api/drawings').then((r) => r.json())
+		);
+		const row = rows.find((r) => r.memberName === name)!;
+		const [r, , b] = await thumbPixel(page, row.thumb, 0.45, 0.55);
+		expect(r).toBeGreaterThan(b);
+		const [r2, , b2] = await thumbPixel(page, row.thumb, 0.55, 0.55);
+		expect(b2).toBeGreaterThan(r2);
+		await page.getByTestId('draw-photo-open').click();
+		await page.getByTestId('draw-photo-none').click();
+		await expect(canvas).toHaveAttribute('data-photo', '');
+		await page.getByTestId('draw-browse').click();
+		await page.getByRole('button', { name: `Open drawing by ${name}` }).click();
+		await expect(canvas).toHaveAttribute('data-photo', photoId);
+		await expect
+			.poll(() => layerPixel(page, 'draw-photo-layer', 0.55, 0.5).then((p) => p[3]))
+			.toBe(255);
+		await page.getByTestId('draw-close').click();
+	} finally {
+		wipe(kidId);
+		await page.request.delete(`/api/photo-sources/${sourceId}`, { data: {} });
+		rmSync(root, { recursive: true, force: true });
 	}
 });

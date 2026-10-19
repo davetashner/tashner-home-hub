@@ -5,6 +5,7 @@
  * (the wall can rotate between landscape and portrait). Pure: no canvas, no storage.
  */
 import { PAGE_SIZE, isPageId, pageFit, type PageId } from './drawing-pages.js';
+import { isPhotoId } from './drawing-photo.js';
 import { FILL_TOLERANCE, isFill, type FillItem } from './drawing-fill.js';
 import {
 	ALL_SHAPES,
@@ -42,6 +43,8 @@ interface Wire {
 	page?: PageId;
 	/** Background color of the board (hub-cn7.9.1): one of COLOR_GRID; absent means paper. */
 	bg?: string;
+	/** A library photo under the drawing (hub-cn7.9.2); items are in canvas space like a plain board. */
+	photo?: string;
 	items: WireItem[];
 }
 
@@ -58,7 +61,8 @@ export function serializeDrawing(
 	size: Size,
 	dpr = 1,
 	page: PageId | null = null,
-	bg: string | null = null
+	bg: string | null = null,
+	photo: string | null = null
 ): string {
 	const fit = page ? pageFit(size) : { s: 1, ox: 0, oy: 0 };
 	const X = (x: number) => r1((x - fit.ox) / fit.s);
@@ -69,6 +73,7 @@ export function serializeDrawing(
 		size: page ? { ...PAGE_SIZE } : { w: r1(size.w), h: r1(size.h) },
 		...(page ? { page } : {}),
 		...(bg && isBackground(bg) ? { bg } : {}),
+		...(!page && isPhotoId(photo) ? { photo } : {}),
 		items: items.map((it): WireItem => {
 			if (isFill(it))
 				return { k: 1, c: it.color, x: X(it.x / dpr), y: Y(it.y / dpr), o: it.tolerance };
@@ -121,6 +126,7 @@ function parseWire(json: unknown): Wire | null {
 		return null;
 	if (w.page !== undefined && !isPageId(w.page)) return null;
 	if (w.bg !== undefined && !isBackground(w.bg)) return null;
+	if (w.photo !== undefined && (!isPhotoId(w.photo) || w.page !== undefined)) return null;
 	if (!Array.isArray(w.items) || w.items.length > SAVED_MAX_ITEMS) return null;
 	let points = 0;
 	for (const it of w.items as Record<string, unknown>[]) {
@@ -163,6 +169,9 @@ export const savedPage = (json: unknown): PageId | null => parseWire(json)?.page
 
 /** The background color a saved drawing was made on, or null for plain paper. */
 export const savedBackground = (json: unknown): string | null => parseWire(json)?.bg ?? null;
+
+/** The library photo a saved drawing sits on, or null. */
+export const savedPhoto = (json: unknown): string | null => parseWire(json)?.photo ?? null;
 
 /** The canvas size a saved drawing was made on, or null when it is not valid. */
 export function savedSize(json: unknown): Size | null {
