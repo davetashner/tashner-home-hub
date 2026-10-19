@@ -99,6 +99,27 @@ describe('coloring pages', () => {
 	});
 });
 
+describe('rotated shapes', () => {
+	it('keeps the turn through a save and reopen', () => {
+		const json = serializeDrawing([{ ...shape, rot: 0.7854 }], size);
+		const back = loadDrawing(json, size)![0] as Shape;
+		expect(back.rot).toBeCloseTo(0.785, 3);
+	});
+	it('writes nothing extra for an upright shape, and old saves open upright', () => {
+		const json = serializeDrawing([shape], size);
+		expect(json).not.toContain('"r"');
+		expect((loadDrawing(json, size)![0] as Shape).rot).toBeUndefined();
+	});
+	it('rejects a turn that is not a number', () => {
+		const bad = JSON.stringify({
+			v: 1,
+			size,
+			items: [{ s: 'star', c: 'x', f: true, w: 1, b: [1, 2, 3, 4], r: 'x' }]
+		});
+		expect(loadDrawing(bad, size)).toBeNull();
+	});
+});
+
 describe('validation', () => {
 	const wire = (items: unknown, extra: object = {}) =>
 		JSON.stringify({ v: 1, size, items, ...extra });

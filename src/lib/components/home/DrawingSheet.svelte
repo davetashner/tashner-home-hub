@@ -14,9 +14,22 @@
 	import { loadDrawing, savedPage, serializeDrawing } from '#lib/domain/drawing-save.js';
 	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
+		clampPoint,
+		handlePoints,
+		hitBody,
+		moveShape,
+		resizeShape,
+		rotateShape,
+		rotationOf,
+		selectionCorners,
+		shapeCenter,
+		type Pt
+	} from '#lib/domain/drawing-edit.js';
+	import {
 		ALL_SHAPES,
 		BRUSH_SIZES,
 		SHAPE_LABELS,
+		SHAPE_MIN_DRAG,
 		isShape,
 		placement,
 		shapeParts,
@@ -77,6 +90,7 @@
 		picking = false;
 	}
 	const pickShape = (k: ShapeKind | null) => {
+		commit();
 		shapeKind = k;
 		if (k) bucket = false;
 		if (k && tool !== 'pen') tool = 'pen';
@@ -126,6 +140,7 @@
 		pagePicking = false;
 		if (id === page) return;
 		page = id;
+		commit();
 		strokes = [];
 		count = 0;
 		blank = true;
@@ -147,6 +162,12 @@
 	let strokes: DrawItem[] = [];
 	let current: Stroke | null = null;
 	let draft: Shape | null = null;
+	/** The shape just placed: still editable (move, resize, rotate) until something else is done. */
+	let selected: Shape | null = null;
+	let sel = $state<{ corners: string; resize: Pt; rotate: Pt; rot: number } | null>(null);
+	let gesture: { kind: 'move' | 'resize' | 'rotate'; id: number; last: Pt } | null = null;
+	let armed = false;
+	let dragged = 0;
 	let anchor = { x: 0, y: 0 };
 	let activeId = -1;
 	let rect: DOMRect;
@@ -235,7 +256,76 @@
 		return c.getImageData(0, 0, w, h).data;
 	}
 
+	function syncSel() {
+		if (!selected) {
+			sel = null;
+			return;
+		}
+		const h = handlePoints(selected);
+		const w = canvas.width / dpr;
+		const ht = canvas.height / dpr;
+		sel = {
+			corners: selectionCorners(selected)
+				.map((p) => `${p.x},${p.y}`)
+				.join(' '),
+			resize: clampPoint(h.resize, w, ht),
+			rotate: clampPoint(h.rotate, w, ht),
+			rot: rotationOf(selected)
+		};
+	}
+
+	function commit() {
+		selected = null;
+		gesture = null;
+		syncSel();
+	}
+
+	const canvasPt = (e: PointerEvent): Pt => {
+		const r = canvas.getBoundingClientRect();
+		return { x: e.clientX - r.left, y: e.clientY - r.top };
+	};
+
+	function startGesture(kind: 'move' | 'resize' | 'rotate', e: PointerEvent, host: Element) {
+		e.preventDefault();
+		e.stopPropagation();
+		try {
+			host.setPointerCapture(e.pointerId);
+		} catch {
+			// Synthetic pointers (tests) are not active pointers; real ones always capture.
+		}
+		activeId = e.pointerId;
+		gesture = { kind, id: e.pointerId, last: canvasPt(e) };
+	}
+
+	function moveGesture(e: PointerEvent) {
+		if (!gesture || !selected || e.pointerId !== gesture.id) return;
+		const p = canvasPt(e);
+		const next =
+			gesture.kind === 'move'
+				? moveShape(selected, p.x - gesture.last.x, p.y - gesture.last.y)
+				: gesture.kind === 'resize'
+					? resizeShape(selected, p)
+					: rotateShape(selected, gesture.last, p);
+		Object.assign(selected, next);
+		gesture.last = p;
+		redraw();
+		syncSel();
+	}
+
+	function endGesture(e: PointerEvent) {
+		if (!gesture || e.pointerId !== gesture.id) return;
+		gesture = null;
+		activeId = -1;
+	}
+
 	function paintShape(s: Shape) {
+		ctx.save();
+		if (s.rot) {
+			const c = shapeCenter(s);
+			ctx.translate(c.x, c.y);
+			ctx.rotate(s.rot);
+			ctx.translate(-c.x, -c.y);
+		}
 		ctx.globalCompositeOperation = 'source-over';
 		ctx.globalAlpha = 1;
 		ctx.strokeStyle = ctx.fillStyle = token(s.color);
@@ -248,6 +338,7 @@
 			if (part.kind === 'solid' || (part.kind === 'body' && s.filled)) ctx.fill();
 			if (part.kind !== 'solid') ctx.stroke();
 		}
+		ctx.restore();
 	}
 
 	/** SVG path data for a picker preview, so the buttons show the real shape. */
@@ -337,6 +428,13 @@
 		}
 		activeId = e.pointerId;
 		rect = canvas.getBoundingClientRect();
+		if (selected && hitBody(selected, canvasPt(e))) {
+			startGesture('move', e, canvas);
+			return;
+		}
+		armed = selected !== null;
+		commit();
+		dragged = 0;
 		if (bucket) {
 			// Tap to fill: look at the ink as it stands, flood the area under the finger.
 			activeId = -1;
@@ -380,8 +478,10 @@
 
 	function move(e: PointerEvent) {
 		guard.see(e.pointerType); // a hovering pen is noticed before it touches
+		if (gesture) return moveGesture(e);
 		if (e.pointerId === activeId && draft && shapeKind) {
 			const p = sample(e);
+			dragged = Math.max(dragged, Math.hypot(p.x - anchor.x, p.y - anchor.y));
 			draft = makeShape(shapeKind, anchor, p);
 			redraw();
 			return;
@@ -397,11 +497,20 @@
 	}
 
 	function up(e: PointerEvent) {
+		if (gesture) return endGesture(e);
 		if (e.pointerId === activeId && draft) {
 			activeId = -1;
+			// A plain tap that only dropped the previous selection does not place another shape.
+			if (armed && dragged < SHAPE_MIN_DRAG) {
+				draft = null;
+				redraw();
+				return;
+			}
 			strokes.push(draft);
+			selected = draft;
 			recent = pushRecent(recent, draft.color);
 			draft = null;
+			syncSel();
 			count = strokes.length;
 			blank = isBlank(strokes);
 			redraw();
@@ -417,6 +526,7 @@
 	}
 
 	function undo() {
+		commit();
 		strokes = undoStroke(strokes);
 		count = strokes.length;
 		blank = isBlank(strokes);
@@ -424,6 +534,7 @@
 	}
 
 	function clear() {
+		commit();
 		strokes = [];
 		count = 0;
 		blank = true;
@@ -522,6 +633,7 @@
 			const data: unknown = res.ok ? (await res.json()).data : null;
 			const items = loadDrawing(data, { w: canvas.width / dpr, h: canvas.height / dpr });
 			if (!items) throw new Error('bad drawing');
+			commit();
 			page = savedPage(data);
 			drawLines();
 			strokes = items;
@@ -583,6 +695,8 @@
 			data-blank={blank}
 			data-page={page ?? ''}
 			data-strokes={count}
+			data-selected={sel !== null}
+			data-sel-rot={sel ? sel.rot.toFixed(3) : ''}
 			onpointerdown={down}
 			onpointermove={move}
 			onpointerup={up}
@@ -596,6 +710,37 @@
 			aria-hidden="true"
 			data-testid="draw-lines"
 		></canvas>
+		{#if sel}
+			<svg class="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
+				<polygon
+					points={sel.corners}
+					class="fill-none stroke-accent"
+					stroke-width="3"
+					stroke-dasharray="10 8"
+				/>
+			</svg>
+			{#each [{ kind: 'resize', label: 'Resize', glyph: '⤡', at: sel.resize }, { kind: 'rotate', label: 'Turn', glyph: '↻', at: sel.rotate }] as h (h.kind)}
+				<button
+					type="button"
+					class="absolute flex size-tap-kid -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center"
+					style:left="{h.at.x}px"
+					style:top="{h.at.y}px"
+					aria-label={h.label}
+					data-testid="draw-handle"
+					data-handle={h.kind}
+					onpointerdown={(e) =>
+						startGesture(h.kind === 'resize' ? 'resize' : 'rotate', e, e.currentTarget)}
+					onpointermove={moveGesture}
+					onpointerup={endGesture}
+					onpointercancel={endGesture}
+				>
+					<span
+						class="flex size-12 items-center justify-center rounded-full border-2 border-accent bg-surface text-body font-extrabold"
+						aria-hidden="true">{h.glyph}</span
+					>
+				</button>
+			{/each}
+		{/if}
 	</div>
 
 	<div
@@ -846,6 +991,7 @@
 					aria-pressed={bucket}
 					data-testid="draw-bucket"
 					onclick={() => {
+						commit();
 						bucket = !bucket;
 						if (bucket) {
 							shapeKind = null;
@@ -861,6 +1007,7 @@
 					aria-pressed={tool === 'highlighter'}
 					data-testid="draw-highlighter"
 					onclick={() => {
+						commit();
 						shapeKind = null;
 						bucket = false;
 						tool = tool === 'highlighter' ? 'pen' : 'highlighter';
@@ -874,6 +1021,7 @@
 					aria-pressed={tool === 'eraser'}
 					data-testid="draw-eraser"
 					onclick={() => {
+						commit();
 						shapeKind = null;
 						bucket = false;
 						tool = tool === 'eraser' ? 'pen' : 'eraser';

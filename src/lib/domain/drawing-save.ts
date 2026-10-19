@@ -30,7 +30,8 @@ export interface Size {
 }
 
 type WireStroke = { t: DrawTool; c: string; p: number[] };
-type WireShape = { s: ShapeKind; c: string; f: boolean; w: number; b: number[] };
+/** `r` (hub-cn7.5) is the turn in radians; saves made before it have none and open upright. */
+type WireShape = { s: ShapeKind; c: string; f: boolean; w: number; b: number[]; r?: number };
 type WireFill = { k: 1; c: string; x: number; y: number; o: number };
 type WireItem = WireStroke | WireShape | WireFill;
 interface Wire {
@@ -72,7 +73,8 @@ export function serializeDrawing(
 					c: it.color,
 					f: it.filled,
 					w: K(it.width),
-					b: [X(it.x0), Y(it.y0), X(it.x1), Y(it.y1)]
+					b: [X(it.x0), Y(it.y0), X(it.x1), Y(it.y1)],
+					...(it.rot ? { r: Math.round(it.rot * 1000) / 1000 } : {})
 				};
 			return {
 				t: it.tool,
@@ -123,7 +125,8 @@ function parseWire(json: unknown): Wire | null {
 				!num(it.w) ||
 				!Array.isArray(b) ||
 				b.length !== 4 ||
-				!b.every(num)
+				!b.every(num) ||
+				(it.r !== undefined && !num(it.r))
 			)
 				return null;
 		} else {
@@ -190,7 +193,8 @@ export function loadDrawing(json: unknown, to: Size): DrawItem[] | null {
 				x0: X(x0),
 				y0: Y(y0),
 				x1: X(x1),
-				y1: Y(y1)
+				y1: Y(y1),
+				...(it.r ? { rot: it.r } : {})
 			};
 			return sh;
 		}
