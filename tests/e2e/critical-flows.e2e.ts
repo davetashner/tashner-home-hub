@@ -50,10 +50,34 @@ const card = (page: Page, s: KidSeed) =>
  * Fast-forward again until `settled` holds: a poll is idempotent.
  */
 async function wallRefresh(wall: Page, settled: () => Promise<void>) {
-	await expect(async () => {
-		await wall.clock.fastForward(MIN);
-		await settled();
-	}).toPass();
+	try {
+		await expect(async () => {
+			await wall.clock.fastForward(MIN);
+			await settled();
+		}).toPass({ timeout: 15_000 });
+	} catch (e) {
+		const diag = await wall
+			.evaluate(() => ({
+				url: location.href,
+				vis: document.visibilityState,
+				caption: document.querySelector('[data-testid=goal-caption]')?.textContent,
+				counts: document.querySelector('[data-testid=jar-counts]')?.textContent,
+				ls: Object.fromEntries(Object.entries(localStorage)),
+				res: performance
+					.getEntriesByType('resource')
+					.filter((r) => r.name.includes('/api/'))
+					.slice(-40)
+					.map(
+						(r) =>
+							`${Math.round(r.startTime)}+${Math.round(r.duration)} ${r.name.replace(location.origin, '')} ${(r as PerformanceResourceTiming).responseStatus}`
+					),
+				now: Date.now()
+			}))
+			.catch((err) => ({ evalFailed: String(err) }));
+		throw new Error(
+			'WALLDIAG ' + JSON.stringify(diag, null, 1) + '\nLOG ' + (globalThis as any).__log?.join('\n')
+		);
+	}
 }
 
 /**
@@ -92,6 +116,26 @@ async function openWall(wall: Page, s: KidSeed, asWall = false) {
 		route.request().method() === 'GET'
 			? route.fulfill({ json: { homeMinutes: 0, frameMinutes: 60 } })
 			: route.fallback()
+	);
+	(globalThis as any).__log = [];
+	wall.on('console', (m) => (globalThis as any).__log.push('console ' + m.type() + ' ' + m.text()));
+	wall.on('pageerror', (m) => (globalThis as any).__log.push('pageerror ' + m));
+	wall.on('requestfailed', (r) =>
+		(globalThis as any).__log.push('reqfailed ' + r.url() + ' ' + r.failure()?.errorText)
+	);
+	wall.on(
+		'response',
+		(r) =>
+			r.url().includes('/api/') &&
+			(globalThis as any).__log.push(
+				Date.now() +
+					' ' +
+					r.status() +
+					' ' +
+					r.request().method() +
+					' ' +
+					r.url().replace(/^.*\/api/, '/api')
+			)
 	);
 	await wall.clock.install();
 	await gotoHydrated(wall, `/chores?member=${s.memberId}`);
@@ -134,72 +178,73 @@ test('chore to gold star: kid taps, parent approves on a phone, the wall shows t
 	}
 });
 
-test('reward redemption: earn the last star, then a parent redeems with the PIN @J4.3 @J4.4', async ({
-	page: wall,
-	browser
-}, info) => {
-	const s = await seedKid(wall, `flow2 ${info.project.name}`); // 2 stars, adult signed in on `wall`
-	const stamp = Date.now() % 1e9;
-	const reward = `Sticker book ${info.project.name} ${stamp}`;
-	const made = await (
-		await wall.request.post('/api/rewards', { data: { title: reward, cost: 3, image: '📒' } })
-	).json();
-	await wall.request.put(`/api/members/${s.memberId}/goal`, { data: { rewardId: made.id } });
-	const parent = `Parent ${info.project.name} ${stamp}`;
-	seedNamedAdult(`adult-flow2-${stamp}`, parent);
-	await openWall(wall, s);
+for (let rep = 0; rep < 30; rep++)
+	test(`reward redemption ${rep}: earn the last star, then a parent redeems with the PIN @J4.3 @J4.4`, async ({
+		page: wall,
+		browser
+	}, info) => {
+		const s = await seedKid(wall, `flow2 ${info.project.name}`); // 2 stars, adult signed in on `wall`
+		const stamp = Date.now() % 1e9;
+		const reward = `Sticker book ${info.project.name} ${stamp}`;
+		const made = await (
+			await wall.request.post('/api/rewards', { data: { title: reward, cost: 3, image: '📒' } })
+		).json();
+		await wall.request.put(`/api/members/${s.memberId}/goal`, { data: { rewardId: made.id } });
+		const parent = `Parent ${info.project.name} ${stamp}`;
+		seedNamedAdult(`adult-flow2-${stamp}`, parent);
+		await openWall(wall, s);
 
-	// The kid earns the third star on the wall.
-	await expect(wall.getByTestId('goal-caption')).toHaveText('2 of 3 stars');
-	await tapDidIt(wall, s, 'Brush teeth');
-	await expect(wall.getByTestId('jar-counts')).toContainText('2 gold stars, 1 waiting');
+		// The kid earns the third star on the wall.
+		await expect(wall.getByTestId('goal-caption')).toHaveText('2 of 3 stars');
+		await tapDidIt(wall, s, 'Brush teeth');
+		await expect(wall.getByTestId('jar-counts')).toContainText('2 gold stars, 1 waiting');
 
-	const phone = await openPhone(browser);
-	try {
-		// Nothing on the phone works without the PIN: the approvals page sends it to unlock first.
-		await gotoHydrated(phone, '/settings/approvals');
-		await expect(phone).toHaveURL(/\/unlock/);
-		await expect(phone.locator('html[data-hydrated]')).toBeAttached();
-		await phone.getByRole('button', { name: parent, exact: true }).click();
-		await expect(phone.getByTestId('pinpad')).toBeVisible();
-		for (const d of PIN) await phone.getByRole('button', { name: d, exact: true }).click();
-		await phone.getByRole('button', { name: 'Enter PIN' }).click();
-		await expect(phone).toHaveURL(/\/settings\/approvals/);
+		const phone = await openPhone(browser);
+		try {
+			// Nothing on the phone works without the PIN: the approvals page sends it to unlock first.
+			await gotoHydrated(phone, '/settings/approvals');
+			await expect(phone).toHaveURL(/\/unlock/);
+			await expect(phone.locator('html[data-hydrated]')).toBeAttached();
+			await phone.getByRole('button', { name: parent, exact: true }).click();
+			await expect(phone.getByTestId('pinpad')).toBeVisible();
+			for (const d of PIN) await phone.getByRole('button', { name: d, exact: true }).click();
+			await phone.getByRole('button', { name: 'Enter PIN' }).click();
+			await expect(phone).toHaveURL(/\/settings\/approvals/);
 
-		const row = card(phone, s).getByTestId('approval-row').filter({ hasText: 'Brush teeth' });
-		await row.getByTestId('approve').click();
-		await expect(card(phone, s).getByTestId(`balance-${s.memberId}`)).toHaveText('3 ⭐');
+			const row = card(phone, s).getByTestId('approval-row').filter({ hasText: 'Brush teeth' });
+			await row.getByTestId('approve').click();
+			await expect(card(phone, s).getByTestId(`balance-${s.memberId}`)).toHaveText('3 ⭐');
 
-		// The wall now shows the goal reached.
-		await wallRefresh(wall, () =>
-			expect(wall.getByTestId('goal-caption')).toHaveText('3 of 3 stars', { timeout: 2000 })
-		);
-		await expect(wall.getByTestId('jar-goal')).toHaveAttribute('data-reached', 'true');
+			// The wall now shows the goal reached.
+			await wallRefresh(wall, () =>
+				expect(wall.getByTestId('goal-caption')).toHaveText('3 of 3 stars', { timeout: 2000 })
+			);
+			await expect(wall.getByTestId('jar-goal')).toHaveAttribute('data-reached', 'true');
 
-		await card(phone, s).getByTestId('redeem').click();
-		await expect(phone.getByTestId('redeem-sheet')).toContainText(reward);
-		await phone.getByTestId('redeem-confirm').click();
-		await expect(phone.getByTestId('toast')).toContainText(`Redeemed ${reward}`);
-		await expect(card(phone, s).getByTestId(`balance-${s.memberId}`)).toHaveText('0 ⭐');
+			await card(phone, s).getByTestId('redeem').click();
+			await expect(phone.getByTestId('redeem-sheet')).toContainText(reward);
+			await phone.getByTestId('redeem-confirm').click();
+			await expect(phone.getByTestId('toast')).toContainText(`Redeemed ${reward}`);
+			await expect(card(phone, s).getByTestId(`balance-${s.memberId}`)).toHaveText('0 ⭐');
 
-		// It is logged against the PIN's owner.
-		// The page re-renders as the redeem settles, which can swallow a tap on the link: retry it.
-		await expect(async () => {
-			if (!/\/settings\/redemptions/.test(phone.url()))
-				await phone.getByTestId('redemption-log-link').click();
-			await expect(phone).toHaveURL(/\/settings\/redemptions/, { timeout: 1000 });
-		}).toPass();
-		const logged = phone.getByTestId('redemption-row').filter({ hasText: reward });
-		await expect(logged).toContainText('−3 ⭐');
-		await expect(logged).toContainText(`by ${parent}`);
+			// It is logged against the PIN's owner.
+			// The page re-renders as the redeem settles, which can swallow a tap on the link: retry it.
+			await expect(async () => {
+				if (!/\/settings\/redemptions/.test(phone.url()))
+					await phone.getByTestId('redemption-log-link').click();
+				await expect(phone).toHaveURL(/\/settings\/redemptions/, { timeout: 1000 });
+			}).toPass();
+			const logged = phone.getByTestId('redemption-row').filter({ hasText: reward });
+			await expect(logged).toContainText('−3 ⭐');
+			await expect(logged).toContainText(`by ${parent}`);
 
-		await wallRefresh(wall, () =>
-			expect(wall.getByTestId('jar-counts')).toContainText('0 gold stars', { timeout: 2000 })
-		);
-	} finally {
-		await phone.context().close();
-	}
-});
+			await wallRefresh(wall, () =>
+				expect(wall.getByTestId('jar-counts')).toContainText('0 gold stars', { timeout: 2000 })
+			);
+		} finally {
+			await phone.context().close();
+		}
+	});
 
 test('calendar: agenda, week and month each show the seeded events @J5.1 @J5.2', async ({
 	page
