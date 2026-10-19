@@ -161,3 +161,32 @@ test('grown-ups turn the night clock on and off @J8.6', async ({ page }, info) =
 	await expect(summary).toContainText('very dim clock');
 	await expect.poll(() => saved).toContainEqual({ enabled: true });
 });
+
+test('a late night-clock load does not undo the toggle the adult tapped @J8.6', async ({
+	page
+}, info) => {
+	let release!: () => void;
+	const gate = new Promise<void>((r) => (release = r));
+	let held = 0;
+	await page.route('**/api/settings/night-clock', async (route) => {
+		if (route.request().method() !== 'GET') {
+			return route.fulfill({ json: route.request().postDataJSON() });
+		}
+		held++;
+		await gate;
+		return route.fulfill({ json: { enabled: false } });
+	});
+	await signInAsAdult(page, `e2e-night-clock-late-${info.project.name}`);
+	await gotoHydrated(page, '/settings/sleep-schedule');
+	await expect.poll(() => held).toBeGreaterThan(0);
+	const summary = page.getByTestId('night-clock-summary');
+	await page.getByRole('button', { name: 'Night clock On' }).click();
+	await expect(summary).toContainText('very dim clock');
+	release();
+	await page.waitForTimeout(300);
+	await expect(summary).toContainText('very dim clock');
+	await expect(page.getByRole('button', { name: 'Night clock On' })).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
+});
