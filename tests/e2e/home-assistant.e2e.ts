@@ -1,3 +1,5 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { holdLock } from './file-lock';
@@ -290,3 +292,101 @@ test('Settings: a late config load does not overwrite what the adult typed @J17.
 	await expect(page.getByTestId('ha-url')).toHaveValue('http://typed.local:8123');
 	await expect(page.getByTestId('ha-token')).toHaveValue('synthetic-token');
 });
+
+test('Motion wake: pick a sensor, the wall wakes on off to on, None stops polling @J17.7', async ({
+	page,
+	request
+}) => {
+	test.setTimeout(90_000);
+	// The saved connection and the display power are household-wide, shared with the screen-token test above: they take turns.
+	const release = await holdLock('ha-screen-token');
+	const fake = await startFakeHa();
+	try {
+		await signInAsAdult(page, 'e2e-ha-motion-adult');
+		// Start clean even if an aborted run left a connection behind.
+		await page.request.delete('/api/settings/home-assistant');
+		await gotoHydrated(page, '/settings/home-assistant');
+		await page.getByTestId('ha-url').fill(fake.url);
+		await page.getByTestId('ha-token').fill('synthetic-token');
+		await page.getByTestId('ha-save').click();
+
+		const card = page.getByTestId('ha-motion');
+		const options = card.getByTestId('ha-motion-option');
+		await expect(options).toHaveCount(3);
+		// Motion-like sensors come first, then None is always first of all.
+		await expect(options.nth(1)).toHaveAttribute('data-entity', 'binary_sensor.hall_motion');
+		for (const o of await options.all()) {
+			expect((await o.boundingBox())!.height).toBeGreaterThanOrEqual(60);
+		}
+		// A pick left by an aborted run would be saved already: start from None.
+		await options.first().click();
+		await expect(options.first()).toHaveAttribute('aria-checked', 'true');
+		// Already on when first polled: no wake. Then off (seen), then on: wake.
+		fake.state['binary_sensor.hall_motion'] = 'on';
+		const pick = options.filter({ hasText: 'Hall motion' });
+		await pick.click();
+		await expect(pick).toHaveAttribute('aria-checked', 'true', { timeout: 300 });
+		await expect.poll(() => fake.hits(), { timeout: 15_000 }).toBeGreaterThan(0);
+		await request.post('/api/display/sleep', { data: {} });
+		// Night clock keeps the monitor "on" at night, so read the reason, not just the power.
+		const power = async () => (await (await request.get('/api/display/power')).json()).reason;
+		await expect.poll(power).toBe('sleep-now');
+		await page.waitForTimeout(7_000);
+		expect(await power()).toBe('sleep-now');
+		fake.state['binary_sensor.hall_motion'] = 'off';
+		const seen = fake.hits();
+		await expect.poll(() => fake.hits(), { timeout: 15_000 }).toBeGreaterThan(seen);
+		await page.waitForTimeout(1_000);
+		fake.state['binary_sensor.hall_motion'] = 'on';
+		await expect.poll(power, { timeout: 20_000 }).not.toBe('sleep-now');
+
+		// None stops polling.
+		await options.first().click();
+		await expect(options.first()).toHaveAttribute('aria-checked', 'true');
+		await page.waitForTimeout(1_000);
+		const after = fake.hits();
+		await page.waitForTimeout(7_000);
+		expect(fake.hits()).toBe(after);
+	} finally {
+		await page.request.delete('/api/settings/home-assistant');
+		await fake.close();
+		release();
+	}
+});
+
+async function startFakeHa() {
+	const state: Record<string, string> = { 'binary_sensor.hall_motion': 'off' };
+	let hits = 0;
+	const server = createServer((req, res) => {
+		res.setHeader('content-type', 'application/json');
+		const m = /^\/api\/states\/(.+)$/.exec(req.url ?? '');
+		if (m) {
+			hits++;
+			const id = decodeURIComponent(m[1]!);
+			res.end(JSON.stringify({ entity_id: id, state: state[id] ?? 'unknown' }));
+		} else if (req.url === '/api/states') {
+			res.end(
+				JSON.stringify([
+					{
+						entity_id: 'binary_sensor.front_door',
+						state: 'off',
+						attributes: { device_class: 'door', friendly_name: 'Front door' }
+					},
+					{
+						entity_id: 'binary_sensor.hall_motion',
+						state: 'off',
+						attributes: { device_class: 'motion', friendly_name: 'Hall motion' }
+					}
+				])
+			);
+		} else res.end(JSON.stringify({ message: 'API running.' }));
+	});
+	await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+	const { port } = server.address() as AddressInfo;
+	return {
+		state,
+		url: `http://127.0.0.1:${port}`,
+		hits: () => hits,
+		close: () => new Promise<void>((r) => server.close(() => r()))
+	};
+}

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+	isMotionSensorId,
+	parseMotionSensors,
 	buildTiles,
 	domainOf,
 	formatReading,
@@ -236,5 +238,34 @@ describe('serviceFor / flipTile / moveItem', () => {
 		expect(moveItem([1, 2, 3], 2, -2)).toEqual([3, 1, 2]);
 		expect(moveItem([1, 2, 3], 0, -1)).toEqual([1, 2, 3]);
 		expect(moveItem([1, 2, 3], 5, 1)).toEqual([1, 2, 3]);
+	});
+});
+
+describe('parseMotionSensors', () => {
+	it('lists binary sensors, motion-like classes first, others after, by name', () => {
+		const body = [
+			{
+				entity_id: 'binary_sensor.door',
+				state: 'off',
+				attributes: { device_class: 'door', friendly_name: 'Door' }
+			},
+			{
+				entity_id: 'binary_sensor.hall',
+				state: 'off',
+				attributes: { device_class: 'motion', friendly_name: 'Hall motion' }
+			},
+			{ entity_id: 'binary_sensor.desk', state: 'on', attributes: { device_class: 'occupancy' } },
+			{ entity_id: 'light.kitchen', state: 'on', attributes: {} }
+		];
+		expect(parseMotionSensors(body).map((e) => e.entityId)).toEqual([
+			'binary_sensor.desk',
+			'binary_sensor.hall',
+			'binary_sensor.door'
+		]);
+	});
+	it('validates sensor ids', () => {
+		expect(isMotionSensorId('binary_sensor.hall')).toBe(true);
+		expect(isMotionSensorId('light.hall')).toBe(false);
+		expect(isMotionSensorId(null)).toBe(false);
 	});
 });

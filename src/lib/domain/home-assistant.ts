@@ -245,3 +245,28 @@ export function moveItem<T>(list: readonly T[], index: number, delta: number): T
 	out.splice(to, 0, item!);
 	return out;
 }
+
+/** device_class values that mean "someone is here"; offered first for the wake sensor. */
+export const MOTION_CLASSES = ['motion', 'occupancy', 'presence'] as const;
+
+export const isMotionSensorId = (v: unknown): v is string =>
+	typeof v === 'string' && /^binary_sensor\.[a-z0-9_]{1,100}$/.test(v);
+
+/** binary_sensors for the wake picker: motion/occupancy/presence first, then the rest, each by name. */
+export function parseMotionSensors(body: unknown): HaEntity[] {
+	const motion = (c: string) => (MOTION_CLASSES as readonly string[]).includes(c);
+	return rawStates(body)
+		.filter((s) => domainOf(s.entityId) === 'binary_sensor')
+		.sort(
+			(a, b) =>
+				Number(motion(b.deviceClass)) - Number(motion(a.deviceClass)) ||
+				(a.friendly || fallbackName(a.entityId)).localeCompare(
+					b.friendly || fallbackName(b.entityId)
+				)
+		)
+		.map((s) => ({
+			entityId: s.entityId,
+			name: s.friendly || fallbackName(s.entityId),
+			domain: 'binary_sensor' as const
+		}));
+}
