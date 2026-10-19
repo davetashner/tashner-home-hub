@@ -11,7 +11,12 @@
 		pagePaths,
 		type PageId
 	} from '#lib/domain/drawing-pages.js';
-	import { loadDrawing, savedPage, serializeDrawing } from '#lib/domain/drawing-save.js';
+	import {
+		loadDrawing,
+		savedBackground,
+		savedPage,
+		serializeDrawing
+	} from '#lib/domain/drawing-save.js';
 	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
 		clampPoint,
@@ -161,6 +166,13 @@
 					: c.join(' ')
 			)
 			.join(' ');
+	/** Background color under the ink (a COLOR_GRID color), or null for paper. Erasing reveals it. */
+	let bg = $state<string | null>(null);
+	let bgPicking = $state(false);
+	function pickBg(c: string | null) {
+		bgPicking = false;
+		bg = c;
+	}
 	let dpr = 1;
 	let strokes: DrawItem[] = [];
 	let current: Stroke | null = null;
@@ -564,7 +576,7 @@
 			out.width = width;
 			out.height = height;
 			const o = out.getContext('2d') as CanvasRenderingContext2D;
-			o.fillStyle = token('draw-paper');
+			o.fillStyle = token(bg ?? 'draw-paper');
 			o.fillRect(0, 0, width, height);
 			o.drawImage(canvas, 0, 0, width, height);
 			o.drawImage(linesCanvas, 0, 0, width, height);
@@ -587,7 +599,7 @@
 		out.width = width;
 		out.height = height;
 		const o = out.getContext('2d') as CanvasRenderingContext2D;
-		o.fillStyle = token('draw-paper');
+		o.fillStyle = token(bg ?? 'draw-paper');
 		o.fillRect(0, 0, width, height);
 		o.drawImage(canvas, 0, 0, width, height);
 		o.drawImage(linesCanvas, 0, 0, width, height);
@@ -609,7 +621,8 @@
 						strokes,
 						{ w: canvas.width / dpr, h: canvas.height / dpr },
 						dpr,
-						page
+						page,
+						bg
 					),
 					thumb: thumbnail()
 				})
@@ -649,6 +662,7 @@
 			if (!items) throw new Error('bad drawing');
 			commit();
 			page = savedPage(data);
+			bg = savedBackground(data);
 			drawLines();
 			strokes = items;
 			count = items.length;
@@ -700,6 +714,9 @@
 	<div
 		bind:this={holder}
 		class="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-card border-2 border-line bg-draw-paper shadow-raised"
+		style:background-color={bg ?? undefined}
+		data-testid="draw-holder"
+		data-bg={bg ?? ''}
 	>
 		<canvas
 			bind:this={canvas}
@@ -813,6 +830,38 @@
 				onclick={() => pickPage(null)}>Blank page</button
 			>
 			<Button variant="ghost" onclick={() => (pagePicking = false)} data-testid="draw-pages-close"
+				>Back</Button
+			>
+		{:else if bgPicking}
+			<p class="w-full text-body font-extrabold">Background color</p>
+			<button
+				type="button"
+				class="{btn} w-full {bg === null
+					? 'border-accent bg-accent-soft'
+					: 'border-line bg-draw-paper'}"
+				aria-pressed={bg === null}
+				data-testid="draw-bg-paper"
+				onclick={() => pickBg(null)}>Paper</button
+			>
+			<div
+				class="flex flex-wrap gap-3"
+				role="group"
+				aria-label="Background colors"
+				data-testid="draw-bg-grid"
+			>
+				{#each COLOR_GRID as c (c)}
+					<button
+						type="button"
+						class="size-tap-kid rounded-chip border-4 {bg === c ? 'border-accent' : 'border-line'}"
+						style:background-color={c}
+						aria-label="Background color"
+						aria-pressed={bg === c}
+						data-testid="draw-bg-color"
+						onclick={() => pickBg(c)}
+					></button>
+				{/each}
+			</div>
+			<Button variant="ghost" onclick={() => (bgPicking = false)} data-testid="draw-bg-close"
 				>Back</Button
 			>
 		{:else if browsing}
@@ -1067,6 +1116,13 @@
 					aria-pressed={page !== null}
 					data-testid="draw-pages-open"
 					onclick={() => (pagePicking = true)}>{page ? PAGE_LABELS[page] : 'Coloring pages'}</button
+				>
+				<button
+					type="button"
+					class="{btn} {bg ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+					aria-pressed={bg !== null}
+					data-testid="draw-bg-open"
+					onclick={() => (bgPicking = true)}>Background</button
 				>
 				<button
 					type="button"
