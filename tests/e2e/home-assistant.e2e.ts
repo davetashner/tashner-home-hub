@@ -244,3 +244,34 @@ test('Home Assistant screen token: shown once, snippet filled in, then revoked @
 	await row.getByTestId('ha-screen-revoke').click();
 	await expect.poll(async () => (await call(secret, 'wake')).status()).toBe(401);
 });
+
+test('Settings: a late config load does not overwrite what the adult typed @J17.4', async ({
+	page
+}) => {
+	await signInAsAdult(page, 'e2e-ha-late-adult');
+	let release!: () => void;
+	const gate = new Promise<void>((r) => (release = r));
+	let held = 0;
+	await page.route('**/api/settings/home-assistant', async (route) => {
+		if (route.request().method() !== 'GET') return route.fallback();
+		held++;
+		await gate;
+		await route.fulfill({
+			json: { configured: true, baseUrl: 'http://stored.local:8123', hasToken: true, tiles: [] }
+		});
+	});
+	await page.route('**/api/settings/home-assistant/entities', (route) =>
+		route.fulfill({ json: { entities: [] } })
+	);
+	await gotoHydrated(page, '/settings/home-assistant');
+	await expect.poll(() => held).toBeGreaterThan(0);
+	// Typed while the load is in flight (the inputs are not blocked).
+	await page.getByTestId('ha-url').fill('http://typed.local:8123');
+	await page.getByTestId('ha-token').fill('synthetic-token');
+	release();
+	// The load landed: the saved connection is now known (Remove shows) ...
+	await expect(page.getByTestId('ha-remove')).toBeVisible();
+	// ... but the typed values survive.
+	await expect(page.getByTestId('ha-url')).toHaveValue('http://typed.local:8123');
+	await expect(page.getByTestId('ha-token')).toHaveValue('synthetic-token');
+});
