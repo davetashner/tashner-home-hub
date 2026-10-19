@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
+import { holdLock } from './file-lock';
 import { gotoHydrated } from './hydrated';
 import { px } from './tap';
 
@@ -218,31 +219,45 @@ test('Home Assistant screen token: shown once, snippet filled in, then revoked @
 	page,
 	request
 }) => {
-	await signInAsAdult(page, 'e2e-ha-screen-adult');
-	await gotoHydrated(page, '/settings/home-assistant');
-	const card = page.getByTestId('ha-screen');
-	await expect(card.getByTestId('ha-screen-yaml')).toContainText('<paste the token>');
-	await card.getByTestId('ha-screen-new').click();
-	const secret = (await card.getByTestId('ha-screen-secret').textContent())!.trim();
-	expect(secret.length).toBeGreaterThanOrEqual(43);
-	await expect(card.getByTestId('ha-screen-yaml')).toContainText(`Bearer ${secret}`);
-	expect((await card.getByTestId('ha-screen-copy').boundingBox())!.height).toBeGreaterThanOrEqual(
-		60
-	);
+	// Screen tokens are household-wide and all named alike, so the two wall projects take turns:
+	// otherwise each can revoke the other's token and leave its own working.
+	const release = await holdLock('ha-screen-token');
+	try {
+		await run();
+	} finally {
+		release();
+	}
+	async function run() {
+		await signInAsAdult(page, 'e2e-ha-screen-adult');
+		await gotoHydrated(page, '/settings/home-assistant');
+		const card = page.getByTestId('ha-screen');
+		await expect(card.getByTestId('ha-screen-yaml')).toContainText('<paste the token>');
+		await card.getByTestId('ha-screen-new').click();
+		const secret = (await card.getByTestId('ha-screen-secret').textContent())!.trim();
+		expect(secret.length).toBeGreaterThanOrEqual(43);
+		await expect(card.getByTestId('ha-screen-yaml')).toContainText(`Bearer ${secret}`);
+		expect((await card.getByTestId('ha-screen-copy').boundingBox())!.height).toBeGreaterThanOrEqual(
+			60
+		);
 
-	const call = (auth: string, state: string) =>
-		request.post('/api/display/remote', {
-			headers: { authorization: `Bearer ${auth}` },
-			data: { state }
-		});
-	expect((await call(secret, 'wake')).status()).toBe(200);
-	expect((await (await call(secret, 'sleep')).json()).power).toBe('off');
-	expect((await call(secret, 'wake')).status()).toBe(200);
+		const call = (auth: string, state: string) =>
+			request.post('/api/display/remote', {
+				headers: { authorization: `Bearer ${auth}` },
+				data: { state }
+			});
+		expect((await call(secret, 'wake')).status()).toBe(200);
+		expect((await (await call(secret, 'sleep')).json()).power).toBe('off');
+		expect((await call(secret, 'wake')).status()).toBe(200);
 
-	const row = card.getByTestId('ha-screen-token').first();
-	await expect(row).toBeVisible();
-	await row.getByTestId('ha-screen-revoke').click();
-	await expect.poll(async () => (await call(secret, 'wake')).status()).toBe(401);
+		// Revoke every listed token (any left by an aborted run too): ours is among them.
+		const rows = card.getByTestId('ha-screen-token');
+		await expect(rows.first()).toBeVisible();
+		for (let left = await rows.count(); left > 0; left--) {
+			await rows.first().getByTestId('ha-screen-revoke').click();
+			await expect(rows).toHaveCount(left - 1);
+		}
+		await expect.poll(async () => (await call(secret, 'wake')).status()).toBe(401);
+	}
 });
 
 test('Settings: a late config load does not overwrite what the adult typed @J17.4', async ({
