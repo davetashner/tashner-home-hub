@@ -21,9 +21,19 @@
 		last = l;
 	}
 
+	// Each edit stamps a number, so a late load can't overwrite what the adult already changed.
+	let edits = 0;
+
 	onMount(async () => {
+		const at = edits;
 		const res = await fetch(API).catch(() => null);
-		if (res?.ok) apply((await res.json()) as View);
+		if (!res?.ok) return;
+		const view = (await res.json()) as View;
+		if (at === edits) apply(view);
+		else {
+			tokenSaved = view.tokenSaved;
+			last = view.last;
+		}
 	});
 
 	/** Saves the page (the token only when typed), then optionally sends a test. */
@@ -78,13 +88,22 @@
 					variant={cfg.enabled ? 'primary' : 'secondary'}
 					aria-pressed={cfg.enabled}
 					data-testid="notify-enabled"
-					onclick={() => (cfg.enabled = !cfg.enabled)}>{cfg.enabled ? 'On' : 'Off'}</Button
+					onclick={() => {
+						edits++;
+						cfg.enabled = !cfg.enabled;
+					}}>{cfg.enabled ? 'On' : 'Off'}</Button
 				>
 			</div>
 			{#each fields as [key, title] (key)}
 				<label class="flex flex-col gap-2 text-body font-bold">
 					{title}
-					<input bind:value={cfg[key]} data-testid="notify-{key}" {...plain} class={input} />
+					<input
+						bind:value={cfg[key]}
+						oninput={() => edits++}
+						data-testid="notify-{key}"
+						{...plain}
+						class={input}
+					/>
 				</label>
 			{/each}
 			<label class="flex flex-col gap-2 text-body font-bold">
@@ -111,8 +130,10 @@
 						aria-pressed={cfg.events[key]}
 						aria-label={title}
 						data-testid="notify-event-{key}"
-						onclick={() => (cfg.events[key] = !cfg.events[key])}
-						>{cfg.events[key] ? 'On' : 'Off'}</Button
+						onclick={() => {
+							edits++;
+							cfg.events[key] = !cfg.events[key];
+						}}>{cfg.events[key] ? 'On' : 'Off'}</Button
 					>
 				</div>
 			{/each}
