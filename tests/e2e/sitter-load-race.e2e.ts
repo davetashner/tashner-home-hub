@@ -61,6 +61,9 @@ test('Sitter mode: starting a session while editing the card keeps the edits @J1
 		const t = tag(info.project.name);
 		await signInAsAdult(page, `e2e-sitter-edit-${t}`);
 		await gotoHydrated(page, '/settings/sitter-mode');
+		// Typing while the first card load is still in flight lets it land between the fill's
+		// select-all and its insert, which appends instead of replacing.
+		await expect(page.getByTestId('sitter-card')).toHaveAttribute('data-card-loaded', 'true');
 		await page.getByTestId('sitter-address').fill(`7 Unsaved Road ${t}`);
 		await page.getByTestId('sitter-rules').fill('Unsaved rule');
 		await page.getByTestId('sitter-add-contact').click();
