@@ -19,7 +19,7 @@ import { syncSource } from './sync.js';
 /** A failure with an HTTP status and a message that is safe to show an adult. */
 export class EditEventError extends Error {
 	constructor(
-		readonly status: 400 | 401 | 404 | 409 | 502,
+		readonly status: 400 | 401 | 403 | 404 | 409 | 502,
 		message: string
 	) {
 		super(message);
@@ -40,8 +40,8 @@ function target(db: Db, id: string): { source: CalendarSource; ref: EventRef } {
 		.get();
 	const parsed = parseScopedId(row.externalId);
 	if (!source || !parsed) throw new EditEventError(404, 'That event no longer exists');
-	if (source.provider !== 'icloud')
-		throw new EditEventError(400, 'Only iCloud events can be changed from the hub for now');
+	if (source.provider !== 'icloud' && source.provider !== 'google')
+		throw new EditEventError(400, 'Only iCloud and Google events can be changed from the hub');
 	return {
 		source,
 		ref: {
@@ -73,9 +73,10 @@ async function write(
 		await run;
 	} catch (e) {
 		if (e instanceof EditEventError) throw e;
-		// Provider messages are already secret-free (IcloudError); anything else is not trusted.
-		const safe = e instanceof Error && e.name === 'IcloudError';
+		// Provider messages are already secret-free; anything else is not trusted.
+		const safe = e instanceof Error && (e.name === 'IcloudError' || e.name === 'GoogleError');
 		const code = (e as { code?: string }).code;
+		if (safe && code === 'scope') throw new EditEventError(403, (e as Error).message);
 		if (safe && (e as { needsReauth?: boolean }).needsReauth === true)
 			throw new EditEventError(401, (e as Error).message);
 		failure = new EditEventError(
@@ -89,7 +90,7 @@ async function write(
 	if (failure) throw failure;
 }
 
-/** CAL-9: rewrites a non-recurring iCloud event with the edited fields. */
+/** CAL-9: rewrites a non-recurring iCloud or Google event with the edited fields. */
 export async function updateCalendarEvent(
 	db: Db,
 	id: string,
@@ -107,7 +108,7 @@ export async function updateCalendarEvent(
 	await write(db, source, deps, (p) => p.updateEvent?.(ref, resolved));
 }
 
-/** CAL-9: removes a non-recurring iCloud event. */
+/** CAL-9: removes a non-recurring iCloud or Google event. */
 export async function deleteCalendarEvent(
 	db: Db,
 	id: string,
