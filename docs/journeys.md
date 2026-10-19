@@ -158,7 +158,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J5.7 | The now line follows the time; the view is remembered. | built | wall | `calendar-now-line`, `calendar-view` |
 | J5.8 | The calendar fits phone and tablet screens. | built | iphone, ipad | `calendar-phone`, `calendar-sizes` |
 | **J6** | **Lists: add, check off, offline replay** (Everyone) | | | |
-| J6.1 | Add an item with the wall keyboard, check it off, clear checked. | built | wall | `lists` |
+| J6.1 | Add an item with the wall keyboard, check it off, clear checked. | built | wall | `lists-tap-race`, `lists` |
 | J6.2 | Add an item from a phone. | built | iphone | `lists` |
 | J6.3 | An item added in one browser shows in another within a second. | built | wall, iphone | `lists-live` |
 | J6.4 | A check made before its add returns still lands once the network is back. | built | wall, iphone | `lists-temp-tap` |
@@ -196,7 +196,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J10.1 | Pick a playlist; it plays with big controls and pause. | built | wall | `music-tab`. Simulated: Spotify and the Pi speaker are fakes in the tests |
 | J10.2 | Volume stops at the parent cap. | built | wall | `music-tab` |
 | J10.3 | An asleep speaker shows a sheet and Try again starts the music. | built | wall | `music-tab` |
-| J10.4 | A grown-up connects Spotify, curates playlists and sets limits. | built | wall | `music` |
+| J10.4 | A grown-up connects Spotify, curates playlists and sets limits. | built | wall | `music-order`, `music` |
 | J10.5 | A grown-up changes the speaker: scan, pair, test sound. | built | wall | `music-speaker` |
 | **J11** | **Timers** (Everyone) | | | |
 | J11.1 | Open Timers from Home and start one. | built | wall, iphone, ipad | `home-screen`, `timers` |
@@ -208,7 +208,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J12.3 | The same flow works on a phone. | built | iphone | `notes` |
 | **J13** | **Vacation mode and streaks** (Parent at the wall) | | | |
 | J13.1 | Set vacation: the kid board pauses, and ending it restores the jobs. | built | wall | `vacation` |
-| J13.2 | A grown-up sets and ends vacation from Settings. | built | wall | `vacation` |
+| J13.2 | A grown-up sets and ends vacation from Settings. | built | wall | `vacation-order`, `vacation` |
 | J13.3 | The kid sees a streak badge and a milestone banner paid exactly once. | built | wall | `streaks` |
 | **J14** | **Games** (Kid at the wall) | | | |
 | J14.1 | A grown-up adds a game; it shows on the Games tab, opens in a frame, and Back returns. | built | wall | `games` |
@@ -220,7 +220,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | **J16** | **Every screen fits every device** (Everyone, critical) | | | |
 | J16.1 | Every tap target meets 60 px (96 px on kid screens) and nothing sits behind hover. | built | wall | `calendar-view`, `design`, `shell`, `tap-targets` |
 | J16.2 | All wall text is legible and the layout has no overflow in portrait. | built | wall | `legibility`, `portrait-layout` |
-| J16.3 | Phones and iPads in both orientations fit the shell, clear the safe areas, and avoid input zoom. | built | iphone, ipad | `ios-input-zoom`, `ipad-pages`, `ipad-shell`, `phone-landscape-pages`, `phone-landscape`, `safe-areas` |
+| J16.3 | Phones and iPads in both orientations fit the shell, clear the safe areas, and avoid input zoom. | built | iphone, ipad | `ios-input-zoom`, `ipad-pages`, `ipad-shell`, `phone-landscape-pages`, `phone-landscape`, `safe-areas`, `setup-phone-width` |
 | J16.4 | Pages have no serious accessibility violations. | built | wall | `a11y`, `kid-chores` |
 | J16.5 | Taps and celebrations stay fast. | built | wall | `celebrate-perf`, `interaction-perf` |
 | J16.6 | The hub installs to the Home Screen and the container serves health and shuts down cleanly. | built | wall, iphone, ipad | `body-size-limit`, `home-screen`, `home`, `shutdown` |
@@ -240,13 +240,14 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J18.6 | Save an unfinished drawing, then reopen or delete it later from My drawings. | built | wall | `drawing` |
 | J18.7 | Pick a coloring page and color it in with Fill and the pens; the outlines stay put. | built | wall | `drawing` |
 | J18.8 | After placing a shape or stamp (now including a speech bubble and animals), move, resize and turn it before it is committed. | built | wall | `drawing` |
+| J18.9 | While a placed shape is still selected, picking a color, brush size or outline/filled restyles it. | built | wall | `drawing` |
 | **J19** | **Sitter mode** (Parent at the wall) | | | |
 | J19.1 | A grown-up fills in the info card: emergency contacts, address, allergies, bedtimes, house rules, pets with the vet and pet emergency hospital, Wi-Fi and notes for tonight. | built | wall | untested: undefined |
 | J19.2 | Start a sitter session now or on a schedule, with an optional sitter name, 4-digit PIN and permissions. | built | wall | untested: undefined |
 | J19.3 | Extend a session or end it early; it ends itself at its end time. | built | wall | untested: undefined |
 | J19.4 | The wall gets the info card only during an active session, and with a PIN only after the sitter enters it. | built | wall | untested: undefined |
-| J19.5 | The sitter always has the Emergency info button (behind the sitter PIN when one is set), and the parent-only parts of the wall are locked while a session runs. | built | wall | `sitter-wall` |
-| J19.6 | A parent starts, extends and ends a session from their phone, and the sitter can check in (kids in bed, all good, call me). | built | wall | untested: undefined |
+| J19.5 | The sitter always has the Emergency info button (behind the sitter PIN when one is set), and the parent-only parts of the wall are locked while a session runs. | built | wall | `sitter-load-race`, `sitter-wall` |
+| J19.6 | A parent starts, extends and ends a session from their phone, and the sitter can check in (kids in bed, all good, call me). | built | wall | `sitter-load-race` |
 | J19.7 | After a session, the parents read a short log of the check-ins and when they happened. | built | wall | untested: undefined |
 | J19.8 | When the parents allow it, the sitter checks Star Jobs with the sitter PIN; otherwise approving stays with the parents. | built | wall | `sitter-wall` |
 | J19.9 | While a session runs the wall's home is tonight's plan: dinner, evening routines, each child's bedtime and when the parents are back, plus the house rules. | built | wall | `sitter-wall` |

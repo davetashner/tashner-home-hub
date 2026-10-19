@@ -9,6 +9,7 @@ import {
 	moveShape,
 	normAngle,
 	resizeShape,
+	restyleShape,
 	rotatePoint,
 	rotateShape,
 	rotationOf,
@@ -155,5 +156,21 @@ describe('rotateShape', () => {
 		near(r.y0, -50);
 		near(r.x1, 50);
 		near(r.y1, 50);
+	});
+});
+
+describe('restyleShape', () => {
+	it('changes only the fields given and keeps box and turn', () => {
+		const s = box({ rot: 0.5 });
+		const next = restyleShape(s, { color: 'draw-blue', filled: true, width: 14 });
+		expect(next).toEqual({ ...s, color: 'draw-blue', filled: true, width: 14 });
+		expect(restyleShape(s, { width: 14 })).toEqual({ ...s, width: 14 });
+		expect(s.color).toBe('draw-red');
+	});
+
+	it('returns the same object when nothing changes', () => {
+		const s = box();
+		expect(restyleShape(s, {})).toBe(s);
+		expect(restyleShape(s, { color: 'draw-red', filled: false, width: 7 })).toBe(s);
 	});
 });

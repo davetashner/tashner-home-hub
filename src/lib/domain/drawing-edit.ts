@@ -140,3 +140,18 @@ export function rotateShape(s: Shape, from: Pt, to: Pt): Shape {
 	}
 	return { ...s, rot: normAngle(rotationOf(s) + delta) };
 }
+
+/** What the ink, brush-size and fill pickers can change on a shape that is still selected. */
+export type ShapeStyle = Partial<Pick<Shape, 'color' | 'filled' | 'width'>>;
+
+/**
+ * Restyle a selected shape (hub-cn7.10). Only the fields given change; the box and turn stay.
+ * Returns the same object when nothing would change, so callers can skip a redraw.
+ */
+export function restyleShape(s: Shape, style: ShapeStyle): Shape {
+	const next = { ...s };
+	if (style.color !== undefined) next.color = style.color;
+	if (style.filled !== undefined) next.filled = style.filled;
+	if (style.width !== undefined) next.width = style.width;
+	return next.color === s.color && next.filled === s.filled && next.width === s.width ? s : next;
+}
