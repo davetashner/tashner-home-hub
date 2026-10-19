@@ -43,16 +43,29 @@ export function floodFill(
 		g = data[s + 1],
 		b = data[s + 2],
 		a = data[s + 3];
+	const px32 =
+		data.byteOffset % 4 === 0 && data.length === width * height * 4
+			? new Uint32Array(data.buffer, data.byteOffset, width * height)
+			: null;
+	const seed32 = px32 ? px32[y * width + x] : 0;
+	// Per pixel: 0 not looked at, 1 filled, 2 no match, 3 matches and not filled yet. Each pixel's
+	// color is compared once, however many row scans reach it.
+	const state = new Uint8Array(width * height);
 	const match = (p: number) => {
-		const i = p * 4;
-		return (
-			Math.abs(data[i] - r) <= tolerance &&
-			Math.abs(data[i + 1] - g) <= tolerance &&
-			Math.abs(data[i + 2] - b) <= tolerance &&
-			Math.abs(data[i + 3] - a) <= tolerance
-		);
+		const st = state[p];
+		if (st) return st === 3;
+		let ok = px32 !== null && px32[p] === seed32;
+		if (!ok) {
+			const i = p * 4;
+			ok =
+				Math.abs(data[i] - r) <= tolerance &&
+				Math.abs(data[i + 1] - g) <= tolerance &&
+				Math.abs(data[i + 2] - b) <= tolerance &&
+				Math.abs(data[i + 3] - a) <= tolerance;
+		}
+		state[p] = ok ? 3 : 2;
+		return ok;
 	};
-	const seen = new Uint8Array(width * height);
 	let stack = new Int32Array(1024);
 	let top = 0;
 	const push = (px: number, py: number) => {
@@ -70,12 +83,12 @@ export function floodFill(
 		const py = stack[--top];
 		let px = stack[--top];
 		let row = py * width;
-		if (seen[row + px] || !match(row + px)) continue;
+		if (!match(row + px)) continue;
 		let x0 = px;
-		while (x0 > 0 && !seen[row + x0 - 1] && match(row + x0 - 1)) x0--;
+		while (x0 > 0 && match(row + x0 - 1)) x0--;
 		let x1 = px;
-		while (x1 < width - 1 && !seen[row + x1 + 1] && match(row + x1 + 1)) x1++;
-		for (px = x0; px <= x1; px++) seen[row + px] = 1;
+		while (x1 < width - 1 && match(row + x1 + 1)) x1++;
+		for (px = x0; px <= x1; px++) state[row + px] = 1;
 		out.push(py, x0, x1);
 		// Seed one point per contiguous matching stretch on the rows above and below.
 		for (const ny of [py - 1, py + 1]) {
@@ -83,7 +96,7 @@ export function floodFill(
 			row = ny * width;
 			let open = false;
 			for (px = x0; px <= x1; px++) {
-				const ok = !seen[row + px] && match(row + px);
+				const ok = match(row + px);
 				if (ok && !open) push(px, ny);
 				open = ok;
 			}

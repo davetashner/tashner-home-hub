@@ -85,3 +85,47 @@ describe('makeFill', () => {
 		expect(isFill({ tool: 'pen' })).toBe(false);
 	});
 });
+
+describe('floodFill matches a plain flood on random boards', () => {
+	/** Reference: 4-way breadth-first fill with the same per-channel tolerance. */
+	function naive(d: Uint8ClampedArray, w: number, h: number, x: number, y: number, tol: number) {
+		const at = (px: number, py: number) => (py * w + px) * 4;
+		const s = at(x, y);
+		const same = (px: number, py: number) => {
+			const i = at(px, py);
+			return [0, 1, 2, 3].every((k) => Math.abs(d[i + k] - d[s + k]) <= tol);
+		};
+		const seen = new Set<number>();
+		const queue = [[x, y]];
+		while (queue.length) {
+			const [px, py] = queue.pop()!;
+			if (px < 0 || py < 0 || px >= w || py >= h || seen.has(py * w + px) || !same(px, py))
+				continue;
+			seen.add(py * w + px);
+			queue.push([px + 1, py], [px - 1, py], [px, py + 1], [px, py - 1]);
+		}
+		return seen;
+	}
+	const area = (spans: Uint32Array) => {
+		const out = new Set<number>();
+		for (let i = 0; i < spans.length; i += 3)
+			for (let px = spans[i + 1]; px <= spans[i + 2]; px++) out.add(spans[i] * 40 + px);
+		return out;
+	};
+	it('agrees for several seeds, tolerances and buffer alignments', () => {
+		let seed = 7;
+		const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+		const w = 40;
+		const h = 30;
+		for (let round = 0; round < 12; round++) {
+			const raw = new Uint8ClampedArray(w * h * 4 + 1);
+			for (let i = 0; i < raw.length; i++) raw[i] = rnd() < 0.7 ? 0 : Math.floor(rnd() * 256);
+			// Round 1 in 2 views the pixels at an odd byte offset, which cannot use the 32-bit path.
+			const d = round % 2 ? raw.subarray(1) : raw.subarray(0, w * h * 4);
+			const x = Math.floor(rnd() * w);
+			const y = Math.floor(rnd() * h);
+			const tol = [0, 10, 48][round % 3];
+			expect(area(floodFill(d, w, h, x, y, tol))).toEqual(naive(d, w, h, x, y, tol));
+		}
+	});
+});
