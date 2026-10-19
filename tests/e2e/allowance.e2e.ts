@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { signInAsAdult } from './adult';
 import { holdLock } from './file-lock';
 import { gotoHydrated } from './hydrated';
 import { openKid, seedKid } from './kid';
@@ -64,5 +65,45 @@ test('set the rate, cash out, the kid sees it, then mark it paid @J4.7', async (
 		await card.getByTestId('allowance-confirm').click();
 		await expect(card.getByTestId('allowance-error')).toContainText('more than the balance');
 		await expect(card.getByTestId('allowance-balance')).toHaveText('$1.50');
+	}
+});
+
+test('a late rate load does not overwrite what the adult typed @J4.7', async ({ page }, info) => {
+	test.setTimeout(120_000);
+	// It saves the shared rate at the end, so it takes the same turn as the test above.
+	const unlock = await holdRate();
+	try {
+		await run();
+	} finally {
+		unlock();
+	}
+	async function run() {
+		await signInAsAdult(page, `adult-late-${info.project.name}`);
+		let release!: () => void;
+		const gate = new Promise<void>((r) => (release = r));
+		let held = 0;
+		await page.route('**/api/allowance', async (route) => {
+			if (route.request().method() !== 'GET') return route.fallback();
+			held++;
+			const res = await route.fetch();
+			await gate;
+			await route.fulfill({ response: res });
+		});
+		await gotoHydrated(page, '/settings/allowance');
+		await expect.poll(() => held).toBeGreaterThan(0);
+		// Typed while the load is still in flight (the inputs are not blocked).
+		await page.getByTestId('rate-stars').fill('7');
+		await page.getByTestId('rate-money').fill('3.50');
+		release();
+		await expect(
+			page.getByTestId('allowance-history-empty').or(page.getByTestId('allowance-row').first())
+		).toBeVisible();
+		await expect(page.getByTestId('rate-stars')).toHaveValue('7');
+		await expect(page.getByTestId('rate-money')).toHaveValue('3.50');
+		// Both viewports share one rate, so never save the odd values; save the shared 10 = $2.00.
+		await page.getByTestId('rate-stars').fill('10');
+		await page.getByTestId('rate-money').fill('2.00');
+		await page.getByTestId('rate-save').click();
+		await expect(page.getByTestId('rate-summary')).toContainText('10 stars = $2.00');
 	}
 });

@@ -50,6 +50,8 @@
 	let rateMoney = $state('1.00');
 	let rateSymbol = $state('$');
 	let rateError = $state('');
+	// Once the adult edits or saves the rate, a (late) load must not overwrite it.
+	let rateTouched = false;
 
 	// Per-kid action panel
 	let open = $state<{ id: string; mode: Mode } | null>(null);
@@ -85,7 +87,7 @@
 			await goto(`${resolve('/unlock')}?next=${encodeURIComponent('/settings/allowance')}`);
 		if (!res?.ok) return;
 		const data = (await res.json()) as { rate: AllowanceRate; members: Kid[]; history: Entry[] };
-		applyRate(data.rate);
+		if (!rateTouched) applyRate(data.rate);
 		kids = data.members;
 		history = data.history;
 		loaded = true;
@@ -107,6 +109,7 @@
 			return;
 		}
 		rateError = '';
+		rateTouched = true;
 		const before = rate;
 		rate = next.rate; // optimistic
 		const res = await fetch('/api/allowance/rate', {
@@ -209,16 +212,34 @@
 		<div class="flex flex-wrap items-end gap-4">
 			<label class="flex w-32 flex-col gap-2">
 				<span class="text-caption text-ink-muted">Stars</span>
-				<input class={field} inputmode="numeric" bind:value={rateStars} data-testid="rate-stars" />
+				<input
+					class={field}
+					inputmode="numeric"
+					bind:value={rateStars}
+					oninput={() => (rateTouched = true)}
+					data-testid="rate-stars"
+				/>
 			</label>
 			<span class="pb-4 text-lead font-bold" aria-hidden="true">=</span>
 			<label class="flex w-24 flex-col gap-2">
 				<span class="text-caption text-ink-muted">Symbol</span>
-				<input class={field} bind:value={rateSymbol} maxlength={3} data-testid="rate-symbol" />
+				<input
+					class={field}
+					bind:value={rateSymbol}
+					maxlength={3}
+					oninput={() => (rateTouched = true)}
+					data-testid="rate-symbol"
+				/>
 			</label>
 			<label class="flex w-40 flex-col gap-2">
 				<span class="text-caption text-ink-muted">Money</span>
-				<input class={field} inputmode="decimal" bind:value={rateMoney} data-testid="rate-money" />
+				<input
+					class={field}
+					inputmode="decimal"
+					bind:value={rateMoney}
+					oninput={() => (rateTouched = true)}
+					data-testid="rate-money"
+				/>
 			</label>
 			<Button data-testid="rate-save" onclick={() => void saveRate()}>Save rate</Button>
 		</div>
