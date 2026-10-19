@@ -125,3 +125,34 @@ test('grown-ups search, pick, save and remove a weather location @J9.7 @J0.2', a
 		});
 	}
 });
+
+test('a late location load does not undo the place the adult just saved @J9.7', async ({
+	page
+}, info) => {
+	await signInAsAdult(page, `e2e-weather-late-${info.project.name}`);
+	let release!: () => void;
+	const gate = new Promise<void>((r) => (release = r));
+	let held = 0;
+	// Both calls are answered here so the shared server's real weather setting is never touched.
+	await page.route('**/api/settings/weather', async (route) => {
+		if (route.request().method() === 'GET') {
+			held++;
+			await gate;
+			return route.fulfill({ json: { location: null } });
+		}
+		const body = route.request().postDataJSON() as { name: string; unit: string };
+		return route.fulfill({
+			json: { location: { name: body.name, lat: 1, lon: 2, unit: body.unit } }
+		});
+	});
+	await gotoHydrated(page, '/settings/weather');
+	await expect.poll(() => held).toBeGreaterThan(0);
+	await page.getByRole('searchbox', { name: 'City or postal code' }).fill('Placeville');
+	await page.getByLabel('Latitude').fill('1');
+	await page.getByLabel('Longitude').fill('2');
+	await page.getByRole('button', { name: 'Use coordinates' }).click();
+	await expect(page.getByTestId('weather-current')).toHaveText('Placeville');
+	release();
+	await page.waitForTimeout(300);
+	await expect(page.getByTestId('weather-current')).toHaveText('Placeville');
+});
