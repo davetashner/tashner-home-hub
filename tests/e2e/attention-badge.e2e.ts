@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { gotoHydrated, reloadHydrated } from './hydrated';
+import { trackMember } from './cleanup';
 
 interface Counts {
 	pending: number;
@@ -35,6 +36,7 @@ test('the header badge counts a reached goal and drops it after redemption @J4.2
 			data: { name: `Ash ${stamp}`, role: 'child', color: 'member-2', avatar: '🦉' }
 		})
 	).json();
+	trackMember(member.id);
 	const reward = await (
 		await page.request.post('/api/rewards', {
 			data: { title: `Badge kite ${stamp}`, cost: 5, image: '🪁' }

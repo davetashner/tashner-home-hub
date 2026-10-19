@@ -1,34 +1,15 @@
-import { mkdirSync, rmSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { trackMember } from './cleanup';
 import { gotoHydrated } from './hydrated';
-import { DATA_DIR } from './data-dir';
+import { holdLock } from './file-lock';
 
 // Vacation is household-wide and the e2e server is shared, so the range sits years ahead and the
 // kid screen's browser clock is moved into it: no other test sees a vacation today.
 const START = '2031-06-01';
 const BACK = '2031-06-20';
-const LOCK = join(DATA_DIR, '.vacation-lock');
-
 /** Vacation is one global value on the shared server, so projects take turns holding it. */
-async function holdVacation(): Promise<() => void> {
-	mkdirSync(DATA_DIR, { recursive: true });
-	for (;;) {
-		try {
-			mkdirSync(LOCK);
-			return () => rmSync(LOCK, { recursive: true, force: true });
-		} catch {
-			try {
-				if (Date.now() - statSync(LOCK).mtimeMs > 90_000) rmSync(LOCK, { recursive: true });
-			} catch {
-				// released meanwhile
-			}
-			await new Promise((r) => setTimeout(r, 200));
-		}
-	}
-}
+const holdVacation = () => holdLock('vacation');
 
 const INSIDE = new Date('2031-06-10T12:00:00Z');
 

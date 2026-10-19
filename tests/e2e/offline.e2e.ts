@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold, signInAsAdult } from './adult';
 import Database from 'better-sqlite3';
 import { DB_PATH } from './data-dir';
+import { trackMember } from './cleanup';
 
 // The service worker is off for automated browsers unless a test opts in (see lib/offline/client).
 test.use({ serviceWorkers: 'allow' });
@@ -30,6 +31,7 @@ async function seed(page: Page, label: string): Promise<Seed> {
 			data: { name: `Offy ${Date.now() % 1e9}`, role: 'child', color: 'member-3', avatar: '🐢' }
 		})
 	).json();
+	trackMember(member.id);
 	const chore = await (
 		await page.request.post('/api/chores', {
 			data: {
@@ -109,6 +111,7 @@ test('one child whose chores will not load does not blank the other kids @J0.5',
 			data: { name: `Flaky ${Date.now() % 1e9}`, role: 'child', color: 'member-4', avatar: '🦊' }
 		})
 	).json();
+	trackMember(other.id);
 	await page.request.post('/api/chores', {
 		data: {
 			title: 'Feed fish',

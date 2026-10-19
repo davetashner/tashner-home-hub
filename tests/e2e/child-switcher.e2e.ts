@@ -2,17 +2,21 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
 import { gotoHydrated, reloadHydrated } from './hydrated';
+import { trackMember } from './cleanup';
 
 /** Two synthetic kids sharing one chore ("Tidy toys"); each also has a chore of their own. */
 async function seedTwo(page: Page, project: string) {
 	await signInAsAdult(page, `adult-sw-${project.replace(/\W/g, '')}`);
 	const stamp = `${Date.now() % 1e9}`;
-	const make = async (name: string, color: string, avatar: string) =>
-		(
+	const make = async (name: string, color: string, avatar: string) => {
+		const kid = (await (
 			await page.request.post('/api/members', {
 				data: { name: `${name} ${stamp}`, role: 'child', color, avatar }
 			})
-		).json() as Promise<{ id: string; name: string }>;
+		).json()) as { id: string; name: string };
+		trackMember(kid.id);
+		return kid;
+	};
 	const a = await make('Pip', 'member-3', '🐸');
 	const b = await make('Moss', 'member-5', '🦉');
 	const chore = (title: string, icon: string, memberIds: string[]) =>

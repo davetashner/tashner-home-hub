@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { px } from './tap';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { gotoHydrated } from './hydrated';
+import { trackMember } from './cleanup';
 
 test.beforeAll(ensureHousehold);
 
@@ -110,6 +111,7 @@ test('the header clock keeps the time on one line with a crowded header @J0.2', 
 				data: { name: `${name} ${stamp}`, role: 'child', color, avatar }
 			})
 		).json();
+		trackMember(kid.id);
 		ids.push(kid.id);
 	}
 	const chore = await (

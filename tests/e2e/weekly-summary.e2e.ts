@@ -4,6 +4,7 @@ import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
 import { gotoHydrated } from './hydrated';
 import { DB_PATH } from './data-dir';
+import { trackMember } from './cleanup';
 
 const addDays = (date: string, n: number) => {
 	const d = new Date(`${date}T00:00:00Z`);
@@ -25,6 +26,7 @@ async function seed(page: Page, label: string) {
 			data: { name: `Juno ${Date.now() % 1e9}`, role: 'child', color: 'member-4', avatar: '🦉' }
 		})
 	).json();
+	trackMember(member.id);
 	const chore = async (title: string, stars: number, type: string) =>
 		(
 			await (
