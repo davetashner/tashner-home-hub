@@ -213,7 +213,10 @@
 			return;
 		}
 		const src = photoUrl(photoId, photoSize({ w: canvas.width, h: canvas.height }));
-		if (src === photoSrc && photoImg) return drawPhoto();
+		// A resize clears the layer: put the copy we have back at once, so the picture never blinks
+		// out (or goes missing from a save) while a better-fitting size downloads.
+		drawPhoto();
+		if (src === photoSrc && photoImg) return;
 		const mine = ++photoLoad;
 		const img = new Image();
 		img.onload = () => {
@@ -224,6 +227,7 @@
 		};
 		img.onerror = () => {
 			if (mine !== photoLoad) return;
+			if (photoImg) return; // keep showing the copy we already have
 			photoId = null;
 			photoImg = null;
 			photoSrc = '';
@@ -249,6 +253,7 @@
 		if (id === photoId) return;
 		if (id && page) pickPage(null); // page-space strokes do not belong on a photo
 		photoId = id;
+		photoImg = null; // never show the previous photo while the new one loads
 		photoSrc = '';
 		loadPhoto();
 	}
@@ -748,6 +753,7 @@
 			page = savedPage(data);
 			bg = savedBackground(data);
 			photoId = savedPhoto(data);
+			photoImg = null;
 			photoSrc = '';
 			loadPhoto();
 			drawLines();
