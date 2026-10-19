@@ -93,9 +93,22 @@
 	const picked = $derived(new Set(picks.map((p) => p.entityId)));
 	const nameOf = (id: string) => entities?.find((e) => e.entityId === id)?.name ?? fallbackName(id);
 
+	// Non-reactive. Once the adult types the address, or saves/removes the connection, the
+	// (possibly late) first load must not overwrite what they did.
+	let urlTouched = false;
+	let changed = false;
+
 	function apply(c: Config) {
 		config = c;
 		baseUrl = c.baseUrl;
+		picks = c.tiles;
+	}
+
+	function applyLoaded(c: Config) {
+		// The stale load is older than a save/remove: drop it entirely.
+		if (changed) return;
+		config = c;
+		if (!urlTouched) baseUrl = c.baseUrl;
 		picks = c.tiles;
 	}
 
@@ -110,12 +123,13 @@
 		void loadScreenTokens();
 		const res = await safeFetch('/api/settings/home-assistant');
 		if (res.ok) {
-			apply((await res.json()) as Config);
+			applyLoaded((await res.json()) as Config);
 			if (config?.configured) void loadEntities();
 		}
 	});
 
 	async function save() {
+		changed = true;
 		busy = true;
 		error = '';
 		const res = await safeFetch('/api/settings/home-assistant', {
@@ -147,6 +161,7 @@
 	}
 
 	async function remove() {
+		changed = true;
 		const before = config;
 		const res = await safeFetch('/api/settings/home-assistant', {
 			method: 'DELETE',
@@ -220,6 +235,7 @@
 					autocomplete="off"
 					placeholder="http://homeassistant.local:8123"
 					data-testid="ha-url"
+					oninput={() => (urlTouched = true)}
 					bind:value={baseUrl}
 				/>
 			</label>
