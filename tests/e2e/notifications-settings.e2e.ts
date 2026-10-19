@@ -50,3 +50,33 @@ test('grown-ups save notification settings and send a test @J9.8', async ({ page
 	await expect(page.getByTestId('notify-topic')).toHaveValue('synthetic-topic');
 	await expect(page.getByTestId('notify-enabled')).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('a late config load does not overwrite what the adult typed @J9.8', async ({ page }, info) => {
+	const server = {
+		enabled: false,
+		serverUrl: 'https://ntfy.sh',
+		topic: 'from-server',
+		baseUrl: '',
+		events: { approval: true, goal: true },
+		tokenSaved: false,
+		last: null
+	};
+	let release!: () => void;
+	const gate = new Promise<void>((r) => (release = r));
+	let held = 0;
+	await page.route('**/api/settings/notifications', async (route) => {
+		if (route.request().method() !== 'GET') return route.fallback();
+		held++;
+		await gate;
+		await route.fulfill({ json: server });
+	});
+	await signInAsAdult(page, `e2e-notify-late-${info.project.name}`);
+	await gotoHydrated(page, '/settings/notifications');
+	await expect.poll(() => held).toBeGreaterThan(0);
+	// Edited while the load is still in flight (inputs are never blocked).
+	await page.getByTestId('notify-topic').fill('typed-topic');
+	await page.getByTestId('notify-enabled').click();
+	release();
+	await expect(page.getByTestId('notify-topic')).toHaveValue('typed-topic');
+	await expect(page.getByTestId('notify-enabled')).toHaveAttribute('aria-pressed', 'true');
+});
