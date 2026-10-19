@@ -716,6 +716,12 @@
 					"text": "Home sensors show temperature, humidity and door or window state, read-only, with Not updating and Unavailable states.",
 					"status": "built",
 					"simulated": "Home Assistant is a fake server in the tests"
+				},
+				{
+					"id": "J17.6",
+					"text": "A grown-up makes a screen token for Home Assistant (shown once, with a ready-to-paste snippet) so automations can wake or sleep the wall, and can revoke it.",
+					"status": "built",
+					"simulated": "Home Assistant is a fake server in the tests"
 				}
 			]
 		},
