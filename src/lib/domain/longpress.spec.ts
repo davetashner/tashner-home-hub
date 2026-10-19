@@ -114,6 +114,27 @@ describe('createLongPress', () => {
 		expect(press.end()).toBe(false);
 	});
 
+	it('counts a release that arrives after the delay but before the late timer ran', () => {
+		let clock = 0;
+		const timers = { setTimeout: () => 1, clearTimeout: () => undefined, now: () => clock };
+		const fired = vi.fn();
+		const press = createLongPress(fired, { delayMs: 600 }, timers);
+		press.start(0, 0);
+		clock = 599;
+		expect(press.end()).toBe(false);
+		expect(fired).not.toHaveBeenCalled();
+		press.start(0, 0);
+		clock = 1300;
+		expect(press.end()).toBe(true);
+		expect(fired).toHaveBeenCalledTimes(1);
+		press.start(0, 0);
+		clock = 2000;
+		press.move(50, 0);
+		clock = 2700;
+		expect(press.end()).toBe(false);
+		expect(fired).toHaveBeenCalledTimes(1);
+	});
+
 	it('works with the real timers by default', () => {
 		vi.useFakeTimers();
 		const fired = vi.fn();

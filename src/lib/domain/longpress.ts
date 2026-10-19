@@ -10,6 +10,8 @@ export const DEFAULT_LONG_PRESS: LongPressOptions = { delayMs: 600, slop: 10 };
 export interface LongPressTimers {
 	setTimeout: (fn: () => void, ms: number) => unknown;
 	clearTimeout: (handle: unknown) => void;
+	/** Milliseconds on a monotonic clock; defaults to performance.now. */
+	now?: () => number;
 }
 
 export interface LongPress {
@@ -44,7 +46,9 @@ export function createLongPress(
 	// An explicit `undefined` (an unset action param) must fall back to the default, not become 0.
 	const delayMs = options.delayMs ?? DEFAULT_LONG_PRESS.delayMs;
 	const slop = options.slop ?? DEFAULT_LONG_PRESS.slop;
+	const now = timers.now ?? (() => performance.now());
 	let origin: { x: number; y: number } | null = null;
+	let startedAt = 0;
 	let handle: unknown = null;
 	let fired = false;
 
@@ -58,6 +62,7 @@ export function createLongPress(
 			clear();
 			fired = false;
 			origin = { x, y };
+			startedAt = now();
 			handle = timers.setTimeout(() => {
 				handle = null;
 				if (!origin) return;
@@ -73,6 +78,13 @@ export function createLongPress(
 			}
 		},
 		end() {
+			// A busy page can run the release before the timer that was due earlier: the finger was
+			// down long enough, so it still counts.
+			if (!fired && origin && handle !== null && now() - startedAt >= delayMs) {
+				clear();
+				fired = true;
+				onlongpress();
+			}
 			clear();
 			const was = fired;
 			fired = false;
