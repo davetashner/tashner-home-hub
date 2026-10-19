@@ -230,6 +230,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J17.3 | Unreachable Home Assistant is handled gracefully, and the card is hidden when nothing is configured. | built | wall | `home-assistant` |
 | J17.4 | A grown-up connects Home Assistant, tests it, picks, renames and reorders entities. | built | wall | `home-assistant`. Simulated: Home Assistant is a fake server in the tests |
 | J17.5 | Home sensors show temperature, humidity and door or window state, read-only, with Not updating and Unavailable states. | built | wall | `home-assistant`. Simulated: Home Assistant is a fake server in the tests |
+| J17.6 | A grown-up makes a screen token for Home Assistant (shown once, with a ready-to-paste snippet) so automations can wake or sleep the wall, and can revoke it. | built | wall | `home-assistant`. Simulated: Home Assistant is a fake server in the tests |
 | **J18** | **Drawing board** (Kid at the wall) | | | |
 | J18.1 | Draw with a pen or finger on the Home notes card and post it to the board. | built | wall | `drawing` |
 | J18.2 | Tap a drawing to enlarge it; anyone dismisses it. | built | wall | `drawing` |
