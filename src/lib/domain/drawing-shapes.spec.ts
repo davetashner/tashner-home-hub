@@ -79,6 +79,18 @@ describe('bounds and hits', () => {
 	});
 });
 
+describe('stamps', () => {
+	it('the new stamps are original multi-part outlines that scale with the box', () => {
+		for (const k of ['bubble', 'cat', 'dog', 'fish', 'bird'] as const) {
+			expect(ALL_SHAPES).toContain(k);
+			const small = shapeParts(shape({ shape: k, x0: 0, y0: 0, x1: 100, y1: 100 }));
+			const big = shapeParts(shape({ shape: k, x0: 0, y0: 0, x1: 200, y1: 200 }));
+			expect(small.some((p) => p.kind === 'body')).toBe(true);
+			expect(JSON.stringify(big)).not.toBe(JSON.stringify(small));
+		}
+	});
+});
+
 describe('shape geometry', () => {
 	it('every shape and stamp has parts with commands, all finite', () => {
 		for (const k of ALL_SHAPES) {

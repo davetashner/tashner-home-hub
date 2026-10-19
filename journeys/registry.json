@@ -773,6 +773,12 @@
 					"text": "Pick a coloring page and color it in with Fill and the pens; the outlines stay put.",
 					"status": "built",
 					"beads": ["hub-cn7.8"]
+				},
+				{
+					"id": "J18.8",
+					"text": "After placing a shape or stamp (now including a speech bubble and animals), move, resize and turn it before it is committed.",
+					"status": "built",
+					"beads": ["hub-cn7.5"]
 				}
 			]
 		},

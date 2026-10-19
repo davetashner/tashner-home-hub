@@ -4,6 +4,7 @@
  */
 
 import { isFill, type FillItem } from './drawing-fill.js';
+import { stampParts } from './drawing-stamps.js';
 
 /** Ink and eraser choices. Colors are `--color-draw-*` tokens read at runtime (canvas cannot use classes). */
 export const DRAW_COLORS = [
@@ -132,7 +133,16 @@ export const SHAPE_KINDS = [
 	'line',
 	'arrow'
 ] as const;
-export const STAMP_KINDS = ['sun', 'flower', 'smiley'] as const;
+export const STAMP_KINDS = [
+	'sun',
+	'flower',
+	'smiley',
+	'bubble',
+	'cat',
+	'dog',
+	'fish',
+	'bird'
+] as const;
 export type ShapeKind = (typeof SHAPE_KINDS)[number] | (typeof STAMP_KINDS)[number];
 export const ALL_SHAPES: readonly ShapeKind[] = [...SHAPE_KINDS, ...STAMP_KINDS];
 export const SHAPE_LABELS: Record<ShapeKind, string> = {
@@ -145,7 +155,12 @@ export const SHAPE_LABELS: Record<ShapeKind, string> = {
 	arrow: 'Arrow',
 	sun: 'Sun',
 	flower: 'Flower',
-	smiley: 'Smiley'
+	smiley: 'Smiley',
+	bubble: 'Speech bubble',
+	cat: 'Cat',
+	dog: 'Dog',
+	fish: 'Fish',
+	bird: 'Bird'
 };
 
 /** A placed shape: the drag's two corners (a line's two ends), the ink and how it is drawn. */
@@ -159,6 +174,8 @@ export interface Shape {
 	y0: number;
 	x1: number;
 	y1: number;
+	/** Turn in radians about the box centre (hub-cn7.5). Absent means upright; lines bake it into their ends. */
+	rot?: number;
 }
 
 export type PathCmd =
@@ -338,6 +355,12 @@ export function shapeParts(s: Pick<Shape, 'shape' | 'x0' | 'y0' | 'x1' | 'y1'>):
 				{ kind: 'solid', cmds: [['E', cx, cy, rx * 0.22, ry * 0.22]] }
 			];
 		}
+		case 'bubble':
+		case 'cat':
+		case 'dog':
+		case 'fish':
+		case 'bird':
+			return stampParts(s.shape, { x, y, w, h });
 		case 'smiley':
 			return [
 				{ kind: 'body', cmds: [['E', cx, cy, rx, ry]] },

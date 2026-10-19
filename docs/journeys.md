@@ -239,6 +239,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J18.5 | Tap Fill, pick a color, then tap inside a closed area to paint it; Undo takes the fill back. | built | wall | `drawing` |
 | J18.6 | Save an unfinished drawing, then reopen or delete it later from My drawings. | built | wall | `drawing` |
 | J18.7 | Pick a coloring page and color it in with Fill and the pens; the outlines stay put. | built | wall | `drawing` |
+| J18.8 | After placing a shape or stamp (now including a speech bubble and animals), move, resize and turn it before it is committed. | built | wall | `drawing` |
 | **J19** | **Sitter mode** (Parent at the wall) | | | |
 | J19.1 | A grown-up fills in the info card: emergency contacts, address, allergies, bedtimes, house rules, pets with the vet and pet emergency hospital, Wi-Fi and notes for tonight. | built | wall | untested: undefined |
 | J19.2 | Start a sitter session now or on a schedule, with an optional sitter name, 4-digit PIN and permissions. | built | wall | untested: undefined |

@@ -252,7 +252,7 @@ test('insert shapes and stamps, outline or filled, undo @J18.4', async ({ page }
 		const canvas = page.getByTestId('draw-canvas');
 		await expectTappable(page.getByTestId('draw-shapes-open'), 96);
 		await page.getByTestId('draw-shapes-open').click();
-		await expect(page.getByTestId('draw-shape')).toHaveCount(10);
+		await expect(page.getByTestId('draw-shape')).toHaveCount(15);
 		await expectTappable(page.getByTestId('draw-shape').first(), 96);
 
 		// An outlined square dragged out leaves ink and counts as one undoable item.
@@ -455,6 +455,137 @@ test('coloring page: lines stay, fill stops at them, saves with its page @J18.7'
 		await expect(canvas).toHaveAttribute('data-page', 'house');
 		expect(await lineInk(page)).toBe(lines);
 		await expect.poll(() => inkPixels(page)).toBeGreaterThan(painted * 0.8);
+		await page.getByTestId('draw-close').click();
+	} finally {
+		wipe(kidId);
+	}
+});
+
+/** The box (CSS px, relative to the canvas) around every opaque pixel, or null when blank. */
+const inkBox = (page: Page) =>
+	page.getByTestId('draw-canvas').evaluate((c: HTMLCanvasElement) => {
+		const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+		const k = c.width / c.getBoundingClientRect().width;
+		let x0 = Infinity;
+		let y0 = Infinity;
+		let x1 = -1;
+		let y1 = -1;
+		for (let y = 0; y < c.height; y++)
+			for (let x = 0; x < c.width; x++)
+				if (d[(y * c.width + x) * 4 + 3] > 0) {
+					x0 = Math.min(x0, x);
+					x1 = Math.max(x1, x);
+					y0 = Math.min(y0, y);
+					y1 = Math.max(y1, y);
+				}
+		return x1 < 0 ? null : { x0: x0 / k, y0: y0 / k, w: (x1 - x0) / k, h: (y1 - y0) / k };
+	});
+
+/** Drag a handle's centre to a point (CSS px relative to the canvas), like a finger would. */
+async function dragHandle(
+	page: Page,
+	which: 'resize' | 'rotate',
+	to: [number, number],
+	id: number
+) {
+	const handle = page.locator(`[data-testid="draw-handle"][data-handle="${which}"]`);
+	const cr = (await page.getByTestId('draw-canvas').boundingBox())!;
+	await handle.evaluate(
+		(el, a) => {
+			const r = el.getBoundingClientRect();
+			const fire = (name: string, x: number, y: number) =>
+				el.dispatchEvent(
+					new PointerEvent(name, {
+						pointerId: a.id,
+						pointerType: 'touch',
+						isPrimary: true,
+						button: 0,
+						buttons: name === 'pointerup' ? 0 : 1,
+						clientX: x,
+						clientY: y,
+						bubbles: true
+					})
+				);
+			const x0 = r.left + r.width / 2;
+			const y0 = r.top + r.height / 2;
+			const x1 = a.cr.x + a.to[0];
+			const y1 = a.cr.y + a.to[1];
+			fire('pointerdown', x0, y0);
+			for (let i = 1; i <= 8; i++)
+				fire('pointermove', x0 + ((x1 - x0) * i) / 8, y0 + ((y1 - y0) * i) / 8);
+			fire('pointerup', x1, y1);
+		},
+		{ to, cr, id }
+	);
+}
+
+test('move, resize and turn a placed shape before it is committed @J18.8', async ({
+	page
+}, info) => {
+	const kidId = `e2e-draw-kid8-${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, 'Kid Edit');
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		const canvas = page.getByTestId('draw-canvas');
+		await page.getByTestId('draw-shapes-open').click();
+		await page.getByTestId('draw-shape').and(page.locator('[data-shape="square"]')).click();
+		await pointerStroke(page, 'touch', 0.5, [0.2, 0.2], [0.5, 0.35], 1);
+		await expect(canvas).toHaveAttribute('data-selected', 'true');
+		await expect(page.getByTestId('draw-handle')).toHaveCount(2);
+		for (const h of await page.getByTestId('draw-handle').all()) await expectTappable(h, 96);
+		const placed = (await inkBox(page))!;
+		expect(placed.w).toBeGreaterThan(placed.h);
+
+		// Dragging inside moves it; it is still one undoable item.
+		await pointerStroke(page, 'touch', 0.5, [0.35, 0.275], [0.6, 0.6], 2);
+		const moved = (await inkBox(page))!;
+		expect(moved.x0).toBeGreaterThan(placed.x0 + 20);
+		expect(moved.y0).toBeGreaterThan(placed.y0 + 20);
+		expect(Math.abs(moved.w - placed.w)).toBeLessThan(2);
+		await expect(canvas).toHaveAttribute('data-strokes', '1');
+
+		// The turn handle swings it a quarter turn: wide becomes tall.
+		const cx = moved.x0 + moved.w / 2;
+		const cy = moved.y0 + moved.h / 2;
+		await dragHandle(page, 'rotate', [cx + 120, cy], 3);
+		const turned = (await inkBox(page))!;
+		expect(turned.h).toBeGreaterThan(turned.w);
+		expect(Math.abs(Number(await canvas.getAttribute('data-sel-rot')))).toBeGreaterThan(1.2);
+
+		// The resize handle grows it.
+		const rb = (await page
+			.locator('[data-testid="draw-handle"][data-handle="resize"]')
+			.boundingBox())!;
+		const cb = (await canvas.boundingBox())!;
+		const hx = rb.x - cb.x + rb.width / 2;
+		const hy = rb.y - cb.y + rb.height / 2;
+		const away = Math.hypot(hx - cx, hy - cy) || 1;
+		await dragHandle(
+			page,
+			'resize',
+			[hx + ((hx - cx) / away) * 60, hy + ((hy - cy) / away) * 60],
+			4
+		);
+		const grown = (await inkBox(page))!;
+		expect(grown.w * grown.h).toBeGreaterThan(turned.w * turned.h);
+
+		// Tapping elsewhere commits it without placing another shape.
+		await pointerStroke(page, 'touch', 0.5, [0.95, 0.95], [0.95, 0.95], 5);
+		await expect(canvas).toHaveAttribute('data-selected', 'false');
+		await expect(page.getByTestId('draw-handle')).toHaveCount(0);
+
+		await page.getByTestId('draw-shapes-open').click();
+		await page.getByTestId('draw-shape').and(page.locator('[data-shape="cat"]')).click();
+		await pointerStroke(page, 'touch', 0.5, [0.1, 0.6], [0.3, 0.9], 6);
+		await expect(canvas).toHaveAttribute('data-selected', 'true');
+		await page.getByTestId('draw-shapes-open').click();
+		await page.getByTestId('draw-shape-off').click();
+		await expect(canvas).toHaveAttribute('data-selected', 'false');
+		await page.getByTestId('draw-undo').click();
+		await page.getByTestId('draw-undo').click();
+		await expect(canvas).toHaveAttribute('data-strokes', '0');
+		expect(await inkPixels(page)).toBe(0);
 		await page.getByTestId('draw-close').click();
 	} finally {
 		wipe(kidId);
