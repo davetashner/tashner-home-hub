@@ -779,6 +779,12 @@
 					"text": "After placing a shape or stamp (now including a speech bubble and animals), move, resize and turn it before it is committed.",
 					"status": "built",
 					"beads": ["hub-cn7.5"]
+				},
+				{
+					"id": "J18.9",
+					"text": "While a placed shape is still selected, picking a color, brush size or outline/filled restyles it.",
+					"status": "built",
+					"beads": ["hub-cn7.10"]
 				}
 			]
 		},

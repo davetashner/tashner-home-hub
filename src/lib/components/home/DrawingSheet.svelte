@@ -19,11 +19,13 @@
 		hitBody,
 		moveShape,
 		resizeShape,
+		restyleShape,
 		rotateShape,
 		rotationOf,
 		selectionCorners,
 		shapeCenter,
-		type Pt
+		type Pt,
+		type ShapeStyle
 	} from '#lib/domain/drawing-edit.js';
 	import {
 		ALL_SHAPES,
@@ -86,6 +88,7 @@
 	/** Choose an ink: leaves the eraser, keeps a highlighter, and closes the color grid. */
 	function pick(c: InkColor) {
 		color = c;
+		restyle({ color: c });
 		if (tool === 'eraser') tool = 'pen';
 		picking = false;
 	}
@@ -254,6 +257,17 @@
 		c.drawImage(canvas, 0, 0);
 		if (page) c.drawImage(linesCanvas, 0, 0);
 		return c.getImageData(0, 0, w, h).data;
+	}
+
+	/** The pickers also restyle the shape that is still selected (the tool setting stays for the next one). */
+	function restyle(style: ShapeStyle) {
+		if (!selected) return;
+		const next = restyleShape(selected, style);
+		if (next === selected) return;
+		Object.assign(selected, next);
+		if (style.color) recent = pushRecent(recent, style.color);
+		redraw();
+		syncSel();
 	}
 
 	function syncSel() {
@@ -854,7 +868,10 @@
 							aria-pressed={filled === f}
 							data-testid="draw-fill"
 							data-filled={f}
-							onclick={() => (filled = f)}>{f ? 'Filled' : 'Outline'}</button
+							onclick={() => {
+								filled = f;
+								restyle({ filled: f });
+							}}>{f ? 'Filled' : 'Outline'}</button
 						>
 					{/each}
 				</div>
@@ -966,7 +983,10 @@
 							aria-label={b}
 							data-testid="draw-size"
 							data-size={b}
-							onclick={() => (size = b)}
+							onclick={() => {
+								size = b;
+								restyle({ width: shapeWidth(b) });
+							}}
 						>
 							<span
 								class="rounded-full bg-ink"

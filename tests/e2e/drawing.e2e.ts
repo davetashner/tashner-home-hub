@@ -609,3 +609,65 @@ test('move, resize and turn a placed shape before it is committed @J18.8', async
 		wipe(kidId);
 	}
 });
+
+/** Count of opaque pixels that read mostly red, and of those that read mostly dark. */
+const inkTones = (page: Page) =>
+	page.getByTestId('draw-canvas').evaluate((c: HTMLCanvasElement) => {
+		const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+		let red = 0;
+		let dark = 0;
+		for (let i = 0; i < d.length; i += 4) {
+			if (d[i + 3] < 200) continue;
+			if (d[i] > 150 && d[i + 1] < 110 && d[i + 2] < 110) red++;
+			else if (d[i] < 90 && d[i + 1] < 90 && d[i + 2] < 90) dark++;
+		}
+		return { red, dark };
+	});
+
+test('picking a color, size or fill restyles the selected shape @J18.9', async ({ page }, info) => {
+	const kidId = `e2e-draw-kid9-${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, 'Kid Restyle');
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		const canvas = page.getByTestId('draw-canvas');
+		await page.getByTestId('draw-shapes-open').click();
+		await page.getByTestId('draw-shape').and(page.locator('[data-shape="square"]')).click();
+		await pointerStroke(page, 'touch', 0.5, [0.2, 0.2], [0.5, 0.45], 1);
+		await expect(canvas).toHaveAttribute('data-selected', 'true');
+		const before = await inkTones(page);
+		expect(before.dark).toBeGreaterThan(100);
+		expect(before.red).toBe(0);
+		const thin = await inkPixels(page);
+
+		// Color: the placed shape turns red, stays selected, and is still one item.
+		const red = page.getByTestId('draw-color').and(page.locator('[data-color="draw-red"]'));
+		await expectTappable(red, 96);
+		await red.click();
+		await expect(canvas).toHaveAttribute('data-selected', 'true');
+		await expect(canvas).toHaveAttribute('data-strokes', '1');
+		const after = await inkTones(page);
+		expect(after.red).toBeGreaterThan(100);
+		expect(after.dark).toBe(0);
+
+		// Size: a thicker brush widens the outline.
+		await page.getByTestId('draw-size').and(page.locator('[data-size="marker"]')).click();
+		expect(await inkPixels(page)).toBeGreaterThan(thin);
+
+		// Fill: the body fills in.
+		const outlined = await inkPixels(page);
+		await page.getByTestId('draw-shapes-open').click();
+		await page.getByTestId('draw-fill').and(page.locator('[data-filled="true"]')).click();
+		expect(await inkPixels(page)).toBeGreaterThan(outlined * 2);
+		await expect(canvas).toHaveAttribute('data-selected', 'true');
+
+		// One undo takes the whole shape away.
+		await page.getByTestId('draw-shape-off').click();
+		await page.getByTestId('draw-undo').click();
+		await expect(canvas).toHaveAttribute('data-strokes', '0');
+		expect(await inkPixels(page)).toBe(0);
+		await page.getByTestId('draw-close').click();
+	} finally {
+		wipe(kidId);
+	}
+});
