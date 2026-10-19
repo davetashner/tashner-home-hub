@@ -59,6 +59,8 @@
 	const removing: Record<string, true> = {};
 	/** Taps on rows whose add has not returned: replayed against the real id when it does. */
 	const held = createPendingActions();
+	/** Temp id to real id, from the moment an add answers until its placeholder is swapped out. */
+	const answered: Record<string, string> = {};
 	/** The item whose Delete action a long-press revealed. */
 	let armed = $state<string | null>(null);
 	let error = $state('');
@@ -273,19 +275,21 @@
 	async function toggle(item: ListItem) {
 		const done = !item.done;
 		patchItems(item.listId, (all) => withDone(all, item.id, done));
-		if (isTempId(item.id)) {
+		// The add may have answered while the row still shows its temp id: send to the real one.
+		const id = answered[item.id] ?? item.id;
+		if (isTempId(id)) {
 			placeholders = withDone(placeholders, item.id, done);
 			held.hold(item.id, { kind: 'done', done });
 			return;
 		}
-		intent[item.id] = done;
+		intent[id] = done;
 		const r = await deliver({
 			kind: 'check',
-			url: `/api/list-items/${item.id}`,
+			url: `/api/list-items/${id}`,
 			body: { done },
-			choreId: item.id
+			choreId: id
 		});
-		if (r.sent || (!r.queued && r.status >= 400)) delete intent[item.id];
+		if (r.sent || (!r.queued && r.status >= 400)) delete intent[id];
 	}
 
 	async function addRaw(text: string) {
@@ -311,6 +315,7 @@
 		} catch {
 			// Offline: the refresh below drops the placeholder.
 		}
+		if (realId) answered[temp.id] = realId;
 		// Replay taps made before the id existed; a failed add drops them with the row.
 		const replay = realId ? held.take(temp.id) : (held.drop(temp.id), []);
 		for (const a of replay) {
@@ -332,7 +337,10 @@
 			}
 		}
 		generation++;
-		await refresh(() => (placeholders = placeholders.filter((p) => p.id !== temp.id)));
+		await refresh(() => {
+			placeholders = placeholders.filter((p) => p.id !== temp.id);
+			delete answered[temp.id];
+		});
 	}
 
 	async function clearCheckedRaw() {
@@ -357,17 +365,19 @@
 	async function removeRaw(item: ListItem) {
 		armed = null;
 		error = '';
-		if (isTempId(item.id)) {
+		const id = answered[item.id] ?? item.id;
+		if (isTempId(id)) {
 			placeholders = placeholders.filter((p) => p.id !== item.id);
 			patchItems(item.listId, (all) => all.filter((i) => i.id !== item.id));
 			held.hold(item.id, { kind: 'delete' });
 			return;
 		}
-		removing[item.id] = true;
+		removing[id] = true;
+		placeholders = placeholders.filter((p) => p.id !== item.id);
 		patchItems(item.listId, (all) => all.filter((i) => i.id !== item.id));
 		let ok = false;
 		try {
-			const res = await fetch(`/api/list-items/${item.id}`, {
+			const res = await fetch(`/api/list-items/${id}`, {
 				method: 'DELETE',
 				headers: JSON_HEADERS,
 				body: '{}'
@@ -377,7 +387,7 @@
 		} catch {
 			// Offline: treated as a failure below.
 		}
-		delete removing[item.id];
+		delete removing[id];
 		if (!ok) {
 			error = `Could not delete "${item.text}". It is back on the list.`;
 			patchItems(item.listId, (all) => (all.some((i) => i.id === item.id) ? all : [...all, item]));
