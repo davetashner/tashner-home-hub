@@ -22,6 +22,7 @@ const portrait: Viewport[] = [
 	{ width: 1024, height: 1366 },
 	{ width: 678, height: 834 }
 ];
+const allViewports = [...landscape, ...portrait];
 const viewportsFor = (project: string) => (project.includes('portrait') ? portrait : landscape);
 const label = (vp: Viewport) => `${vp.width}x${vp.height}`;
 /** Split View panes are narrow: the first chore is only guaranteed to show at full iPad sizes. */
@@ -135,69 +136,69 @@ for (const route of routes) {
 	});
 }
 
-test('iPad: /chores shows the first chore to do without scrolling @J16.3', async ({
-	page
-}, info) => {
-	await signInAsAdult(page, `adult-ipad-${info.project.name}`);
-	for (const vp of viewportsFor(info.project.name)) {
-		await test.step(label(vp), async () => {
-			await page.setViewportSize(vp);
-			const kid = await seedChoresKid(page, `${label(vp)}-${info.project.name}`);
-			await gotoHydrated(page, `/chores?member=${kid.memberId}`);
-			await expect(page.getByTestId('star-jar')).toBeVisible();
-			await settle(page);
-			await expectFits(page);
+// One test per size: seeding a kid and settling a page takes seconds, so looping the sizes inside a
+// single test used up its 30s budget on a busy machine. Every project runs every size.
+for (const vp of allViewports) {
+	test(`iPad: /chores shows the first chore to do without scrolling @J16.3 ${label(vp)}`, async ({
+		page
+	}, info) => {
+		await signInAsAdult(page, `adult-ipad-${info.project.name}`);
+		await page.setViewportSize(vp);
+		const kid = await seedChoresKid(page, `${label(vp)}-${info.project.name}`);
+		await gotoHydrated(page, `/chores?member=${kid.memberId}`);
+		await expect(page.getByTestId('star-jar')).toBeVisible();
+		await settle(page);
+		await expectFits(page);
 
-			// Kid controls (the chore buttons and the child switcher) are 96px; the rest are 60px.
-			const kidControls = page
-				.locator('[data-testid="did-it"], [data-testid="undo"]')
-				.or(page.getByTestId('child-switcher').getByRole('button'));
-			for (const control of await kidControls.all()) {
-				const box = await control.boundingBox();
-				if (!box) continue;
-				expect(px(box.width)).toBeGreaterThanOrEqual(96);
-				expect(px(box.height)).toBeGreaterThanOrEqual(96);
-			}
-			expect(await smallTargets(page, 60)).toEqual([]);
+		// Kid controls (the chore buttons and the child switcher) are 96px; the rest are 60px.
+		const kidControls = page
+			.locator('[data-testid="did-it"], [data-testid="undo"]')
+			.or(page.getByTestId('child-switcher').getByRole('button'));
+		for (const control of await kidControls.all()) {
+			const box = await control.boundingBox();
+			if (!box) continue;
+			expect(px(box.width)).toBeGreaterThanOrEqual(96);
+			expect(px(box.height)).toBeGreaterThanOrEqual(96);
+		}
+		expect(await smallTargets(page, 60)).toEqual([]);
 
-			if (FULL_SIZE(vp.width)) {
-				const first = page.getByTestId('did-it').first();
-				const box = (await first.boundingBox())!;
-				const main = (await page.locator('main').boundingBox())!;
-				expect(box.y).toBeGreaterThanOrEqual(0);
-				expect(box.y + box.height, 'first "I did it" needs scrolling').toBeLessThanOrEqual(
-					main.y + main.height
-				);
-			}
-		});
-	}
-});
+		if (FULL_SIZE(vp.width)) {
+			const first = page.getByTestId('did-it').first();
+			const box = (await first.boundingBox())!;
+			const main = (await page.locator('main').boundingBox())!;
+			expect(box.y).toBeGreaterThanOrEqual(0);
+			expect(box.y + box.height, 'first "I did it" needs scrolling').toBeLessThanOrEqual(
+				main.y + main.height
+			);
+		}
+	});
+}
 
-test('iPad: /chores celebration banner stays on screen @J16.3', async ({ page }, info) => {
-	await signInAsAdult(page, `adult-ipad-${info.project.name}`);
-	for (const vp of viewportsFor(info.project.name)) {
-		await test.step(label(vp), async () => {
-			await page.setViewportSize(vp);
-			const kid = await seedChoresKid(page, `done-${label(vp)}-${info.project.name}`);
-			await gotoHydrated(page, `/chores?member=${kid.memberId}`);
-			await expect(page.getByTestId('star-jar')).toBeVisible();
-			await settle(page);
-			const todo = await page.getByTestId('did-it').count();
-			for (let i = 0; i < todo; i++) {
-				const btn = page.getByTestId('did-it').first();
-				await expect(async () => {
-					const before = await page.getByTestId('did-it').count();
-					await btn.click();
-					await expect(page.getByTestId('did-it')).toHaveCount(before - 1, { timeout: 1000 });
-				}).toPass();
-			}
-			const banner = page.getByTestId('all-done');
-			await expect(banner).toBeVisible();
-			await page.waitForTimeout(700);
-			const box = (await banner.boundingBox())!;
-			expect(box.x).toBeGreaterThanOrEqual(0);
-			expect(box.x + box.width).toBeLessThanOrEqual(vp.width);
-			expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
-		});
-	}
-});
+for (const vp of allViewports) {
+	test(`iPad: /chores celebration banner stays on screen @J16.3 ${label(vp)}`, async ({
+		page
+	}, info) => {
+		await signInAsAdult(page, `adult-ipad-${info.project.name}`);
+		await page.setViewportSize(vp);
+		const kid = await seedChoresKid(page, `done-${label(vp)}-${info.project.name}`);
+		await gotoHydrated(page, `/chores?member=${kid.memberId}`);
+		await expect(page.getByTestId('star-jar')).toBeVisible();
+		await settle(page);
+		const todo = await page.getByTestId('did-it').count();
+		for (let i = 0; i < todo; i++) {
+			const btn = page.getByTestId('did-it').first();
+			await expect(async () => {
+				const before = await page.getByTestId('did-it').count();
+				await btn.click();
+				await expect(page.getByTestId('did-it')).toHaveCount(before - 1, { timeout: 1000 });
+			}).toPass();
+		}
+		const banner = page.getByTestId('all-done');
+		await expect(banner).toBeVisible();
+		await page.waitForTimeout(700);
+		const box = (await banner.boundingBox())!;
+		expect(box.x).toBeGreaterThanOrEqual(0);
+		expect(box.x + box.width).toBeLessThanOrEqual(vp.width);
+		expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
+	});
+}
