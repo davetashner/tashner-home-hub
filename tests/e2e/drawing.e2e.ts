@@ -671,3 +671,80 @@ test('picking a color, size or fill restyles the selected shape @J18.9', async (
 		wipe(kidId);
 	}
 });
+
+/** RGBA of the first pixel of an image data URL. */
+const thumbPixel = (page: Page, src: string, fx: number, fy: number) =>
+	page.evaluate(
+		async ({ src, fx, fy }) => {
+			const img = new Image();
+			img.src = src;
+			await img.decode();
+			const c = document.createElement('canvas');
+			c.width = img.width;
+			c.height = img.height;
+			const o = c.getContext('2d')!;
+			o.drawImage(img, 0, 0);
+			return Array.from(
+				o.getImageData(Math.floor(img.width * fx), Math.floor(img.height * fy), 1, 1).data
+			);
+		},
+		{ src, fx, fy }
+	);
+
+test('background color: erasing reveals it, and it saves and reopens @J18.10', async ({
+	page
+}, info) => {
+	const kidId = `e2e-draw-kid10-${info.workerIndex}${info.repeatEachIndex}`;
+	const name = `Kid Painter ${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, name);
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		const canvas = page.getByTestId('draw-canvas');
+		const holder = page.getByTestId('draw-holder');
+		await expectTappable(page.getByTestId('draw-bg-open'), 96);
+		await page.getByTestId('draw-bg-open').click();
+		await expect(page.getByTestId('draw-bg-color')).toHaveCount(24);
+		await expectTappable(page.getByTestId('draw-bg-color').first(), 96);
+		await expectTappable(page.getByTestId('draw-bg-paper'), 96);
+		await page.getByTestId('draw-bg-color').nth(5).click();
+		await expect(holder).not.toHaveAttribute('data-bg', '');
+		// A background alone is not a drawing; the ink layer stays empty.
+		await expect(canvas).toHaveAttribute('data-blank', 'true');
+		expect(await inkPixels(page)).toBe(0);
+
+		// Draw a stroke, then rub it out: nothing is left on the ink layer, so the color shows.
+		await pointerStroke(page, 'pen', 0.9, [0.1, 0.5], [0.9, 0.5], 1);
+		expect(await inkPixels(page)).toBeGreaterThan(0);
+		await page.getByTestId('draw-eraser').click();
+		await pointerStroke(page, 'pen', 1, [0.05, 0.5], [0.95, 0.5], 2);
+		await pointerStroke(page, 'pen', 1, [0.05, 0.48], [0.95, 0.48], 3);
+		await pointerStroke(page, 'pen', 1, [0.05, 0.52], [0.95, 0.52], 4);
+		expect(await inkPixels(page)).toBe(0);
+		await page.getByTestId('draw-eraser').click();
+		await pointerStroke(page, 'pen', 0.9, [0.1, 0.2], [0.9, 0.3], 5);
+
+		// Save: the thumbnail is painted on the chosen color, not on paper.
+		await page.getByTestId('draw-save').click();
+		await page.getByTestId('draw-author').filter({ hasText: name }).click();
+		await expect(page.getByTestId('draw-note')).toHaveText('Saved!');
+		const rows: { thumb: string }[] = await page.evaluate(() =>
+			fetch('/api/drawings').then((r) => r.json())
+		);
+		expect(rows.length).toBeGreaterThan(0);
+		const [r, g, b, a] = await thumbPixel(page, rows[0].thumb, 0.5, 0.9);
+		expect(a).toBe(255);
+		expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeGreaterThan(20);
+
+		// Back to paper, then reopen: the color comes back.
+		await page.getByTestId('draw-bg-open').click();
+		await page.getByTestId('draw-bg-paper').click();
+		await expect(holder).toHaveAttribute('data-bg', '');
+		await page.getByTestId('draw-browse').click();
+		await page.getByRole('button', { name: `Open drawing by ${name}` }).click();
+		await expect(holder).not.toHaveAttribute('data-bg', '');
+		await page.getByTestId('draw-close').click();
+	} finally {
+		wipe(kidId);
+	}
+});

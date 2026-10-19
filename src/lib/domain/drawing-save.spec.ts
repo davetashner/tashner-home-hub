@@ -6,12 +6,14 @@ import {
 	SAVED_MAX_ITEMS,
 	SAVED_MAX_POINTS,
 	isSavedDrawing,
+	isBackground,
 	loadDrawing,
+	savedBackground,
 	savedPage,
 	savedSize,
 	serializeDrawing
 } from './drawing-save.js';
-import { isShape, type DrawItem, type Shape, type Stroke } from './drawing.js';
+import { COLOR_GRID, isShape, type DrawItem, type Shape, type Stroke } from './drawing.js';
 import { isFill } from './drawing-fill.js';
 
 const stroke: Stroke = {
@@ -160,5 +162,23 @@ describe('validation', () => {
 		expect(isSavedDrawing(wire(dots))).toBe(false);
 		const long = { t: 'pen', c: 'x', p: new Array((SAVED_MAX_POINTS + 1) * 3).fill(1) };
 		expect(isSavedDrawing(wire([long]))).toBe(false);
+	});
+});
+
+describe('background color', () => {
+	const grid = COLOR_GRID[3];
+	it('round-trips a grid color and defaults to paper', () => {
+		expect(savedBackground(serializeDrawing([stroke], size, 1, null, grid))).toBe(grid);
+		const plain = serializeDrawing([stroke], size);
+		expect(plain).not.toContain('"bg"');
+		expect(savedBackground(plain)).toBeNull();
+		expect(savedBackground('nope')).toBeNull();
+	});
+	it('drops a color that is not on the grid when saving, and rejects one when loading', () => {
+		expect(serializeDrawing([stroke], size, 1, null, 'red')).not.toContain('"bg"');
+		const bad = JSON.stringify({ v: 1, size, bg: 'url(x)', items: [] });
+		expect(isSavedDrawing(bad)).toBe(false);
+		expect(isBackground(grid)).toBe(true);
+		expect(isBackground(42)).toBe(false);
 	});
 });

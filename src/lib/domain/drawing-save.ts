@@ -8,6 +8,7 @@ import { PAGE_SIZE, isPageId, pageFit, type PageId } from './drawing-pages.js';
 import { FILL_TOLERANCE, isFill, type FillItem } from './drawing-fill.js';
 import {
 	ALL_SHAPES,
+	COLOR_GRID,
 	isShape,
 	type DrawItem,
 	type DrawTool,
@@ -39,6 +40,8 @@ interface Wire {
 	size: Size;
 	/** A coloring page under the drawing: items are then stored in page space. */
 	page?: PageId;
+	/** Background color of the board (hub-cn7.9.1): one of COLOR_GRID; absent means paper. */
+	bg?: string;
 	items: WireItem[];
 }
 
@@ -54,7 +57,8 @@ export function serializeDrawing(
 	items: readonly DrawItem[],
 	size: Size,
 	dpr = 1,
-	page: PageId | null = null
+	page: PageId | null = null,
+	bg: string | null = null
 ): string {
 	const fit = page ? pageFit(size) : { s: 1, ox: 0, oy: 0 };
 	const X = (x: number) => r1((x - fit.ox) / fit.s);
@@ -64,6 +68,7 @@ export function serializeDrawing(
 		v: 1,
 		size: page ? { ...PAGE_SIZE } : { w: r1(size.w), h: r1(size.h) },
 		...(page ? { page } : {}),
+		...(bg && isBackground(bg) ? { bg } : {}),
 		items: items.map((it): WireItem => {
 			if (isFill(it))
 				return { k: 1, c: it.color, x: X(it.x / dpr), y: Y(it.y / dpr), o: it.tolerance };
@@ -85,6 +90,10 @@ export function serializeDrawing(
 	};
 	return JSON.stringify(wire);
 }
+
+/** A background the board accepts: a color from the grid. */
+export const isBackground = (v: unknown): v is string =>
+	typeof v === 'string' && COLOR_GRID.includes(v);
 
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isInk = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 64;
@@ -111,6 +120,7 @@ function parseWire(json: unknown): Wire | null {
 	)
 		return null;
 	if (w.page !== undefined && !isPageId(w.page)) return null;
+	if (w.bg !== undefined && !isBackground(w.bg)) return null;
 	if (!Array.isArray(w.items) || w.items.length > SAVED_MAX_ITEMS) return null;
 	let points = 0;
 	for (const it of w.items as Record<string, unknown>[]) {
@@ -150,6 +160,9 @@ export const isSavedDrawing = (json: unknown): boolean => parseWire(json) !== nu
 
 /** The coloring page a saved drawing sits on, or null for a plain board. */
 export const savedPage = (json: unknown): PageId | null => parseWire(json)?.page ?? null;
+
+/** The background color a saved drawing was made on, or null for plain paper. */
+export const savedBackground = (json: unknown): string | null => parseWire(json)?.bg ?? null;
 
 /** The canvas size a saved drawing was made on, or null when it is not valid. */
 export function savedSize(json: unknown): Size | null {

@@ -792,6 +792,12 @@
 					"text": "While a placed shape is still selected, picking a color, brush size or outline/filled restyles it.",
 					"status": "built",
 					"beads": ["hub-cn7.10"]
+				},
+				{
+					"id": "J18.10",
+					"text": "Pick a background color for the board; erasing shows that color, and it is saved and posted with the drawing.",
+					"status": "built",
+					"beads": ["hub-cn7.9.1"]
 				}
 			]
 		},
