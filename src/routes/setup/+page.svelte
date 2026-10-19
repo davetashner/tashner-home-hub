@@ -84,16 +84,16 @@
 
 	{#if step === 1}
 		<form
-			class="flex w-full max-w-3xl flex-col gap-8 rounded-sheet bg-surface-raised p-8 shadow-float"
+			class="flex w-full max-w-3xl flex-col gap-8 rounded-sheet bg-surface-raised p-4 shadow-float sm:p-8"
 			data-testid="setup-profile"
 			onsubmit={(e) => {
 				e.preventDefault();
 				if (name.trim()) step = 2;
 			}}
 		>
-			<div class="flex items-center gap-6">
+			<div class="flex items-center gap-4 sm:gap-6">
 				<MemberAvatar {name} {color} avatar={avatar || null} size="lg" />
-				<label class="flex flex-1 flex-col gap-2 text-caption text-ink-muted">
+				<label class="flex min-w-0 flex-1 flex-col gap-2 text-caption text-ink-muted">
 					Your name
 					<input
 						name="name"
@@ -101,12 +101,12 @@
 						required
 						maxlength="40"
 						autocomplete="off"
-						class="min-h-tap rounded-control border-2 border-line bg-surface px-4 text-body text-ink"
+						class="min-h-tap w-full min-w-0 rounded-control border-2 border-line bg-surface px-4 text-body text-ink"
 					/>
 				</label>
 			</div>
 
-			<fieldset class="flex flex-wrap gap-3">
+			<fieldset class="flex min-w-0 flex-wrap gap-3">
 				<legend class="mb-2 text-caption text-ink-muted">Your color</legend>
 				{#each MEMBER_COLORS as value (value)}
 					<label class="relative">
@@ -123,7 +123,7 @@
 				{/each}
 			</fieldset>
 
-			<fieldset class="flex flex-wrap gap-3">
+			<fieldset class="flex min-w-0 flex-wrap gap-3">
 				<legend class="mb-2 text-caption text-ink-muted">Your picture</legend>
 				<label class="relative">
 					<input type="radio" name="avatar" value="" bind:group={avatar} class="peer sr-only" />
