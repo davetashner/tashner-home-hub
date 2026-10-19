@@ -333,7 +333,7 @@ test('iCloud: shows how to get the password and a friendly rejection inline @J5.
 	await expect(page.getByLabel('Apple ID')).toHaveValue('jane@example.com');
 });
 
-test('Outlook: shows how to publish the link and adds it as a read-only feed @J5.6', async ({
+test('Outlook-made feed: added through Subscription link as a read-only feed; no Outlook choice @J5.6', async ({
 	page
 }, info) => {
 	const tag = `e2e-cs-${info.project.name}-outlook`;
@@ -343,10 +343,11 @@ test('Outlook: shows how to publish the link and adds it as a read-only feed @J5
 	try {
 		await gotoHydrated(page, '/settings/calendars');
 		await page.getByRole('button', { name: 'Add connection' }).click();
-		const choice = page.getByRole('button', { name: /Outlook \/ Microsoft 365/ });
+		await expect(page.getByRole('button', { name: /Subscription link/ })).toBeVisible();
+		await expect(page.getByRole('button', { name: /Outlook/ })).toHaveCount(0);
+		const choice = page.getByRole('button', { name: /Subscription link/ });
 		await expectTappable(choice);
 		await choice.click();
-		await expect(page.getByText('Publish a calendar')).toBeVisible();
 		await page.getByLabel('Name this calendar').fill(label);
 		await page.getByLabel('Calendar link').fill(outlookUrl);
 		await shot(page, info, 'outlook');

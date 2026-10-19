@@ -154,7 +154,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J5.3 | Filter the calendar by member. | built | wall, iphone, ipad | `calendar-member-filter` |
 | J5.4 | Add an event from the wall or a phone; it shows pending, then confirmed. | built | wall, iphone | `calendar-create` |
 | J5.5 | Edit or delete an event; a conflict rolls back. | built | wall | `calendar-edit` |
-| J5.6 | Connect a calendar link or Google and see its health. | built | wall, iphone | `calendar-settings` |
+| J5.6 | Connect a calendar link (including a published Outlook link) or Google and see its health. | built | wall, iphone | `calendar-settings` |
 | J5.7 | The now line follows the time; the view is remembered. | built | wall | `calendar-now-line`, `calendar-view` |
 | J5.8 | The calendar fits phone and tablet screens. | built | iphone, ipad | `calendar-phone`, `calendar-sizes` |
 | **J6** | **Lists: add, check off, offline replay** (Everyone) | | | |
