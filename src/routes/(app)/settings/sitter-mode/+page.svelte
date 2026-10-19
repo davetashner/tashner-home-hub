@@ -65,6 +65,8 @@
 	// Non-reactive. Once the adult edits the info card, a load (first, or after start/extend/end)
 	// must not overwrite those edits; the sessions and log still refresh. Cleared on a good save.
 	let cardDirty = false;
+	// True once the first load has settled (card applied, or skipped because the adult already typed).
+	let cardLoaded = $state(false);
 	function touchCard() {
 		cardDirty = true;
 	}
@@ -83,10 +85,14 @@
 		if (seq !== loadSeq) return;
 		if (sj) sessions = sj;
 		if (lj) log = lj;
-		if (cardDirty) return;
+		if (cardDirty) {
+			cardLoaded = true;
+			return;
+		}
 		if (cj) card = withKidRows(cj);
 		rulesText = card.rules.join('\n');
 		petRows = card.pets.map((pet) => ({ pet, times: pet.feedTimes.join(', ') }));
+		cardLoaded = true;
 	}
 	onMount(load);
 
@@ -294,6 +300,7 @@
 			onsubmit={saveCard}
 			oninput={touchCard}
 			data-testid="sitter-card"
+			data-card-loaded={cardLoaded}
 		>
 			<h2 class="text-title font-bold">Info card</h2>
 			<p class="text-body text-ink-muted">
