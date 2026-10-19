@@ -60,15 +60,24 @@
 		return { ...c, kids };
 	}
 
+	// Only the newest refresh may apply: a slow older one landing late would wipe the newer state.
+	let loadSeq = 0;
 	async function load() {
+		const seq = ++loadSeq;
 		const [c, s, l] = await Promise.all([
 			fetch('/api/sitter/card'),
 			fetch('/api/sitter/sessions'),
 			fetch('/api/sitter/log')
 		]);
-		if (c.ok) card = withKidRows(await c.json());
-		if (s.ok) sessions = await s.json();
-		if (l.ok) log = await l.json();
+		const [cj, sj, lj] = await Promise.all([
+			c.ok ? c.json() : null,
+			s.ok ? s.json() : null,
+			l.ok ? l.json() : null
+		]);
+		if (seq !== loadSeq) return;
+		if (cj) card = withKidRows(cj);
+		if (sj) sessions = sj;
+		if (lj) log = lj;
 		rulesText = card.rules.join('\n');
 		petRows = card.pets.map((pet) => ({ pet, times: pet.feedTimes.join(', ') }));
 	}
@@ -115,7 +124,12 @@
 		}
 	}
 
-	async function patch(s: SitterSessionView, body: object) {
+	async function patch(s: SitterSessionView, body: { end?: boolean; endAt?: number }) {
+		// Optimistic: a second extend tapped before the refresh lands must build on the first.
+		if (body.endAt !== undefined) {
+			const next = body.endAt;
+			sessions = sessions.map((x) => (x.id === s.id ? { ...x, endAt: next } : x));
+		}
 		const res = await safeFetch(`/api/sitter/sessions/${s.id}`, {
 			method: 'PATCH',
 			headers: json,
