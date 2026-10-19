@@ -15,8 +15,10 @@
 		loadDrawing,
 		savedBackground,
 		savedPage,
+		savedPhoto,
 		serializeDrawing
 	} from '#lib/domain/drawing-save.js';
+	import { containRect, photoSize, photoUrl, thumbUrl } from '#lib/domain/drawing-photo.js';
 	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
 		clampPoint,
@@ -148,6 +150,7 @@
 		pagePicking = false;
 		if (id === page) return;
 		page = id;
+		if (id && photoId) pickPhoto(null);
 		commit();
 		strokes = [];
 		count = 0;
@@ -172,6 +175,87 @@
 	function pickBg(c: string | null) {
 		bgPicking = false;
 		bg = c;
+	}
+	/** A library photo under the ink (non-erasable, like a coloring page), or null. */
+	let photoId = $state<string | null>(null);
+	let photoPicking = $state(false);
+	interface PhotoRow {
+		id: string;
+		w: number | null;
+		h: number | null;
+	}
+	let photos = $state<PhotoRow[] | null>(null);
+	let photoCanvas: HTMLCanvasElement;
+	let photoCtx: CanvasRenderingContext2D;
+	let photoImg: HTMLImageElement | null = null;
+	let photoSrc = '';
+	let photoLoad = 0;
+
+	/** The photo, whole and centred, on its own layer under the ink. */
+	function drawPhoto() {
+		photoCtx.setTransform(1, 0, 0, 1, 0, 0);
+		photoCtx.clearRect(0, 0, photoCanvas.width, photoCanvas.height);
+		if (!photoImg || !photoId) return;
+		const r = containRect(
+			{ w: photoImg.naturalWidth, h: photoImg.naturalHeight },
+			{ w: photoCanvas.width, h: photoCanvas.height }
+		);
+		photoCtx.drawImage(photoImg, r.x, r.y, r.w, r.h);
+	}
+
+	/** Fetch the display-resolution cached copy that fits the board's orientation and size. */
+	function loadPhoto() {
+		if (!photoId) {
+			photoLoad++;
+			photoImg = null;
+			photoSrc = '';
+			drawPhoto();
+			return;
+		}
+		const src = photoUrl(photoId, photoSize({ w: canvas.width, h: canvas.height }));
+		// A resize clears the layer: put the copy we have back at once, so the picture never blinks
+		// out (or goes missing from a save) while a better-fitting size downloads.
+		drawPhoto();
+		if (src === photoSrc && photoImg) return;
+		const mine = ++photoLoad;
+		const img = new Image();
+		img.onload = () => {
+			if (mine !== photoLoad) return;
+			photoImg = img;
+			photoSrc = src;
+			drawPhoto();
+		};
+		img.onerror = () => {
+			if (mine !== photoLoad) return;
+			if (photoImg) return; // keep showing the copy we already have
+			photoId = null;
+			photoImg = null;
+			photoSrc = '';
+			drawPhoto();
+			note = 'Could not load that photo.';
+		};
+		img.src = src;
+	}
+
+	async function openPhotos() {
+		photoPicking = true;
+		note = '';
+		try {
+			const res = await fetch('/api/photo/slideshow?limit=60&seed=draw');
+			photos = res.ok ? await res.json() : [];
+		} catch {
+			photos = [];
+		}
+	}
+
+	function pickPhoto(id: string | null) {
+		photoPicking = false;
+		if (id === photoId) return;
+		if (id && page) pickPage(null); // page-space strokes do not belong on a photo
+		photoId = id;
+		photoImg = null; // never show the previous photo while the new one loads
+		photoSrc = '';
+		loadPhoto();
 	}
 	let dpr = 1;
 	let strokes: DrawItem[] = [];
@@ -266,6 +350,7 @@
 		scratch.width = w;
 		scratch.height = h;
 		const c = scratch.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
+		if (photoId) c.drawImage(photoCanvas, 0, 0);
 		c.drawImage(canvas, 0, 0);
 		if (page) c.drawImage(linesCanvas, 0, 0);
 		return c.getImageData(0, 0, w, h).data;
@@ -427,9 +512,10 @@
 		const w = Math.max(1, Math.round(holder.clientWidth * dpr));
 		const h = Math.max(1, Math.round(holder.clientHeight * dpr));
 		if (canvas.width === w && canvas.height === h) return;
-		canvas.width = linesCanvas.width = w;
-		canvas.height = linesCanvas.height = h;
+		canvas.width = linesCanvas.width = photoCanvas.width = w;
+		canvas.height = linesCanvas.height = photoCanvas.height = h;
 		drawLines();
+		loadPhoto();
 		redraw();
 	}
 
@@ -578,6 +664,7 @@
 			const o = out.getContext('2d') as CanvasRenderingContext2D;
 			o.fillStyle = token(bg ?? 'draw-paper');
 			o.fillRect(0, 0, width, height);
+			if (photoId) o.drawImage(photoCanvas, 0, 0, width, height);
 			o.drawImage(canvas, 0, 0, width, height);
 			o.drawImage(linesCanvas, 0, 0, width, height);
 			url = out.toDataURL('image/png');
@@ -601,6 +688,7 @@
 		const o = out.getContext('2d') as CanvasRenderingContext2D;
 		o.fillStyle = token(bg ?? 'draw-paper');
 		o.fillRect(0, 0, width, height);
+		if (photoId) o.drawImage(photoCanvas, 0, 0, width, height);
 		o.drawImage(canvas, 0, 0, width, height);
 		o.drawImage(linesCanvas, 0, 0, width, height);
 		return out.toDataURL('image/png');
@@ -622,7 +710,8 @@
 						{ w: canvas.width / dpr, h: canvas.height / dpr },
 						dpr,
 						page,
-						bg
+						bg,
+						photoId
 					),
 					thumb: thumbnail()
 				})
@@ -663,6 +752,10 @@
 			commit();
 			page = savedPage(data);
 			bg = savedBackground(data);
+			photoId = savedPhoto(data);
+			photoImg = null;
+			photoSrc = '';
+			loadPhoto();
 			drawLines();
 			strokes = items;
 			count = items.length;
@@ -693,6 +786,7 @@
 	onMount(() => {
 		ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 		linesCtx = linesCanvas.getContext('2d') as CanvasRenderingContext2D;
+		photoCtx = photoCanvas.getContext('2d') as CanvasRenderingContext2D;
 		fit();
 		const ro = new ResizeObserver(fit);
 		ro.observe(holder);
@@ -719,12 +813,19 @@
 		data-bg={bg ?? ''}
 	>
 		<canvas
+			bind:this={photoCanvas}
+			class="pointer-events-none absolute inset-0 size-full"
+			aria-hidden="true"
+			data-testid="draw-photo-layer"
+		></canvas>
+		<canvas
 			bind:this={canvas}
 			class="absolute inset-0 size-full touch-none"
 			aria-label="Drawing canvas"
 			data-testid="draw-canvas"
 			data-blank={blank}
 			data-page={page ?? ''}
+			data-photo={photoId ?? ''}
 			data-strokes={count}
 			data-selected={sel !== null}
 			data-sel-rot={sel ? sel.rot.toFixed(3) : ''}
@@ -830,6 +931,47 @@
 				onclick={() => pickPage(null)}>Blank page</button
 			>
 			<Button variant="ghost" onclick={() => (pagePicking = false)} data-testid="draw-pages-close"
+				>Back</Button
+			>
+		{:else if photoPicking}
+			<p class="w-full text-body font-extrabold">Draw on a photo</p>
+			{#if photos === null}
+				<p class="w-full text-body text-ink-muted">Loading...</p>
+			{:else if photos.length === 0}
+				<p class="w-full text-body text-ink-muted" data-testid="draw-photos-empty">
+					No photos yet. Add some in the photo library settings.
+				</p>
+			{/if}
+			<div class="flex flex-wrap gap-3" role="group" aria-label="Photos" data-testid="draw-photos">
+				{#each photos ?? [] as p (p.id)}
+					<button
+						type="button"
+						class="flex min-h-tap-kid min-w-tap-kid items-center justify-center overflow-hidden rounded-control border-4 p-0 active:scale-95 {photoId ===
+						p.id
+							? 'border-accent'
+							: 'border-line'}"
+						aria-label="Photo"
+						aria-pressed={photoId === p.id}
+						data-testid="draw-photo"
+						data-photo-id={p.id}
+						onclick={() => pickPhoto(p.id)}
+					>
+						<img
+							src={thumbUrl(p.id, p.w, p.h)}
+							alt=""
+							loading="lazy"
+							class="h-tap-kid w-auto max-w-32 object-cover"
+						/>
+					</button>
+				{/each}
+			</div>
+			<button
+				type="button"
+				class="{btn} border-line bg-surface"
+				data-testid="draw-photo-none"
+				onclick={() => pickPhoto(null)}>No photo</button
+			>
+			<Button variant="ghost" onclick={() => (photoPicking = false)} data-testid="draw-photos-close"
 				>Back</Button
 			>
 		{:else if bgPicking}
@@ -1116,6 +1258,13 @@
 					aria-pressed={page !== null}
 					data-testid="draw-pages-open"
 					onclick={() => (pagePicking = true)}>{page ? PAGE_LABELS[page] : 'Coloring pages'}</button
+				>
+				<button
+					type="button"
+					class="{btn} {photoId ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+					aria-pressed={photoId !== null}
+					data-testid="draw-photo-open"
+					onclick={openPhotos}>Photo</button
 				>
 				<button
 					type="button"

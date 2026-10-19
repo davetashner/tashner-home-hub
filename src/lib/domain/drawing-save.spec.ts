@@ -10,6 +10,7 @@ import {
 	loadDrawing,
 	savedBackground,
 	savedPage,
+	savedPhoto,
 	savedSize,
 	serializeDrawing
 } from './drawing-save.js';
@@ -180,5 +181,24 @@ describe('background color', () => {
 		expect(isSavedDrawing(bad)).toBe(false);
 		expect(isBackground(grid)).toBe(true);
 		expect(isBackground(42)).toBe(false);
+	});
+});
+
+describe('photo layer', () => {
+	it('round-trips a photo id and writes nothing without one', () => {
+		const json = serializeDrawing([stroke], size, 1, null, null, 'abc-123');
+		expect(savedPhoto(json)).toBe('abc-123');
+		expect(savedPhoto(serializeDrawing([stroke], size))).toBeNull();
+		expect(savedPhoto('nope')).toBeNull();
+	});
+	it('drops a bad id and a photo on a coloring page when saving', () => {
+		expect(serializeDrawing([stroke], size, 1, null, null, 'a/b')).not.toContain('photo');
+		expect(serializeDrawing([stroke], size, 1, 'house', null, 'abc')).not.toContain('photo');
+	});
+	it('rejects a bad id, or a photo together with a page, when loading', () => {
+		expect(isSavedDrawing(JSON.stringify({ v: 1, size, photo: '../x', items: [] }))).toBe(false);
+		expect(
+			isSavedDrawing(JSON.stringify({ v: 1, size, photo: 'a', page: 'house', items: [] }))
+		).toBe(false);
 	});
 });
