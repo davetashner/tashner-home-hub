@@ -804,6 +804,12 @@
 					"text": "Pick a photo from the family photo library and draw on it; the photo cannot be erased and is saved with the drawing.",
 					"status": "built",
 					"beads": ["hub-cn7.9.2"]
+				},
+				{
+					"id": "J18.12",
+					"text": "Open Layers to hide or show the drawing and the picture (photo or coloring page); posting leaves out a hidden layer.",
+					"status": "built",
+					"beads": ["hub-cn7.9.3"]
 				}
 			]
 		},

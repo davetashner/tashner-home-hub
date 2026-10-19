@@ -851,3 +851,76 @@ test('draw on a photo from the library: it stays when erased, and saves with the
 		rmSync(root, { recursive: true, force: true });
 	}
 });
+
+const opacityOf = (page: Page, testId: string) =>
+	page.getByTestId(testId).evaluate((c) => getComputedStyle(c).opacity);
+
+test('layers: hide the drawing or the picture, drawing again brings it back @J18.12', async ({
+	page
+}, info) => {
+	const kidId = `e2e-draw-kid12-${info.workerIndex}${info.repeatEachIndex}`;
+	const name = `Kid Layerer ${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, name);
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		const canvas = page.getByTestId('draw-canvas');
+		await expectTappable(page.getByTestId('draw-layers-open'), 96);
+
+		// A plain board has one layer to switch: the drawing.
+		await page.getByTestId('draw-layers-open').click();
+		await expect(page.getByTestId('draw-layer')).toHaveCount(1);
+		await expectTappable(page.getByTestId('draw-layer'), 96);
+		await page.getByTestId('draw-layers-close').click();
+
+		// A colored background and a stroke; hide the drawing and post: the stroke is not in the image.
+		await page.getByTestId('draw-bg-open').click();
+		await page.getByTestId('draw-bg-color').nth(5).click();
+		await pointerStroke(page, 'pen', 0.9, [0.1, 0.5], [0.9, 0.5], 1);
+		expect(await inkPixels(page)).toBeGreaterThan(0);
+		await page.getByTestId('draw-layers-open').click();
+		await page.getByTestId('draw-layer').click();
+		await expect(canvas).toHaveAttribute('data-layer-drawing', 'false');
+		expect(await opacityOf(page, 'draw-canvas')).toBe('0');
+		await page.getByTestId('draw-layers-close').click();
+		await page.getByTestId('draw-post').click();
+		await page.getByTestId('draw-author').filter({ hasText: name }).click();
+		await expect(page.getByTestId('draw-sheet')).toHaveCount(0);
+		const notes = (await (await page.request.get('/api/notes')).json()) as {
+			authorId: string;
+			imageUrl: string | null;
+		}[];
+		const png = await page.request.get(notes.find((n) => n.authorId === kidId)!.imageUrl!);
+		const dataUrl = `data:image/png;base64,${(await png.body()).toString('base64')}`;
+		const [r, g, b] = await thumbPixel(page, dataUrl, 0.5, 0.5);
+		// Background (a chosen grid color) at the stroke's spot, not near-black ink.
+		expect(Math.max(r, g, b)).toBeGreaterThan(120);
+		await page.getByTestId('note').filter({ hasText: name }).getByTestId('note-dismiss').click();
+
+		// Drawing on a hidden layer shows it again first.
+		await page.getByTestId('note-draw').click();
+		await page.getByTestId('draw-layers-open').click();
+		await page.getByTestId('draw-layer').click();
+		await page.getByTestId('draw-layers-close').click();
+		await pointerStroke(page, 'pen', 0.9, [0.1, 0.5], [0.9, 0.5], 2);
+		await expect(canvas).toHaveAttribute('data-layer-drawing', 'true');
+		expect(await opacityOf(page, 'draw-canvas')).toBe('1');
+
+		// With a coloring page there is a second layer: the picture.
+		await page.getByTestId('draw-pages-open').click();
+		await page.getByTestId('draw-page').and(page.locator('[data-page="fish"]')).click();
+		await expect(canvas).toHaveAttribute('data-page', 'fish');
+		expect(await lineInk(page)).toBeGreaterThan(2000);
+		await page.getByTestId('draw-layers-open').click();
+		await expect(page.getByTestId('draw-layer')).toHaveCount(2);
+		await page.getByTestId('draw-layer').and(page.locator('[data-layer="picture"]')).click();
+		await expect(canvas).toHaveAttribute('data-layer-picture', 'false');
+		expect(await opacityOf(page, 'draw-lines')).toBe('0');
+		await page.getByTestId('draw-layer').and(page.locator('[data-layer="picture"]')).click();
+		expect(await opacityOf(page, 'draw-lines')).toBe('1');
+		await page.getByTestId('draw-layers-close').click();
+		await page.getByTestId('draw-close').click();
+	} finally {
+		wipe(kidId);
+	}
+});
