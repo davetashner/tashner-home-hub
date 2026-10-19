@@ -62,6 +62,12 @@
 
 	// Only the newest refresh may apply: a slow older one landing late would wipe the newer state.
 	let loadSeq = 0;
+	// Non-reactive. Once the adult edits the info card, a load (first, or after start/extend/end)
+	// must not overwrite those edits; the sessions and log still refresh. Cleared on a good save.
+	let cardDirty = false;
+	function touchCard() {
+		cardDirty = true;
+	}
 	async function load() {
 		const seq = ++loadSeq;
 		const [c, s, l] = await Promise.all([
@@ -75,9 +81,10 @@
 			l.ok ? l.json() : null
 		]);
 		if (seq !== loadSeq) return;
-		if (cj) card = withKidRows(cj);
 		if (sj) sessions = sj;
 		if (lj) log = lj;
+		if (cardDirty) return;
+		if (cj) card = withKidRows(cj);
 		rulesText = card.rules.join('\n');
 		petRows = card.pets.map((pet) => ({ pet, times: pet.feedTimes.join(', ') }));
 	}
@@ -98,6 +105,7 @@
 		message = res.ok ? '' : await errorMessage(res);
 		saved = res.ok;
 		if (res.ok) {
+			cardDirty = false;
 			card = withKidRows(await res.json());
 			petRows = card.pets.map((pet) => ({ pet, times: pet.feedTimes.join(', ') }));
 		}
@@ -281,7 +289,12 @@
 	</Card>
 
 	<Card elevation="float">
-		<form class="flex flex-col gap-6" onsubmit={saveCard} data-testid="sitter-card">
+		<form
+			class="flex flex-col gap-6"
+			onsubmit={saveCard}
+			oninput={touchCard}
+			data-testid="sitter-card"
+		>
 			<h2 class="text-title font-bold">Info card</h2>
 			<p class="text-body text-ink-muted">
 				Phones, address, medical notes and the Wi-Fi password are stored encrypted.
@@ -313,7 +326,10 @@
 						<Button
 							variant="ghost"
 							aria-label="Remove contact"
-							onclick={() => card.contacts.splice(i, 1)}
+							onclick={() => {
+								cardDirty = true;
+								card.contacts.splice(i, 1);
+							}}
 						>
 							Remove
 						</Button>
@@ -323,7 +339,10 @@
 					<Button
 						variant="secondary"
 						data-testid="sitter-add-contact"
-						onclick={() => card.contacts.push({ name: '', relation: '', phone: '' })}
+						onclick={() => {
+							cardDirty = true;
+							card.contacts.push({ name: '', relation: '', phone: '' });
+						}}
 					>
 						Add contact
 					</Button>
@@ -397,7 +416,14 @@
 								aria-label="Feeding times for pet"
 								bind:value={row.times}
 							/>
-							<Button variant="ghost" aria-label="Remove pet" onclick={() => petRows.splice(i, 1)}>
+							<Button
+								variant="ghost"
+								aria-label="Remove pet"
+								onclick={() => {
+									cardDirty = true;
+									petRows.splice(i, 1);
+								}}
+							>
 								Remove
 							</Button>
 						</div>
@@ -413,8 +439,10 @@
 					<Button
 						variant="secondary"
 						data-testid="sitter-add-pet"
-						onclick={() =>
-							petRows.push({ pet: { name: '', kind: '', notes: '', feedTimes: [] }, times: '' })}
+						onclick={() => {
+							cardDirty = true;
+							petRows.push({ pet: { name: '', kind: '', notes: '', feedTimes: [] }, times: '' });
+						}}
 					>
 						Add pet
 					</Button>
