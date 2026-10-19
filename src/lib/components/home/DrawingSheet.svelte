@@ -2,7 +2,16 @@
 	import { onMount } from 'svelte';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
-	import { loadDrawing, serializeDrawing } from '#lib/domain/drawing-save.js';
+	import {
+		PAGE_IDS,
+		PAGE_LABELS,
+		pageDrawing,
+		pageFit,
+		pageLineWidth,
+		pagePaths,
+		type PageId
+	} from '#lib/domain/drawing-pages.js';
+	import { loadDrawing, savedPage, serializeDrawing } from '#lib/domain/drawing-save.js';
 	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
 		ALL_SHAPES,
@@ -76,6 +85,9 @@
 	const memberColor = (c: string): MemberColor => (isMemberColor(c) ? c : 'member-1');
 
 	let canvas: HTMLCanvasElement;
+	let linesCanvas: HTMLCanvasElement;
+	let linesCtx: CanvasRenderingContext2D;
+	let scratch: HTMLCanvasElement | undefined;
 	let holder: HTMLDivElement;
 	let ctx: CanvasRenderingContext2D;
 	let tool = $state<DrawTool>('pen');
@@ -107,6 +119,30 @@
 	}
 	let mine = $state<SavedRow[] | null>(null);
 	let browsing = $state(false);
+	/** The coloring page under the ink, or null for a blank board. */
+	let page = $state<PageId | null>(null);
+	let pagePicking = $state(false);
+	function pickPage(id: PageId | null) {
+		pagePicking = false;
+		if (id === page) return;
+		page = id;
+		strokes = [];
+		count = 0;
+		blank = true;
+		saved = null;
+		drawLines();
+		redraw();
+	}
+	/** Small SVG path for a page button. */
+	const pagePreview = (id: PageId): string =>
+		pageDrawing(id)
+			.flat()
+			.map((c) =>
+				c[0] === 'E'
+					? `M${c[1] - c[3]} ${c[2]}a${c[3]} ${c[4]} 0 1 0 ${2 * c[3]} 0a${c[3]} ${c[4]} 0 1 0 ${-2 * c[3]} 0`
+					: c.join(' ')
+			)
+			.join(' ');
 	let dpr = 1;
 	let strokes: DrawItem[] = [];
 	let current: Stroke | null = null;
@@ -157,16 +193,46 @@
 		ctx.globalAlpha = 1;
 	}
 
-	function tracePath(cmds: PathCmd[]) {
+	function tracePath(cmds: PathCmd[], c2: CanvasRenderingContext2D = ctx) {
 		for (const c of cmds) {
-			if (c[0] === 'M') ctx.moveTo(c[1], c[2]);
-			else if (c[0] === 'L') ctx.lineTo(c[1], c[2]);
-			else if (c[0] === 'C') ctx.bezierCurveTo(c[1], c[2], c[3], c[4], c[5], c[6]);
+			if (c[0] === 'M') c2.moveTo(c[1], c[2]);
+			else if (c[0] === 'L') c2.lineTo(c[1], c[2]);
+			else if (c[0] === 'C') c2.bezierCurveTo(c[1], c[2], c[3], c[4], c[5], c[6]);
 			else if (c[0] === 'E') {
-				ctx.moveTo(c[1] + c[3], c[2]);
-				ctx.ellipse(c[1], c[2], Math.max(0, c[3]), Math.max(0, c[4]), 0, 0, Math.PI * 2);
-			} else ctx.closePath();
+				c2.moveTo(c[1] + c[3], c[2]);
+				c2.ellipse(c[1], c[2], Math.max(0, c[3]), Math.max(0, c[4]), 0, 0, Math.PI * 2);
+			} else c2.closePath();
 		}
+	}
+
+	/** The coloring page's lines, on their own layer above the ink so nothing can erase them. */
+	function drawLines() {
+		linesCtx.setTransform(1, 0, 0, 1, 0, 0);
+		linesCtx.clearRect(0, 0, linesCanvas.width, linesCanvas.height);
+		if (!page) return;
+		const cssSize = { w: canvas.width / dpr, h: canvas.height / dpr };
+		linesCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		linesCtx.strokeStyle = token('draw-black');
+		linesCtx.lineCap = linesCtx.lineJoin = 'round';
+		linesCtx.lineWidth = pageLineWidth(pageFit(cssSize).s);
+		for (const path of pagePaths(page, cssSize)) {
+			linesCtx.beginPath();
+			tracePath(path, linesCtx);
+			linesCtx.stroke();
+		}
+	}
+
+	/** The pixels as the kid sees them: ink with the page's lines on top. Fill treats lines as walls. */
+	function sampleBoard(): Uint8ClampedArray {
+		const w = canvas.width;
+		const h = canvas.height;
+		scratch ??= document.createElement('canvas');
+		scratch.width = w;
+		scratch.height = h;
+		const c = scratch.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
+		c.drawImage(canvas, 0, 0);
+		if (page) c.drawImage(linesCanvas, 0, 0);
+		return c.getImageData(0, 0, w, h).data;
 	}
 
 	function paintShape(s: Shape) {
@@ -202,7 +268,7 @@
 		let spans = f.spans;
 		if (f.w !== canvas.width || f.h !== canvas.height) {
 			const again = makeFill(
-				ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+				sampleBoard(),
 				canvas.width,
 				canvas.height,
 				(f.x * canvas.width) / f.w,
@@ -244,8 +310,9 @@
 		const w = Math.max(1, Math.round(holder.clientWidth * dpr));
 		const h = Math.max(1, Math.round(holder.clientHeight * dpr));
 		if (canvas.width === w && canvas.height === h) return;
-		canvas.width = w;
-		canvas.height = h;
+		canvas.width = linesCanvas.width = w;
+		canvas.height = linesCanvas.height = h;
+		drawLines();
 		redraw();
 	}
 
@@ -275,7 +342,7 @@
 			activeId = -1;
 			redraw();
 			const item = makeFill(
-				ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+				sampleBoard(),
 				canvas.width,
 				canvas.height,
 				(e.clientX - rect.left) * dpr,
@@ -375,6 +442,7 @@
 			o.fillStyle = token('draw-paper');
 			o.fillRect(0, 0, width, height);
 			o.drawImage(canvas, 0, 0, width, height);
+			o.drawImage(linesCanvas, 0, 0, width, height);
 			url = out.toDataURL('image/png');
 			if (dataUrlBytes(url) <= NOTE_IMAGE_MAX_BYTES) break;
 			({ width, height } = fitWithin(width, height, Math.max(width, height) * 0.75));
@@ -397,6 +465,7 @@
 		o.fillStyle = token('draw-paper');
 		o.fillRect(0, 0, width, height);
 		o.drawImage(canvas, 0, 0, width, height);
+		o.drawImage(linesCanvas, 0, 0, width, height);
 		return out.toDataURL('image/png');
 	}
 
@@ -411,7 +480,12 @@
 				body: JSON.stringify({
 					memberId,
 					id: saved && saved.memberId === memberId ? saved.id : undefined,
-					data: serializeDrawing(strokes, { w: canvas.width / dpr, h: canvas.height / dpr }, dpr),
+					data: serializeDrawing(
+						strokes,
+						{ w: canvas.width / dpr, h: canvas.height / dpr },
+						dpr,
+						page
+					),
 					thumb: thumbnail()
 				})
 			});
@@ -445,10 +519,11 @@
 	async function reopen(row: SavedRow) {
 		try {
 			const res = await fetch(`/api/drawings/${row.id}`);
-			const items = res.ok
-				? loadDrawing((await res.json()).data, { w: canvas.width / dpr, h: canvas.height / dpr })
-				: null;
+			const data: unknown = res.ok ? (await res.json()).data : null;
+			const items = loadDrawing(data, { w: canvas.width / dpr, h: canvas.height / dpr });
 			if (!items) throw new Error('bad drawing');
+			page = savedPage(data);
+			drawLines();
 			strokes = items;
 			count = items.length;
 			blank = isBlank(items);
@@ -477,6 +552,7 @@
 
 	onMount(() => {
 		ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+		linesCtx = linesCanvas.getContext('2d') as CanvasRenderingContext2D;
 		fit();
 		const ro = new ResizeObserver(fit);
 		ro.observe(holder);
@@ -505,6 +581,7 @@
 			aria-label="Drawing canvas"
 			data-testid="draw-canvas"
 			data-blank={blank}
+			data-page={page ?? ''}
 			data-strokes={count}
 			onpointerdown={down}
 			onpointermove={move}
@@ -512,6 +589,12 @@
 			onpointercancel={up}
 			onpointerenter={(e) => guard.see(e.pointerType)}
 			oncontextmenu={(e) => e.preventDefault()}
+		></canvas>
+		<canvas
+			bind:this={linesCanvas}
+			class="pointer-events-none absolute inset-0 size-full"
+			aria-hidden="true"
+			data-testid="draw-lines"
 		></canvas>
 	</div>
 
@@ -534,6 +617,43 @@
 				{/each}
 			</div>
 			<Button variant="ghost" onclick={() => (choosing = false)} data-testid="draw-back"
+				>Back</Button
+			>
+		{:else if pagePicking}
+			<p class="w-full text-body font-extrabold">Coloring pages</p>
+			<div class="flex flex-wrap gap-3" role="group" aria-label="Pages" data-testid="draw-pages">
+				{#each PAGE_IDS as id (id)}
+					<button
+						type="button"
+						class="{btn} flex-col gap-1 {page === id
+							? 'border-accent bg-accent-soft'
+							: 'border-line bg-surface'}"
+						aria-label={PAGE_LABELS[id]}
+						aria-pressed={page === id}
+						data-testid="draw-page"
+						data-page={id}
+						onclick={() => pickPage(id)}
+					>
+						<svg viewBox="0 0 1000 700" class="h-tap-kid w-32" aria-hidden="true">
+							<path
+								d={pagePreview(id)}
+								fill="none"
+								stroke="currentColor"
+								stroke-width="22"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							/>
+						</svg>
+					</button>
+				{/each}
+			</div>
+			<button
+				type="button"
+				class="{btn} border-line bg-surface"
+				data-testid="draw-page-none"
+				onclick={() => pickPage(null)}>Blank page</button
+			>
+			<Button variant="ghost" onclick={() => (pagePicking = false)} data-testid="draw-pages-close"
 				>Back</Button
 			>
 		{:else if browsing}
@@ -772,6 +892,13 @@
 					disabled={count === 0}
 					data-testid="draw-clear"
 					onclick={clear}>Clear</button
+				>
+				<button
+					type="button"
+					class="{btn} {page ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+					aria-pressed={page !== null}
+					data-testid="draw-pages-open"
+					onclick={() => (pagePicking = true)}>{page ? PAGE_LABELS[page] : 'Coloring pages'}</button
 				>
 				<button
 					type="button"

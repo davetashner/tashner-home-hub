@@ -7,6 +7,7 @@ import {
 	SAVED_MAX_POINTS,
 	isSavedDrawing,
 	loadDrawing,
+	savedPage,
 	savedSize,
 	serializeDrawing
 } from './drawing-save.js';
@@ -66,6 +67,35 @@ describe('saved drawing round trip', () => {
 	});
 	it('loads an empty drawing', () => {
 		expect(loadDrawing(serializeDrawing([], size), size)).toEqual([]);
+	});
+});
+
+describe('coloring pages', () => {
+	it('stores items in page space and refits them to any canvas', () => {
+		// On a 2000x1400 canvas the page scale is 2: a point at (400, 300) is (200, 150) on the page.
+		const json = serializeDrawing(
+			[{ ...stroke, points: [{ x: 400, y: 300, w: 10 }] }],
+			{ w: 2000, h: 1400 },
+			1,
+			'fish'
+		);
+		expect(savedPage(json)).toBe('fish');
+		expect(savedSize(json)).toEqual({ w: 1000, h: 700 });
+		const [a] = loadDrawing(json, { w: 500, h: 700 }) as [Stroke];
+		// Same spot on the page, now at scale 0.5 with the page centred vertically (offset 175).
+		expect(a.points[0]).toEqual({ x: 100, y: 250, w: 2.5 });
+	});
+	it('a plain drawing has no page; a bad page is refused', () => {
+		expect(savedPage(serializeDrawing([], size))).toBeNull();
+		expect(isSavedDrawing(JSON.stringify({ v: 1, size, items: [], page: 'mickey' }))).toBe(false);
+		expect(savedPage('nope')).toBeNull();
+	});
+	it('page drawings round trip shapes and fills', () => {
+		const json = serializeDrawing([shape, fill], size, 2, 'house');
+		const [b, c] = loadDrawing(json, size) as [Shape, DrawItem];
+		expect(b.x0).toBeCloseTo(10, 0);
+		expect(b.width).toBeCloseTo(7, 0);
+		expect(isFill(c) && c.x).toBeCloseTo((1 / 400) * FILL_REF, -1);
 	});
 });
 
