@@ -202,7 +202,7 @@ export const MAX_PETS = 10;
 export const MAX_FEED_TIMES = 6;
 export const MAX_CONTACTS = 10;
 export const MAX_RULES = 15;
-export const MAX_KIDS = 12;
+export const MAX_KIDS = 100;
 
 export const emptyClinic = (): Clinic => ({ name: '', phone: '', hours: '', address: '' });
 
