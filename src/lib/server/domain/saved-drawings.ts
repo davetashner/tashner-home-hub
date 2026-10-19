@@ -96,8 +96,7 @@ export function saveDrawing(db: Db, input: SaveInput, now = Date.now()): SavedDr
 			.values({ id, memberId: input.memberId, data, thumb, createdAt: now, updatedAt: now })
 			.run();
 	}
-	const { data: _data, ...summary } = getSavedDrawing(db, id);
-	return summary;
+	return listSavedDrawings(db).find((d) => d.id === id) as SavedDrawingSummary;
 }
 
 export function deleteSavedDrawing(db: Db, id: string): { ok: true } {

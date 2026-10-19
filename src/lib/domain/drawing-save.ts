@@ -66,7 +66,7 @@ export function serializeDrawing(items: readonly DrawItem[], size: Size, dpr = 1
 }
 
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-const color = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 64;
+const isInk = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 64;
 const TOOLS: readonly string[] = ['pen', 'highlighter', 'eraser'];
 
 /** The wire form, or null when the text is not a well-formed drawing within the size limits. */
@@ -92,7 +92,7 @@ function parseWire(json: unknown): Wire | null {
 	if (!Array.isArray(w.items) || w.items.length > SAVED_MAX_ITEMS) return null;
 	let points = 0;
 	for (const it of w.items as Record<string, unknown>[]) {
-		if (!it || typeof it !== 'object' || !color(it.c)) return null;
+		if (!it || typeof it !== 'object' || !isInk(it.c)) return null;
 		if ('k' in it) {
 			if (it.k !== 1 || !num(it.x) || !num(it.y) || !num(it.o)) return null;
 		} else if ('s' in it) {
