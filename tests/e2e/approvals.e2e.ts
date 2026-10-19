@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
+import { trackMember } from './cleanup';
 
 // Page routes must see every request: a service worker that activates mid-test answers the
 // stubbed approve from the real server, so the failure (and its toast) never happens.
@@ -23,6 +24,7 @@ async function seed(page: Page, label: string, suffix = ''): Promise<Seed> {
 			data: { name, role: 'child', color: 'member-3', avatar: '🐸' }
 		})
 	).json();
+	trackMember(member.id);
 	for (const [title, icon, stars] of [
 		['Water plants', '🪴', 2],
 		['Set table', '🍽️', 1],

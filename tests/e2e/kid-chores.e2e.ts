@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
 import { gotoHydrated, reloadHydrated } from './hydrated';
+import { trackMember } from './cleanup';
 
 interface Seed {
 	name: string;
@@ -21,6 +22,7 @@ async function seed(page: Page, label: string): Promise<Seed> {
 			data: { name, role: 'child', color: 'member-4', avatar: '🦊' }
 		})
 	).json();
+	trackMember(member.id);
 	const chores: Record<string, string> = {};
 	const defs = [
 		{ title: 'Make bed', icon: '🛏️', stars: 2, timeOfDay: 'morning' },
@@ -124,6 +126,7 @@ test('a chore without approval can be undone in its 10 seconds, taking the gold 
 			data: { name: `Nori ${Date.now() % 1e9}`, role: 'child', color: 'member-2', avatar: '🐢' }
 		})
 	).json();
+	trackMember(member.id);
 	await page.request.post('/api/chores', {
 		data: {
 			title: 'Water cress',
@@ -160,6 +163,7 @@ test('an any-day job shows under This week until done, then stays done today @J1
 			data: { name: `Pip ${Date.now() % 1e9}`, role: 'child', color: 'member-3', avatar: '🦉' }
 		})
 	).json();
+	trackMember(member.id);
 	await page.request.post('/api/chores', {
 		data: {
 			title: 'Tidy my room',
@@ -193,6 +197,7 @@ test('a new to-do is self-serve by default: gold at once, star flies, nothing wa
 			data: { name: `Sunny ${Date.now() % 1e9}`, role: 'child', color: 'member-3', avatar: '🦉' }
 		})
 	).json();
+	trackMember(member.id);
 	const chore = await (
 		await page.request.post('/api/chores', {
 			data: { title: 'Tidy shelf', icon: '📚', stars: 2, memberIds: [member.id] }
@@ -222,6 +227,7 @@ test('six Star Jobs and six habits fit the wall without page scrolling (hub-3yg)
 			data: { name: `Fern ${Date.now() % 1e9}`, role: 'child', color: 'member-5', avatar: '🦋' }
 		})
 	).json();
+	trackMember(member.id);
 	// Spread over the three time columns, two Star Jobs and two habits in each.
 	const times = ['morning', 'afternoon', 'evening'];
 	for (let i = 0; i < 6; i++) {

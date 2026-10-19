@@ -5,6 +5,7 @@ import path from 'node:path';
 import { signInAsAdult } from './adult';
 import { gotoHydrated } from './hydrated';
 import { DB_PATH } from './data-dir';
+import { trackMember } from './cleanup';
 
 // ADM-1: every admin page must be usable from a phone (390x844). Pages are discovered from the
 // settings subtree so new ones are covered automatically.
@@ -238,6 +239,7 @@ test.describe('phone flows', () => {
 				data: { name: `Pip ${stamp}`, role: 'child', color: 'member-3', avatar: '🐸' }
 			})
 		).json();
+		trackMember(member.id);
 		const chore = await (
 			await request.post('/api/chores', {
 				data: {

@@ -3,6 +3,7 @@ import { ensureHousehold, signInAsAdult } from './adult';
 import { choreCard, type KidSeed, seedKid, stubAudio } from './kid';
 import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
 import { gotoHydrated } from './hydrated';
+import { trackMember } from './cleanup';
 
 /**
  * ADR 0002, Tier 2: tap latency and animation smoothness at 4x CPU throttle (a rough Pi 5).
@@ -315,6 +316,7 @@ test(
 				data: { name, role: 'child', color: 'member-3', avatar: '🐸' }
 			})
 		).json();
+		trackMember(member.id);
 		const titles = Array.from({ length: TAPS }, (_, i) => `Chore ${i + 1}`);
 		for (const title of titles) {
 			const chore = await (

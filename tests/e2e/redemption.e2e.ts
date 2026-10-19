@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAsAdult } from './adult';
 import { expectTappable } from './tap';
 import { gotoHydrated } from './hydrated';
+import { trackMember } from './cleanup';
 
 interface Seed {
 	memberId: string;
@@ -21,6 +22,7 @@ async function seed(page: Page, label: string): Promise<Seed> {
 			data: { name, role: 'child', color: 'member-2', avatar: '🦊' }
 		})
 	).json();
+	trackMember(member.id);
 	const r = await (
 		await request.post('/api/rewards', { data: { title: reward, cost: 5, image: '🪁' } })
 	).json();
