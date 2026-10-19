@@ -26,10 +26,16 @@
 	// Each change stamps a number, so a stale load or a late failure can't undo a newer change.
 	let edits = 0;
 
+	// The same stamp for the night-clock toggle, which saves independently of the schedule.
+	let clockEdits = 0;
+
 	onMount(() => {
+		const clockAt = clockEdits;
 		void fetch('/api/settings/night-clock')
 			.then(async (res) => {
-				if (res.ok) nightClock = (await res.json()).enabled === true;
+				if (!res.ok) return;
+				const enabled = (await res.json()).enabled === true;
+				if (clockAt === clockEdits) nightClock = enabled;
 			})
 			.catch(() => {});
 		const at = edits;
@@ -79,11 +85,12 @@
 	function setNightClock(enabled: boolean) {
 		// Optimistic, like every other setting here.
 		const before = nightClock;
+		const at = ++clockEdits;
 		nightClock = enabled;
 		message = '';
 		const fail = () => {
 			message = 'Could not save. Try again.';
-			nightClock = before;
+			if (at === clockEdits) nightClock = before;
 		};
 		void fetch('/api/settings/night-clock', {
 			method: 'PUT',
