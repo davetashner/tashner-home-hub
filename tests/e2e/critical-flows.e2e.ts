@@ -44,14 +44,23 @@ const card = (page: Page, s: KidSeed) =>
 	page.locator(`[data-testid="child-card"][data-member="${s.memberId}"]`);
 
 /**
- * The wall refreshes on a 60 s poll (and when the tab becomes visible again); there is no push
- * channel. The chores page skips a poll while a tap's POST is still in flight (`busy()`), and the
- * fake clock fires the interval only once per fast-forward, so a single fast-forward can be lost.
- * Fast-forward again until `settled` holds: a poll is idempotent.
+ * The wall refreshes on a 60 s poll and whenever the tab becomes visible again; there is no push
+ * channel. Ask for a refresh the way a returning tab does (a `visibilitychange`) and wait for the
+ * stars the refresh reads, instead of fast-forwarding the fake clock by a minute: that jump also
+ * fires every other timer at once, steps the animation frames of the whole minute, and trips the
+ * 8 s send timeout of a tap whose POST is still in flight (the aborted tap is re-queued, and the
+ * wall skips reading stars while a write is queued, so it stays stale). The chores page skips a
+ * refresh while a tap's POST is in flight (`busy()`), so a refresh can be lost: ask again until
+ * `settled` holds, a refresh is idempotent.
  */
 async function wallRefresh(wall: Page, settled: () => Promise<void>) {
 	await expect(async () => {
-		await wall.clock.fastForward(MIN);
+		const answered = wall.waitForResponse((res) => /\/api\/members\/[^/]+\/stars/.test(res.url()), {
+			timeout: 5000
+		});
+		answered.catch(() => {}); // a skipped refresh sends no request: the await below then times out and toPass asks again
+		await wall.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+		await answered;
 		await settled();
 	}).toPass();
 }
