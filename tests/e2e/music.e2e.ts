@@ -88,6 +88,7 @@ test('Settings > Music curates playlists and saves limits @J10.4', async ({ page
 		'aria-pressed',
 		'true'
 	);
-	expect(saved.at(-1)).toEqual({ device: `Phone ${run}` });
+	// Saves go out in tap order, so the device save follows the timer one.
+	await expect.poll(() => saved.at(-1)).toEqual({ device: `Phone ${run}` });
 	await expect(page.getByTestId('cap-value')).toHaveText('70%');
 });

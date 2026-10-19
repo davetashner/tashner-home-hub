@@ -68,20 +68,41 @@
 		}
 	});
 
-	/** Optimistic: show the change, then save; the server's repaired copy wins. */
-	async function save(patch: Partial<Config>) {
+	/** Saves go out one at a time, so the server applies them in tap order. */
+	let queue: Promise<unknown> = Promise.resolve();
+	let inFlight = 0;
+
+	/** Optimistic: show the change, then save; the server's repaired copy wins once the last save lands. */
+	function save(patch: Partial<Config>) {
 		if (!config) return;
 		const before = config;
 		config = { ...config, ...patch };
 		saveError = '';
+		inFlight++;
+		const run = queue.then(() => sendNow(patch, before));
+		queue = run.catch(() => undefined);
+		return run;
+	}
+
+	async function sendNow(patch: Partial<Config>, before: Config) {
 		const res = await safeFetch('/api/music/settings', {
 			method: 'PUT',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify(patch)
 		});
-		if (res.ok) config = await res.json();
-		else {
-			config = before;
+		inFlight--;
+		if (res.ok) {
+			// An older reply must not undo a newer tap that is still on its way.
+			const next: Config = await res.json();
+			if (inFlight === 0) config = next;
+		} else {
+			// Undo only this tap's fields; other taps keep their optimistic values.
+			if (config) {
+				const undo: Partial<Config> = {};
+				for (const k of Object.keys(patch) as (keyof Config)[])
+					Object.assign(undo, { [k]: before[k] });
+				config = { ...config, ...undo };
+			}
 			saveError = res.status < 500 ? 'Could not save that. Try again.' : await errorMessage(res);
 		}
 	}
