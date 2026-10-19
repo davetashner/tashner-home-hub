@@ -262,7 +262,7 @@
 				},
 				{
 					"id": "J5.6",
-					"text": "Connect a calendar link or Google and see its health.",
+					"text": "Connect a calendar link (including a published Outlook link) or Google and see its health.",
 					"status": "built",
 					"devices": ["wall", "iphone"]
 				},

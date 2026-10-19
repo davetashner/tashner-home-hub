@@ -67,7 +67,7 @@ Priority key used below: **P0** = must have for v1, **P1** = should have, **P2**
 | CAL-9 | P1 | Create, edit, and delete events from the touchscreen and phone, written back to the chosen Google or iCloud calendar. |
 | CAL-10 | P1 | Tap an event to see details (time, location, notes, attendees). |
 | CAL-11 | P1 | Highlight "now" with a current-time line in day/week views. |
-| CAL-12 | P2 | Microsoft Outlook / Office 365 calendar support. |
+| CAL-12 | P2 | Outlook is supported only as a published calendar link (Subscription link): no sign-in, no write-back (user decision 2026-10-19). |
 | CAL-13 | P2 | Show the next upcoming event on the photo-frame screen and the night clock. |
 
 ### 3.3 Photo Frame
@@ -236,7 +236,7 @@ Rejected: all-in-one Pi (too much photo processing and sync work on the Pi, back
 | **MVP (v0.1)** | Kiosk setup on the Pi, family profiles, Google + iCloud + ICS calendars (read-only), Today/Week/Month views, photo frame from a local folder (Apple Photos via the Mac Studio helper after the migration), parent approval for chores, one child profile, chores with gold stars + celebrations + undo, one reward goal with redemption, scheduled sleep + Sleep-now button + touch to wake, admin web UI with PIN. |
 | **v0.2** | Event create/edit, streaks, bonus stars, routines, weather, countdowns, night clock. |
 | **v0.3** | Lists, meal planning, reward shop, remote access over VPN, data export, notifications. |
-| **Later** | Motion-sensor wake, Home Assistant integration, Outlook, badges, allowance ledger, themes. |
+| **Later** | Motion-sensor wake, Home Assistant integration, badges, allowance ledger, themes. |
 
 ## 9. Acceptance Criteria (MVP)
 1. With the network unplugged, the display still shows today's events and photos, and chores can still be completed. When the network returns, completions sync.
