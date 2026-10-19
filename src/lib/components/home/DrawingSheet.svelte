@@ -296,9 +296,12 @@
 	const guard = createPalmGuard();
 	const css: Record<string, string> = {};
 
+	/** The board's default backdrop: a theme token, not an ink swatch. */
+	const PAPER = 'draw-paper';
+
 	/** Token color as the browser resolves it (canvas cannot use Tailwind classes). */
 	function token(name: string): string {
-		if (!isInkToken(name)) return name; // a computed oklch color from the grid
+		if (!isInkToken(name) && name !== PAPER) return name; // a computed oklch color from the grid
 		css[name] ??= getComputedStyle(document.documentElement)
 			.getPropertyValue(`--color-${name}`)
 			.trim();
@@ -686,7 +689,7 @@
 			out.width = width;
 			out.height = height;
 			const o = out.getContext('2d') as CanvasRenderingContext2D;
-			o.fillStyle = token(bg ?? 'draw-paper');
+			o.fillStyle = token(bg ?? PAPER);
 			o.fillRect(0, 0, width, height);
 			if (photoId && layers.picture) o.drawImage(photoCanvas, 0, 0, width, height);
 			if (layers.drawing) o.drawImage(canvas, 0, 0, width, height);
@@ -710,7 +713,7 @@
 		out.width = width;
 		out.height = height;
 		const o = out.getContext('2d') as CanvasRenderingContext2D;
-		o.fillStyle = token(bg ?? 'draw-paper');
+		o.fillStyle = token(bg ?? PAPER);
 		o.fillRect(0, 0, width, height);
 		if (photoId) o.drawImage(photoCanvas, 0, 0, width, height);
 		o.drawImage(canvas, 0, 0, width, height);
