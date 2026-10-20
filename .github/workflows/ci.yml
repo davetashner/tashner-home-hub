@@ -83,6 +83,8 @@ jobs:
         run: pnpm audit --audit-level high
       - name: Licenses
         run: node scripts/ci/licenses.mjs
+      - name: Journey trace (every @J tag is registered, docs/journeys.md is current)
+        run: node scripts/journeys/trace.mjs
       - name: Build
         run: pnpm build
       - name: Bundle budget (budgets.json)
