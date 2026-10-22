@@ -292,7 +292,7 @@ const thanksgiving: Sprite[] = [
 		id: 'goalpost',
 		src: `${THANKSGIVING}/goalpost.webp`,
 		motion: 'rest',
-		size: 26,
+		size: 12,
 		x: { edge: 'right', vmin: 1 },
 		y: { edge: 'bottom', pct: 0 },
 		period: 320,
