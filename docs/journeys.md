@@ -187,7 +187,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J9.3 | Unlock with the PIN; five wrong attempts lock it; Lock ends the session. | built | wall, iphone, ipad | `lock`, `pin-phone`, `pin` |
 | J9.4 | Create, edit and archive chores, habits, routines and rewards. | built | wall | `chores-admin`, `habits-admin`, `rewards`, `routines-admin` |
 | J9.5 | Choose wall or personal device, screen direction, idle timers and the sleep schedule. | built | wall, iphone, ipad | `display-role`, `idle`, `orientation` |
-| J9.6 | Choose appearance, sounds, quiet hours and the wave palette. | built | wall | `appearance`, `sound-settings`, `sound-themes`, `wave-background` |
+| J9.6 | Choose appearance, sounds, quiet hours and the wave palette. | built | wall | `appearance`, `birthdays-settings`, `sound-settings`, `sound-themes`, `wave-background` |
 | J9.7 | Pick the household time zone and weather location. | built | wall | `time-zone`, `weather` |
 | J9.8 | Set up notifications and send a test. | built | wall | `notifications-settings` |
 | J9.9 | Export all data as JSON; a bad import is refused. | built | wall | `data-export` |

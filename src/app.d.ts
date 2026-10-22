@@ -15,6 +15,8 @@ declare global {
 			waveBackground?: string;
 			/** Household coordinates for Auto's sunset palette (hub-gj6.19); null while unset. */
 			waveLocation?: { lat: number; lon: number } | null;
+			/** Birthday month and day (no labels) for the birthday scene (hub-6pv.6.10). */
+			birthdays?: { month: number; day: number }[];
 			displayRole?: 'wall' | 'personal';
 		}
 		interface PageState {

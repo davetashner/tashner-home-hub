@@ -5,6 +5,8 @@ import { householdTimeZone } from '#lib/server/household.js';
 import { readAppearanceData } from '#lib/server/appearance.js';
 import { readWeatherLocation } from '#lib/server/weather.js';
 import { readVacation } from '#lib/server/domain/vacation.js';
+import { readBirthdays } from '#lib/server/birthdays.js';
+import { birthdayDates } from '#lib/domain/birthdays.js';
 import { readWaveBackground } from '#lib/server/wave-background.js';
 import { members } from '#lib/server/db/schema.js';
 import { todoLabel } from '#lib/domain/nav.js';
@@ -45,6 +47,8 @@ export const load: LayoutServerLoad = (event) => ({
 	vacation: readVacation(getDb()),
 	waveBackground: readWaveBackground(),
 	waveLocation: waveLocation(),
+	/** Birthday month and day only (hub-6pv.6.10): the labels never leave settings. */
+	birthdays: birthdayDates(readBirthdays()),
 	appearance: readAppearanceData(),
 	/** Test seam (HUB_E2E_FORCE_DIM, 0.5-1): forces the evening look in automated browsers only. */
 	forceDim: forcedDim(process.env.HUB_E2E_FORCE_DIM)

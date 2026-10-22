@@ -22,6 +22,7 @@
 	import WaveBackground from './WaveBackground.svelte';
 	import { wave } from './wave-state.svelte.js';
 	import { parseWaveChoice } from '#lib/domain/wave-background.js';
+	import { resolveBirthdays } from '#lib/domain/birthdays.js';
 	import { isFunPath, sitterLocks } from '#lib/domain/sitter.js';
 	import SitterEmergency from './SitterEmergency.svelte';
 	import SitterApprovals from './SitterApprovals.svelte';
@@ -122,6 +123,7 @@
 	// The saved background choice comes with the page data; the settings page edits it optimistically.
 	$effect(() => {
 		wave.choice = parseWaveChoice(page.data.waveBackground);
+		wave.birthdays = resolveBirthdays(page.data.birthdays);
 	});
 
 	function sleep() {

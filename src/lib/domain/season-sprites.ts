@@ -9,9 +9,9 @@ import { REINDEER, type Season, type SeasonState } from './season.js';
 /**
  * How a sprite moves. Every motion is transform/opacity only and never rests in one exact spot
  * for hours (burn-in): `rest` sways a little, `float` bobs, `fly` crosses the screen now and then,
- * `throw` lofts across the screen in a slow spinning arc, `team` crosses as one line with the rest of its team (Santa's sleigh), `glow` breathes softly.
+ * `throw` lofts across the screen in a slow spinning arc, `team` crosses as one line with the rest of its team (Santa's sleigh), `glow` breathes softly, `rise` floats up from below the screen, drifting side to side (balloons).
  */
-export type SpriteMotion = 'rest' | 'float' | 'fly' | 'team' | 'glow' | 'throw';
+export type SpriteMotion = 'rest' | 'float' | 'fly' | 'team' | 'glow' | 'throw' | 'rise';
 
 export interface Sprite {
 	id: string;
@@ -351,11 +351,85 @@ const thanksgiving: Sprite[] = [
 	}
 ];
 
+const BIRTHDAY = '/seasons/birthday';
+
+/**
+ * Birthday (hub-6pv.6.10): a candlelit cake resting at the bottom right (small, so it clears the
+ * Notes row at 2560x1440), a unicorn trotting across the bottom now and then, and balloons
+ * floating up at different speeds and spots.
+ */
+const birthday: Sprite[] = [
+	{
+		id: 'cake',
+		src: `${BIRTHDAY}/cake.webp`,
+		motion: 'rest',
+		size: 10,
+		x: { edge: 'right', vmin: 2 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 320,
+		delay: 0,
+		flicker: true
+	},
+	{
+		id: 'unicorn',
+		src: `${BIRTHDAY}/unicorn-step.webp`,
+		flap: `${BIRTHDAY}/unicorn-step2.webp`,
+		motion: 'fly',
+		size: 12,
+		x: { edge: 'left', vmin: 0 },
+		y: { edge: 'bottom', pct: 2 },
+		period: 80,
+		delay: -6
+	},
+	{
+		id: 'balloons',
+		src: `${BIRTHDAY}/balloons.webp`,
+		motion: 'rise',
+		size: 14,
+		x: { edge: 'right', vmin: 12 },
+		y: { edge: 'bottom', pct: -16 },
+		period: 70,
+		delay: -20
+	},
+	{
+		id: 'balloon-1',
+		src: `${BIRTHDAY}/balloon.webp`,
+		motion: 'rise',
+		size: 9,
+		x: { edge: 'right', vmin: 40 },
+		y: { edge: 'bottom', pct: -12 },
+		period: 52,
+		delay: -34
+	},
+	{
+		id: 'balloon-2',
+		src: `${BIRTHDAY}/balloon.webp`,
+		motion: 'rise',
+		size: 7,
+		x: { edge: 'right', vmin: 64 },
+		y: { edge: 'bottom', pct: -10 },
+		period: 61,
+		delay: -5
+	},
+	{
+		id: 'balloon-3',
+		src: `${BIRTHDAY}/balloon.webp`,
+		motion: 'rise',
+		size: 11,
+		x: { edge: 'right', vmin: 26 },
+		y: { edge: 'bottom', pct: -14 },
+		period: 45,
+		delay: -12,
+		flip: true
+	}
+];
+
 const SPRITES: Partial<Record<Season, readonly Sprite[]>> = {
 	halloween,
 	christmasday,
 	stpatricks,
-	thanksgiving
+	thanksgiving,
+	birthday
 };
 
 /** The sprites a season shows; none for a plain day or a season without pictures yet. */

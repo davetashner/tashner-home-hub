@@ -113,6 +113,24 @@ describe('spritesFor', () => {
 		expect(resting.every((s) => s.x.edge === 'right')).toBe(true);
 	});
 
+	it('trots a unicorn along the bottom, rises balloons, and rests a lit cake on the right', () => {
+		const list = spritesFor(on('birthday'));
+		expect(list.map((s) => s.id)).toEqual(
+			expect.arrayContaining(['cake', 'unicorn', 'balloons', 'balloon-1', 'balloon-2'])
+		);
+		const unicorn = list.find((s) => s.id === 'unicorn')!;
+		expect(unicorn.flap).toBeTruthy();
+		expect(unicorn.motion).toBe('fly');
+		const cake = list.find((s) => s.id === 'cake')!;
+		expect(cake.flicker).toBe(true);
+		expect(cake.x.edge).toBe('right');
+		// Resting sprites stay small enough to sit below the Notes row at 2560x1440.
+		expect(list.filter((s) => s.motion === 'rest').every((s) => s.size <= 12)).toBe(true);
+		const risers = list.filter((s) => s.motion === 'rise');
+		expect(risers.length).toBeGreaterThanOrEqual(3);
+		expect(new Set(risers.map((r) => r.period)).size).toBe(risers.length);
+	});
+
 	it('has no sprites yet for seasons whose art is still to come', () => {
 		expect(spritesFor(on('autumn'))).toEqual([]);
 	});

@@ -211,7 +211,9 @@ export const PALETTE_LOOK: Record<WavePalette, PaletteLook> = {
 	stpatricks: { sheetAlpha: 0.32, lineAlpha: 0.5, dotAlpha: 0.9, vignette: 0.16 },
 	'stpatricks-night': { sheetAlpha: 0.18, lineAlpha: 0.38, dotAlpha: 0.85, vignette: 0.35 },
 	july4: { sheetAlpha: 0.3, lineAlpha: 0.55, dotAlpha: 0.9, vignette: 0.16 },
-	'july4-night': { sheetAlpha: 0.18, lineAlpha: 0.4, dotAlpha: 0.9, vignette: 0.4 }
+	'july4-night': { sheetAlpha: 0.18, lineAlpha: 0.4, dotAlpha: 0.9, vignette: 0.4 },
+	birthday: { sheetAlpha: 0.32, lineAlpha: 0.5, dotAlpha: 0.9, vignette: 0.16 },
+	'birthday-night': { sheetAlpha: 0.2, lineAlpha: 0.4, dotAlpha: 0.88, vignette: 0.35 }
 };
 
 /** Chosen defaults: speed 1.15x, wave height 150%, density 105, dot size 0.4x. */

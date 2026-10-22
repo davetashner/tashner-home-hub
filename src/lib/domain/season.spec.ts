@@ -152,3 +152,50 @@ describe('currentSeason', () => {
 		expect(currentSeason(q(''), midJuly, 'UTC')).toEqual(NO_SEASON);
 	});
 });
+
+describe('birthday season (synthetic dates)', () => {
+	const ymd = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d, 17);
+	const at = (y: number, m: number, d: number, list: { month: number; day: number }[]) =>
+		seasonFor(ymd(y, m, d), 'UTC', list).season;
+
+	it('shows on the birthday and not the day before or after', () => {
+		const list = [{ month: 3, day: 14 }];
+		expect(at(2030, 3, 14, list)).toBe('birthday');
+		expect(at(2031, 3, 14, list)).toBe('birthday');
+		expect(at(2030, 3, 13, list)).toBeNull();
+		expect(at(2030, 3, 15, list)).toBeNull();
+	});
+	it('overrides the Christmas palette in December', () => {
+		const list = [{ month: 12, day: 20 }];
+		expect(at(2030, 12, 20, list)).toBe('birthday');
+		expect(seasonFor(ymd(2030, 12, 20), 'UTC', list).reindeer).toBe(0);
+		expect(at(2030, 12, 19, list)).toBe('christmas');
+		expect(at(2030, 12, 21, list)).toBe('christmas');
+		expect(at(2030, 12, 25, [{ month: 12, day: 25 }])).toBe('birthday');
+	});
+	it('overrides Thanksgiving week and leaves its edges alone', () => {
+		// Thanksgiving 2030 is Nov 28; its week runs Nov 24 to Dec 1.
+		const list = [{ month: 11, day: 26 }];
+		expect(at(2030, 11, 26, list)).toBe('birthday');
+		expect(at(2030, 11, 25, list)).toBe('thanksgiving');
+		expect(at(2030, 11, 27, list)).toBe('thanksgiving');
+		expect(at(2030, 11, 22, list)).toBe('autumn');
+	});
+	it('puts a Feb 29 birthday on Feb 28 in a non-leap year, and on Feb 29 in a leap year', () => {
+		const list = [{ month: 2, day: 29 }];
+		expect(at(2030, 2, 28, list)).toBe('birthday');
+		expect(at(2030, 3, 1, list)).toBeNull();
+		expect(at(2032, 2, 28, list)).toBeNull();
+		expect(at(2032, 2, 29, list)).toBe('birthday');
+	});
+	it('uses the household zone for the date', () => {
+		const list = [{ month: 3, day: 14 }];
+		const ms = Date.UTC(2030, 2, 14, 2, 0); // Mar 14 02:00 UTC is still Mar 13 in New York
+		expect(seasonFor(ms, 'UTC', list).season).toBe('birthday');
+		expect(seasonFor(ms, 'America/New_York', list).season).toBeNull();
+	});
+	it('can be pinned for a preview', () => {
+		expect(parseSeasonOverride(q('season=birthday'))?.season).toBe('birthday');
+		expect(currentSeason(q('season=birthday'), ymd(2030, 6, 1), 'UTC', []).season).toBe('birthday');
+	});
+});

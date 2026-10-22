@@ -48,7 +48,7 @@
 	const location = $derived(parseLocation(page.data.waveLocation));
 	const zone = $derived(typeof page.data.timeZone === 'string' ? page.data.timeZone : undefined);
 	// Holidays take over Auto (hub-6pv.6); `?season=` pins one for previews.
-	const season = $derived(currentSeason(page.url.searchParams, now, zone));
+	const season = $derived(currentSeason(page.url.searchParams, now, zone, wave.birthdays));
 	const palette = $derived(
 		covered
 			? null
