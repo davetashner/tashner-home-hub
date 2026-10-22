@@ -116,6 +116,12 @@
 	}
 	/** Games and Music wait while this kid still has jobs to finish (hub-ruz). */
 	let funLocked = $state(false);
+	/** Keeps the chosen kid when moving to the built-in game, so the Fun lock and progress follow. */
+	const memberQuery = $derived(
+		page.url.searchParams.get('member')
+			? `?member=${encodeURIComponent(page.url.searchParams.get('member')!)}`
+			: ''
+	);
 </script>
 
 <svelte:head><title>Games · Home Hub</title></svelte:head>
@@ -143,6 +149,24 @@
 	{/if}
 
 	<ul class="grid grid-cols-2 gap-6 max-sm:gap-3 sm:grid-cols-3 landscape:lg:grid-cols-4">
+		<!-- Built in (hub-26w): always first, not part of games.list, so Settings cannot remove it. -->
+		<li>
+			<!-- The query keeps the chosen kid; resolve() has no search parameter. -->
+			<!-- eslint-disable svelte/no-navigation-without-resolve -->
+			<a
+				href={resolve('/(app)/games/space-junk') + memberQuery}
+				data-testid="space-junk-tile"
+				class="press flex min-h-tap-kid w-full flex-col overflow-hidden rounded-card bg-surface-raised text-left shadow-raised"
+			>
+				<span class="bg-space-sky relative block aspect-video w-full">
+					<span class="absolute inset-0 grid place-items-center text-display" aria-hidden="true"
+						>🤖</span
+					>
+				</span>
+				<span class="p-4 text-lead leading-tight font-extrabold text-ink">Space Junk</span>
+			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		</li>
 		{#each games as game, i (game.id)}
 			<li>
 				<button

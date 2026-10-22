@@ -214,6 +214,9 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J14.1 | A grown-up adds a game; it shows on the Games tab, opens in a frame, and Back returns. | built | wall | `games` |
 | J14.2 | A game that cannot load shows a friendly message. | built | wall | `games` |
 | J14.3 | The game form warns about home-network addresses but still saves. | built | wall | `games` |
+| J14.4 | Open the built-in Space Junk from the Games tab, pick level 1, fling a Junkbot, restart, and go back to the levels. | built | wall | `space-junk` |
+| J14.5 | Winning a level unlocks the next and keeps the best in-game stars (no hub stars); a used-up level shows the end card. | built | wall | `space-junk` |
+| J14.6 | Space Junk waits behind the same lock as Games. | built | wall | `space-junk` |
 | **J15** | **Siri shortcuts API** (Parent on a phone or iPad) | | | |
 | J15.1 | A grown-up makes a Siri token, sees it once, then revokes it. | built | wall | `siri-settings` |
 | J15.2 | Siri adds a list item and does a Star Job with the token. | built | iphone | `src/routes/api/siri.spec.ts`. Simulated: the Shortcuts app on a real iPhone is not driven; the API is covered by unit tests |

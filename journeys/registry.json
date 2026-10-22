@@ -617,6 +617,21 @@
 					"id": "J14.3",
 					"text": "The game form warns about home-network addresses but still saves.",
 					"status": "built"
+				},
+				{
+					"id": "J14.4",
+					"text": "Open the built-in Space Junk from the Games tab, pick level 1, fling a Junkbot, restart, and go back to the levels.",
+					"status": "built"
+				},
+				{
+					"id": "J14.5",
+					"text": "Winning a level unlocks the next and keeps the best in-game stars (no hub stars); a used-up level shows the end card.",
+					"status": "built"
+				},
+				{
+					"id": "J14.6",
+					"text": "Space Junk waits behind the same lock as Games.",
+					"status": "built"
 				}
 			]
 		},
