@@ -85,6 +85,8 @@ interface Tag {
 }
 
 const tagOf = (b: Body) => b.getUserData() as Tag | null;
+const ball = (kind: BodyKind, r: number, hp: number, points: number) =>
+	({ kind, material: null, shape: 'ball', w: 0, h: 0, r, hp, points }) as const;
 
 /** Clamps a pull (pouch position minus anchor) to `MAX_PULL`. */
 export function clampPull(pull: Point): Point {
@@ -147,11 +149,7 @@ export class SpaceJunkSim {
 				position: { x: b.x, y: b.y },
 				angle: b.shape === 'box' ? b.angle : 0
 			});
-			body.createFixture(b.shape === 'box' ? new Box(b.w / 2, b.h / 2) : new Circle(b.r), {
-				density: m.density,
-				friction: m.friction,
-				restitution: m.restitution
-			});
+			body.createFixture(b.shape === 'box' ? new Box(b.w / 2, b.h / 2) : new Circle(b.r), m);
 			this.tag(body, {
 				kind: 'block',
 				material: b.material,
@@ -166,16 +164,7 @@ export class SpaceJunkSim {
 		for (const g of level.gremlins) {
 			const body = this.world.createBody({ type: 'dynamic', position: { x: g.x, y: g.y } });
 			body.createFixture(new Circle(g.r), GREMLIN);
-			this.tag(body, {
-				kind: 'gremlin',
-				material: null,
-				shape: 'ball',
-				w: 0,
-				h: 0,
-				r: g.r,
-				hp: GREMLIN.hp,
-				points: GREMLIN.points
-			});
+			this.tag(body, ball('gremlin', g.r, GREMLIN.hp, GREMLIN.points));
 		}
 		this.world.on('begin-contact', (c) => this.impact(c));
 	}
@@ -215,16 +204,7 @@ export class SpaceJunkSim {
 		const body = this.world.createBody({ type: 'dynamic', position: at, bullet: true });
 		body.createFixture(new Circle(JUNKBOT.radius), JUNKBOT);
 		body.setLinearVelocity(launchVelocity(pull));
-		this.tag(body, {
-			kind: 'junkbot',
-			material: null,
-			shape: 'ball',
-			w: 0,
-			h: 0,
-			r: JUNKBOT.radius,
-			hp: Infinity,
-			points: 0
-		});
+		this.tag(body, ball('junkbot', JUNKBOT.radius, Infinity, 0));
 		this.junkbot = body;
 		this.junkbotsLeft--;
 		this.phase = 'flying';
