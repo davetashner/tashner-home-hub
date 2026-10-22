@@ -116,6 +116,12 @@
 	}
 	/** Games and Music wait while this kid still has jobs to finish (hub-ruz). */
 	let funLocked = $state(false);
+	/** Keeps the chosen kid when moving to the built-in game, so the Fun lock and progress follow. */
+	const memberQuery = $derived(
+		page.url.searchParams.get('member')
+			? `?member=${encodeURIComponent(page.url.searchParams.get('member')!)}`
+			: ''
+	);
 </script>
 
 <svelte:head><title>Games · Home Hub</title></svelte:head>
@@ -127,22 +133,37 @@
 >
 	<h1 class="text-headline leading-none font-extrabold">Games</h1>
 
-	{#if loaded && games.length === 0}
+	{#if loaded && games.length === 0 && page.data.adult === true}
 		<div class="flex flex-col items-start gap-6" data-testid="games-empty">
-			<p class="text-lead text-ink-muted">No games yet.</p>
-			{#if page.data.adult === true}
-				<a
-					href={resolve('/(app)/settings/games')}
-					data-testid="games-settings-link"
-					class="press inline-flex min-h-tap-kid items-center rounded-control bg-accent px-8 text-body font-extrabold text-on-accent shadow-raised"
-				>
-					Add games in Settings
-				</a>
-			{/if}
+			<a
+				href={resolve('/(app)/settings/games')}
+				data-testid="games-settings-link"
+				class="press inline-flex min-h-tap-kid items-center rounded-control bg-accent px-8 text-body font-extrabold text-on-accent shadow-raised"
+			>
+				Add games in Settings
+			</a>
 		</div>
 	{/if}
 
 	<ul class="grid grid-cols-2 gap-6 max-sm:gap-3 sm:grid-cols-3 landscape:lg:grid-cols-4">
+		<!-- Built in (hub-26w): always first, not part of games.list, so Settings cannot remove it. -->
+		<li>
+			<!-- The query keeps the chosen kid; resolve() has no search parameter. -->
+			<!-- eslint-disable svelte/no-navigation-without-resolve -->
+			<a
+				href={resolve('/(app)/games/space-junk') + memberQuery}
+				data-testid="space-junk-tile"
+				class="press flex min-h-tap-kid w-full flex-col overflow-hidden rounded-card bg-surface-raised text-left shadow-raised"
+			>
+				<span class="relative block aspect-video w-full bg-space-panel">
+					<span class="absolute inset-0 grid place-items-center text-display" aria-hidden="true"
+						>🤖</span
+					>
+				</span>
+				<span class="p-4 text-lead leading-tight font-extrabold text-ink">Space Junk</span>
+			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		</li>
 		{#each games as game, i (game.id)}
 			<li>
 				<button
