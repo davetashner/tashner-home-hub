@@ -9,9 +9,9 @@ import { REINDEER, type Season, type SeasonState } from './season.js';
 /**
  * How a sprite moves. Every motion is transform/opacity only and never rests in one exact spot
  * for hours (burn-in): `rest` sways a little, `float` bobs, `fly` crosses the screen now and then,
- * `team` crosses as one line with the rest of its team (Santa's sleigh), `glow` breathes softly.
+ * `throw` lofts across the screen in a slow spinning arc, `team` crosses as one line with the rest of its team (Santa's sleigh), `glow` breathes softly.
  */
-export type SpriteMotion = 'rest' | 'float' | 'fly' | 'team' | 'glow';
+export type SpriteMotion = 'rest' | 'float' | 'fly' | 'team' | 'glow' | 'throw';
 
 export interface Sprite {
 	id: string;
@@ -281,7 +281,82 @@ const stpatricks: Sprite[] = [
 	}
 ];
 
-const SPRITES: Partial<Record<Season, readonly Sprite[]>> = { halloween, christmasday, stpatricks };
+const THANKSGIVING = '/seasons/thanksgiving';
+
+/**
+ * Thanksgiving week (hub-6pv.6.9): a goal post, a pie and a pile of leaves along the bottom
+ * right, a turkey strutting across the bottom now and then, a football lofted across the sky.
+ */
+const thanksgiving: Sprite[] = [
+	{
+		id: 'goalpost',
+		src: `${THANKSGIVING}/goalpost.webp`,
+		motion: 'rest',
+		size: 26,
+		x: { edge: 'right', vmin: 1 },
+		y: { edge: 'bottom', pct: 0 },
+		period: 320,
+		delay: 0
+	},
+	{
+		id: 'pie',
+		src: `${THANKSGIVING}/pie.webp`,
+		motion: 'rest',
+		size: 8,
+		x: { edge: 'right', vmin: 30 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 280,
+		delay: -90
+	},
+	{
+		id: 'leaves',
+		src: `${THANKSGIVING}/leaves.webp`,
+		motion: 'rest',
+		size: 9,
+		x: { edge: 'right', vmin: 20 },
+		y: { edge: 'bottom', pct: 0.5 },
+		period: 340,
+		delay: -160
+	},
+	{
+		id: 'leaves-drift',
+		src: `${THANKSGIVING}/leaves.webp`,
+		motion: 'float',
+		size: 5,
+		x: { edge: 'right', vmin: 12 },
+		y: { edge: 'top', pct: 30 },
+		period: 11,
+		delay: -4
+	},
+	{
+		id: 'football',
+		src: `${THANKSGIVING}/football.webp`,
+		motion: 'throw',
+		size: 7,
+		x: { edge: 'left', vmin: 0 },
+		y: { edge: 'bottom', pct: 40 },
+		period: 75,
+		delay: -10
+	},
+	{
+		id: 'turkey',
+		src: `${THANKSGIVING}/turkey-step.webp`,
+		flap: `${THANKSGIVING}/turkey-step2.webp`,
+		motion: 'fly',
+		size: 12,
+		x: { edge: 'left', vmin: 0 },
+		y: { edge: 'bottom', pct: 2 },
+		period: 80,
+		delay: -6
+	}
+];
+
+const SPRITES: Partial<Record<Season, readonly Sprite[]>> = {
+	halloween,
+	christmasday,
+	stpatricks,
+	thanksgiving
+};
 
 /** The sprites a season shows; none for a plain day or a season without pictures yet. */
 export function spritesFor(

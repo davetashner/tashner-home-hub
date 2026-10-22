@@ -144,6 +144,19 @@ test("St Patrick's Day shows a rainbow, a pot of gold and leprechauns @J0.2", as
 	}
 });
 
+// hub-6pv.6.9: Thanksgiving week is a turkey, a football, a pie, leaves and a goal post.
+test('Thanksgiving week shows a turkey, a football, a pie and a goal post @J0.2', async ({
+	page
+}) => {
+	await gotoHydrated(page, '/?season=thanksgiving');
+	await expect(page.getByTestId('wave-background')).toHaveAttribute('data-season', 'thanksgiving');
+	const layer = page.getByTestId('seasonal-layer');
+	await expect(layer).toHaveAttribute('data-season', 'thanksgiving');
+	for (const id of ['turkey', 'football', 'pie', 'leaves', 'goalpost']) {
+		await expect(layer.locator(`[data-sprite="${id}"]`)).toHaveCount(1);
+	}
+});
+
 test('this device can hide the waves and remembers it @J9.6', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wave-device-${info.project.name}`);
 	await gotoHydrated(page, '/settings/background');

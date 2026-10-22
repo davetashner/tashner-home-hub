@@ -100,6 +100,19 @@ describe('spritesFor', () => {
 		);
 	});
 
+	it('strolls a turkey along the bottom and lofts a football, with the rest on the right', () => {
+		const list = spritesFor(on('thanksgiving'));
+		expect(list.map((s) => s.id)).toEqual(
+			expect.arrayContaining(['turkey', 'football', 'pie', 'leaves', 'goalpost'])
+		);
+		const turkey = list.find((s) => s.id === 'turkey')!;
+		expect(turkey.flap).toBeTruthy();
+		expect(turkey.motion).toBe('fly');
+		expect(list.find((s) => s.id === 'football')!.motion).toBe('throw');
+		const resting = list.filter((s) => s.motion === 'rest');
+		expect(resting.every((s) => s.x.edge === 'right')).toBe(true);
+	});
+
 	it('has no sprites yet for seasons whose art is still to come', () => {
 		expect(spritesFor(on('autumn'))).toEqual([]);
 	});
