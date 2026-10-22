@@ -5,7 +5,8 @@ import {
 	parseSeasonOverride,
 	REINDEER,
 	seasonFor,
-	seasonForDate
+	seasonForDate,
+	thanksgivingDay
 } from './season.js';
 
 const q = (s: string) => new URLSearchParams(s);
@@ -19,6 +20,35 @@ describe('seasonForDate', () => {
 	it('is autumn for all of November', () => {
 		expect(seasonForDate(11, 1).season).toBe('autumn');
 		expect(seasonForDate(11, 30).season).toBe('autumn');
+	});
+	it('finds the 4th Thursday of November', () => {
+		expect(thanksgivingDay(2026)).toBe(26);
+		expect(thanksgivingDay(2027)).toBe(25);
+		expect(thanksgivingDay(2028)).toBe(23);
+		// The earliest (Nov 22) and latest (Nov 28) it can fall.
+		expect(thanksgivingDay(2018)).toBe(22);
+		expect(thanksgivingDay(2012)).toBe(22);
+		expect(thanksgivingDay(2019)).toBe(28);
+	});
+	it.each([
+		[2026, 22, 29],
+		[2027, 21, 28],
+		[2028, 19, 26]
+	])('Thanksgiving week %i runs Nov %i to Nov %i, Sunday to Sunday', (year, first, last) => {
+		expect(new Date(Date.UTC(year, 10, first)).getUTCDay()).toBe(0);
+		expect(new Date(Date.UTC(year, 10, last)).getUTCDay()).toBe(0);
+		expect(seasonForDate(11, first - 1, year).season).toBe('autumn');
+		for (let day = first; day <= last; day++) {
+			expect(seasonForDate(11, day, year)).toEqual({ ...NO_SEASON, season: 'thanksgiving' });
+		}
+		expect(seasonForDate(11, last + 1, year).season).toBe('autumn');
+	});
+	it('keeps the rest of November autumn, and needs a year for the week', () => {
+		expect(seasonForDate(11, 1, 2026).season).toBe('autumn');
+		expect(seasonForDate(11, 30, 2026).season).toBe('autumn');
+		expect(seasonForDate(11, 26).season).toBe('autumn');
+		expect(seasonForDate(10, 26, 2026).season).toBe('halloween');
+		expect(seasonForDate(12, 1, 2026).season).toBe('christmas');
 	});
 	it('is Christmas from Dec 1 to Christmas Eve, with no reindeer until the 16th', () => {
 		expect(seasonForDate(12, 1)).toEqual({ season: 'christmas', reindeer: 0, christmasEve: false });
@@ -63,6 +93,17 @@ describe('seasonFor', () => {
 		expect(seasonFor(lateOct25NewYork, 'America/New_York')).toEqual(NO_SEASON);
 		expect(seasonFor(lateOct25NewYork, 'UTC').season).toBe('halloween');
 	});
+	it("uses the household's calendar for Thanksgiving week", () => {
+		// 2026-11-22 03:00 UTC is still Sat Nov 21 in New York.
+		const sunMorningUtc = Date.UTC(2026, 10, 22, 3);
+		expect(seasonFor(sunMorningUtc, 'America/New_York').season).toBe('autumn');
+		expect(seasonFor(sunMorningUtc, 'UTC').season).toBe('thanksgiving');
+		// 2026-11-30 03:00 UTC is Sun Nov 29 evening in New York: the last day of the week.
+		const monUtc = Date.UTC(2026, 10, 30, 3);
+		expect(seasonFor(monUtc, 'America/New_York').season).toBe('thanksgiving');
+		expect(seasonFor(monUtc, 'UTC').season).toBe('autumn');
+		expect(seasonFor(Date.UTC(2026, 10, 26, 17), 'America/New_York').season).toBe('thanksgiving');
+	});
 	it('falls back to UTC for an unknown zone', () => {
 		expect(seasonFor(lateOct25NewYork, 'Not/AZone').season).toBe('halloween');
 	});
@@ -84,6 +125,7 @@ describe('parseSeasonOverride', () => {
 		});
 		expect(parseSeasonOverride(q('season=christmasday'))?.season).toBe('christmasday');
 		expect(parseSeasonOverride(q('season=july4'))?.season).toBe('july4');
+		expect(parseSeasonOverride(q('season=thanksgiving'))?.season).toBe('thanksgiving');
 		expect(parseSeasonOverride(q('season=none'))).toEqual(NO_SEASON);
 	});
 	it('takes a reindeer count for Christmas only, clamped to the team', () => {

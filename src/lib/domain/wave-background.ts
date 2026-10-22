@@ -202,6 +202,8 @@ export const PALETTE_LOOK: Record<WavePalette, PaletteLook> = {
 	'halloween-night': { sheetAlpha: 0.2, lineAlpha: 0.42, dotAlpha: 0.85, vignette: 0.4 },
 	autumn: { sheetAlpha: 0.3, lineAlpha: 0.5, dotAlpha: 0.9, vignette: 0.18 },
 	'autumn-night': { sheetAlpha: 0.18, lineAlpha: 0.38, dotAlpha: 0.8, vignette: 0.35 },
+	thanksgiving: { sheetAlpha: 0.32, lineAlpha: 0.5, dotAlpha: 0.9, vignette: 0.18 },
+	'thanksgiving-night': { sheetAlpha: 0.2, lineAlpha: 0.4, dotAlpha: 0.85, vignette: 0.35 },
 	christmas: { sheetAlpha: 0.3, lineAlpha: 0.5, dotAlpha: 0.9, vignette: 0.18 },
 	'christmas-night': { sheetAlpha: 0.18, lineAlpha: 0.38, dotAlpha: 0.85, vignette: 0.35 },
 	christmasday: { sheetAlpha: 0.3, lineAlpha: 0.5, dotAlpha: 0.95, vignette: 0.16 },

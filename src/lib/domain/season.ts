@@ -5,6 +5,7 @@
 export const SEASONS = [
 	'halloween',
 	'autumn',
+	'thanksgiving',
 	'christmas',
 	'christmasday',
 	'stpatricks',
@@ -38,8 +39,30 @@ export const NO_SEASON: SeasonState = { season: null, reindeer: 0, christmasEve:
 /** The first day of the countdown: one reindeer joins each day from here. */
 const COUNTDOWN_START = 16;
 
-/** The season for a calendar date (month 1-12). */
-export function seasonForDate(month: number, day: number): SeasonState {
+/** The day of November US Thanksgiving falls on: the 4th Thursday. */
+export function thanksgivingDay(year: number): number {
+	const firstDow = new Date(Date.UTC(year, 10, 1)).getUTCDay(); // 0 = Sunday
+	return 1 + ((4 - firstDow + 7) % 7) + 21;
+}
+
+/**
+ * Thanksgiving week (hub-6pv.6.9): the Sunday before Thanksgiving through the Sunday after,
+ * eleven days in all. Always inside November, so it only ever overrides autumn.
+ */
+export function isThanksgivingWeek(year: number, month: number, day: number): boolean {
+	if (month !== 11) return false;
+	const tg = thanksgivingDay(year);
+	return day >= tg - 4 && day <= tg + 3;
+}
+
+/**
+ * The season for a calendar date (month 1-12). Thanksgiving week needs the year (the date moves);
+ * without one, November is plain autumn.
+ */
+export function seasonForDate(month: number, day: number, year?: number): SeasonState {
+	if (year !== undefined && isThanksgivingWeek(year, month, day)) {
+		return { ...NO_SEASON, season: 'thanksgiving' };
+	}
 	if (month === 10 && day >= 26) return { ...NO_SEASON, season: 'halloween' };
 	if (month === 11) return { ...NO_SEASON, season: 'autumn' };
 	if (month === 12 && day === 25) return { ...NO_SEASON, season: 'christmasday' };
@@ -58,15 +81,16 @@ export function seasonFor(ms: number, timeZone?: string): SeasonState {
 	try {
 		parts = new Intl.DateTimeFormat('en-CA', {
 			timeZone,
+			year: 'numeric',
 			month: 'numeric',
 			day: 'numeric'
 		}).formatToParts(new Date(ms));
 	} catch {
 		const d = new Date(ms);
-		return seasonForDate(d.getUTCMonth() + 1, d.getUTCDate());
+		return seasonForDate(d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCFullYear());
 	}
 	const get = (type: string) => Number(parts.find((x) => x.type === type)?.value);
-	return seasonForDate(get('month'), get('day'));
+	return seasonForDate(get('month'), get('day'), get('year'));
 }
 
 const isSeason = (v: string): v is Season => (SEASONS as readonly string[]).includes(v);

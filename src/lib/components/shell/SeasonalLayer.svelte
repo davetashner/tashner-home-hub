@@ -124,6 +124,12 @@
 	.glow {
 		animation-name: glow;
 	}
+	/* The football flies in the first 40% of its cycle, then waits off screen. */
+	.throw {
+		animation-name: throw;
+		animation-timing-function: linear;
+		opacity: 0;
+	}
 	.flicker {
 		animation: flicker 2.3s ease-in-out infinite;
 	}
@@ -235,6 +241,49 @@
 		30.01%,
 		100% {
 			transform: translate(calc(100vw + 115vmin), 1vh);
+			opacity: 0;
+		}
+	}
+	@keyframes throw {
+		0% {
+			transform: translate(-15vw, 0vh) rotate(0deg);
+			opacity: 1;
+		}
+		5% {
+			transform: translate(1.25vw, -13.125vh) rotate(45deg);
+			opacity: 1;
+		}
+		10% {
+			transform: translate(17.5vw, -22.5vh) rotate(90deg);
+			opacity: 1;
+		}
+		15% {
+			transform: translate(33.75vw, -28.125vh) rotate(135deg);
+			opacity: 1;
+		}
+		20% {
+			transform: translate(50vw, -30vh) rotate(180deg);
+			opacity: 1;
+		}
+		25% {
+			transform: translate(66.25vw, -28.125vh) rotate(225deg);
+			opacity: 1;
+		}
+		30% {
+			transform: translate(82.5vw, -22.5vh) rotate(270deg);
+			opacity: 1;
+		}
+		35% {
+			transform: translate(98.75vw, -13.125vh) rotate(315deg);
+			opacity: 1;
+		}
+		40% {
+			transform: translate(115vw, 0vh) rotate(360deg);
+			opacity: 1;
+		}
+		40.01%,
+		100% {
+			transform: translate(115vw, 0) rotate(360deg);
 			opacity: 0;
 		}
 	}
