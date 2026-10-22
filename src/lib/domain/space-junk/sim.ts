@@ -19,14 +19,13 @@ import {
 	UNUSED_JUNKBOT_POINTS,
 	type MaterialId
 } from './materials.js';
+import { MAX_PULL, MIN_PULL, clampPull } from './pull.js';
 import { starsFor, type Stars } from './score.js';
+
+export { MAX_PULL, MIN_PULL, clampPull };
 
 export const STEP = 1 / 60;
 export const GRAVITY = -10;
-/** Longest pull from the pouch's rest position, in metres. */
-export const MAX_PULL = 2.5;
-/** A shorter pull is a cancelled shot. */
-export const MIN_PULL = 0.3;
 /** Launch speed per metre of pull. */
 export const LAUNCH_POWER = 9;
 /** Approach speeds below this (m/s) do no damage. */
@@ -87,13 +86,6 @@ interface Tag {
 const tagOf = (b: Body) => b.getUserData() as Tag | null;
 const ball = (kind: BodyKind, r: number, hp: number, points: number) =>
 	({ kind, material: null, shape: 'ball', w: 0, h: 0, r, hp, points }) as const;
-
-/** Clamps a pull (pouch position minus anchor) to `MAX_PULL`. */
-export function clampPull(pull: Point): Point {
-	const len = Math.hypot(pull.x, pull.y);
-	if (len <= MAX_PULL) return { x: pull.x, y: pull.y };
-	return { x: (pull.x / len) * MAX_PULL, y: (pull.y / len) * MAX_PULL };
-}
 
 /** The launch velocity for a pull: opposite the pull, faster the further back. */
 export function launchVelocity(pull: Point): Point {

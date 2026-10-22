@@ -140,6 +140,26 @@
 	--duration-crossfade: 1500ms;
 }
 
+/* Space Junk palette (hub-26w.2): read at runtime by SpaceJunkCanvas, same in both themes. */
+:root {
+	--color-space-sky: oklch(18% 0.06 275);
+	--color-space-sky-low: oklch(30% 0.1 300);
+	--color-space-star: oklch(96% 0.03 90);
+	--color-space-ground: oklch(34% 0.04 280);
+	--color-junk-scrap: oklch(65% 0.03 250);
+	--color-junk-glass: oklch(82% 0.09 210);
+	--color-junk-rock: oklch(48% 0.05 50);
+	--color-junk-edge: oklch(20% 0.03 260);
+	--color-junk-crack: oklch(15% 0.02 260);
+	--color-junkbot-body: oklch(78% 0.12 75);
+	--color-junkbot-visor: oklch(35% 0.1 240);
+	--color-gremlin-body: oklch(72% 0.2 145);
+	--color-gremlin-belly: oklch(84% 0.15 140);
+	--color-sling-wood: oklch(45% 0.09 55);
+	--color-sling-band: oklch(60% 0.2 25);
+	--color-aim-dot: oklch(95% 0.05 90);
+}
+
 /* Live wave background palettes (hub-gj6.17): read at runtime by WaveBackground, same in both themes. */
 :root {
 	--color-wave-dusk-bg-0: oklch(90.6% 0.039 47);
