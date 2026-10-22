@@ -130,6 +130,12 @@
 		animation-timing-function: linear;
 		opacity: 0;
 	}
+	/* Balloons climb out of the bottom in the first 60% of the cycle, then wait below the screen. */
+	.rise {
+		animation-name: rise;
+		animation-timing-function: linear;
+		opacity: 0;
+	}
 	.flicker {
 		animation: flicker 2.3s ease-in-out infinite;
 	}
@@ -284,6 +290,33 @@
 		40.01%,
 		100% {
 			transform: translate(115vw, 0) rotate(360deg);
+			opacity: 0;
+		}
+	}
+	@keyframes rise {
+		0% {
+			transform: translate(0, 0);
+			opacity: 0;
+		}
+		5% {
+			opacity: 1;
+		}
+		15% {
+			transform: translate(-3vmin, -20vh);
+		}
+		30% {
+			transform: translate(3vmin, -45vh);
+		}
+		45% {
+			transform: translate(-3vmin, -70vh);
+		}
+		55% {
+			transform: translate(3vmin, -92vh);
+			opacity: 1;
+		}
+		60%,
+		100% {
+			transform: translate(0, -125vh);
 			opacity: 0;
 		}
 	}

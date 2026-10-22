@@ -157,6 +157,29 @@ test('Thanksgiving week shows a turkey, a football, a pie and a goal post @J0.2'
 	}
 });
 
+// hub-6pv.6.10: the birthday scene is a cake, a unicorn and rising balloons; the resting cake
+// sits below the Notes row and never covers a card or a button.
+test('the birthday scene shows a cake, a unicorn and balloons clear of the cards @J0.2', async ({
+	page
+}) => {
+	await gotoHydrated(page, '/?season=birthday');
+	await expect(page.getByTestId('wave-background')).toHaveAttribute('data-season', 'birthday');
+	const layer = page.getByTestId('seasonal-layer');
+	await expect(layer).toHaveAttribute('data-season', 'birthday');
+	for (const id of ['cake', 'unicorn', 'balloons', 'balloon-1', 'balloon-2', 'balloon-3']) {
+		await expect(layer.locator(`[data-sprite="${id}"]`)).toHaveCount(1);
+	}
+	await expect(layer.locator('[data-sprite="unicorn"] img')).toHaveCount(2);
+	await expect(layer.locator('[data-sprite="balloon-1"]')).toHaveCSS('opacity', /^[01](\.\d+)?$/);
+	const cake = (await layer.locator('[data-sprite="cake"]').boundingBox())!;
+	const notes = await page.getByTestId('home-notes').boundingBox();
+	if (notes) expect(cake.y).toBeGreaterThanOrEqual(notes.y + notes.height - 1);
+	// The cake stays on screen.
+	const view = page.viewportSize()!;
+	expect(cake.y + cake.height).toBeLessThanOrEqual(view.height + 1);
+	expect(cake.x + cake.width).toBeLessThanOrEqual(view.width + 1);
+});
+
 test('this device can hide the waves and remembers it @J9.6', async ({ page }, info) => {
 	await signInAsAdult(page, `e2e-wave-device-${info.project.name}`);
 	await gotoHydrated(page, '/settings/background');

@@ -2,6 +2,8 @@
  * Seasonal looks for the wave background (hub-6pv.6): which holiday it is on the household's
  * calendar, and how many reindeer have joined Santa's team. Pure: no clock, no DOM.
  */
+import { isBirthday, type BirthdayDate } from './birthdays.js';
+
 export const SEASONS = [
 	'halloween',
 	'autumn',
@@ -9,7 +11,8 @@ export const SEASONS = [
 	'christmas',
 	'christmasday',
 	'stpatricks',
-	'july4'
+	'july4',
+	'birthday'
 ] as const;
 export type Season = (typeof SEASONS)[number];
 
@@ -57,9 +60,16 @@ export function isThanksgivingWeek(year: number, month: number, day: number): bo
 
 /**
  * The season for a calendar date (month 1-12). Thanksgiving week needs the year (the date moves);
- * without one, November is plain autumn.
+ * without one, November is plain autumn. A household birthday (hub-6pv.6.10) beats every
+ * calendar season, Christmas and Thanksgiving week included.
  */
-export function seasonForDate(month: number, day: number, year?: number): SeasonState {
+export function seasonForDate(
+	month: number,
+	day: number,
+	year?: number,
+	birthdays: readonly BirthdayDate[] = []
+): SeasonState {
+	if (isBirthday(birthdays, month, day, year)) return { ...NO_SEASON, season: 'birthday' };
 	if (year !== undefined && isThanksgivingWeek(year, month, day)) {
 		return { ...NO_SEASON, season: 'thanksgiving' };
 	}
@@ -76,7 +86,11 @@ export function seasonForDate(month: number, day: number, year?: number): Season
 }
 
 /** The season at `ms` on the household's calendar. An unknown zone falls back to UTC. */
-export function seasonFor(ms: number, timeZone?: string): SeasonState {
+export function seasonFor(
+	ms: number,
+	timeZone?: string,
+	birthdays: readonly BirthdayDate[] = []
+): SeasonState {
 	let parts: Intl.DateTimeFormatPart[];
 	try {
 		parts = new Intl.DateTimeFormat('en-CA', {
@@ -87,17 +101,17 @@ export function seasonFor(ms: number, timeZone?: string): SeasonState {
 		}).formatToParts(new Date(ms));
 	} catch {
 		const d = new Date(ms);
-		return seasonForDate(d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCFullYear());
+		return seasonForDate(d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCFullYear(), birthdays);
 	}
 	const get = (type: string) => Number(parts.find((x) => x.type === type)?.value);
-	return seasonForDate(get('month'), get('day'), get('year'));
+	return seasonForDate(get('month'), get('day'), get('year'), birthdays);
 }
 
 const isSeason = (v: string): v is Season => (SEASONS as readonly string[]).includes(v);
 
 /**
  * A preview pin from the page URL: `?season=halloween`, `?season=christmas&reindeer=5`,
- * `?season=christmas-eve`, `?season=christmasday` or `?season=none`. Returns null when there is no (valid) pin, so the
+ * `?season=christmas-eve`, `?season=christmasday`, `?season=birthday` or `?season=none`. Returns null when there is no (valid) pin, so the
  * calendar decides. Lives only in the URL: nothing is saved.
  */
 export function parseSeasonOverride(search: Pick<URLSearchParams, 'get'>): SeasonState | null {
@@ -118,5 +132,6 @@ export function parseSeasonOverride(search: Pick<URLSearchParams, 'get'>): Seaso
 export const currentSeason = (
 	search: Pick<URLSearchParams, 'get'>,
 	ms: number,
-	timeZone?: string
-) => parseSeasonOverride(search) ?? seasonFor(ms, timeZone);
+	timeZone?: string,
+	birthdays: readonly BirthdayDate[] = []
+) => parseSeasonOverride(search) ?? seasonFor(ms, timeZone, birthdays);
