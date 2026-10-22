@@ -58,7 +58,7 @@
 			type="button"
 			onclick={() => (timerState.panel = true)}
 			data-testid="timer-open-home"
-			class="press-link hidden min-h-tap items-center justify-center gap-3 rounded-card border-2 border-line bg-surface-raised px-6 text-body font-extrabold text-ink shadow-raised max-sm:inline-flex short:inline-flex tablet:inline-flex"
+			class="press-link hidden min-h-tap items-center justify-center gap-3 rounded-card border-2 border-control-line bg-control px-6 text-body font-extrabold text-ink shadow-raised max-sm:inline-flex short:inline-flex tablet:inline-flex"
 		>
 			<span class="text-lead"><Icon name="timer" /></span>
 			Timers

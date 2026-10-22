@@ -15,7 +15,7 @@
 <button
 	{type}
 	aria-label={label}
-	class="press inline-flex items-center justify-center rounded-chip border-2 border-line bg-surface-raised text-ink shadow-raised {size ===
+	class="press inline-flex items-center justify-center rounded-chip border-2 border-control-line bg-control text-ink shadow-raised {size ===
 	'kid'
 		? 'size-tap-kid text-title'
 		: 'size-tap text-lead'}"

@@ -222,7 +222,7 @@
 				onclick={() => (timerState.panel = true)}
 				aria-label="Timers"
 				data-testid="timer-open"
-				class="press-link inline-flex size-tap-kid shrink-0 items-center justify-center rounded-chip border-2 border-line bg-surface-raised text-title text-ink shadow-raised max-sm:hidden short:hidden tablet:hidden"
+				class="press-link inline-flex size-tap-kid shrink-0 items-center justify-center rounded-chip border-2 border-control-line bg-control text-title text-ink shadow-raised max-sm:hidden short:hidden tablet:hidden"
 			>
 				<Icon name="timer" />
 			</button>
@@ -251,7 +251,7 @@
 				data-testid="settings-link"
 				data-locked={locks.adultLocked ? '' : undefined}
 				data-sveltekit-preload-data="tap"
-				class="press-link inline-flex size-tap-kid items-center justify-center rounded-chip border-2 border-line bg-surface-raised text-title text-ink shadow-raised max-sm:!size-tap short:!size-tap tablet:text-lead tablet:max-md:!size-tap tablet:md:!size-tap-tablet"
+				class="press-link inline-flex size-tap-kid items-center justify-center rounded-chip border-2 border-control-line bg-control text-title text-ink shadow-raised max-sm:!size-tap short:!size-tap tablet:text-lead tablet:max-md:!size-tap tablet:md:!size-tap-tablet"
 			>
 				<Icon name={locks.adultLocked ? 'lock' : 'settings'} />
 			</a>
@@ -280,7 +280,7 @@
 			type="button"
 			onclick={collapse}
 			data-testid="nav-collapse"
-			class="shell-collapse press-link mt-auto hidden min-h-tap-kid items-center justify-center gap-3 rounded-chip border-2 border-line bg-surface-raised px-4 text-body text-ink"
+			class="shell-collapse press-link mt-auto hidden min-h-tap-kid items-center justify-center gap-3 rounded-chip border-2 border-control-line bg-control px-4 text-body text-ink"
 		>
 			<span class="text-lead"><Icon name="collapse" /></span>
 			<span class="tablet:sr-only">Hide menu</span>

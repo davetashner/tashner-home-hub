@@ -22,7 +22,7 @@
 		if (kb.submitted !== null) onsubmit(kb.submitted);
 	}
 
-	const plain = 'border-line bg-surface-raised text-ink active:bg-accent-soft';
+	const plain = 'border-control-line bg-control text-ink active:bg-accent-soft';
 	const key =
 		'min-h-tap min-w-0 flex-1 touch-manipulation rounded-control border-2 text-body select-none';
 </script>

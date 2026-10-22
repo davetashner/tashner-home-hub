@@ -245,7 +245,7 @@
 
 {#if selected}
 	<div
-		class="sticky bottom-0 z-10 border-t-2 border-line bg-surface-raised p-4 pb-safe-4 shadow-float max-sm:p-2"
+		class="sticky bottom-0 z-10 border-t-2 border-control-line bg-control p-4 pb-safe-4 shadow-float max-sm:p-2"
 		data-testid="now-playing"
 	>
 		<div class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-8 gap-y-3">

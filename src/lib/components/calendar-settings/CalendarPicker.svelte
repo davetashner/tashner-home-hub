@@ -68,7 +68,7 @@
 							aria-pressed={row.memberId === null}
 							class="{chip} {row.memberId === null
 								? 'border-accent bg-accent-soft text-accent-press'
-								: 'border-line bg-surface-raised text-ink'}"
+								: 'border-control-line bg-control text-ink'}"
 							onclick={() => (row.memberId = null)}>Everyone</button
 						>
 						{#each people as p (p.id)}
@@ -78,7 +78,7 @@
 								aria-label={p.name}
 								class="{chip} pr-5 {row.memberId === p.id
 									? 'border-accent bg-accent-soft text-accent-press'
-									: 'border-line bg-surface-raised text-ink'}"
+									: 'border-control-line bg-control text-ink'}"
 								onclick={() => (row.memberId = p.id)}
 							>
 								<MemberAvatar name={p.name} color={p.color} avatar={p.avatar} size="sm" />

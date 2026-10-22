@@ -148,7 +148,7 @@
 								onclick={() => tap(tile)}
 								class="flex min-h-tap-kid w-full flex-col items-center justify-center gap-1 rounded-card border-2 p-4 text-center transition-transform duration-75 active:scale-95 disabled:opacity-45 short:p-2 {tile.on
 									? 'border-accent bg-accent-soft'
-									: 'border-line bg-surface-raised'}"
+									: 'border-control-line bg-control'}"
 							>
 								<span class="text-headline leading-none short:text-title" aria-hidden="true"
 									>{ICON[domainOf(tile.entityId) ?? 'switch']}</span
