@@ -9,6 +9,8 @@ export interface Destination {
 	label: string;
 	href: DestinationPath;
 	icon: IconName;
+	/** Label for narrow bars, where a long name would overlap its neighbours. */
+	short?: string;
 }
 
 /** Main destinations in display order (UI-2). Swiping walks this order. */
@@ -38,7 +40,7 @@ export function todoLabel(childNames: readonly string[]): string {
 
 /** The destinations with the to-do list named for this household. */
 export function destinationsFor(todo: string): Destination[] {
-	return DESTINATIONS.map((d) => (d.id === 'chores' ? { ...d, label: todo } : d));
+	return DESTINATIONS.map((d) => (d.id === 'chores' ? { ...d, label: todo, short: d.label } : d));
 }
 
 export function isActive(href: string, pathname: string): boolean {
