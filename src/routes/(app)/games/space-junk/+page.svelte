@@ -140,6 +140,7 @@
 	{#if level}
 		<div
 			class="fixed inset-0 z-50 bg-space-panel text-on-frame"
+			data-no-swipe
 			role="dialog"
 			aria-modal="true"
 			aria-label="Space Junk: {level.name}"
