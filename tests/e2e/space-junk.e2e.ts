@@ -78,9 +78,12 @@ test('Games tab opens Space Junk: pick level 1, fire, restart, back to levels @J
 	const ay = box.y + Number(await canvas.getAttribute('data-anchor-y'));
 	await page.mouse.move(ax, ay);
 	await page.mouse.down();
-	await page.mouse.move(ax - 60, ay + 30, { steps: 5 });
+	// A full, quick pull back to the left: the same motion as a tab swipe, which must not leave the game.
+	await page.mouse.move(ax - 200, ay + 60, { steps: 4 });
 	await page.mouse.up();
 	await expect(canvas).toHaveAttribute('data-junkbots', String(total - 1));
+	await expect(page).toHaveURL(/\/games\/space-junk/);
+	await expect(page.getByTestId('sj-game')).toBeVisible();
 
 	await page.getByTestId('sj-restart').click();
 	await expect(canvas).toHaveAttribute('data-junkbots', String(total));
