@@ -45,6 +45,12 @@ echo "=== chromium"; P=$(browser_pid); [ -n "$P" ] && tr '\\0' ' ' < /proc/$P/cm
 echo; echo "=== emoji"; fc-list 2>/dev/null | grep -ci emoji
 echo "=== wlr"; asowner wlr-randr 2>&1
 echo "=== units"; for u in ${KIOSK_UNITS.join(' ')}; do echo "$u $(asowner systemctl --user is-active $u 2>/dev/null || true)"; done
+echo "=== session"; id kiosk >/dev/null 2>&1 && echo "kioskuser yes" || echo "kioskuser no"
+loginctl list-sessions --no-legend 2>/dev/null | awk '{print "session " $3 " " $4}'
+echo "=== recovery"
+if [ "$(systemctl show -p LoadState --value hub-kiosk-session-recovery.timer 2>/dev/null)" = loaded ]; then
+  echo "timer $(systemctl is-active hub-kiosk-session-recovery.timer 2>/dev/null || true)"
+else echo "timer not-installed"; fi
 echo "=== health"; ${health}
 echo
 echo "=== wake"
@@ -114,12 +120,38 @@ export function remoteFacts(text) {
 		emoji: Number(s.emoji) || 0,
 		outputs: parseWlrRandr(s.wlr ?? ''),
 		units,
+		...(s.session === undefined ? {} : { session: parseSession(s.session) }),
+		...(s.recovery ? { recovery: parseRecovery(s.recovery) } : {}),
 		health: s.health && s.health !== 'none' ? s.health : null,
 		...(s.wake === undefined ? {} : { wake: parseWake(s.wake) }),
 		...(s.cec ? { cec: parseCec(s.cec) } : {}),
 		...(s.speaker === undefined ? {} : { speaker: parseSpeaker(s.speaker) }),
 		...(s.spotify ? { spotify: parseSpotify(s.spotify) } : {})
 	};
+}
+
+/** The `session` section (hub-2ik): the kiosk user's login session, and who else holds the seat. */
+export function parseSession(text) {
+	const rows = text
+		.split('\n')
+		.filter((l) => l.startsWith('session '))
+		.map((l) => l.split(' '));
+	return {
+		kioskUser: /^kioskuser yes$/m.test(text),
+		kiosk: rows.some((r) => r[1] === 'kiosk'),
+		others: [
+			...new Set(
+				rows
+					.filter((r) => r[1] !== 'kiosk' && r[1] !== 'lightdm' && r[2] === 'seat0')
+					.map((r) => r[1])
+			)
+		]
+	};
+}
+
+/** The `recovery` section: state of the system-level session recovery timer. */
+export function parseRecovery(text) {
+	return { timer: /^timer (\S+)/m.exec(text)?.[1] ?? 'unknown' };
 }
 
 /** The `wake` section: kiosk.conf INPUT and the input devices the display agent has open. */
@@ -251,6 +283,31 @@ export function diagnose(facts) {
 	const r = facts.remote;
 	if (!r) return [fail('ssh', facts.sshError ?? 'unreachable', 'check KIOSK_HOST and the SSH key')];
 	out.push(pass('ssh', r.host));
+
+	if (r.session?.kioskUser && !r.session.kiosk) {
+		const rec = r.recovery?.timer ?? 'unknown';
+		const who = r.session.others.length
+			? `${r.session.others.join(', ')} is logged in on the desktop instead`
+			: 'LightDM is probably at the login greeter';
+		out.push(
+			fail(
+				'kiosk-session',
+				`no kiosk session is running (${who}); recovery timer: ${rec}`,
+				rec === 'active'
+					? r.session.others.length
+						? 'recovery leaves a logged-in person alone: log them out, or sudo systemctl restart lightdm'
+						: 'it restarts LightDM after a couple of minutes; or now: sudo systemctl restart lightdm'
+					: 'recovery is not running: update the Pi (kiosk/README.md, Updating), or sudo systemctl restart lightdm'
+			)
+		);
+	} else if (r.session?.kioskUser && r.recovery && r.recovery.timer !== 'active')
+		out.push(
+			warn(
+				'session-recovery',
+				`timer ${r.recovery.timer}`,
+				'a dead kiosk session would stay dead: re-run sudo kiosk/install.sh'
+			)
+		);
 
 	const flags = r.chromium ? parseFlags(r.chromium) : null;
 	if (!flags) out.push(fail('chromium', 'not running', 'kioskctl restart'));

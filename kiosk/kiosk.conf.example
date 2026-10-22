@@ -27,6 +27,11 @@ INPUT="touch"
 # Remote debugging port, bound to localhost only. Used by the watchdog.
 DEBUG_PORT="9222"
 
+# Session recovery (hub-2ik): if LightDM runs but the kiosk user has had no session for this many
+# minutes (labwc crashed), a system timer restarts LightDM so autologin runs again. It leaves a
+# person logged in on the desktop alone. 0 = off.
+SESSION_RECOVERY_MINUTES="2"
+
 # Display agent (monitor power and touch to wake). All optional.
 # Seconds between polls of the hub's power state; 1 keeps "Sleep now" under the 2 s target.
 POWER_POLL_SECONDS="1"

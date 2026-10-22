@@ -1,0 +1,11 @@
+[Unit]
+Description=Home Hub kiosk session recovery (every 30 s)
+
+[Timer]
+# A system timer: it must survive the kiosk user's session, which is the thing it watches.
+OnBootSec=90
+OnUnitActiveSec=30
+AccuracySec=5
+
+[Install]
+WantedBy=timers.target

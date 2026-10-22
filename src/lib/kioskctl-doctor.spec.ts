@@ -83,6 +83,51 @@ describe('parsers', () => {
 		});
 	});
 
+	it('parses the session and recovery sections', () => {
+		const text =
+			'=== session\nkioskuser yes\nsession lightdm seat0\nsession dave seat0\nsession root -\n=== recovery\ntimer active\n=== end';
+		const f = remoteFacts(text);
+		expect(f.session).toEqual({ kioskUser: true, kiosk: false, others: ['dave'] });
+		expect(f.recovery).toEqual({ timer: 'active' });
+		expect(remoteFacts('=== host\nkiosk').session).toBeUndefined();
+	});
+
+	it('fails with no kiosk session and names the recovery timer (hub-2ik)', () => {
+		const noSession = (timer: string, others: string[] = []) =>
+			status(
+				healthy({
+					remote: remote({
+						session: { kioskUser: true, kiosk: false, others },
+						recovery: { timer }
+					})
+				}),
+				'kiosk-session'
+			);
+		const a = noSession('active');
+		expect(a?.status).toBe('fail');
+		expect(a?.detail).toContain('recovery timer: active');
+		expect(a?.detail).toContain('greeter');
+		expect(noSession('not-installed')?.detail).toContain('recovery timer: not-installed');
+		expect(noSession('active', ['dave'])?.detail).toContain('dave is logged in');
+	});
+
+	it('passes quietly with a kiosk session and warns if the recovery timer is off', () => {
+		const ok = (timer: string) =>
+			healthy({
+				remote: remote({
+					session: { kioskUser: true, kiosk: true, others: [] },
+					recovery: { timer }
+				})
+			});
+		expect(status(ok('active'), 'kiosk-session')).toBeUndefined();
+		expect(status(ok('active'), 'session-recovery')).toBeUndefined();
+		expect(status(ok('inactive'), 'session-recovery')?.status).toBe('warn');
+		const noUser = healthy({
+			remote: remote({ session: { kioskUser: false, kiosk: false, others: [] } })
+		});
+		expect(status(noUser, 'kiosk-session')).toBeUndefined();
+	});
+
 	it('turns the remote script output into facts', () => {
 		const text = `=== host\nkiosk\n=== owner\nkiosk\n=== chromium\n${CMDLINE}\n\n=== emoji\n2\n=== wlr\n${WLR}\n=== units\nhub-kiosk.service active\nhub-kiosk-watchdog.timer inactive\n=== health\n200 0.031\n\n=== end`;
 		expect(remoteFacts(text)).toEqual({

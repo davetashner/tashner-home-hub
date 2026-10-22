@@ -139,7 +139,13 @@ Opt in with `SPOTIFY_CONNECT="on"` in `kiosk.conf` (default `off`), re-run `sudo
   - Wi-Fi-only issues (device appears then vanishes): the Pi 5 shares one antenna between Wi-Fi and Bluetooth, see Range above.
   - Not verified on hardware yet (hub-txj.7): the pulseaudio backend against PipeWire on Pi OS trixie, zeroconf discovery from a phone, and credentials surviving a reboot.
 
-Tests (no Pi needed): `cd kiosk/display-agent && python3 -m unittest`. CI does not run them yet (the workflow is protected); hub-ugl.12 may add shellcheck.
+Tests (no Pi needed): `python3 -m unittest` in `kiosk/display-agent`, `kiosk/watchdog` and `kiosk/session-recovery`. CI does not run them yet (the workflow is protected); hub-ugl.12 may add shellcheck.
+
+## Session recovery (hub-2ik)
+
+LightDM autologs in only when it starts, and the watchdog is a kiosk user service, so both die with the kiosk session: if labwc exits, the Pi would sit at the login greeter. `hub-kiosk-session-recovery.timer` is a **system** timer (every 30 s, installed by `install.sh`). When LightDM is running but the `kiosk` user has had no session for `SESSION_RECOVERY_MINUTES` (kiosk.conf, default 2, `0` = off), it runs `systemctl restart lightdm` so autologin happens again, at most once per period. If another user has a session on seat0 it leaves them alone and logs it. Logs: `journalctl -u hub-kiosk-session-recovery`. `kioskctl doctor` fails with `kiosk-session` when no kiosk session exists and shows the timer's state.
+
+The display agent ignores wlroots placeholder outputs (`NOOP-*`, `HEADLESS-*`, present when the TV is off or unplugged): it never toggles them, logs once, and uses CEC if configured.
 
 ## Updating
 

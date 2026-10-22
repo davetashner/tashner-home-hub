@@ -138,6 +138,14 @@ def parse_outputs(text: str) -> List[Tuple[str, bool]]:
     return outputs
 
 
+PLACEHOLDER_OUTPUT_PREFIXES = ("NOOP-", "HEADLESS-")
+
+
+def is_placeholder_output(name: str) -> bool:
+    """wlroots invents NOOP-1 / HEADLESS-1 when no real display is attached; never toggle those."""
+    return name.upper().startswith(PLACEHOLDER_OUTPUT_PREFIXES)
+
+
 class Screen:
     """Turns the monitor on or off. `run` is injected so tests never touch a real command."""
 
@@ -145,12 +153,34 @@ class Screen:
         self.cfg = cfg
         self.run = run
         self.output = ""
+        self.no_real_output = False  # wlr-randr lists only placeholder outputs (no display attached)
+        self.placeholder_logged = False
         self.cec_lock = threading.Lock()  # one CEC command sequence at a time
         self.cec_state: Optional[bool] = None  # last CEC power we sent successfully (also mode)
 
+    def _real_outputs(self, out: str) -> List[Tuple[str, bool]]:
+        """parse_outputs without wlroots placeholders. Warns once while only placeholders exist."""
+        parsed = parse_outputs(out)
+        real = [(n, e) for n, e in parsed if not is_placeholder_output(n)]
+        if parsed and not real:
+            if not self.placeholder_logged:
+                log.warning(
+                    "only placeholder outputs (%s): no display is attached; not touching them",
+                    ", ".join(n for n, _ in parsed),
+                )
+                self.placeholder_logged = True
+        else:
+            self.placeholder_logged = False
+        return real
+
     def _resolve_output(self) -> str:
+        """The real output to switch, or "" when none can be told (placeholders do not count)."""
         rc, out = self.run(["wlr-randr"])
-        names = [n for n, _ in parse_outputs(out)] if rc == 0 else []
+        if rc == 0 and parse_outputs(out) and not self._real_outputs(out):
+            self.no_real_output = True
+            return ""
+        self.no_real_output = False
+        names = [n for n, _ in self._real_outputs(out)] if rc == 0 else []
         if self.cfg.output and (not names or self.cfg.output in names):
             return self.cfg.output
         if names:
@@ -160,11 +190,11 @@ class Screen:
         return self.cfg.output
 
     def probe(self) -> Optional[bool]:
-        """Is the output currently enabled? None when it cannot be told."""
+        """Is the output currently enabled? None when it cannot be told (or only placeholders)."""
         rc, out = self.run(["wlr-randr"])
         if rc != 0:
             return None
-        found = dict(parse_outputs(out))
+        found = dict(self._real_outputs(out))
         name = self.output or self.cfg.output
         if name in found:
             return found[name]
@@ -234,13 +264,17 @@ class Screen:
         waker = self._cec_async(True) if also and on else None
         if not self.output:
             self.output = self._resolve_output()
-        rc, out = self.run(["wlr-randr", "--output", self.output, "--on" if on else "--off"])
+        if self.no_real_output:
+            rc, out = 1, "no real output"  # skip wlr-randr entirely; CEC below if configured
+        else:
+            rc, out = self.run(["wlr-randr", "--output", self.output, "--on" if on else "--off"])
         if rc == 0:
             log.info("screen %s via wlr-randr (%s)", "on" if on else "off", self.output)
             if also and not on:
                 self._cec_send(False)  # after the signal is gone, put the TV itself to standby
             return True
-        log.error("wlr-randr failed for %s: %s", self.output, out)
+        if not self.no_real_output:
+            log.error("wlr-randr failed for %s: %s", self.output, out)
         self.output = ""  # find the output again next time
         if also:
             if waker is not None:
