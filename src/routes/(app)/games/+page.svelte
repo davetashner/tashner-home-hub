@@ -133,18 +133,15 @@
 >
 	<h1 class="text-headline leading-none font-extrabold">Games</h1>
 
-	{#if loaded && games.length === 0}
+	{#if loaded && games.length === 0 && page.data.adult === true}
 		<div class="flex flex-col items-start gap-6" data-testid="games-empty">
-			<p class="text-lead text-ink-muted">No games yet.</p>
-			{#if page.data.adult === true}
-				<a
-					href={resolve('/(app)/settings/games')}
-					data-testid="games-settings-link"
-					class="press inline-flex min-h-tap-kid items-center rounded-control bg-accent px-8 text-body font-extrabold text-on-accent shadow-raised"
-				>
-					Add games in Settings
-				</a>
-			{/if}
+			<a
+				href={resolve('/(app)/settings/games')}
+				data-testid="games-settings-link"
+				class="press inline-flex min-h-tap-kid items-center rounded-control bg-accent px-8 text-body font-extrabold text-on-accent shadow-raised"
+			>
+				Add games in Settings
+			</a>
 		</div>
 	{/if}
 
@@ -158,7 +155,7 @@
 				data-testid="space-junk-tile"
 				class="press flex min-h-tap-kid w-full flex-col overflow-hidden rounded-card bg-surface-raised text-left shadow-raised"
 			>
-				<span class="bg-space-sky relative block aspect-video w-full">
+				<span class="relative block aspect-video w-full bg-space-panel">
 					<span class="absolute inset-0 grid place-items-center text-display" aria-hidden="true"
 						>🤖</span
 					>

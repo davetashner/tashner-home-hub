@@ -103,10 +103,27 @@ test('a stored win unlocks the next level; an used-up level shows the end card @
 	await expect(page.getByTestId('sj-level').first()).toContainText('★★☆');
 	await page.getByTestId('sj-level').nth(1).click();
 	await expect(page.getByTestId('space-junk-canvas')).toHaveAttribute('data-phase', 'aiming');
+	// Menu pauses: a shot fired just before stays frozen, and a pull is ignored while paused.
+	const cv = page.getByTestId('space-junk-canvas');
+	await expect(cv).not.toHaveAttribute('data-junkbots', '0');
+	const b0 = (await cv.boundingBox())!;
+	const px0 = b0.x + Number(await cv.getAttribute('data-anchor-x'));
+	const py0 = b0.y + Number(await cv.getAttribute('data-anchor-y'));
+	await page.mouse.move(px0, py0);
+	await page.mouse.down();
+	await page.mouse.move(px0 - 20, py0 - 60, { steps: 3 });
+	await page.mouse.up();
 	await page.getByTestId('sj-pause').click();
 	await expect(page.getByTestId('sj-menu')).toBeVisible();
+	const snap = () => cv.screenshot({ animations: 'disabled' });
+	const a = await snap();
+	await page.waitForTimeout(1000);
+	expect((await snap()).equals(a)).toBe(true);
 	await page.getByTestId('sj-resume').click();
 	await expect(page.getByTestId('sj-menu')).toBeHidden();
+	await page.waitForTimeout(300);
+	expect((await snap()).equals(a)).toBe(false);
+	await expect(cv).toHaveAttribute('data-phase', 'aiming', { timeout: 20_000 });
 
 	// Spend every Junkbot on shots straight into the ground: the level is lost.
 	const canvas = page.getByTestId('space-junk-canvas');

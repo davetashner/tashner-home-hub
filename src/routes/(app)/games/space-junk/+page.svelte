@@ -124,7 +124,7 @@
 						data-unlocked={unlocked}
 						disabled={!unlocked}
 						onclick={() => open(i)}
-						class="press bg-space-sky flex min-h-tap-kid w-full flex-col items-center gap-2 rounded-card p-4 text-on-frame shadow-raised disabled:opacity-50"
+						class="press flex min-h-tap-kid w-full flex-col items-center gap-2 rounded-card bg-space-panel p-4 text-on-frame shadow-raised disabled:bg-space-panel-locked"
 					>
 						<span class="text-headline leading-none font-extrabold">{i + 1}</span>
 						<span class="text-lead leading-tight font-extrabold">{lv.name}</span>
@@ -139,13 +139,13 @@
 
 	{#if level}
 		<div
-			class="bg-space-sky fixed inset-0 z-50 text-on-frame"
+			class="fixed inset-0 z-50 bg-space-panel text-on-frame"
 			role="dialog"
 			aria-modal="true"
 			aria-label="Space Junk: {level.name}"
 			data-testid="sj-game"
 		>
-			<SpaceJunkCanvas bind:this={canvas} {level} {onchange} />
+			<SpaceJunkCanvas bind:this={canvas} {level} {onchange} paused={menu} />
 
 			<div
 				class="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-4 p-3 pt-safe-2 pr-safe-2 pl-safe-2"
@@ -159,7 +159,10 @@
 							<span aria-hidden="true">🤖</span>
 						{/each}
 					</p>
-					<p data-testid="sj-gremlins">👾 {game?.gremlinsLeft ?? '·'} Gremlins</p>
+					<p data-testid="sj-gremlins">
+						👾 {game?.gremlinsLeft ?? '·'}
+						{game?.gremlinsLeft === 1 ? 'Gremlin' : 'Gremlins'}
+					</p>
 				</div>
 				<Button
 					size="kid"

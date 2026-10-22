@@ -39,8 +39,10 @@
 		onevent?: (e: SimEvent) => void;
 		/** Called whenever the phase, Junkbots, Gremlins or score change, and once at the start. */
 		onchange?: (s: GameState) => void;
+		/** While true the simulation stands still and the slingshot ignores the pointer. */
+		paused?: boolean;
 	}
-	let { level, onevent, onchange }: Props = $props();
+	let { level, onevent, onchange, paused = false }: Props = $props();
 
 	let canvas: HTMLCanvasElement;
 	let round = $state(0);
@@ -119,9 +121,15 @@
 		}
 
 		function frame(now: number) {
-			const dt = last ? Math.min((now - last) / 1000, 0.1) : 0;
-			last = now;
-			sim.advance(dt);
+			if (paused) {
+				// Frozen: let go of any pull and restart the clock so resuming does not jump.
+				pointer = null;
+				pull = null;
+				last = 0;
+			}
+			const dt = last && !paused ? Math.min((now - last) / 1000, 0.1) : 0;
+			last = paused ? 0 : now;
+			if (!paused) sim.advance(dt);
 			for (const e of sim.drainEvents()) {
 				if (e.type === 'break') particles.push(...burst(e, DEBRIS[e.material], 8, 0.12));
 				else if (e.type === 'pop') particles.push(...burst(e, 'gremlin-body', 14, 0.16));
@@ -165,7 +173,7 @@
 			return { x: e.clientX - r.left, y: e.clientY - r.top };
 		}
 		function down(e: PointerEvent) {
-			if (pointer !== null || sim.phase !== 'aiming' || sim.junkbotsLeft < 1) return;
+			if (paused || pointer !== null || sim.phase !== 'aiming' || sim.junkbotsLeft < 1) return;
 			if (!canGrab(cam, lv.anchor, at(e))) return;
 			pointer = e.pointerId;
 			canvas.setPointerCapture(e.pointerId);
@@ -173,7 +181,7 @@
 			e.preventDefault();
 		}
 		function move(e: PointerEvent) {
-			if (e.pointerId === pointer) pull = pullFromPointer(cam, lv.anchor, at(e));
+			if (!paused && e.pointerId === pointer) pull = pullFromPointer(cam, lv.anchor, at(e));
 		}
 		function up(e: PointerEvent) {
 			if (e.pointerId !== pointer) return;
