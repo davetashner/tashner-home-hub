@@ -18,6 +18,10 @@ export interface RemoteFacts {
 	outputs: Output[];
 	units: Record<string, string>;
 	health: string | null;
+	/** Absent when the remote script had no session section. */
+	session?: SessionFacts;
+	/** Absent when the remote script had no recovery section. */
+	recovery?: RecoveryFacts;
 	/** Absent when the remote script had no wake section. */
 	wake?: WakeFacts;
 	/** Absent unless kiosk.conf has CEC_MODE=also. */
@@ -26,6 +30,18 @@ export interface RemoteFacts {
 	speaker?: SpeakerFacts;
 	/** Absent unless kiosk.conf has SPOTIFY_CONNECT=on. */
 	spotify?: SpotifyFacts;
+}
+export interface SessionFacts {
+	/** The kiosk user exists on the Pi (install.sh has run). */
+	kioskUser: boolean;
+	/** The kiosk user has a login session. */
+	kiosk: boolean;
+	/** Other (non-greeter) users with a session on seat0. */
+	others: string[];
+}
+export interface RecoveryFacts {
+	/** active | inactive | failed | not-installed | unknown: hub-kiosk-session-recovery.timer. */
+	timer: string;
 }
 export interface SpotifyFacts {
 	/** systemctl is-active of hub-kiosk-librespot.service. */

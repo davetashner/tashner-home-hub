@@ -91,11 +91,15 @@ install -m 755 "$HERE"/bin/hub-kiosk-* "$LIB_DIR/"
 install -m 755 "$HERE/display-agent/hub_display_agent.py" "$LIB_DIR/hub-kiosk-display-agent"
 install -m 644 "$HERE/display-agent/hub_speaker.py" "$LIB_DIR/hub_speaker.py"
 install -m 644 "$HERE/watchdog/hub_watchdog_logic.py" "$LIB_DIR/hub_watchdog_logic.py"
+install -m 755 "$HERE/session-recovery/hub_session_recovery.py" "$LIB_DIR/hub-kiosk-session-recovery"
 install -m 644 "$CONF_SRC" "$CONF_DST"
 install -m 644 "$HERE/systemd/hub-kiosk-librespot.service" /etc/systemd/user/
 install -m 644 "$HERE"/systemd/hub-kiosk.service "$HERE"/systemd/hub-kiosk-watchdog.service \
   "$HERE"/systemd/hub-kiosk-watchdog.timer "$HERE"/systemd/hub-kiosk-display-agent.service \
   /etc/systemd/user/
+# System-level (not user) units: session recovery must outlive the kiosk user's session (hub-2ik).
+install -m 644 "$HERE"/systemd/hub-kiosk-session-recovery.service "$HERE"/systemd/hub-kiosk-session-recovery.timer \
+  /etc/systemd/system/
 install -d -m 755 /etc/systemd/system.conf.d
 install -m 644 "$HERE/systemd/10-hub-watchdog.conf" /etc/systemd/system.conf.d/10-hub-watchdog.conf
 
@@ -215,6 +219,7 @@ raspi-config nonint do_blanking 1 || echo "(raspi-config blanking toggle unavail
 
 say "Reloading systemd"
 systemctl daemon-reload
+systemctl enable --now hub-kiosk-session-recovery.timer || echo "(session recovery timer unavailable)"
 
 cat <<EOC
 

@@ -125,6 +125,55 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(len(run.commands()), 1)
 
 
+WLR_NOOP = 'NOOP-1 "Unknown (NOOP-1)"\n  Enabled: yes\n'
+WLR_BOTH = WLR_NOOP + WLR_ON
+
+
+class PlaceholderOutputTests(unittest.TestCase):
+    """hub-2ik: wlroots NOOP-*/HEADLESS-* outputs exist when no display is attached; never toggle them."""
+
+    def test_is_placeholder(self):
+        for n in ("NOOP-1", "HEADLESS-2", "noop-1"):
+            self.assertTrue(h.is_placeholder_output(n), n)
+        for n in ("HDMI-A-1", "DSI-1", "Virtual-1"):
+            self.assertFalse(h.is_placeholder_output(n), n)
+
+    def test_only_placeholder_skips_wlr_randr_and_logs_once(self):
+        for listing in (WLR_NOOP, 'HEADLESS-1 "x"\n  Enabled: yes\n'):
+            run = FakeRun(listing)
+            s = h.Screen(h.Config(output="HDMI-A-1"), run)
+            with self.assertLogs(h.log, "WARNING") as cm:
+                self.assertFalse(s.set_power(True))
+                self.assertFalse(s.set_power(False))
+            self.assertEqual(run.commands(), [])
+            self.assertEqual(len([m for m in cm.output if "placeholder" in m]), 1)
+
+    def test_only_placeholder_falls_back_to_cec(self):
+        cfg = h.Config(output="HDMI-A-1", cec_backend="cec-ctl")
+        run = FakeRun(WLR_NOOP)
+        self.assertTrue(h.Screen(cfg, run).set_power(True))
+        self.assertEqual(run.commands(), [("cec-ctl", "-d", "/dev/cec0", "--to", "0", "--image-view-on")])
+
+    def test_real_output_wins_over_placeholder(self):
+        for configured in ("", "HDMI-A-1", "NOOP-1"):
+            run = FakeRun(WLR_BOTH)
+            h.Screen(h.Config(output=configured), run).set_power(False)
+            self.assertEqual(run.commands(), [("wlr-randr", "--output", "HDMI-A-1", "--off")], configured)
+
+    def test_probe_ignores_placeholders(self):
+        cfg = h.Config(output="HDMI-A-1")
+        self.assertIsNone(h.Screen(cfg, FakeRun(WLR_NOOP)).probe())
+        self.assertIs(h.Screen(cfg, FakeRun(WLR_BOTH)).probe(), True)
+        self.assertIs(h.Screen(cfg, FakeRun(WLR_NOOP + WLR_OFF)).probe(), False)
+
+    def test_resumes_when_a_real_output_appears(self):
+        s = h.Screen(h.Config(output="HDMI-A-1"), FakeRun(WLR_NOOP))
+        self.assertFalse(s.set_power(True))
+        s.run = FakeRun(WLR_ON)
+        self.assertTrue(s.set_power(True))
+        self.assertEqual(s.run.commands(), [("wlr-randr", "--output", "HDMI-A-1", "--on")])
+
+
 class SyncScreen(h.Screen):
     """Runs the background CEC wake inline so tests are deterministic."""
 
