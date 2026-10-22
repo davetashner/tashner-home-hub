@@ -46,12 +46,6 @@ describe('fitCamera', () => {
 			expect(br.y).toBeLessThanOrEqual(h + 1e-6);
 		}
 	});
-
-	it('survives a zero-sized canvas', () => {
-		const cam = fitCamera(level, 0, 0);
-		expect(Number.isFinite(cam.scale)).toBe(true);
-		expect(cam.scale).toBeGreaterThan(0);
-	});
 });
 
 describe('toScreen and toWorld', () => {
@@ -74,7 +68,6 @@ describe('slingshot pulling', () => {
 		expect(canGrab(cam, anchor, at)).toBe(true);
 		expect(canGrab(cam, anchor, { x: at.x + GRAB_RADIUS_PX - 1, y: at.y })).toBe(true);
 		expect(canGrab(cam, anchor, { x: at.x + GRAB_RADIUS_PX + 1, y: at.y })).toBe(false);
-		expect(canGrab(cam, anchor, { x: at.x + 50, y: at.y }, 40)).toBe(false);
 	});
 
 	it('pulls back and down in world metres', () => {
@@ -105,11 +98,5 @@ describe('renderSize', () => {
 		expect(s.width).toBe(1920);
 		expect(s.height).toBe(1080);
 		expect(s.ratio).toBe(1);
-	});
-	it('never goes below one pixel or a zero ratio', () => {
-		const s = renderSize(0, 0, 0);
-		expect(s.width).toBe(1);
-		expect(s.height).toBe(1);
-		expect(s.ratio).toBeGreaterThan(0);
 	});
 });

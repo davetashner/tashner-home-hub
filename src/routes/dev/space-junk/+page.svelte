@@ -3,7 +3,7 @@
 	import { TEST_TOWER } from '#lib/domain/space-junk/fixtures.js';
 </script>
 
-<svelte:head><title>Space Junk canvas (dev)</title></svelte:head>
+<svelte:head><title>Space Junk (dev)</title></svelte:head>
 
 <div class="h-dvh bg-frame">
 	<SpaceJunkCanvas level={TEST_TOWER} />

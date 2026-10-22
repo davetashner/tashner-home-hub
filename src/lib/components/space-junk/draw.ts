@@ -12,7 +12,6 @@ const KEYS = [
 	'space-sky-low',
 	'space-star',
 	'space-ground',
-	'space-ground-edge',
 	'junk-scrap',
 	'junk-glass',
 	'junk-rock',
@@ -68,12 +67,11 @@ export function burst(at: Point, color: keyof Palette, count: number, size: numb
 	return out;
 }
 
-const DEBRIS: Record<MaterialId, keyof Palette> = {
+export const DEBRIS: Record<MaterialId, keyof Palette> = {
 	scrap: 'junk-scrap',
 	glass: 'junk-glass',
 	rock: 'junk-rock'
 };
-export const debrisColor = (m: MaterialId) => DEBRIS[m];
 
 /** Moves particles on by `dt` seconds under gravity and drops the dead ones, in place. */
 export function stepParticles(list: Particle[], dt: number) {
@@ -123,13 +121,6 @@ function cracks(ctx: CanvasRenderingContext2D, hw: number, hh: number, health: n
 	ctx.lineTo(-hw * 0.1, -hh * 0.2);
 	ctx.lineTo(-hw * 0.4, hh * 0.3);
 	ctx.lineTo(0, hh);
-	if (health < 0.4) {
-		ctx.moveTo(hw * 0.7, -hh);
-		ctx.lineTo(hw * 0.2, 0);
-		ctx.lineTo(hw * 0.6, hh * 0.5);
-		ctx.moveTo(-hw * 0.1, -hh * 0.2);
-		ctx.lineTo(hw * 0.2, 0);
-	}
 	ctx.stroke();
 }
 
@@ -143,7 +134,6 @@ function drawBlock(sc: Scene, b: BodyView) {
 	ctx.fillStyle = pal[DEBRIS[b.material ?? 'scrap']];
 	ctx.strokeStyle = pal['junk-edge'];
 	ctx.lineWidth = Math.max(2, k * 0.06);
-	ctx.lineJoin = 'round';
 	let hw = b.r * k;
 	let hh = hw;
 	if (b.shape === 'box') {
@@ -160,12 +150,6 @@ function drawBlock(sc: Scene, b: BodyView) {
 		ctx.globalAlpha = 0.5;
 		ctx.fillStyle = pal['space-star'];
 		ctx.fillRect(-hw * 0.8, -hh * 0.6, Math.max(2, hw * 0.4), Math.max(2, hh * 0.3));
-	} else if (b.material === 'scrap') {
-		ctx.fillStyle = pal['junk-edge'];
-		for (const sx of [-1, 1]) {
-			circle(ctx, sx * hw * 0.7, 0, Math.max(1.5, Math.min(hw, hh) * 0.15));
-			ctx.fill();
-		}
 	}
 	ctx.globalAlpha = (1 - b.health) * 0.5;
 	ctx.fillStyle = pal['junk-edge'];
@@ -191,16 +175,6 @@ function drawGremlin(sc: Scene, b: BodyView) {
 	ctx.fillStyle = pal['gremlin-body'];
 	ctx.strokeStyle = pal['junk-edge'];
 	ctx.lineWidth = Math.max(2, r * 0.1);
-	// Ears.
-	for (const sx of [-1, 1]) {
-		ctx.beginPath();
-		ctx.moveTo(sx * r * 0.6, -r * 0.7);
-		ctx.lineTo(sx * r * 1.2, -r * 1.3);
-		ctx.lineTo(sx * r * 0.2, -r * 0.95);
-		ctx.closePath();
-		ctx.fill();
-		ctx.stroke();
-	}
 	circle(ctx, 0, 0, r);
 	ctx.fill();
 	ctx.stroke();
@@ -208,7 +182,6 @@ function drawGremlin(sc: Scene, b: BodyView) {
 	ctx.beginPath();
 	ctx.ellipse(0, r * 0.45, r * 0.55, r * 0.35, 0, 0, Math.PI * 2);
 	ctx.fill();
-	// Eyes (a little wider apart and angrier as it takes damage).
 	for (const sx of [-1, 1]) {
 		ctx.fillStyle = pal['space-star'];
 		circle(ctx, sx * r * 0.38, -r * 0.15, r * 0.28);
@@ -282,8 +255,6 @@ export function drawScene(sc: Scene) {
 
 	ctx.fillStyle = pal['space-ground'];
 	ctx.fillRect(0, cam.oy, w, h - cam.oy);
-	ctx.fillStyle = pal['space-ground-edge'];
-	ctx.fillRect(0, cam.oy, w, Math.max(3, k * 0.12));
 
 	// Slingshot.
 	const anchor = sim.level.anchor;
@@ -307,13 +278,6 @@ export function drawScene(sc: Scene) {
 	const pouch = sc.pull ? toScreen(cam, { x: anchor.x + sc.pull.x, y: anchor.y + sc.pull.y }) : a;
 	const bandW = Math.max(3, k * 0.12);
 	band(sc, left, pouch, bandW);
-
-	// Waiting Junkbots on the ground behind the slingshot.
-	const waiting = Math.max(0, sim.junkbotsLeft - (sim.phase === 'aiming' ? 1 : 0));
-	for (let i = 0; i < waiting; i++) {
-		const bx = toScreen(cam, { x: anchor.x - 1.4 - i * 1.1, y: 0.45 });
-		drawBot(ctx, pal, bx, k * 0.4, 0);
-	}
 
 	if (sc.pull) {
 		ctx.fillStyle = pal['aim-dot'];

@@ -17,7 +17,7 @@
 	} from '#lib/domain/space-junk/view.js';
 	import {
 		burst,
-		debrisColor,
+		DEBRIS,
 		drawScene,
 		makeStars,
 		readPalette,
@@ -101,7 +101,6 @@
 			const a = toScreen(cam, lv.anchor);
 			canvas.dataset.anchorX = String(Math.round(a.x));
 			canvas.dataset.anchorY = String(Math.round(a.y));
-			canvas.dataset.scale = cam.scale.toFixed(2);
 		}
 
 		function publish() {
@@ -124,7 +123,7 @@
 			last = now;
 			sim.advance(dt);
 			for (const e of sim.drainEvents()) {
-				if (e.type === 'break') particles.push(...burst(e, debrisColor(e.material), 8, 0.12));
+				if (e.type === 'break') particles.push(...burst(e, DEBRIS[e.material], 8, 0.12));
 				else if (e.type === 'pop') particles.push(...burst(e, 'gremlin-body', 14, 0.16));
 				onevent?.(e);
 			}

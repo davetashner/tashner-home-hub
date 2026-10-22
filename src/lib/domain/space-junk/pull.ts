@@ -1,7 +1,4 @@
-/**
- * Space Junk (hub-26w.2): the slingshot's pull limits, apart from the physics engine so the
- * renderer's view math does not drag planck into its chunk. `sim.ts` re-exports these.
- */
+/** Space Junk (hub-26w.2): pull limits, split from `sim.ts` (which re-exports them) to keep planck out of view math. */
 import type { Point } from './level.js';
 
 /** Longest pull from the pouch's rest position, in metres. */
