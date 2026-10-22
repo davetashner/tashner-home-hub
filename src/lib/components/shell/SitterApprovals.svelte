@@ -109,7 +109,7 @@
 					<button
 						type="button"
 						onclick={() => decide(item, 'reject')}
-						class="min-h-tap-kid min-w-tap-kid rounded-card border-2 border-line bg-surface-raised px-6 text-body font-extrabold active:scale-95"
+						class="min-h-tap-kid min-w-tap-kid rounded-card border-2 border-control-line bg-control px-6 text-body font-extrabold active:scale-95"
 					>
 						Not yet
 					</button>

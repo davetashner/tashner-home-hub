@@ -188,7 +188,7 @@
 							aria-pressed={delta === n}
 							onclick={() => pickDelta(n)}
 							class="{chip} {delta !== n
-								? 'border-line bg-surface-raised'
+								? 'border-control-line bg-control'
 								: n > 0
 									? 'border-accent bg-accent text-on-accent'
 									: 'border-danger bg-danger text-on-accent'}"
@@ -206,7 +206,7 @@
 							type="button"
 							data-testid="reason"
 							onclick={() => (note = r)}
-							class="{chip} border-line bg-surface-raised">{r}</button
+							class="{chip} border-control-line bg-control">{r}</button
 						>
 					{/each}
 				</div>

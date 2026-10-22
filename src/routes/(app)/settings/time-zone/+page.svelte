@@ -106,7 +106,7 @@
 						z
 					)
 						? 'border-accent bg-accent-soft'
-						: 'border-line bg-surface-raised'}"
+						: 'border-control-line bg-control'}"
 				>
 					<span class="flex flex-col">
 						<span class="text-body font-bold">{label.city}</span>

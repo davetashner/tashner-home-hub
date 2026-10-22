@@ -158,7 +158,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J5.7 | The now line follows the time; the view is remembered. | built | wall | `calendar-now-line`, `calendar-view` |
 | J5.8 | The calendar fits phone and tablet screens. | built | iphone, ipad | `calendar-phone`, `calendar-sizes` |
 | **J6** | **Lists: add, check off, offline replay** (Everyone) | | | |
-| J6.1 | Add an item with the wall keyboard, check it off, clear checked. | built | wall | `lists-tap-race`, `lists` |
+| J6.1 | Add an item with the wall keyboard, check it off, clear checked. | built | wall | `lists-night-contrast`, `lists-tap-race`, `lists` |
 | J6.2 | Add an item from a phone. | built | iphone | `lists` |
 | J6.3 | An item added in one browser shows in another within a second. | built | wall, iphone | `lists-live` |
 | J6.4 | A check made before its add returns still lands once the network is back. | built | wall, iphone | `lists-temp-tap` |

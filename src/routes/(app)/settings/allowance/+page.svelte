@@ -287,7 +287,7 @@
 								onclick={() => toggle(kid, mode)}
 								class="{chip} {open?.id === kid.id && open.mode === mode
 									? 'border-accent bg-accent text-on-accent'
-									: 'border-line bg-surface-raised'}">{text}</button
+									: 'border-control-line bg-control'}">{text}</button
 							>
 						{/each}
 					</div>

@@ -106,13 +106,13 @@
 						class="min-h-tap min-w-tap rounded-control border-2 px-6 text-body font-bold transition-transform duration-75 active:scale-95 {loc.unit ===
 						u
 							? 'border-accent bg-accent-soft'
-							: 'border-line bg-surface-raised'}">°{u}</button
+							: 'border-control-line bg-control'}">°{u}</button
 					>
 				{/each}
 				<button
 					type="button"
 					onclick={turnOff}
-					class="min-h-tap rounded-control border-2 border-line bg-surface-raised px-6 text-body transition-transform duration-75 active:scale-95"
+					class="min-h-tap rounded-control border-2 border-control-line bg-control px-6 text-body transition-transform duration-75 active:scale-95"
 					>Turn off weather</button
 				>
 			</div>
@@ -146,7 +146,7 @@
 				<button
 					type="button"
 					onclick={() => save({ ...r, unit: loc?.unit ?? 'F' })}
-					class="min-h-tap w-full rounded-control border-2 border-line bg-surface-raised px-6 py-3 text-left text-body font-bold transition-transform duration-75 active:scale-95"
+					class="min-h-tap w-full rounded-control border-2 border-control-line bg-control px-6 py-3 text-left text-body font-bold transition-transform duration-75 active:scale-95"
 					>{r.name}</button
 				>
 			</li>
@@ -173,7 +173,7 @@
 		</label>
 		<button
 			type="submit"
-			class="min-h-tap rounded-control border-2 border-line bg-surface-raised px-6 text-body font-bold transition-transform duration-75 active:scale-95"
+			class="min-h-tap rounded-control border-2 border-control-line bg-control px-6 text-body font-bold transition-transform duration-75 active:scale-95"
 			>Use coordinates</button
 		>
 	</form>

@@ -435,11 +435,11 @@
 <svelte:window onpointerdowncapture={dismissArmed} />
 <svelte:head><title>Lists · Home Hub</title></svelte:head>
 
-<section class="flex h-full min-h-0 flex-col gap-4 p-6 short:p-3">
+<section class="flex h-full min-h-0 flex-col gap-4 p-6 short:p-3 {wall ? '' : 'overflow-y-auto'}">
 	<h1 class="sr-only">Lists</h1>
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
-		class="flex max-h-tap shrink-0 flex-wrap gap-3 overflow-y-auto"
+		class="flex max-h-chips-max shrink-0 flex-wrap gap-3 overflow-y-auto"
 		tabindex="0"
 		role="group"
 		aria-label="Show lists for"
@@ -451,9 +451,11 @@
 				aria-pressed={filter === f.key}
 				data-testid="owner-filter-option"
 				data-owner={f.key}
-				class="min-h-tap shrink-0 rounded-chip px-6 text-body {filter === f.key
+				class="min-h-tap shrink-0 rounded-chip px-6 text-body {wall
+					? 'min-h-tap-tablet px-8'
+					: ''} {filter === f.key
 					? 'bg-accent text-on-accent'
-					: 'border-2 border-line bg-surface-raised text-ink'}"
+					: 'border-2 border-control-line bg-control text-ink'}"
 				onclick={() => (filter = f.key)}
 			>
 				{f.label}
@@ -461,9 +463,11 @@
 		{/each}
 	</div>
 
-	<div class="flex min-h-0 flex-1 flex-col gap-4 landscape:flex-row">
+	<div class="flex flex-col gap-4 landscape:flex-row {wall ? 'min-h-0 flex-1' : 'flex-none'}">
 		<nav
-			class="flex max-h-1/3 shrink-0 flex-col gap-4 overflow-y-auto landscape:max-h-none landscape:w-1/3"
+			class="flex shrink-0 flex-col gap-4 landscape:w-1/4 {wall
+				? 'max-h-1/3 overflow-y-auto landscape:max-h-none'
+				: ''}"
 			aria-label="Lists"
 		>
 			<div class="contents">
@@ -477,7 +481,11 @@
 							<span>{g.label}</span>
 							<span data-testid="group-left">{g.left} left</span>
 						</h2>
-						<div class="flex flex-col gap-2" role="tablist" aria-label={`${g.label} lists`}>
+						<div
+							class="flex flex-col gap-2 {wall ? 'portrait:flex-row portrait:flex-wrap' : ''}"
+							role="tablist"
+							aria-label={`${g.label} lists`}
+						>
 							{#each g.lists as l (l.id)}
 								{@const on = l.id === current?.id}
 								<button
@@ -485,9 +493,11 @@
 									role="tab"
 									aria-selected={on}
 									data-testid="list-tab"
-									class="flex min-h-tap items-center justify-between gap-3 rounded-card px-6 text-left text-body {on
+									class="flex items-center justify-between gap-3 rounded-card px-6 text-left {wall
+										? 'portrait:grow'
+										: ''} {wall ? 'min-h-tap-kid text-lead' : 'min-h-tap text-body'} {on
 										? 'bg-accent text-on-accent'
-										: 'border-2 border-line bg-surface-raised text-ink'}"
+										: 'border-2 border-control-line bg-control text-ink'}"
 									onclick={() => select(l.id)}
 								>
 									<span class="min-w-0 break-words">{l.title}</span>
@@ -506,9 +516,9 @@
 					aria-label="New list"
 					data-testid="list-new"
 					aria-pressed={naming}
-					class="min-h-tap min-w-tap rounded-chip border-2 border-dashed border-line px-6 text-body text-ink {naming
-						? 'bg-accent-soft'
-						: 'bg-surface-raised'}"
+					class="min-h-tap min-w-tap rounded-chip border-2 border-dashed border-ink-muted px-6 text-body text-ink {wall
+						? 'min-h-tap-kid'
+						: ''} {naming ? 'bg-accent-soft' : 'bg-control'}"
 					onclick={() => {
 						naming = !naming;
 						confirming = false;
@@ -527,11 +537,20 @@
 			</div>
 		</nav>
 
-		<div class="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+		<div
+			class="flex min-w-0 flex-1 flex-col gap-4 rounded-card border-2 border-line bg-surface-raised p-6 shadow-raised short:p-3 {wall
+				? 'min-h-0 overflow-y-auto'
+				: ''}"
+			data-testid="list-panel"
+		>
 			{#if current && !naming}
+				<div class="flex shrink-0 flex-wrap items-baseline justify-between gap-3">
+					<h2 class="min-w-0 text-title font-extrabold break-words text-ink">{current.title}</h2>
+					<span class="text-lead text-ink-muted">{itemsLeft(current)} left</span>
+				</div>
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 				<div
-					class="flex max-h-tap shrink-0 flex-wrap items-center gap-3 overflow-y-auto"
+					class="flex max-h-chips-max shrink-0 flex-wrap items-center gap-3 overflow-y-auto"
 					tabindex="0"
 					role="group"
 					aria-label="List is for"
@@ -546,7 +565,7 @@
 							data-owner={o.id ?? 'house'}
 							class="min-h-tap shrink-0 rounded-chip px-6 text-body {currentOwner === o.id
 								? 'bg-accent text-on-accent'
-								: 'border-2 border-line bg-surface-raised text-ink'}"
+								: 'border-2 border-control-line bg-control text-ink'}"
 							onclick={() => reassign(o.id)}
 						>
 							{o.label}
@@ -563,6 +582,8 @@
 						</Button>
 					{/if}
 				</div>
+			{:else if naming}
+				<h2 class="shrink-0 text-title font-extrabold text-ink">New list</h2>
 			{/if}
 
 			{#if confirming && current}
@@ -593,84 +614,96 @@
 				<p class="text-body text-danger" role="alert" data-testid="list-error">{error}</p>
 			{/if}
 
-			<ul
-				class="grid min-h-0 flex-1 auto-rows-min grid-cols-1 content-start gap-2 overflow-y-auto landscape:grid-cols-2"
-				data-testid="list-items"
+			<div
+				class="flex flex-1 flex-col gap-4 {wall ? 'min-h-keyboard landscape:flex-row' : 'min-h-0'}"
 			>
-				{#each items as item (item.id)}
-					<li
-						class="flex items-stretch gap-2 rounded-card border-2 border-line bg-surface-raised"
-						data-testid="list-item"
-						data-done={item.done}
-						data-armed={armed === item.id}
-					>
-						<button
-							type="button"
-							class="flex min-h-tap min-w-0 flex-1 touch-manipulation items-center gap-4 px-4 text-left text-body select-none"
-							aria-pressed={item.done}
-							data-testid="item-check"
-							onclick={() => toggle(item)}
-							use:longpress={{ onlongpress: () => (armed = item.id) }}
+				<ul
+					class="grid min-h-tap-kid-lg flex-1 auto-rows-min grid-cols-1 gap-2 {items.length === 0
+						? 'content-center'
+						: 'content-start'} overflow-y-auto {wall ? '' : 'landscape:grid-cols-2'}"
+					data-testid="list-items"
+				>
+					{#each items as item (item.id)}
+						<li
+							class="flex items-stretch gap-2 rounded-card border-2 border-control-line bg-control"
+							data-testid="list-item"
+							data-done={item.done}
+							data-armed={armed === item.id}
 						>
-							<span
-								class="grid size-tap shrink-0 place-items-center rounded-control border-2 {item.done
-									? 'border-success bg-success text-on-accent'
-									: 'border-line bg-surface'}"
-								aria-hidden="true">{item.done ? '✓' : ''}</span
+							<button
+								type="button"
+								class="flex min-h-tap min-w-0 flex-1 touch-manipulation items-center gap-4 px-4 text-left text-body select-none"
+								aria-pressed={item.done}
+								data-testid="item-check"
+								onclick={() => toggle(item)}
+								use:longpress={{ onlongpress: () => (armed = item.id) }}
 							>
-							<span
-								class="min-w-0 break-words {item.done ? 'text-ink-muted line-through' : 'text-ink'}"
-								>{item.text}</span
-							>
-						</button>
-						{#if armed === item.id}
-							<Button
-								variant="secondary"
-								class="m-2 shrink-0 border-danger text-danger"
-								data-testid="item-delete"
-								onclick={() => remove(item)}
-							>
-								Delete
-							</Button>
-						{/if}
-					</li>
-				{:else}
-					{#if loaded}
-						<li class="p-8 text-center text-body text-ink-muted">
-							Nothing here yet. Add the first item.
+								<span
+									class="grid size-tap shrink-0 place-items-center rounded-control border-2 {item.done
+										? 'border-success bg-success text-on-accent'
+										: 'border-line bg-surface'}"
+									aria-hidden="true">{item.done ? '✓' : ''}</span
+								>
+								<span
+									class="min-w-0 break-words {item.done
+										? 'text-ink-muted line-through'
+										: 'text-ink'}">{item.text}</span
+								>
+							</button>
+							{#if armed === item.id}
+								<Button
+									variant="secondary"
+									class="m-2 shrink-0 border-danger text-danger"
+									data-testid="item-delete"
+									onclick={() => remove(item)}
+								>
+									Delete
+								</Button>
+							{/if}
 						</li>
+					{:else}
+						{#if loaded && !naming}
+							<li class="p-8 text-center text-lead text-ink-muted landscape:col-span-2">
+								Nothing here yet. Add the first item.
+							</li>
+						{/if}
+					{/each}
+				</ul>
+				<div
+					class="flex shrink-0 flex-col justify-end {wall
+						? 'landscape:w-3/5 landscape:shrink-0'
+						: ''}"
+				>
+					{#if wall}
+						{#key naming}
+							{#if naming}
+								<OnScreenKeyboard
+									onsubmit={createNew}
+									placeholder="Type a list name…"
+									submitLabel="Create"
+									max={LIST_TITLE_MAX}
+								/>
+							{:else}
+								<OnScreenKeyboard onsubmit={add} />
+							{/if}
+						{/key}
+					{:else}
+						<form class="flex gap-3" onsubmit={submitDraft}>
+							<input
+								bind:value={draft}
+								maxlength={naming ? LIST_TITLE_MAX : 120}
+								autocomplete="off"
+								enterkeyhint="done"
+								placeholder={naming ? 'Name the new list' : 'Add an item'}
+								aria-label={naming ? 'New list name' : 'New item'}
+								data-testid="item-input"
+								class="min-h-tap min-w-0 flex-1 rounded-control border-2 border-control-line bg-surface px-4 text-body text-ink"
+							/>
+							<Button type="submit" data-testid="item-add">{naming ? 'Create' : 'Add'}</Button>
+						</form>
 					{/if}
-				{/each}
-			</ul>
+				</div>
+			</div>
 		</div>
 	</div>
-
-	{#if wall}
-		{#key naming}
-			{#if naming}
-				<OnScreenKeyboard
-					onsubmit={createNew}
-					placeholder="Type a list name…"
-					submitLabel="Create"
-					max={LIST_TITLE_MAX}
-				/>
-			{:else}
-				<OnScreenKeyboard onsubmit={add} />
-			{/if}
-		{/key}
-	{:else}
-		<form class="flex gap-3" onsubmit={submitDraft}>
-			<input
-				bind:value={draft}
-				maxlength={naming ? LIST_TITLE_MAX : 120}
-				autocomplete="off"
-				enterkeyhint="done"
-				placeholder={naming ? 'Name the new list' : 'Add an item'}
-				aria-label={naming ? 'New list name' : 'New item'}
-				data-testid="item-input"
-				class="min-h-tap min-w-0 flex-1 rounded-control border-2 border-line bg-surface px-4 text-body text-ink"
-			/>
-			<Button type="submit" data-testid="item-add">{naming ? 'Create' : 'Add'}</Button>
-		</form>
-	{/if}
 </section>

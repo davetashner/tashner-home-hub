@@ -22,7 +22,7 @@
 
 	const variants: Record<Variant, string> = {
 		primary: 'bg-accent text-on-accent shadow-raised',
-		secondary: 'bg-surface-raised text-ink border-2 border-line shadow-raised',
+		secondary: 'bg-control text-ink border-2 border-control-line shadow-raised',
 		ghost: 'bg-transparent text-accent',
 		danger: 'bg-danger text-on-accent shadow-raised'
 	};

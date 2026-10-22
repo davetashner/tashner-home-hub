@@ -89,7 +89,7 @@
 	const field =
 		'min-h-tap w-full rounded-control border-2 border-line bg-surface px-6 text-body text-ink';
 	const secondary =
-		'min-h-tap min-w-tap rounded-control border-2 border-line bg-surface-raised px-6 text-body font-bold transition-transform duration-75 active:scale-95';
+		'min-h-tap min-w-tap rounded-control border-2 border-control-line bg-control px-6 text-body font-bold transition-transform duration-75 active:scale-95';
 
 	let motionSensors = $state<HaEntity[] | null>(null);
 	let motionSelected = $state<string | null>(null);
@@ -404,7 +404,7 @@
 							class="flex min-h-tap w-full items-center gap-4 rounded-control border-2 px-6 text-left text-body transition-transform duration-75 active:scale-95 {motionSelected ===
 							null
 								? 'border-accent bg-accent-soft'
-								: 'border-line bg-surface-raised'}"
+								: 'border-control-line bg-control'}"
 						>
 							<span aria-hidden="true" class="font-extrabold"
 								>{motionSelected === null ? '✓' : '○'}</span
@@ -425,7 +425,7 @@
 							class="flex min-h-tap w-full items-center gap-4 rounded-control border-2 px-6 text-left text-body transition-transform duration-75 active:scale-95 {motionSelected ===
 							m.entityId
 								? 'border-accent bg-accent-soft'
-								: 'border-line bg-surface-raised'}"
+								: 'border-control-line bg-control'}"
 						>
 							<span aria-hidden="true" class="font-extrabold"
 								>{motionSelected === m.entityId ? '✓' : '○'}</span
@@ -502,7 +502,7 @@
 								e.entityId
 							)
 								? 'border-accent bg-accent-soft'
-								: 'border-line bg-surface-raised'}"
+								: 'border-control-line bg-control'}"
 						>
 							<span aria-hidden="true" class="font-extrabold"
 								>{picked.has(e.entityId) ? '✓' : '○'}</span

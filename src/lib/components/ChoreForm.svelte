@@ -129,7 +129,7 @@
 			bind:value={title}
 			maxlength="60"
 			required
-			class="min-h-tap rounded-control border-2 border-line bg-surface-raised px-4 text-body"
+			class="min-h-tap rounded-control border-2 border-control-line bg-control px-4 text-body"
 		/>
 	</label>
 
@@ -172,7 +172,7 @@
 			<label class="relative flex max-w-full flex-col items-center gap-1">
 				<input type="checkbox" value={m.id} bind:group={memberIds} class="peer sr-only" />
 				<span
-					class="press flex max-w-full items-center gap-3 rounded-chip border-2 border-line bg-surface-raised p-2 pr-4 peer-checked:border-ink peer-checked:ring-4 peer-checked:ring-ink peer-focus-visible:outline-4 peer-focus-visible:outline-accent"
+					class="press flex max-w-full items-center gap-3 rounded-chip border-2 border-control-line bg-control p-2 pr-4 peer-checked:border-ink peer-checked:ring-4 peer-checked:ring-ink peer-focus-visible:outline-4 peer-focus-visible:outline-accent"
 				>
 					<MemberAvatar name={m.name} color={m.color} avatar={m.avatar} size="sm" />
 					<span class="min-w-0 text-body break-words">{m.name}</span>
@@ -218,7 +218,7 @@
 			<input
 				type="date"
 				bind:value={onceDate}
-				class="min-h-tap rounded-control border-2 border-line bg-surface-raised px-4 text-body"
+				class="min-h-tap rounded-control border-2 border-control-line bg-control px-4 text-body"
 			/>
 		</label>
 	{/if}
