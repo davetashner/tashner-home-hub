@@ -17,20 +17,10 @@ export interface Birthday extends BirthdayDate {
 	label?: string;
 }
 
-const MONTH_NAMES = [
-	'January',
-	'February',
-	'March',
-	'April',
-	'May',
-	'June',
-	'July',
-	'August',
-	'September',
-	'October',
-	'November',
-	'December'
-] as const;
+const MONTH_NAMES =
+	'January February March April May June July August September October November December'.split(
+		' '
+	);
 export const monthName = (month: number) => MONTH_NAMES[month - 1] ?? '';
 
 const isLeap = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
