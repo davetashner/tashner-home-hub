@@ -220,7 +220,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | **J16** | **Every screen fits every device** (Everyone, critical) | | | |
 | J16.1 | Every tap target meets 60 px (96 px on kid screens) and nothing sits behind hover. | built | wall | `calendar-view`, `design`, `shell`, `tap-targets` |
 | J16.2 | All wall text is legible and the layout has no overflow in portrait. | built | wall | `legibility`, `portrait-layout` |
-| J16.3 | Phones and iPads in both orientations fit the shell, clear the safe areas, and avoid input zoom. | built | iphone, ipad | `ios-input-zoom`, `ipad-pages`, `ipad-shell`, `phone-landscape-pages`, `phone-landscape`, `safe-areas`, `setup-phone-width` |
+| J16.3 | Phones and iPads in both orientations fit the shell, clear the safe areas, and avoid input zoom. | built | iphone, ipad | `ios-input-zoom`, `ipad-pages`, `ipad-shell`, `nav-long-label`, `phone-landscape-pages`, `phone-landscape`, `safe-areas`, `setup-phone-width` |
 | J16.4 | Pages have no serious accessibility violations. | built | wall | `a11y`, `kid-chores` |
 | J16.5 | Taps and celebrations stay fast. | built | wall | `celebrate-perf`, `interaction-perf` |
 | J16.6 | The hub installs to the Home Screen and the container serves health and shuts down cleanly. | built | wall, iphone, ipad | `body-size-limit`, `home-screen`, `home`, `shutdown` |

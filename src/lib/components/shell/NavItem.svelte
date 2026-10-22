@@ -35,6 +35,7 @@
 <!-- eslint-disable svelte/no-navigation-without-resolve -->
 <a
 	href={DESTINATION_URLS[destination.href]}
+	aria-label={destination.label}
 	aria-current={active ? 'page' : undefined}
 	{onpointerdown}
 	onpointercancel={clear}
@@ -49,8 +50,18 @@
 	<span class="text-title tablet:text-lead tablet:leading-none"
 		><Icon name={destination.icon} /></span
 	>
-	<span class="whitespace-nowrap max-sm:sr-only short:sr-only tablet:leading-tight"
+	<!-- Portrait bars and tablet rails share the width among seven tabs, so a member's name
+	     ("Maximilian's To-Dos") would run into its neighbours: they show the short label. The
+	     full name stays the accessible name via aria-label. -->
+	<span
+		aria-hidden="true"
+		class="whitespace-nowrap max-sm:sr-only portrait:hidden landscape:wrap-anywhere landscape:whitespace-normal short:sr-only landscape:tablet:hidden"
 		>{destination.label}</span
+	>
+	<span
+		aria-hidden="true"
+		class="hidden whitespace-nowrap max-sm:sr-only portrait:inline short:sr-only tablet:leading-tight landscape:tablet:inline"
+		>{destination.short ?? destination.label}</span
 	>
 </a>
 
