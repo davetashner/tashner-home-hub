@@ -5,7 +5,7 @@ LightDM autologins only when it starts. If labwc exits (a crash, a compositor er
 user's session closes, LightDM shows the greeter, and the kiosk watchdog (a kiosk user service)
 died with the session, so nothing brings the wall back. This checks every 30 s: when LightDM is
 running but the kiosk user has had no session for SESSION_RECOVERY_MINUTES (kiosk.conf, default 2,
-0 = off), it restarts LightDM so autologin runs again. A different user logged in on seat0 is left
+0 = off), it restarts LightDM so autologin runs again. A different user with a graphical (wayland/x11) session on seat0 is left
 alone (and logged), so a person using the desktop is never kicked out.
 
 Usage: hub_session_recovery.py [CONF]. Tests: python3 -m unittest (in this folder).
@@ -26,17 +26,24 @@ CONF = "/etc/hub-kiosk/kiosk.conf"
 SYSTEM_USERS = ("lightdm", "gdm", "sddm")
 
 
-def parse_sessions(text: str) -> List[Tuple[str, str]]:
-    """`loginctl list-sessions --no-legend` -> [(user, seat)]. Columns: SESSION UID USER SEAT ..."""
-    out = []
-    for line in text.splitlines():
-        f = line.split()
-        if len(f) >= 3:
-            out.append((f[2], f[3] if len(f) > 3 else "-"))
-    return out
+GRAPHICAL = ("wayland", "x11", "mir")
 
 
-def decide(state: Optional[dict], sessions: List[Tuple[str, str]], lightdm_active: bool,
+def parse_session_ids(text: str) -> List[str]:
+    """`loginctl list-sessions --no-legend` -> session ids (first column)."""
+    return [line.split()[0] for line in text.splitlines() if line.split()]
+
+
+def parse_session(text: str) -> Optional[Tuple[str, str, str]]:
+    """`loginctl show-session ID -p Name -p Seat -p Type -p Class` -> (user, seat, type), or None
+    unless it is a user-class session (drops the lightdm greeter, manager and background sessions)."""
+    v = dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
+    if v.get("Class") != "user" or not v.get("Name"):
+        return None
+    return v["Name"], v.get("Seat") or "-", v.get("Type", "")
+
+
+def decide(state: Optional[dict], sessions: List[Tuple[str, str, str]], lightdm_active: bool,
            now: float, grace_seconds: float) -> Tuple[str, dict]:
     """Return (action, new_state). Actions: ok | wait | restart | skip-other-user | skip-no-lightdm | off.
 
@@ -46,11 +53,14 @@ def decide(state: Optional[dict], sessions: List[Tuple[str, str]], lightdm_activ
     """
     if grace_seconds <= 0:
         return "off", {"missing_since": None}
-    if any(u == KIOSK_USER for u, _ in sessions):
+    # Only graphical sessions count: a text login on tty1 or an ssh session is not a person at the
+    # desktop, and a kiosk "session" without a compositor is not a running kiosk.
+    sessions = [x for x in sessions if x[2] in GRAPHICAL]
+    if any(u == KIOSK_USER for u, _, _ in sessions):
         return "ok", {"missing_since": None}
     if not lightdm_active:
         return "skip-no-lightdm", {"missing_since": None}
-    if any(s == "seat0" and u not in SYSTEM_USERS for u, s in sessions):
+    if any(st == "seat0" and u not in SYSTEM_USERS for u, st, _ in sessions):
         return "skip-other-user", {"missing_since": None}
     since = (state or {}).get("missing_since")
     if since is None or since > now:  # first sighting (or a stale state from before a reboot)
@@ -101,12 +111,17 @@ def main(argv: List[str]) -> int:
     if rc != 0:
         print("hub-kiosk-session-recovery: loginctl failed: %s" % listing)
         return 0
-    sessions = parse_sessions(listing)
+    sessions = []
+    for sid in parse_session_ids(listing):
+        rc, info = _run(["loginctl", "show-session", sid, "-p", "Name", "-p", "Seat", "-p", "Type", "-p", "Class"])
+        got = parse_session(info) if rc == 0 else None
+        if got:
+            sessions.append(got)
     lightdm = _run(["systemctl", "is-active", "--quiet", "lightdm.service"])[0] == 0
     # CLOCK_MONOTONIC is system-wide on Linux and restarts at boot, matching /run's lifetime.
     action, new = decide(state, sessions, lightdm, time.monotonic(), grace)
     if action == "skip-other-user":
-        who = sorted({u for u, s in sessions if s == "seat0" and u not in SYSTEM_USERS})
+        who = sorted({u for u, st, t in sessions if st == "seat0" and t in GRAPHICAL and u not in SYSTEM_USERS})
         if (state or {}).get("last") != action:
             print("hub-kiosk-session-recovery: no kiosk session, but %s is logged in on seat0: leaving it alone" % ", ".join(who))
     elif action == "restart":

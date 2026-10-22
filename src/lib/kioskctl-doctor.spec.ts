@@ -85,9 +85,9 @@ describe('parsers', () => {
 
 	it('parses the session and recovery sections', () => {
 		const text =
-			'=== session\nkioskuser yes\nsession lightdm seat0\nsession dave seat0\nsession root -\n=== recovery\ntimer active\n=== end';
+			'=== session\nkioskuser yes\nsession dave seat0 tty\nsession dave - tty\nsession kiosk seat0 tty\nsession erin seat0 wayland\n=== recovery\ntimer active\n=== end';
 		const f = remoteFacts(text);
-		expect(f.session).toEqual({ kioskUser: true, kiosk: false, others: ['dave'] });
+		expect(f.session).toEqual({ kioskUser: true, kiosk: false, others: ['erin'] });
 		expect(f.recovery).toEqual({ timer: 'active' });
 		expect(remoteFacts('=== host\nkiosk').session).toBeUndefined();
 	});

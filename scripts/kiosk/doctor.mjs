@@ -46,7 +46,10 @@ echo; echo "=== emoji"; fc-list 2>/dev/null | grep -ci emoji
 echo "=== wlr"; asowner wlr-randr 2>&1
 echo "=== units"; for u in ${KIOSK_UNITS.join(' ')}; do echo "$u $(asowner systemctl --user is-active $u 2>/dev/null || true)"; done
 echo "=== session"; id kiosk >/dev/null 2>&1 && echo "kioskuser yes" || echo "kioskuser no"
-loginctl list-sessions --no-legend 2>/dev/null | awk '{print "session " $3 " " $4}'
+loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}' | while read -r id; do
+  loginctl show-session "$id" -p Name -p Seat -p Type -p Class 2>/dev/null |
+    awk -F= '{v[$1]=$2} END{ if (v["Class"]=="user") print "session " v["Name"] " " (v["Seat"]==""?"-":v["Seat"]) " " v["Type"] }'
+done
 echo "=== recovery"
 if [ "$(systemctl show -p LoadState --value hub-kiosk-session-recovery.timer 2>/dev/null)" = loaded ]; then
   echo "timer $(systemctl is-active hub-kiosk-session-recovery.timer 2>/dev/null || true)"
@@ -135,7 +138,9 @@ export function parseSession(text) {
 	const rows = text
 		.split('\n')
 		.filter((l) => l.startsWith('session '))
-		.map((l) => l.split(' '));
+		.map((l) => l.split(' '))
+		// Only graphical sessions count: a tty1 text login or ssh is not a person at the desktop.
+		.filter((r) => ['wayland', 'x11', 'mir'].includes(r[3]));
 	return {
 		kioskUser: /^kioskuser yes$/m.test(text),
 		kiosk: rows.some((r) => r[1] === 'kiosk'),
