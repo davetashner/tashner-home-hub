@@ -133,6 +133,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J1.13 | Undo a logged session within 10 seconds and its star comes back off. | built | wall | `practice-log` |
 | J1.14 | Save allowance dollars toward a real thing: add a money goal in My goals, watch the jar fill, and get a party when there is enough. | built | wall | `money-goals` |
 | J1.15 | See my reading and practice week: minutes per day, today lit up, the week total and stars. | built | wall | `practice-week` |
+| J1.16 | See myself on the kid screen even on a day with no chores, and still reach my jar, goals, Shop and Log reading. | built | wall | `kid-visibility` |
 | **J2** | **Kid runs a routine** (Kid at the wall, critical) | | | |
 | J2.1 | Open a routine from the kid's board, including a kid who has only routines. | built | wall | `routine-only-kid`, `routines` |
 | J2.2 | Step through it, reload to resume, and see the celebration at the end. | built | wall | `routines` |

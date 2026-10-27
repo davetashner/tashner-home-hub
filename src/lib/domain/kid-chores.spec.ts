@@ -7,7 +7,7 @@ import {
 	setStatus,
 	kidsToShow,
 	kidsWithChores,
-	switcherMembers,
+	defaultKid,
 	undoSecondsLeft,
 	starJobGroups,
 	habitChores,
@@ -64,12 +64,6 @@ describe('kid chores view logic', () => {
 		expect(jarSlots(40, 5, 100)).toEqual({ total: 24, gold: 24, pending: 0 });
 	});
 
-	it('shows only members with chores, or everyone when none have any', () => {
-		const members = [{ id: 'm1' }, { id: 'm2' }];
-		expect(switcherMembers(members, { m1: groups(), m2: [] })).toEqual([{ id: 'm1' }]);
-		expect(switcherMembers(members, { m1: [], m2: [] })).toEqual(members);
-	});
-
 	it('lists only the kids with chores today, so the switcher hides for fewer than two', () => {
 		const members = [{ id: 'm1' }, { id: 'm2' }, { id: 'm3' }];
 		expect(kidsWithChores(members, { m1: groups(), m2: [], m3: groups() })).toEqual([
@@ -98,20 +92,23 @@ describe('kid chores view logic', () => {
 			e: routine('06:00', '09:00') // outside its window at noon
 		};
 
-		it('keeps chores-only, routine-only and both; drops neither and out-of-window', () => {
-			expect(kidsToShow(members, boards, routinesBy, 12 * 60).map((m) => m.id)).toEqual([
-				'a',
-				'b',
-				'c'
-			]);
+		it('shows every child, with or without chores or a routine', () => {
+			expect(kidsToShow(members).map((m) => m.id)).toEqual(['a', 'b', 'c', 'd', 'e']);
 		});
 
-		it('includes the windowed routine kid once its window opens', () => {
-			expect(kidsToShow(members, boards, routinesBy, 7 * 60).map((m) => m.id)).toContain('e');
+		it('selects the wanted kid, even one with nothing today', () => {
+			expect(defaultKid(members, boards, routinesBy, 12 * 60, 'd')?.id).toBe('d');
 		});
 
-		it('switcherMembers falls back to everyone when nobody qualifies', () => {
-			expect(switcherMembers(members, {}, {}, 0)).toEqual(members);
+		it('defaults to the first kid with chores or an open routine', () => {
+			expect(defaultKid(members, { c: groups() }, {}, 0)?.id).toBe('c');
+			expect(defaultKid(members, boards, routinesBy, 12 * 60, 'zzz')?.id).toBe('a');
+			expect(defaultKid(members, {}, { e: routine('06:00', '09:00') }, 7 * 60)?.id).toBe('e');
+		});
+
+		it('falls back to the first kid when nobody has anything, and null when no kids', () => {
+			expect(defaultKid(members, {}, { e: routine('06:00', '09:00') }, 12 * 60)?.id).toBe('a');
+			expect(defaultKid([], {}, {}, 0)).toBeNull();
 		});
 	});
 });
