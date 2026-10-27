@@ -2,6 +2,7 @@
 	import { jarSlots } from '#lib/domain/kid-chores.js';
 	import { jarCaption, jarFill } from '#lib/domain/goal-jar.js';
 	import Button from '#lib/components/ui/Button.svelte';
+	import GoalsSheet from './GoalsSheet.svelte';
 	import RewardShop from './RewardShop.svelte';
 	import StickerBook from './StickerBook.svelte';
 	import StarIcon from './StarIcon.svelte';
@@ -32,6 +33,7 @@
 	} = $props();
 
 	let shopOpen = $state(false);
+	let goalsOpen = $state(false);
 	let stickersOpen = $state(false);
 
 	const fill = $derived(goal ? jarFill(balance, pending, goal.cost) : null);
@@ -124,6 +126,14 @@
 			onclick={() => (stickersOpen = true)}><span aria-hidden="true">🏅</span></Button
 		>
 		<Button
+			variant="secondary"
+			size="kid"
+			class="px-4! short:w-full"
+			data-testid="open-goals"
+			aria-label="My goals"
+			onclick={() => (goalsOpen = true)}><span aria-hidden="true">🎯</span></Button
+		>
+		<Button
 			size="kid"
 			class="px-6! short:grow short:px-2! short:text-body!"
 			data-testid="open-shop"
@@ -134,6 +144,10 @@
 
 {#if stickersOpen}
 	<StickerBook {memberId} onclose={() => (stickersOpen = false)} />
+{/if}
+
+{#if goalsOpen}
+	<GoalsSheet {memberId} {balance} onclose={() => (goalsOpen = false)} {onchanged} />
 {/if}
 
 {#if shopOpen}

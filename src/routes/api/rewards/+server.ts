@@ -4,10 +4,13 @@ import { createReward, listRewards } from '#lib/server/domain/rewards.js';
 import { handle, readJson } from '#lib/server/api.js';
 import type { RequestHandler } from './$types';
 
-/** Query: includeArchived=1 also returns archived rewards. */
+/** Query: includeArchived=1 also returns archived rewards; memberId adds that kid's own goals. */
 export const GET: RequestHandler = ({ url }) =>
 	handle(() =>
-		listRewards(getDb(), { includeArchived: url.searchParams.get('includeArchived') === '1' })
+		listRewards(getDb(), {
+			includeArchived: url.searchParams.get('includeArchived') === '1',
+			forMemberId: url.searchParams.get('memberId') ?? undefined
+		})
 	);
 
 /** Body: { title, cost, image? }. */

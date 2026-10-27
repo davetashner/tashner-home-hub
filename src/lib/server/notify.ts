@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { sessionStatus, type CheckinKind } from '#lib/domain/sitter.js';
 import { getDb, type Db } from './db/index.js';
 import { goals, members, rewards, settings, sitterSessions } from './db/schema.js';
@@ -158,7 +158,7 @@ export function notifyGoalsReached(db: Db = getDb()): void {
 			.from(goals)
 			.innerJoin(members, eq(members.id, goals.memberId))
 			.innerJoin(rewards, eq(rewards.id, goals.rewardId))
-			.where(eq(rewards.active, true))
+			.where(and(eq(rewards.active, true), eq(goals.current, true)))
 			.all()
 			.map((r) => ({ ...r, reached: starBalance(db, r.memberId) >= r.cost }));
 		const announced = (readJson(db, GOALS_KEY) ?? {}) as GoalLedger;

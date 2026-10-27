@@ -59,7 +59,10 @@
 
 	async function loadShop() {
 		try {
-			const [r, m] = await Promise.all([fetch('/api/rewards'), fetch('/api/members')]);
+			const [r, m] = await Promise.all([
+				fetch(`/api/rewards?memberId=${memberId}`),
+				fetch('/api/members')
+			]);
 			if (!r.ok) throw new Error(String(r.status));
 			rewards = (await r.json()) as ShopReward[];
 			if (m.ok) adults = ((await m.json()) as Adult[]).filter((a) => a.role === 'adult');

@@ -1,4 +1,4 @@
-import { count, eq } from 'drizzle-orm';
+import { and, count, eq } from 'drizzle-orm';
 import type { Db } from '../db/index.js';
 import { choreCompletions, goals, rewards } from '../db/schema.js';
 import { balances } from './ledger.js';
@@ -28,7 +28,7 @@ export function attentionCount(db: Db): AttentionCount {
 		.select({ memberId: goals.memberId, cost: rewards.cost })
 		.from(goals)
 		.innerJoin(rewards, eq(goals.rewardId, rewards.id))
-		.where(eq(rewards.active, true))
+		.where(and(eq(rewards.active, true), eq(goals.current, true)))
 		.all();
 	const balance = balances(db);
 	const ready = active.filter((g) => (balance[g.memberId] ?? 0) >= g.cost).length;

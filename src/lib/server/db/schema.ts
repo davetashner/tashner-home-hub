@@ -248,7 +248,9 @@ export const rewards = sqliteTable('rewards', {
 	title: text('title').notNull(),
 	image: text('image'),
 	cost: integer('cost').notNull(),
-	active: integer('active', { mode: 'boolean' }).notNull().default(true)
+	active: integer('active', { mode: 'boolean' }).notNull().default(true),
+	/** Set for a kid-named star goal (hub-ar4.3): hidden from the shared catalog, shown only to its owner. */
+	ownerId: text('owner_id').references(() => members.id, { onDelete: 'cascade' })
 });
 
 export const goals = sqliteTable('goals', {
@@ -258,7 +260,9 @@ export const goals = sqliteTable('goals', {
 		.references(() => members.id, { onDelete: 'cascade' }),
 	rewardId: text('reward_id')
 		.notNull()
-		.references(() => rewards.id, { onDelete: 'cascade' })
+		.references(() => rewards.id, { onDelete: 'cascade' }),
+	/** A member keeps several goals; exactly one is current and shown in the jar. */
+	current: integer('current', { mode: 'boolean' }).notNull().default(true)
 });
 
 export const redemptions = sqliteTable('redemptions', {
