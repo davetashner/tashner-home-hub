@@ -3,6 +3,7 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import { REWARD_EMOJI } from '#lib/domain/emoji.js';
 	import { jarCaption } from '#lib/domain/goal-jar.js';
+	import MoneyGoals from './MoneyGoals.svelte';
 
 	interface Entry {
 		reward: { id: string; title: string; image: string | null; cost: number };
@@ -27,6 +28,7 @@
 	let entries = $state<Entry[]>([]);
 	let loaded = $state(false);
 	let message = $state('');
+	let tab = $state<'stars' | 'money'>('stars');
 	let adding = $state(false);
 	let title = $state('');
 	let image = $state('');
@@ -128,11 +130,28 @@
 				Close
 			</Button>
 		</header>
+		<div class="flex gap-4" role="tablist" aria-label="Kinds of goals">
+			{#each [['stars', 'Stars'], ['money', 'Money']] as const as [id, text] (id)}
+				<Button
+					variant={tab === id ? 'primary' : 'secondary'}
+					size="kid"
+					role="tab"
+					aria-selected={tab === id}
+					data-testid="goals-tab-{id}"
+					onclick={() => {
+						tab = id;
+						message = '';
+					}}>{text}</Button
+				>
+			{/each}
+		</div>
 		{#if message}
 			<p role="status" data-testid="goals-message" class="text-lead font-bold">{message}</p>
 		{/if}
 
-		{#if adding}
+		{#if tab === 'money'}
+			<MoneyGoals {memberId} onmessage={(t) => (message = t)} />
+		{:else if adding}
 			<form class="flex flex-col gap-6" data-testid="goal-form" onsubmit={add}>
 				<label class="flex flex-col gap-2">
 					<span class="text-caption text-ink-muted">What are you saving for?</span>

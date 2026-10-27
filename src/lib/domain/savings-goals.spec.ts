@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { goalProgress, parseGoalInput } from './savings-goals.js';
+import {
+	bumpGoalCents,
+	goalCaption,
+	goalPercent,
+	goalProgress,
+	parseGoalInput
+} from './savings-goals.js';
 
 describe('parseGoalInput', () => {
 	it('accepts a full goal and trims the title', () => {
@@ -45,5 +51,25 @@ describe('goalProgress', () => {
 			reached: true
 		});
 		expect(goalProgress(-5, 1000).savedCents).toBe(0);
+	});
+});
+
+describe('money goal stepper and captions', () => {
+	it('steps by whole dollars inside the allowed range', () => {
+		expect(bumpGoalCents(2000, 10)).toBe(3000);
+		expect(bumpGoalCents(2000, -1)).toBe(1900);
+		expect(bumpGoalCents(150, -1)).toBe(100);
+		expect(bumpGoalCents(100, -10)).toBe(100);
+		expect(bumpGoalCents(1_000_000, 10)).toBe(1_000_000);
+	});
+	it('captions saved against price', () => {
+		expect(goalCaption(1250, 4000)).toBe('$12.50 of $40.00');
+		expect(goalCaption(0, 100, '€')).toBe('€0.00 of €1.00');
+	});
+	it('computes a whole-number percent', () => {
+		expect(goalPercent(1250, 4000)).toBe(31);
+		expect(goalPercent(5000, 4000)).toBe(100);
+		expect(goalPercent(-5, 4000)).toBe(0);
+		expect(goalPercent(5, 0)).toBe(0);
 	});
 });

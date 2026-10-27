@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { goalProgress, parseGoalInput } from '#lib/domain/savings-goals.js';
 import type { Db } from '../db/index.js';
 import { members, savingsGoals } from '../db/schema.js';
-import { allowanceBalance, recordPayout } from './allowance.js';
+import { allowanceBalance, getRate, recordPayout } from './allowance.js';
 import { LedgerError } from './ledger.js';
 
 export type SavingsGoal = typeof savingsGoals.$inferSelect;
@@ -54,7 +54,11 @@ export function listSavingsGoals(db: Db, memberId: string) {
 		.where(and(eq(savingsGoals.memberId, memberId), ne(savingsGoals.status, 'archived')))
 		.orderBy(asc(savingsGoals.status), desc(savingsGoals.current), asc(savingsGoals.createdAt))
 		.all();
-	return { balanceCents, goals: rows.map((g) => view(g, balanceCents)) };
+	return {
+		balanceCents,
+		symbol: getRate(db).symbol,
+		goals: rows.map((g) => view(g, balanceCents))
+	};
 }
 
 /** The first active goal a member makes becomes their current one. */
