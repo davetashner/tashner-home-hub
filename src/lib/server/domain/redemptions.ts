@@ -61,7 +61,8 @@ export function redeemReward(
 		const member = tx.select().from(members).where(eq(members.id, input.memberId)).get();
 		if (!member) throw new LedgerError('not_found', 'Member not found');
 		const reward = tx.select().from(rewards).where(eq(rewards.id, input.rewardId)).get();
-		if (!reward || !reward.active) throw new LedgerError('not_found', 'Reward not found');
+		if (!reward || !reward.active || (reward.ownerId && reward.ownerId !== member.id))
+			throw new LedgerError('not_found', 'Reward not found');
 		const before = approvedBalance(tx, member.id);
 		if (before < reward.cost)
 			throw new LedgerError(

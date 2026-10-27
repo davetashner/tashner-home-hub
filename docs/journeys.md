@@ -128,6 +128,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J1.8 | Games and Music wait until today's jobs are done, or a grown-up unlocks them. | built | wall | `fun-lock` |
 | J1.9 | An any-day job sits under This week until done. | built | wall | `kid-chores` |
 | J1.10 | Six Star Jobs and six habits fit the wall without scrolling the page. | built | wall | `kid-chores` |
+| J1.11 | Name my own star goal with a picture and a star price, keep a few, and choose which one my jar shows. | built | wall | `kid-star-goals` |
 | **J2** | **Kid runs a routine** (Kid at the wall, critical) | | | |
 | J2.1 | Open a routine from the kid's board, including a kid who has only routines. | built | wall | `routine-only-kid`, `routines` |
 | J2.2 | Step through it, reload to resume, and see the celebration at the end. | built | wall | `routines` |
