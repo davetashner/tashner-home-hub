@@ -113,6 +113,13 @@
 			"when": 1793063733675,
 			"tag": "20261027011533_savings_goals",
 			"breakpoints": true
+		},
+		{
+			"idx": 16,
+			"version": "6",
+			"when": 1793068409617,
+			"tag": "20261027023329_practice_activities",
+			"breakpoints": true
 		}
 	]
 }
