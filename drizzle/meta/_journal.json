@@ -120,6 +120,13 @@
 			"when": 1793068409617,
 			"tag": "20261027023329_practice_activities",
 			"breakpoints": true
+		},
+		{
+			"idx": 17,
+			"version": "6",
+			"when": 1793071391764,
+			"tag": "20261027032311_practice_logs",
+			"breakpoints": true
 		}
 	]
 }

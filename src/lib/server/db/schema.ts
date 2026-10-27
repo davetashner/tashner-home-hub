@@ -31,7 +31,8 @@ export const STAR_REASONS = [
 	'redemption',
 	'adjustment',
 	'habits_day',
-	'cashout'
+	'cashout',
+	'practice'
 ] as const;
 /** Allowance ledger entry kinds (REW-7): stars cashed in, money handed over, manual fixes. */
 export const ALLOWANCE_KINDS = ['cashout', 'payout', 'adjustment'] as const;
@@ -501,3 +502,29 @@ export const practiceActivities = sqliteTable('practice_activities', {
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: createdAt()
 });
+
+/**
+ * One reading or practice entry a kid logged for themselves (hub-kko.2). `date` is the household's
+ * local day, `stars` what this entry added to the day's total, `star_tx_id` the approved
+ * `star_transactions` row (null when it earned nothing). An undone entry keeps its row.
+ */
+export const PRACTICE_LOG_STATUSES = ['active', 'undone'] as const;
+export const practiceLogs = sqliteTable(
+	'practice_logs',
+	{
+		id: id(),
+		memberId: text('member_id')
+			.notNull()
+			.references(() => members.id, { onDelete: 'cascade' }),
+		activityId: text('activity_id')
+			.notNull()
+			.references(() => practiceActivities.id, { onDelete: 'cascade' }),
+		minutes: integer('minutes').notNull(),
+		date: text('date').notNull(),
+		stars: integer('stars').notNull().default(0),
+		starTxId: text('star_tx_id'),
+		status: text('status', { enum: PRACTICE_LOG_STATUSES }).notNull().default('active'),
+		createdAt: createdAt()
+	},
+	(t) => [index('practice_logs_member_date_idx').on(t.memberId, t.date)]
+);

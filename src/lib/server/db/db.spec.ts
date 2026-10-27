@@ -169,7 +169,7 @@ describe('schema definition', () => {
 		const tables = (Object.values(schema) as unknown[]).filter((v) =>
 			is(v, SQLiteTable)
 		) as SQLiteTable[];
-		expect(tables).toHaveLength(30);
+		expect(tables).toHaveLength(31);
 		const fks = tables.flatMap((t) => getTableConfig(t).foreignKeys);
 		expect(fks.length).toBeGreaterThan(10);
 		for (const fk of fks) {
