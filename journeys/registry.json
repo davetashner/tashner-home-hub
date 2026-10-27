@@ -482,6 +482,12 @@
 					"text": "Every admin page and form fits a phone without sideways scroll.",
 					"status": "built",
 					"devices": ["iphone", "ipad"]
+				},
+				{
+					"id": "J9.11",
+					"text": "Set the reading and practice activities kids earn stars for.",
+					"status": "built",
+					"devices": ["wall"]
 				}
 			]
 		},

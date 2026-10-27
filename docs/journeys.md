@@ -192,6 +192,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J9.8 | Set up notifications and send a test. | built | wall | `notifications-settings` |
 | J9.9 | Export all data as JSON; a bad import is refused. | built | wall | `data-export` |
 | J9.10 | Every admin page and form fits a phone without sideways scroll. | built | iphone, ipad | `phone-admin` |
+| J9.11 | Set the reading and practice activities kids earn stars for. | built | wall | `practice-settings` |
 | **J10** | **Music** (Kid at the wall) | | | |
 | J10.1 | Pick a playlist; it plays with big controls and pause. | built | wall | `music-tab`. Simulated: Spotify and the Pi speaker are fakes in the tests |
 | J10.2 | Volume stops at the parent cap. | built | wall | `music-tab` |
