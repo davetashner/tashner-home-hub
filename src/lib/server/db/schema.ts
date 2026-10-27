@@ -483,3 +483,21 @@ export const savingsGoals = sqliteTable(
 			.where(sql`${t.current} = 1`)
 	]
 );
+
+/**
+ * A parent-defined thing kids log minutes for, like Reading or Piano (hub-kko.1). Every
+ * `minutes_per_block` minutes earn `stars_per_block` stars, up to `daily_star_cap` a day.
+ * `member_ids` is a JSON array of member ids; NULL means every kid.
+ */
+export const practiceActivities = sqliteTable('practice_activities', {
+	id: id(),
+	name: text('name').notNull(),
+	emoji: text('emoji'),
+	minutesPerBlock: integer('minutes_per_block').notNull(),
+	starsPerBlock: integer('stars_per_block').notNull(),
+	dailyStarCap: integer('daily_star_cap').notNull(),
+	memberIds: text('member_ids'),
+	active: integer('active', { mode: 'boolean' }).notNull().default(true),
+	sortOrder: integer('sort_order').notNull().default(0),
+	createdAt: createdAt()
+});
