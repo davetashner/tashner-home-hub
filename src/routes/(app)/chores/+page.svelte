@@ -702,6 +702,18 @@
 						{/if}
 					</div>
 				{/if}
+				<div class="ml-auto short:ml-0">
+					<PracticeLog
+						memberId={selected.id}
+						{jar}
+						onstars={(delta) => {
+							const jarStars = starsOf(selected.id);
+							jarStars.balance = Math.max(0, jarStars.balance + delta);
+						}}
+						onchanged={() => void loadStars(selected.id).catch(() => {})}
+						{say}
+					/>
+				</div>
 				{#if streak && streak.days > 0 && !onVacation}
 					<div class="ml-auto short:ml-0">
 						<StreakBadge days={streak.days} nextDays={streak.next?.days ?? null} />
@@ -718,16 +730,6 @@
 				pending={stars.pending}
 				{goal}
 				bind:jar
-			/>
-			<PracticeLog
-				memberId={selected.id}
-				{jar}
-				onstars={(delta) => {
-					const jarStars = starsOf(selected.id);
-					jarStars.balance = Math.max(0, jarStars.balance + delta);
-				}}
-				onchanged={() => void loadStars(selected.id).catch(() => {})}
-				{say}
 			/>
 		</div>
 

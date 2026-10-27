@@ -11,6 +11,7 @@
 	} from '#lib/domain/practice.js';
 	import { UNDO_WINDOW_MS } from '#lib/domain/kid-chores.js';
 	import { celebrate } from './celebrate.js';
+	import { toBody } from './portal.js';
 
 	interface Summary {
 		activityId: string;
@@ -181,41 +182,41 @@
 </script>
 
 {#if summaries === null || summaries.length > 0}
-	<div class="flex flex-col gap-2" data-testid="practice">
-		<button
-			type="button"
-			data-testid="practice-open"
-			onclick={show}
-			class="flex min-h-tap-kid w-full items-center gap-3 rounded-card border-4 border-habit-line bg-habit-soft px-4 py-2 text-left transition-transform duration-75 active:scale-95"
+	<!-- A compact, labelled button for the star strip: it takes no row of its own (hub-kko.2). -->
+	<button
+		type="button"
+		data-testid="practice-open"
+		aria-label="Log reading and practice"
+		onclick={show}
+		class="flex min-h-tap-kid items-center gap-2 rounded-card border-4 border-habit-line bg-habit-soft px-4 text-body leading-tight font-extrabold whitespace-nowrap transition-transform duration-75 active:scale-95 short:w-full short:justify-center short:px-1 short:text-caption tablet:min-h-tap tablet:gap-1 tablet:px-2"
+	>
+		<span aria-hidden="true">📖</span>
+		<span>Log<span class="short:hidden tablet:hidden">&nbsp;reading</span></span>
+	</button>
+	<span class="sr-only" data-testid="practice-today">
+		Today: {total}
+		{total === 1 ? 'star' : 'stars'} from reading and practice
+	</span>
+	{#if undo}
+		<div
+			use:toBody
+			data-testid="practice-undo-row"
+			class="fixed bottom-12 left-1/2 z-10 flex -translate-x-1/2 items-center gap-6 rounded-card bg-success-soft px-6 py-3 shadow-float portrait:bottom-28"
 		>
-			<span class="text-headline leading-none" aria-hidden="true">📖</span>
-			<span class="flex min-w-0 grow flex-col">
-				<span class="text-body leading-tight font-extrabold">Log reading &amp; practice</span>
-				<span class="text-caption text-ink-muted" data-testid="practice-today">
-					{#if total > 0}Today: {total} {total === 1 ? 'star' : 'stars'}{:else}Tell us what you did!{/if}
-				</span>
-			</span>
-		</button>
-		{#if undo}
-			<div
-				data-testid="practice-undo-row"
-				class="flex min-h-tap-kid items-center justify-between gap-3 rounded-card bg-success-soft px-4 py-2"
+			<p role="status" class="text-lead font-extrabold">
+				Saved!{undo.stars > 0 ? ` +${undo.stars} ⭐` : ''}
+			</p>
+			<Button
+				variant="secondary"
+				size="kid"
+				class="!text-body"
+				data-testid="practice-undo"
+				onclick={takeBack}
 			>
-				<p role="status" class="min-w-0 text-body font-extrabold">
-					Saved!{undo.stars > 0 ? ` +${undo.stars} ⭐` : ''}
-				</p>
-				<Button
-					variant="secondary"
-					size="kid"
-					class="!text-body"
-					data-testid="practice-undo"
-					onclick={takeBack}
-				>
-					Undo
-				</Button>
-			</div>
-		{/if}
-	</div>
+				Undo
+			</Button>
+		</div>
+	{/if}
 {/if}
 
 {#if open}
