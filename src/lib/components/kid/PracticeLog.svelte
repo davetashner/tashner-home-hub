@@ -45,7 +45,8 @@
 	} = $props();
 
 	const CHIPS = [10, 15, 20, 30];
-	let summaries = $state<Summary[]>([]);
+	// null until the first answer: the button shows at once and is hidden only if there is nothing to log.
+	let summaries = $state<Summary[] | null>(null);
 	let open = $state(false);
 	let activityId = $state<string | null>(null);
 	let minutes = $state(15);
@@ -56,8 +57,8 @@
 	let undoTimer: ReturnType<typeof setTimeout> | undefined;
 	let saving: Promise<void> | null = null;
 
-	const chosen = $derived(summaries.find((s) => s.activityId === activityId) ?? null);
-	const total = $derived(summaries.reduce((n, s) => n + s.starsToday, 0));
+	const chosen = $derived((summaries ?? []).find((s) => s.activityId === activityId) ?? null);
+	const total = $derived((summaries ?? []).reduce((n, s) => n + s.starsToday, 0));
 
 	onMount(() => {
 		void load();
@@ -69,7 +70,7 @@
 	$effect(() => {
 		if (shownFor === memberId) return;
 		shownFor = memberId;
-		summaries = [];
+		summaries = null;
 		undo = null;
 		activityId = null;
 		void load();
@@ -86,15 +87,19 @@
 		}
 	}
 
-	function show() {
-		activityId = summaries.some((s) => s.activityId === activityId)
+	async function show() {
+		if (summaries === null) await load();
+		if (summaries === null) return say('We cannot reach the hub right now. Try again soon!');
+		const list = summaries;
+		if (list.length === 0) return;
+		activityId = list.some((s) => s.activityId === activityId)
 			? activityId
-			: (summaries[0]?.activityId ?? null);
+			: (list[0]?.activityId ?? null);
 		open = true;
 	}
 
 	function patchSummary(id: string, minutesToday: number) {
-		summaries = summaries.map((s) => {
+		summaries = (summaries ?? []).map((s) => {
 			if (s.activityId !== id) return s;
 			const next = minutesToNextStar(s.rate, minutesToday);
 			return {
@@ -135,7 +140,7 @@
 				if (!res.ok) throw new Error(String(res.status));
 				const body = (await res.json()) as { log: { id: string }; summary: Summary };
 				mine.id = body.log.id;
-				summaries = summaries.map((x) =>
+				summaries = (summaries ?? []).map((x) =>
 					x.activityId === body.summary.activityId ? body.summary : x
 				);
 			})
@@ -158,7 +163,7 @@
 		undo = null;
 		clearTimeout(undoTimer);
 		await saving;
-		const target = summaries.find((s) => s.activityId === u.activityId);
+		const target = (summaries ?? []).find((s) => s.activityId === u.activityId);
 		const logged = target?.lastLog;
 		if (!u.id) return;
 		const mins = logged?.id === u.id ? logged.minutes : 0;
@@ -175,7 +180,7 @@
 	}
 </script>
 
-{#if summaries.length > 0}
+{#if summaries === null || summaries.length > 0}
 	<div class="flex flex-col gap-2" data-testid="practice">
 		<button
 			type="button"
@@ -237,7 +242,7 @@
 			</header>
 
 			<div class="flex flex-wrap gap-3" role="group" aria-label="What did you do?">
-				{#each summaries as s (s.activityId)}
+				{#each summaries ?? [] as s (s.activityId)}
 					<button
 						type="button"
 						data-testid="practice-activity"

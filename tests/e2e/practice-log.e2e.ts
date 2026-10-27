@@ -28,6 +28,9 @@ test('A kid logs reading and the star lands at once, up to the daily cap @J1.12'
 	await expect(page.getByTestId('star-jar')).toBeVisible();
 
 	const open = page.getByTestId('practice-open');
+	// Visible before the first log, with nothing to do today, in both orientations.
+	await expect(page.getByTestId('all-free')).toBeVisible();
+	await expect(open).toBeVisible();
 	await expect(open).toContainText('Log reading');
 	await expectTappable(open, 96);
 	await open.click();
