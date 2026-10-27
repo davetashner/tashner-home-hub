@@ -133,7 +133,7 @@
 		<Button
 			variant="secondary"
 			size="kid"
-			class="px-4!"
+			class="shrink-0 px-4! whitespace-nowrap"
 			data-testid="open-goals"
 			onclick={() => (goalsOpen = true)}><span aria-hidden="true">🎯</span> Set a goal</Button
 		>

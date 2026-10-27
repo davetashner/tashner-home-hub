@@ -47,7 +47,7 @@
 		setStatus,
 		UNDO_WINDOW_MS,
 		kidsToShow,
-		switcherMembers,
+		defaultKid,
 		starJobGroups,
 		timeColumns,
 		type TimeColumn,
@@ -127,7 +127,7 @@
 
 	const selected = $derived(members.find((m) => m.id === selectedId) ?? null);
 	const groups = $derived(selectedId ? (boards[selectedId] ?? []) : []);
-	const kids = $derived(kidsToShow(members, boards, routinesBy, nowMinutes));
+	const kids = $derived(kidsToShow(members));
 	const stars = $derived((selectedId && starsBy[selectedId]) || { balance: 0, pending: 0 });
 	const streak = $derived(selectedId ? (streaks[selectedId] ?? null) : null);
 	/** Household vacation (hub-k0w): the board shows a paused card instead of the day's to-dos. */
@@ -394,11 +394,10 @@
 			boards = Object.fromEntries(
 				plan.members.map((m) => [m.id, overlayQueued(plan.boards[m.id], m.id, queued)] as const)
 			);
-			const options = switcherMembers(plan.members, boards, routinesBy, nowMinutes);
-			if (!options.some((m) => m.id === selectedId)) {
+			if (!plan.members.some((m) => m.id === selectedId)) {
 				// ?member=<id> picks a child; the avatar switcher keeps it in sync.
 				const want = page.url.searchParams.get('member');
-				selectedId = (options.find((m) => m.id === want) ?? options[0])?.id ?? null;
+				selectedId = defaultKid(plan.members, boards, routinesBy, nowMinutes, want)?.id ?? null;
 			}
 			if (selectedId) await loadStars(selectedId);
 			// Warm the other kids' jars so switching to them shows real stars straight away.

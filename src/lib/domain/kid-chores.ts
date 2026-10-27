@@ -120,31 +120,35 @@ export function kidsWithChores<T extends { id: string }>(
 }
 
 /**
- * Members worth showing: those with chores today or a routine open right now (a routine-only kid
- * still needs a way to reach their button). The avatar switcher shows when there are two or more.
+ * Every child is on the kid screen, chores or not (hub-kko.6): the star jar, goals, Shop and
+ * Log reading are reasons to visit besides chores. A kid with nothing today sees "All free today!".
+ * (This used to hide kids with no chores or open routine, so they could not reach any of that.)
  */
-export function kidsToShow<T extends { id: string }>(
+export function kidsToShow<T extends { id: string }>(members: T[]): T[] {
+	return members;
+}
+
+/**
+ * Who is selected when the screen opens: the wanted kid (?member= or last used), else the first
+ * kid with chores or an open routine, else the first kid.
+ */
+export function defaultKid<T extends { id: string }>(
 	members: T[],
 	boards: Record<string, KidGroup[]>,
 	routinesBy: Record<string, KidRoutine[]>,
-	nowMinutes: number
-): T[] {
-	return members.filter(
-		(m) =>
-			(boards[m.id]?.length ?? 0) > 0 ||
-			activeRoutines(routinesBy[m.id] ?? [], nowMinutes).length > 0
+	nowMinutes: number,
+	wantId: string | null = null
+): T | null {
+	return (
+		members.find((m) => m.id === wantId) ??
+		members.find(
+			(m) =>
+				(boards[m.id]?.length ?? 0) > 0 ||
+				activeRoutines(routinesBy[m.id] ?? [], nowMinutes).length > 0
+		) ??
+		members[0] ??
+		null
 	);
-}
-
-/** The kids to show; if nobody qualifies, everyone. */
-export function switcherMembers<T extends { id: string }>(
-	members: T[],
-	boards: Record<string, KidGroup[]>,
-	routinesBy: Record<string, KidRoutine[]> = {},
-	nowMinutes = 0
-): T[] {
-	const shown = kidsToShow(members, boards, routinesBy, nowMinutes);
-	return shown.length > 0 ? shown : members;
 }
 
 /** Done means checked off: waiting for a grown-up or approved. */
