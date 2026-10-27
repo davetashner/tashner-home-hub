@@ -29,6 +29,7 @@ export const EXPORT_TABLES = [
 	'rewards',
 	'star_transactions',
 	'allowance_transactions',
+	'savings_goals',
 	'goals',
 	'redemptions',
 	'lists',
