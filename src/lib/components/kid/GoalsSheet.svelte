@@ -171,30 +171,43 @@
 				</div>
 				<div class="flex flex-col gap-2">
 					<span class="text-caption text-ink-muted">How many stars?</span>
-					<div class="flex flex-wrap items-center gap-4">
-						<Button variant="secondary" size="kid" aria-label="10 fewer" onclick={() => bump(-10)}
-							>-10</Button
+					<div class="flex items-center justify-center gap-2 sm:gap-4">
+						<Button
+							variant="secondary"
+							size="kid"
+							class="px-2!"
+							aria-label="10 fewer"
+							onclick={() => bump(-10)}>-10</Button
 						>
-						<Button variant="secondary" size="kid" aria-label="1 fewer" onclick={() => bump(-1)}
-							>-1</Button
+						<Button
+							variant="secondary"
+							size="kid"
+							class="px-2!"
+							aria-label="1 fewer"
+							onclick={() => bump(-1)}>-1</Button
 						>
-						<p class="min-w-24 text-center text-title font-extrabold" data-testid="goal-cost">
+						<p class="min-w-16 text-center text-title font-extrabold" data-testid="goal-cost">
 							{cost}
 						</p>
 						<Button
 							variant="secondary"
 							size="kid"
+							class="px-2!"
 							aria-label="1 more"
 							data-testid="goal-cost-up"
 							onclick={() => bump(1)}>+1</Button
 						>
-						<Button variant="secondary" size="kid" aria-label="10 more" onclick={() => bump(10)}
-							>+10</Button
+						<Button
+							variant="secondary"
+							size="kid"
+							class="px-2!"
+							aria-label="10 more"
+							onclick={() => bump(10)}>+10</Button
 						>
 					</div>
 				</div>
 				<div class="flex flex-wrap gap-4">
-					<Button type="submit" size="kid" data-testid="goal-save">Save goal</Button>
+					<Button type="submit" size="kid" class="px-2!" data-testid="goal-save">Save goal</Button>
 					<Button variant="secondary" size="kid" onclick={() => (adding = false)}>Not now</Button>
 				</div>
 			</form>

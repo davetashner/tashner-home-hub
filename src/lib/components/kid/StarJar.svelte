@@ -83,17 +83,18 @@
 				{goal.image ?? '🎁'}
 			</span>
 			<div class="flex min-w-0 grow flex-col gap-1">
-				<div class="flex items-baseline justify-between gap-3">
-					<p class="min-w-0 truncate text-body leading-tight font-extrabold short:text-caption">
-						{goal.title}
-					</p>
-					<p
-						data-testid="goal-caption"
-						class="text-body font-extrabold whitespace-nowrap short:text-caption short:whitespace-normal"
-					>
-						{jarCaption(balance, goal.cost)}
-					</p>
-				</div>
+				<p
+					data-testid="jar-goal-title"
+					class="line-clamp-2 text-body leading-tight font-extrabold wrap-anywhere short:text-caption"
+				>
+					{goal.title}
+				</p>
+				<p
+					data-testid="goal-caption"
+					class="text-body font-extrabold whitespace-nowrap short:text-caption"
+				>
+					{jarCaption(balance, goal.cost)}
+				</p>
 				<div
 					class="relative h-4 overflow-hidden rounded-chip bg-surface-raised ring-2 ring-line short:h-3"
 					aria-hidden="true"
