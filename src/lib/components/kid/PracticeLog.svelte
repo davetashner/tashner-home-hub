@@ -10,6 +10,7 @@
 		type PracticeRate
 	} from '#lib/domain/practice.js';
 	import { UNDO_WINDOW_MS } from '#lib/domain/kid-chores.js';
+	import PracticeWeek from './PracticeWeek.svelte';
 	import { celebrate } from './celebrate.js';
 	import { toBody } from './portal.js';
 
@@ -49,6 +50,9 @@
 	// null until the first answer: the button shows at once and is hidden only if there is nothing to log.
 	let summaries = $state<Summary[] | null>(null);
 	let open = $state(false);
+	let tab = $state<'log' | 'week'>('log');
+	// Bumped after every save or undo so the week chart reloads.
+	let version = $state(0);
 	let activityId = $state<string | null>(null);
 	let minutes = $state(15);
 	// The last save, kept for the undo window.
@@ -96,6 +100,7 @@
 		activityId = list.some((s) => s.activityId === activityId)
 			? activityId
 			: (list[0]?.activityId ?? null);
+		tab = 'log';
 		open = true;
 	}
 
@@ -153,6 +158,7 @@
 			})
 			.finally(() => {
 				saving = null;
+				version++;
 				onchanged();
 			});
 		saving = request;
@@ -177,6 +183,7 @@
 		}).catch(() => null);
 		if (!res?.ok) say('Hmm, that one is already with the grown-ups.');
 		await load();
+		version++;
 		onchanged();
 	}
 </script>
@@ -231,7 +238,25 @@
 			class="sheet flex max-h-full w-full max-w-5xl flex-col gap-4 overflow-y-auto overscroll-contain rounded-t-sheet bg-surface-raised p-8 pb-safe-8 shadow-float sm:rounded-sheet short:gap-2 short:p-4"
 		>
 			<header class="flex items-center justify-between gap-6">
-				<h2 class="text-title leading-none font-extrabold">How long?</h2>
+				<h2 class="text-title leading-none font-extrabold">
+					{tab === 'log' ? 'How long?' : 'My week'}
+				</h2>
+				<div class="flex gap-2" role="group" aria-label="Log or week">
+					{#each [['log', 'Log'], ['week', 'My week']] as const as [key, label] (key)}
+						<button
+							type="button"
+							data-testid="practice-tab-{key}"
+							aria-pressed={tab === key}
+							onclick={() => (tab = key)}
+							class="min-h-tap-kid rounded-card border-4 px-5 text-body leading-none font-extrabold transition-transform duration-75 active:scale-95 short:px-3 {tab ===
+							key
+								? 'border-ink bg-star-soft'
+								: 'border-line bg-surface-raised'}"
+						>
+							{label}
+						</button>
+					{/each}
+				</div>
 				<Button
 					variant="secondary"
 					size="kid"
@@ -242,86 +267,90 @@
 				</Button>
 			</header>
 
-			<div class="flex flex-wrap gap-3" role="group" aria-label="What did you do?">
-				{#each summaries ?? [] as s (s.activityId)}
-					<button
-						type="button"
-						data-testid="practice-activity"
-						aria-pressed={s.activityId === activityId}
-						onclick={() => (activityId = s.activityId)}
-						class="flex min-h-tap-kid-lg min-w-tap-kid-lg grow basis-0 flex-col items-center justify-center gap-1 rounded-card border-4 px-4 py-2 transition-transform duration-75 active:scale-95 short:min-h-tap-kid {s.activityId ===
-						activityId
-							? 'border-ink bg-star-soft'
-							: 'border-line bg-surface-raised'}"
+			{#if tab === 'week'}
+				<PracticeWeek {memberId} {version} />
+			{:else}
+				<div class="flex flex-wrap gap-3" role="group" aria-label="What did you do?">
+					{#each summaries ?? [] as s (s.activityId)}
+						<button
+							type="button"
+							data-testid="practice-activity"
+							aria-pressed={s.activityId === activityId}
+							onclick={() => (activityId = s.activityId)}
+							class="flex min-h-tap-kid-lg min-w-tap-kid-lg grow basis-0 flex-col items-center justify-center gap-1 rounded-card border-4 px-4 py-2 transition-transform duration-75 active:scale-95 short:min-h-tap-kid {s.activityId ===
+							activityId
+								? 'border-ink bg-star-soft'
+								: 'border-line bg-surface-raised'}"
+						>
+							<span class="text-headline leading-none" aria-hidden="true">{s.emoji ?? '📚'}</span>
+							<span class="text-body leading-tight font-extrabold break-words">{s.name}</span>
+						</button>
+					{/each}
+				</div>
+
+				<div class="flex flex-wrap gap-3" role="group" aria-label="Minutes">
+					{#each CHIPS as c (c)}
+						<button
+							type="button"
+							data-testid="practice-chip"
+							aria-pressed={minutes === c}
+							onclick={() => (minutes = c)}
+							class="min-h-tap-kid min-w-tap-kid grow rounded-card border-4 px-4 text-title leading-none font-extrabold transition-transform duration-75 active:scale-95 {minutes ===
+							c
+								? 'border-ink bg-star-soft'
+								: 'border-line bg-surface-raised'}"
+						>
+							{c}
+						</button>
+					{/each}
+				</div>
+
+				<div class="flex items-center justify-center gap-4">
+					<Button
+						variant="secondary"
+						size="kid"
+						aria-label="5 minutes less"
+						data-testid="practice-minus"
+						onclick={() => (minutes = stepMinutes(minutes, -1))}>-5</Button
 					>
-						<span class="text-headline leading-none" aria-hidden="true">{s.emoji ?? '📚'}</span>
-						<span class="text-body leading-tight font-extrabold break-words">{s.name}</span>
-					</button>
-				{/each}
-			</div>
-
-			<div class="flex flex-wrap gap-3" role="group" aria-label="Minutes">
-				{#each CHIPS as c (c)}
-					<button
-						type="button"
-						data-testid="practice-chip"
-						aria-pressed={minutes === c}
-						onclick={() => (minutes = c)}
-						class="min-h-tap-kid min-w-tap-kid grow rounded-card border-4 px-4 text-title leading-none font-extrabold transition-transform duration-75 active:scale-95 {minutes ===
-						c
-							? 'border-ink bg-star-soft'
-							: 'border-line bg-surface-raised'}"
+					<p
+						class="min-w-40 text-center text-title leading-none font-extrabold"
+						data-testid="practice-minutes"
 					>
-						{c}
-					</button>
-				{/each}
-			</div>
+						{minutes} <span class="text-lead">min</span>
+					</p>
+					<Button
+						variant="secondary"
+						size="kid"
+						aria-label="5 minutes more"
+						data-testid="practice-plus"
+						onclick={() => (minutes = stepMinutes(minutes, 1))}>+5</Button
+					>
+				</div>
 
-			<div class="flex items-center justify-center gap-4">
-				<Button
-					variant="secondary"
-					size="kid"
-					aria-label="5 minutes less"
-					data-testid="practice-minus"
-					onclick={() => (minutes = stepMinutes(minutes, -1))}>-5</Button
-				>
-				<p
-					class="min-w-40 text-center text-title leading-none font-extrabold"
-					data-testid="practice-minutes"
-				>
-					{minutes} <span class="text-lead">min</span>
-				</p>
-				<Button
-					variant="secondary"
-					size="kid"
-					aria-label="5 minutes more"
-					data-testid="practice-plus"
-					onclick={() => (minutes = stepMinutes(minutes, 1))}>+5</Button
-				>
-			</div>
+				{#if chosen}
+					{@const gain = starsForLog(chosen.rate, chosen.minutesToday, minutes)}
+					<p class="text-center text-lead font-extrabold" data-testid="practice-hint">
+						{#if chosen.capReached}
+							{nextStarLine(null)}
+						{:else if gain > 0}
+							You will earn {gain} {gain === 1 ? 'star' : 'stars'} ⭐
+						{:else}
+							{nextStarLine(chosen.minutesToNextStar)}
+						{/if}
+					</p>
+				{/if}
 
-			{#if chosen}
-				{@const gain = starsForLog(chosen.rate, chosen.minutesToday, minutes)}
-				<p class="text-center text-lead font-extrabold" data-testid="practice-hint">
-					{#if chosen.capReached}
-						{nextStarLine(null)}
-					{:else if gain > 0}
-						You will earn {gain} {gain === 1 ? 'star' : 'stars'} ⭐
-					{:else}
-						{nextStarLine(chosen.minutesToNextStar)}
-					{/if}
-				</p>
+				<Button
+					size="kid"
+					class="w-full"
+					data-testid="practice-save"
+					disabled={!chosen}
+					onclick={(e: MouseEvent) => save(e.currentTarget as HTMLElement)}
+				>
+					Save {minutes} minutes
+				</Button>
 			{/if}
-
-			<Button
-				size="kid"
-				class="w-full"
-				data-testid="practice-save"
-				disabled={!chosen}
-				onclick={(e: MouseEvent) => save(e.currentTarget as HTMLElement)}
-			>
-				Save {minutes} minutes
-			</Button>
 		</div>
 	</div>
 {/if}
