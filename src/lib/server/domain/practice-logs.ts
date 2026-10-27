@@ -4,7 +4,8 @@
  * are always worked out from the day's active minutes, so splitting a session earns the same.
  */
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, between, desc, eq, sql } from 'drizzle-orm';
+import { buildWeek, weekDates, type PracticeWeek } from '#lib/domain/practice-week.js';
 import {
 	MAX_LOG_MINUTES,
 	minutesToNextStar,
@@ -191,4 +192,47 @@ function summaryFor(
 export function practiceSummary(db: Db, memberId: string, now: number): PracticeDaySummary[] {
 	const date = localDateIn(now, householdTimeZone(db));
 	return activitiesForMember(db, memberId).map((a) => summaryFor(db, a, memberId, date));
+}
+
+export interface PracticeWeekView extends PracticeWeek {
+	today: string;
+	/** Name and emoji for every activity that appears in the week. */
+	activityInfo: { activityId: string; name: string; emoji: string | null }[];
+}
+
+/** The kid's week of active logs (Monday to Sunday of the week holding `date`, default today). */
+export function practiceWeek(
+	db: Db,
+	memberId: string,
+	now: number,
+	date?: string
+): PracticeWeekView {
+	const today = localDateIn(now, householdTimeZone(db));
+	const dates = weekDates(date ?? today);
+	const logs = db
+		.select({
+			date: practiceLogs.date,
+			activityId: practiceLogs.activityId,
+			minutes: practiceLogs.minutes,
+			stars: practiceLogs.stars
+		})
+		.from(practiceLogs)
+		.where(
+			and(
+				eq(practiceLogs.memberId, memberId),
+				eq(practiceLogs.status, 'active'),
+				between(practiceLogs.date, dates[0]!, dates[6]!)
+			)
+		)
+		.all();
+	const week = buildWeek(logs, dates[0]!, today);
+	const names = db.select().from(practiceActivities).all();
+	return {
+		...week,
+		today,
+		activityInfo: week.activities.map((a) => {
+			const n = names.find((x) => x.id === a.activityId);
+			return { activityId: a.activityId, name: n?.name ?? 'Practice', emoji: n?.emoji ?? null };
+		})
+	};
 }

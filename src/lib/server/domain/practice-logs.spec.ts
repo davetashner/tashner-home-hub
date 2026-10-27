@@ -6,7 +6,7 @@ import { setHouseholdTimeZone } from '../household.js';
 import { balances, KID_UNDO_WINDOW_MS } from './ledger.js';
 import { createMember } from './members.js';
 import { createPracticeActivity, listPracticeActivities } from './practice-activities.js';
-import { logPractice, practiceSummary, undoPractice } from './practice-logs.js';
+import { logPractice, practiceSummary, practiceWeek, undoPractice } from './practice-logs.js';
 
 let db: Db;
 let kid: string;
@@ -132,5 +132,25 @@ describe('undoing practice', () => {
 			code(() => undoPractice(db, b.log.id, { now: NOON + KID_UNDO_WINDOW_MS + 1, byAdult: true }))
 		).toBe('none');
 		expect(code(() => undoPractice(db, b.log.id, { now: NOON, byAdult: true }))).toBe('conflict');
+	});
+});
+
+describe('the week', () => {
+	it('sums active logs Monday to Sunday and leaves out undone ones', () => {
+		log(15); // Monday 26 Oct
+		const gone = log(30, NOON + 86_400_000);
+		undoPractice(db, gone.log.id, { now: NOON + 86_400_000, byAdult: true });
+		log(20, NOON + 2 * 86_400_000);
+		log(45, NOON - 7 * 86_400_000); // last week
+		const w = practiceWeek(db, kid, NOON + 2 * 86_400_000);
+		expect(w.weekStart).toBe('2026-10-26');
+		expect(w.today).toBe('2026-10-28');
+		expect(w.days.map((d) => d.minutes)).toEqual([15, 0, 20, 0, 0, 0, 0]);
+		expect(w.totalMinutes).toBe(35);
+		expect(w.stars).toBe(2);
+		expect(w.activityInfo[0].name).toBe(listPracticeActivities(db)[0].name);
+		const before = practiceWeek(db, kid, NOON, '2026-10-20');
+		expect(before.totalMinutes).toBe(45);
+		expect(before.days.some((d) => d.isToday)).toBe(false);
 	});
 });

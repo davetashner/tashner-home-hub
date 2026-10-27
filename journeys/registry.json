@@ -123,6 +123,11 @@
 					"id": "J1.14",
 					"text": "Save allowance dollars toward a real thing: add a money goal in My goals, watch the jar fill, and get a party when there is enough.",
 					"status": "built"
+				},
+				{
+					"id": "J1.15",
+					"text": "See my reading and practice week: minutes per day, today lit up, the week total and stars.",
+					"status": "built"
 				}
 			]
 		},
