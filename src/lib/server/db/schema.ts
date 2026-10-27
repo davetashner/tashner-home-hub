@@ -36,6 +36,9 @@ export const STAR_REASONS = [
 /** Allowance ledger entry kinds (REW-7): stars cashed in, money handed over, manual fixes. */
 export const ALLOWANCE_KINDS = ['cashout', 'payout', 'adjustment'] as const;
 
+/** Money savings goals (hub-ar4): a kid saves real allowance dollars toward something real. */
+export const SAVINGS_GOAL_STATUSES = ['active', 'bought', 'archived'] as const;
+
 export const members = sqliteTable('members', {
 	id: id(),
 	name: text('name').notNull(),
@@ -452,4 +455,31 @@ export const sitterCheckins = sqliteTable(
 		at: ms('at').notNull()
 	},
 	(t) => [index('sitter_checkins_session_idx').on(t.sessionId, t.at)]
+);
+
+/**
+ * A kid's money goal (hub-ar4). Progress is NEVER stored: it is min(allowance balance, target),
+ * computed from `allowance_transactions`. At most one active goal per member is `current`.
+ */
+export const savingsGoals = sqliteTable(
+	'savings_goals',
+	{
+		id: id(),
+		memberId: text('member_id')
+			.notNull()
+			.references(() => members.id, { onDelete: 'cascade' }),
+		title: text('title').notNull(),
+		emoji: text('emoji'),
+		targetCents: integer('target_cents').notNull(),
+		current: integer('current', { mode: 'boolean' }).notNull().default(false),
+		status: text('status', { enum: SAVINGS_GOAL_STATUSES }).notNull().default('active'),
+		createdAt: createdAt(),
+		boughtAt: ms('bought_at')
+	},
+	(t) => [
+		index('savings_goals_member_idx').on(t.memberId),
+		uniqueIndex('savings_goals_one_current_idx')
+			.on(t.memberId)
+			.where(sql`${t.current} = 1`)
+	]
 );

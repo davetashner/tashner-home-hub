@@ -106,6 +106,13 @@
 			"when": 1792900000005,
 			"tag": "20261018235523_saved_drawings",
 			"breakpoints": true
+		},
+		{
+			"idx": 15,
+			"version": "6",
+			"when": 1793063733675,
+			"tag": "20261027011533_savings_goals",
+			"breakpoints": true
 		}
 	]
 }
