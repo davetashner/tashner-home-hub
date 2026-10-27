@@ -49,7 +49,14 @@ async function settle(page: Page) {
 	await page.waitForLoadState('networkidle');
 	await page.evaluate(async () => {
 		await document.fonts.ready;
-		await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined)));
+		// Seasonal sprites loop forever; wait only for animations that end.
+		const ends = (a: Animation) => Number.isFinite(a.effect?.getComputedTiming().endTime);
+		await Promise.all(
+			document
+				.getAnimations()
+				.filter(ends)
+				.map((a) => a.finished.catch(() => undefined))
+		);
 	});
 }
 
