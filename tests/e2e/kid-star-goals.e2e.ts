@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openKid, seedKid } from './kid';
 
-test('a kid names their own star goals, keeps several and picks one @J1.13', async ({
+test('a kid names their own star goals, keeps several and picks one @J1.11', async ({
 	page
 }, info) => {
 	const s = await seedKid(page, `own goals ${info.project.name}`);
