@@ -129,6 +129,8 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J1.9 | An any-day job sits under This week until done. | built | wall | `kid-chores` |
 | J1.10 | Six Star Jobs and six habits fit the wall without scrolling the page. | built | wall | `kid-chores` |
 | J1.11 | Name my own star goal with a picture and a star price, keep a few, and choose which one my jar shows. | built | wall | `kid-star-goals` |
+| J1.12 | Log reading or practice minutes: a star lands at once for every full block, up to the daily cap. | built | wall | `practice-log` |
+| J1.13 | Undo a logged session within 10 seconds and its star comes back off. | built | wall | `practice-log` |
 | **J2** | **Kid runs a routine** (Kid at the wall, critical) | | | |
 | J2.1 | Open a routine from the kid's board, including a kid who has only routines. | built | wall | `routine-only-kid`, `routines` |
 | J2.2 | Step through it, reload to resume, and see the celebration at the end. | built | wall | `routines` |

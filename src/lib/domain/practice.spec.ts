@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { minutesToNextStar, starsForLog, starsForMinutes, type PracticeRate } from './practice.js';
+import {
+	minutesToNextStar,
+	nextStarLine,
+	starsForLog,
+	starsForMinutes,
+	stepMinutes,
+	type PracticeRate
+} from './practice.js';
 
 const rate: PracticeRate = { minutesPerBlock: 15, starsPerBlock: 1, dailyStarCap: 4 };
 
@@ -65,5 +72,24 @@ describe('minutesToNextStar', () => {
 	it('is null at the cap or with a bad rate', () => {
 		expect(minutesToNextStar(rate, 60)).toBeNull();
 		expect(minutesToNextStar({ ...rate, minutesPerBlock: 0 }, 5)).toBeNull();
+	});
+});
+
+describe('nextStarLine', () => {
+	it('words the distance to the next star', () => {
+		expect(nextStarLine(15)).toBe('15 more minutes to your next star');
+		expect(nextStarLine(1)).toBe('1 more minute to your next star');
+		expect(nextStarLine(null)).toBe('All stars earned today!');
+	});
+});
+
+describe('stepMinutes', () => {
+	it('moves in 5s within limits', () => {
+		expect(stepMinutes(15, 1)).toBe(20);
+		expect(stepMinutes(15, -1)).toBe(10);
+		expect(stepMinutes(5, -1)).toBe(5);
+		expect(stepMinutes(240, 1)).toBe(240);
+		expect(stepMinutes(12, 1)).toBe(15);
+		expect(stepMinutes(NaN, 1)).toBe(5);
 	});
 });

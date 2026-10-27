@@ -8,6 +8,7 @@
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import TodoRow from '#lib/components/kid/TodoRow.svelte';
 	import StarJar, { type Goal } from '#lib/components/kid/StarJar.svelte';
+	import PracticeLog from '#lib/components/kid/PracticeLog.svelte';
 	import AllDoneBanner from '#lib/components/kid/AllDoneBanner.svelte';
 	import EarnedBanner from '#lib/components/kid/EarnedBanner.svelte';
 	import VacationCard from '#lib/components/kid/VacationCard.svelte';
@@ -701,6 +702,18 @@
 						{/if}
 					</div>
 				{/if}
+				<div class="ml-auto short:ml-0">
+					<PracticeLog
+						memberId={selected.id}
+						{jar}
+						onstars={(delta) => {
+							const jarStars = starsOf(selected.id);
+							jarStars.balance = Math.max(0, jarStars.balance + delta);
+						}}
+						onchanged={() => void loadStars(selected.id).catch(() => {})}
+						{say}
+					/>
+				</div>
 				{#if streak && streak.days > 0 && !onVacation}
 					<div class="ml-auto short:ml-0">
 						<StreakBadge days={streak.days} nextDays={streak.next?.days ?? null} />

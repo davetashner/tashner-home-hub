@@ -44,3 +44,17 @@ export function minutesToNextStar(rate: PracticeRate, minutesToday: number): num
 	if (starsForMinutes(rate, total) >= whole(rate.dailyStarCap)) return null;
 	return block - (total % block);
 }
+
+/** The kid-facing line under the log button: how far the next star is, or that today is full. */
+export function nextStarLine(minutesLeft: number | null): string {
+	if (minutesLeft === null) return 'All stars earned today!';
+	return `${minutesLeft} more ${minutesLeft === 1 ? 'minute' : 'minutes'} to your next star`;
+}
+
+/** The +5 / -5 adjuster: whole 5s, never below 5 or above the UI limit. */
+export const STEP_MIN = 5;
+export const STEP_MAX = 240;
+export function stepMinutes(current: number, direction: 1 | -1): number {
+	const next = (Math.round(whole(current) / STEP_MIN) + direction) * STEP_MIN;
+	return Math.min(STEP_MAX, Math.max(STEP_MIN, next));
+}
