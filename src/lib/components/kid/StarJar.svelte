@@ -79,42 +79,64 @@
 			data-reached={fill.reached}
 			class="flex min-w-48 grow basis-0 items-center gap-3 short:min-w-0 short:basis-full short:gap-2"
 		>
-			<span class="text-headline leading-none short:text-title" aria-hidden="true">
-				{goal.image ?? '🎁'}
-			</span>
-			<div class="flex min-w-0 grow flex-col gap-1">
-				<p
-					data-testid="jar-goal-title"
-					class="line-clamp-2 text-body leading-tight font-extrabold wrap-anywhere short:text-caption"
-				>
-					{goal.title}
-				</p>
-				<p
-					data-testid="goal-caption"
-					class="text-body font-extrabold whitespace-nowrap short:text-caption"
-				>
-					{jarCaption(balance, goal.cost)}
-				</p>
-				<div
-					class="relative h-4 overflow-hidden rounded-chip bg-surface-raised ring-2 ring-line short:h-3"
-					aria-hidden="true"
-				>
+			<button
+				type="button"
+				data-testid="open-goals"
+				aria-label="My goals: {goal.title}"
+				class="press flex min-h-tap-kid min-w-0 grow items-center gap-3 overflow-hidden text-left short:gap-2"
+				onclick={() => (goalsOpen = true)}
+			>
+				<span class="text-headline leading-none short:text-title" aria-hidden="true">
+					{goal.image ?? '🎁'}
+				</span>
+				<div class="flex min-w-0 grow flex-col gap-1">
+					<!-- Wall sizes: the name gets up to two lines. Short and tablet screens keep it to one line and
+					     drop the "more to go" line so the first chore stays above the fold. -->
+					<div class="flex flex-col">
+						<p
+							data-testid="jar-goal-title"
+							class="line-clamp-2 min-w-0 text-body leading-tight font-extrabold wrap-anywhere short:line-clamp-1 short:text-caption tablet:line-clamp-1"
+						>
+							{goal.title}
+						</p>
+						<p
+							data-testid="goal-caption"
+							class="text-body font-extrabold whitespace-nowrap short:text-caption"
+						>
+							{jarCaption(balance, goal.cost)}
+						</p>
+					</div>
 					<div
-						data-testid="goal-fill-pending"
-						class="fill absolute inset-0 origin-left bg-star-pending"
-						style:transform="scaleX({fill.pending})"
-					></div>
-					<div
-						data-testid="goal-fill"
-						class="fill absolute inset-0 origin-left bg-star"
-						style:transform="scaleX({fill.gold})"
-					></div>
+						class="relative h-4 overflow-hidden rounded-chip bg-surface-raised ring-2 ring-line short:h-3"
+						aria-hidden="true"
+					>
+						<div
+							data-testid="goal-fill-pending"
+							class="fill absolute inset-0 origin-left bg-star-pending"
+							style:transform="scaleX({fill.pending})"
+						></div>
+						<div
+							data-testid="goal-fill"
+							class="fill absolute inset-0 origin-left bg-star"
+							style:transform="scaleX({fill.gold})"
+						></div>
+					</div>
+					<p class="text-caption font-bold text-ink-muted short:hidden tablet:hidden">
+						{fill.reached ? 'You earned it! Ask a grown-up.' : `${fill.remaining} more to go`}
+					</p>
 				</div>
-				<p class="text-caption font-bold text-ink-muted">
-					{fill.reached ? 'You earned it! Ask a grown-up.' : `${fill.remaining} more to go`}
-				</p>
-			</div>
+			</button>
 		</div>
+	{/if}
+
+	{#if !goal}
+		<Button
+			variant="secondary"
+			size="kid"
+			class="px-4!"
+			data-testid="open-goals"
+			onclick={() => (goalsOpen = true)}><span aria-hidden="true">🎯</span> Set a goal</Button
+		>
 	{/if}
 
 	<div class="ml-auto flex shrink-0 gap-3 short:ml-0 short:w-full short:flex-col short:gap-1">
@@ -125,14 +147,6 @@
 			data-testid="open-stickers"
 			aria-label="My stickers"
 			onclick={() => (stickersOpen = true)}><span aria-hidden="true">🏅</span></Button
-		>
-		<Button
-			variant="secondary"
-			size="kid"
-			class="px-4! short:w-full"
-			data-testid="open-goals"
-			aria-label="My goals"
-			onclick={() => (goalsOpen = true)}><span aria-hidden="true">🎯</span></Button
 		>
 		<Button
 			size="kid"

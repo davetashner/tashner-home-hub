@@ -127,6 +127,13 @@
 			"when": 1793071391764,
 			"tag": "20261027032311_practice_logs",
 			"breakpoints": true
+		},
+		{
+			"idx": 18,
+			"version": "6",
+			"when": 1793075169930,
+			"tag": "20261027042609_kid_star_goals",
+			"breakpoints": true
 		}
 	]
 }
