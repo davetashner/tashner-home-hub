@@ -4,7 +4,7 @@ import { handle, readJson } from '#lib/server/api.js';
 import type { RequestHandler } from './$types';
 
 /**
- * The member's money goals: { balanceCents, goals: [{ id, title, emoji, targetCents, savedCents,
+ * The member's money goals: { balanceCents, symbol, goals: [{ id, title, emoji, targetCents, savedCents,
  * reached, current, status, createdAt, boughtAt }] }. Open: the kid screen reads it.
  * Archived goals are hidden.
  */

@@ -131,6 +131,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J1.11 | Name my own star goal with a picture and a star price, keep a few, and choose which one my jar shows. | built | wall | `kid-star-goals` |
 | J1.12 | Log reading or practice minutes: a star lands at once for every full block, up to the daily cap. | built | wall | `practice-log` |
 | J1.13 | Undo a logged session within 10 seconds and its star comes back off. | built | wall | `practice-log` |
+| J1.14 | Save allowance dollars toward a real thing: add a money goal in My goals, watch the jar fill, and get a party when there is enough. | built | wall | `money-goals` |
 | **J2** | **Kid runs a routine** (Kid at the wall, critical) | | | |
 | J2.1 | Open a routine from the kid's board, including a kid who has only routines. | built | wall | `routine-only-kid`, `routines` |
 | J2.2 | Step through it, reload to resume, and see the celebration at the end. | built | wall | `routines` |
@@ -151,6 +152,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J4.5 | A failed redeem puts the stars back. | built | wall | `redemption` |
 | J4.6 | Earn a badge: it celebrates once and fills the kid's sticker book. | built | wall | `badges` |
 | J4.7 | A grown-up sets an allowance rate; the kid cashes out and the parent marks it paid. | built | wall | `allowance` |
+| J4.8 | A grown-up marks a kid's saved-up money goal as bought: the price comes off the allowance balance. | built | wall | `money-goals` |
 | **J5** | **Family calendar: today, week, add an event** (Parent at the wall, critical) | | | |
 | J5.1 | Agenda shows today with members and location; a tap opens details. | built | wall, iphone, ipad | `calendar-view`, `critical-flows` |
 | J5.2 | Week and month views show timed, spanning and all-day events; swipe changes the period. | built | wall | `calendar-view`, `critical-flows` |

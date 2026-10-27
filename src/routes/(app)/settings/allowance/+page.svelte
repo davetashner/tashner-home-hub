@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
+	import AdultSavingsGoals from '#lib/components/AdultSavingsGoals.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import {
@@ -291,6 +292,15 @@
 							>
 						{/each}
 					</div>
+					<AdultSavingsGoals
+						memberId={kid.id}
+						symbol={rate.symbol}
+						balanceCents={kid.balanceCents}
+						onbought={(title, left) => {
+							say(`Bought ${title}. ${kid.name} has ${formatMoney(left, rate.symbol)} left.`);
+							void load();
+						}}
+					/>
 					{#if open?.id === kid.id}
 						{@const mode = open.mode}
 						{@const p = plan(kid, mode)}

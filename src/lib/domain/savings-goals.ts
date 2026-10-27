@@ -1,5 +1,5 @@
 /** Money savings goals (hub-ar4): input validation and progress math. Plain TypeScript, no I/O. */
-import { MAX_ENTRY_CENTS } from './allowance.js';
+import { MAX_ENTRY_CENTS, formatMoney } from './allowance.js';
 
 export const GOAL_TITLE_MAX = 40;
 export const GOAL_MIN_CENTS = 100;
@@ -56,3 +56,26 @@ export function goalProgress(balanceCents: number, targetCents: number) {
 	const savedCents = Math.max(0, Math.min(balanceCents, targetCents));
 	return { savedCents, targetCents, reached: savedCents >= targetCents };
 }
+
+/** The price stepper works in whole dollars; the price is stored in cents. */
+export const GOAL_DEFAULT_CENTS = 2000;
+
+/** Moves a price by whole dollars (negative steps down), kept inside the allowed range. */
+export function bumpGoalCents(cents: number, dollars: number): number {
+	const next = Math.round(cents) + Math.trunc(dollars) * 100;
+	return Math.min(GOAL_MAX_CENTS, Math.max(GOAL_MIN_CENTS, next));
+}
+
+/** "$12.50 of $40.00" (cents are integers; the symbol is the household's). */
+export function goalCaption(savedCents: number, targetCents: number, symbol = '$'): string {
+	return `${formatMoney(savedCents, symbol)} of ${formatMoney(targetCents, symbol)}`;
+}
+
+/** Whole-number percent saved, 0-100, for the jar's fill. */
+export function goalPercent(savedCents: number, targetCents: number): number {
+	if (!(targetCents > 0)) return 0;
+	return Math.min(100, Math.max(0, Math.floor((savedCents / targetCents) * 100)));
+}
+
+/** localStorage key remembering which money goal's party was already thrown. */
+export const moneyReachedKey = (goalId: string) => `hub.money-goal-reached.${goalId}`;
