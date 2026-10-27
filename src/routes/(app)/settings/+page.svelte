@@ -90,6 +90,12 @@
 			line: 'Hand the wall to a sitter, with the emergency info.'
 		},
 		{
+			href: resolve('/(app)/settings/practice'),
+			emoji: '📖',
+			title: 'Reading & practice',
+			line: 'Stars for minutes of reading, piano and more.'
+		},
+		{
 			href: resolve('/(app)/settings/countdowns'),
 			emoji: '⏳',
 			title: 'Countdowns',
