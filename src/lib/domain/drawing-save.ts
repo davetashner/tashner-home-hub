@@ -20,6 +20,7 @@ import {
 	type ShapeKind,
 	type Stroke
 } from './drawing.js';
+import { MAX_FRAMES } from './drawing-flipbook.js';
 import { BRUSH_TOOLS, isAlphaTool, isSeed } from './drawing-brushes.js';
 
 export const SAVED_MAX_CHARS = 400_000;
@@ -62,6 +63,8 @@ interface Wire {
 	/** A library photo under the drawing (hub-cn7.9.2); items are in canvas space like a plain board. */
 	photo?: string;
 	items: WireItem[];
+	/** Flipbook (hub-cn7.26): the frames AFTER the first. `items` is frame 0, so old readers see a plain drawing. */
+	frames?: WireItem[][];
 }
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -79,7 +82,8 @@ export function serializeDrawing(
 	dpr = 1,
 	page: PageId | null = null,
 	bg: string | null = null,
-	photo: string | null = null
+	photo: string | null = null,
+	more: readonly (readonly DrawItem[])[] = []
 ): string {
 	const fit = page ? pageFit(size) : { s: 1, ox: 0, oy: 0 };
 	const X = (x: number) => r1((x - fit.ox) / fit.s);
@@ -91,39 +95,41 @@ export function serializeDrawing(
 		...(page ? { page } : {}),
 		...(bg && isBackground(bg) ? { bg } : {}),
 		...(!page && isPhotoId(photo) ? { photo } : {}),
-		items: items.map((it): WireItem => {
-			if (isFill(it))
-				return { k: 1, c: it.color, x: X(it.x / dpr), y: Y(it.y / dpr), o: it.tolerance };
-			if (isText(it))
-				return {
-					tx: it.text,
-					c: it.color,
-					z: K(it.size),
-					b: [X(it.x0), Y(it.y0), X(it.x1), Y(it.y1)],
-					...(it.rot ? { r: Math.round(it.rot * 1000) / 1000 } : {})
-				};
-			if (isShape(it))
-				return {
-					s: it.shape,
-					c: it.color,
-					f: it.filled,
-					w: K(it.width),
-					b: [X(it.x0), Y(it.y0), X(it.x1), Y(it.y1)],
-					...(it.rot ? { r: Math.round(it.rot * 1000) / 1000 } : {}),
-					...(isTranslucent(it.alpha) ? { a: r2(clampAlpha(it.alpha)) } : {}),
-					...(it.dash ? { d: it.dash } : {})
-				};
-			return {
-				t: it.tool,
-				c: it.color,
-				p: it.points.flatMap((p) => [X(p.x), Y(p.y), K(p.w)]),
-				...(it.mirror ? { m: mirrorWire(it.mirror, X, Y) } : {}),
-				...(isAlphaTool(it.tool) && isTranslucent(it.alpha) ? { a: r2(clampAlpha(it.alpha)) } : {}),
-				...(it.seed ? { z: it.seed } : {})
-			};
-		})
+		items: items.map(toWire),
+		...(more.length ? { frames: more.map((f) => f.map(toWire)) } : {})
 	};
 	return JSON.stringify(wire);
+	function toWire(it: DrawItem): WireItem {
+		if (isFill(it))
+			return { k: 1, c: it.color, x: X(it.x / dpr), y: Y(it.y / dpr), o: it.tolerance };
+		if (isText(it))
+			return {
+				tx: it.text,
+				c: it.color,
+				z: K(it.size),
+				b: [X(it.x0), Y(it.y0), X(it.x1), Y(it.y1)],
+				...(it.rot ? { r: Math.round(it.rot * 1000) / 1000 } : {})
+			};
+		if (isShape(it))
+			return {
+				s: it.shape,
+				c: it.color,
+				f: it.filled,
+				w: K(it.width),
+				b: [X(it.x0), Y(it.y0), X(it.x1), Y(it.y1)],
+				...(it.rot ? { r: Math.round(it.rot * 1000) / 1000 } : {}),
+				...(isTranslucent(it.alpha) ? { a: r2(clampAlpha(it.alpha)) } : {}),
+				...(it.dash ? { d: it.dash } : {})
+			};
+		return {
+			t: it.tool,
+			c: it.color,
+			p: it.points.flatMap((p) => [X(p.x), Y(p.y), K(p.w)]),
+			...(it.mirror ? { m: mirrorWire(it.mirror, X, Y) } : {}),
+			...(isAlphaTool(it.tool) && isTranslucent(it.alpha) ? { a: r2(clampAlpha(it.alpha)) } : {}),
+			...(it.seed ? { z: it.seed } : {})
+		};
+	}
 }
 
 /** A background the board accepts: a color from the grid. */
@@ -157,9 +163,16 @@ function parseWire(json: unknown): Wire | null {
 	if (w.page !== undefined && !isPageId(w.page)) return null;
 	if (w.bg !== undefined && !isBackground(w.bg)) return null;
 	if (w.photo !== undefined && (!isPhotoId(w.photo) || w.page !== undefined)) return null;
-	if (!Array.isArray(w.items) || w.items.length > SAVED_MAX_ITEMS) return null;
+	if (!Array.isArray(w.items)) return null;
+	if (w.frames !== undefined) {
+		if (!Array.isArray(w.frames) || w.frames.length >= MAX_FRAMES || !w.frames.every(Array.isArray))
+			return null;
+	}
+	const all = [w.items, ...(w.frames ?? [])] as Record<string, unknown>[][];
+	// Limits count every frame together.
+	if (all.reduce((n, f) => n + f.length, 0) > SAVED_MAX_ITEMS) return null;
 	let points = 0;
-	for (const it of w.items as Record<string, unknown>[]) {
+	for (const it of all.flat()) {
 		if (!it || typeof it !== 'object' || !isInk(it.c)) return null;
 		if ('k' in it) {
 			if (it.k !== 1 || !num(it.x) || !num(it.y) || !num(it.o)) return null;
@@ -234,6 +247,11 @@ export function savedSize(json: unknown): Size | null {
  * Fills come back without runs, with their seed in FILL_REF units, for the sheet to re-flood.
  */
 export function loadDrawing(json: unknown, to: Size): DrawItem[] | null {
+	return loadFrames(json, to)?.[0] ?? null;
+}
+
+/** Every frame of a saved drawing (one for a plain drawing), refitted like `loadDrawing`. */
+export function loadFrames(json: unknown, to: Size): DrawItem[][] | null {
 	const wire = parseWire(json);
 	if (!wire) return null;
 	const s = Math.min(to.w / wire.size.w, to.h / wire.size.h);
@@ -241,7 +259,8 @@ export function loadDrawing(json: unknown, to: Size): DrawItem[] | null {
 	const oy = (to.h - wire.size.h * s) / 2;
 	const X = (x: number) => x * s + ox;
 	const Y = (y: number) => y * s + oy;
-	return wire.items.map((it): DrawItem => {
+	return [wire.items, ...(wire.frames ?? [])].map((f) => f.map(fromWire));
+	function fromWire(it: WireItem): DrawItem {
 		if ('k' in it) {
 			const f: FillItem = {
 				fill: true,
@@ -298,5 +317,5 @@ export function loadDrawing(json: unknown, to: Size): DrawItem[] | null {
 		const m = it.m && parseMirrorWire(it.m, X, Y);
 		if (m) st.mirror = m;
 		return st;
-	});
+	}
 }
