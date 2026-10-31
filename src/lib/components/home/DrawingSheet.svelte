@@ -96,7 +96,13 @@
 		type Board,
 		type History
 	} from '#lib/domain/drawing-history.js';
-	import { BRUSH_TOOLS, BRUSHES, isAlphaTool, isBrushTool, newSeed } from '#lib/domain/drawing-brushes.js';
+	import {
+		BRUSH_TOOLS,
+		BRUSHES,
+		isAlphaTool,
+		isBrushTool,
+		newSeed
+	} from '#lib/domain/drawing-brushes.js';
 	import { paintBrushSegment, paintWash } from '#lib/components/home/drawing/brush-paint.js';
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import { PALETTE, isTranslucent } from '#lib/domain/drawing-colors.js';
@@ -384,9 +390,6 @@
 				s.points.map((p, i) => ({ ...p, ...copies[i][k] }))
 			);
 	}
-
-	function highlightPath(s: Stroke, pts: DrawPoint[]) {
-		const hl = s.tool === 'highlighter';
 
 	/** A watercolor wash, once per mirror copy. */
 	function wash(s: Stroke) {
