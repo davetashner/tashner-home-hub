@@ -11,11 +11,14 @@ import {
 	parseSlideshowSettings,
 	type SlideshowSettings
 } from '#lib/domain/slideshow.js';
+import { isDrawingMode } from '#lib/domain/drawing-frame.js';
 import { isOnThisDayMode } from '#lib/domain/on-this-day.js';
 import type { RequestHandler } from './$types';
 
 const PREFIX = 'slideshow.';
-const KEYS = ['intervalSeconds', 'transition', 'onThisDay', 'livePhotos'].map((f) => PREFIX + f);
+const KEYS = ['intervalSeconds', 'transition', 'onThisDay', 'livePhotos', 'drawings'].map(
+	(f) => PREFIX + f
+);
 
 function read(): SlideshowSettings {
 	const rows = getDb()
@@ -37,7 +40,7 @@ function read(): SlideshowSettings {
 /** Open to the LAN like the slideshow itself (PHO-3): 30 s fades unless a grown-up changed them. */
 export const GET: RequestHandler = () => json(read());
 
-/** Adult only. Body: { intervalSeconds?, transition?, onThisDay?, livePhotos? }. */
+/** Adult only. Body: { intervalSeconds?, transition?, onThisDay?, livePhotos?, drawings? }. */
 export const PUT: RequestHandler = async (event) => {
 	requireAdult(event);
 	const body = await readJson(event.request);
@@ -49,8 +52,16 @@ export const PUT: RequestHandler = async (event) => {
 		error(400, 'onThisDay must be off, favor or only');
 	if (body.livePhotos !== undefined && !isLivePhotoMode(body.livePhotos))
 		error(400, 'livePhotos must be off or on');
+	if (body.drawings !== undefined && !isDrawingMode(body.drawings))
+		error(400, 'drawings must be off or on');
 	const db = getDb();
-	for (const field of ['intervalSeconds', 'transition', 'onThisDay', 'livePhotos'] as const) {
+	for (const field of [
+		'intervalSeconds',
+		'transition',
+		'onThisDay',
+		'livePhotos',
+		'drawings'
+	] as const) {
 		if (body[field] === undefined) continue;
 		const value = JSON.stringify(body[field]);
 		db.insert(schema.settings)
