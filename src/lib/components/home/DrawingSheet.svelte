@@ -731,7 +731,18 @@
 			if (!translucent(current) && current.tool !== 'watercolor')
 				segment(current, current.points.length - 1);
 		}
-		if (translucent(current) || current.tool === 'watercolor') redraw();
+		if (current.tool === 'watercolor') scheduleWash();
+		else if (translucent(current)) redraw();
+	}
+
+	/** A wash repaints the board, so coalesce a burst of pointer samples into one redraw per frame. */
+	let washFrame = 0;
+	function scheduleWash() {
+		if (washFrame) return;
+		washFrame = requestAnimationFrame(() => {
+			washFrame = 0;
+			redraw();
+		});
 	}
 
 	function up(e: PointerEvent) {
@@ -761,6 +772,12 @@
 		history = recordAdd(history, current);
 		if (current.tool !== 'eraser') recent = pushRecent(recent, current.color);
 		current = null;
+		if (washFrame) {
+			// The last samples were still waiting for their frame: paint the finished wash now.
+			cancelAnimationFrame(washFrame);
+			washFrame = 0;
+			redraw();
+		}
 		count = strokes.length;
 		blank = isBlank(strokes);
 	}
