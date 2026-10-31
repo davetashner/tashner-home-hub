@@ -24,7 +24,7 @@
 	let { items, render, ondone }: Props = $props();
 
 	let speed = $state<ReplaySpeed>(1);
-	const schedule = buildSchedule(items);
+	const schedule = $derived(buildSchedule(items));
 	let elapsed = 0;
 	let raf = 0;
 	let last = 0;
