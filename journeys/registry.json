@@ -884,6 +884,12 @@
 					"text": "Pick white, grey, brown or skin-tone colors and an opacity step (25 to 100 percent) for pen strokes and shapes; opacity also restyles a selected shape.",
 					"status": "built",
 					"beads": ["hub-cn7.13"]
+				},
+				{
+					"id": "J18.16",
+					"text": "The drawing board shows a daily prompt that is the same on every device; Shuffle gives another, Hide removes it for the day, and a grown-up can turn prompts off in Settings > Drawing.",
+					"status": "built",
+					"beads": ["hub-cn7.27"]
 				}
 			]
 		},

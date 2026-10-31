@@ -3,6 +3,8 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import ReplayPlayer from './drawing/ReplayPlayer.svelte';
+	import PromptBanner from './drawing/PromptBanner.svelte';
+	import { promptForDate } from '#lib/domain/drawing-prompts.js';
 	import Button from '#lib/components/ui/Button.svelte';
 	import {
 		FIT,
@@ -1147,7 +1149,36 @@
 		}
 	}
 
+	// Daily prompt (hub-cn7.27): the household's local day picks it; Hide lasts until tomorrow.
+	let promptDate = $state<string | null>(null);
+	let promptShuffles = $state(0);
+	let promptHidden = $state(false);
+	const hideKey = (date: string) => `drawing-prompt-hidden:${date}`;
+	function loadPrompt() {
+		void fetch('/api/settings/drawing-prompts')
+			.then(async (res) => {
+				const body = res.ok ? await res.json() : null;
+				if (!body || body.enabled === false || typeof body.date !== 'string') return;
+				try {
+					promptHidden = localStorage.getItem(hideKey(body.date)) === '1';
+				} catch {
+					// no storage: the prompt just shows
+				}
+				promptDate = body.date;
+			})
+			.catch(() => {});
+	}
+	function hidePrompt() {
+		promptHidden = true;
+		try {
+			if (promptDate) localStorage.setItem(hideKey(promptDate), '1');
+		} catch {
+			// hidden for this visit only
+		}
+	}
+
 	onMount(() => {
+		loadPrompt();
 		ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 		linesCtx = linesCanvas.getContext('2d') as CanvasRenderingContext2D;
 		photoCtx = photoCanvas.getContext('2d') as CanvasRenderingContext2D;
@@ -1305,6 +1336,13 @@
 	<div
 		class="flex flex-wrap content-start gap-3 overflow-y-auto portrait:max-h-1/2 landscape:w-1/4"
 	>
+		{#if promptDate && !promptHidden}
+			<PromptBanner
+				prompt={promptForDate(promptDate, promptShuffles)}
+				onshuffle={() => promptShuffles++}
+				ondismiss={hidePrompt}
+			/>
+		{/if}
 		{#if choosing}
 			<p class="w-full text-body font-extrabold">Who drew it?</p>
 			<div class="flex flex-wrap gap-3" data-testid="draw-authors">
