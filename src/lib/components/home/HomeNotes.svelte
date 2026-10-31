@@ -8,6 +8,7 @@
 	import DrawingSheet from './DrawingSheet.svelte';
 	import { REWARD_EMOJI } from '#lib/domain/emoji.js';
 	import { createLiveChannel } from '#lib/domain/live-events.js';
+	import { inviteFrom } from '#lib/domain/drawing-live-client.js';
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import {
 		NOTE_COLORS,
@@ -77,6 +78,8 @@
 	// Temp ids dismissed before the POST returned; deleted once the server id is known.
 	const dismissedEarly = new SvelteSet<string>();
 	let drawing = $state(false);
+	let invite = $state<string | null>(null);
+	let joining = $state<string | undefined>(undefined);
 	let zoom = $state<Note | null>(null);
 
 	const zone = $derived(isTimeZone(page.data.timeZone) ? page.data.timeZone : runtimeZone());
@@ -232,9 +235,13 @@
 			.catch(() => {});
 		const channel = createLiveChannel({
 			url: '/api/events',
-			topics: ['notes'],
+			topics: ['notes', 'drawing'],
 			create: (url) => new EventSource(url),
-			onEvent: () => void refresh(),
+			onEvent: (topic, data) => {
+				if (topic !== 'drawing') return void refresh();
+				const id = inviteFrom(data);
+				if (id && !drawing) invite = id;
+			},
 			// Events missed while the stream was down: catch up on (re)connect.
 			onOpen: () => void refresh()
 		});
@@ -276,6 +283,26 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if invite && !drawing}
+		<Card class="flex flex-wrap items-center justify-between gap-4" data-testid="draw-invite">
+			<p class="text-body font-extrabold">Someone is drawing. Join in?</p>
+			<div class="flex gap-3">
+				<Button
+					size="kid"
+					onclick={() => {
+						joining = invite ?? undefined;
+						invite = null;
+						drawing = true;
+					}}
+					data-testid="draw-invite-join">Join</Button
+				>
+				<Button variant="ghost" onclick={() => (invite = null)} data-testid="draw-invite-dismiss"
+					>Not now</Button
+				>
+			</div>
+		</Card>
+	{/if}
 
 	{#if composing}
 		<Card class="flex flex-col gap-4 short:gap-2" elevation="float">
@@ -466,7 +493,15 @@
 	{/if}
 
 	{#if drawing}
-		<DrawingSheet {people} onpost={postDrawing} onclose={() => (drawing = false)} />
+		<DrawingSheet
+			{people}
+			onpost={postDrawing}
+			onclose={() => {
+				drawing = false;
+				joining = undefined;
+			}}
+			liveJoin={joining}
+		/>
 	{/if}
 
 	{#if zoom?.imageUrl}

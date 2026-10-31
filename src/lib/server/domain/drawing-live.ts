@@ -2,7 +2,8 @@
  * Live shared drawing sessions (hub-cn7.29). One session is one board that several devices draw
  * on at once. Ordering and merge rules are pure and live in `#lib/domain/drawing-live.js`; this
  * module holds the sessions and relays each accepted entry over the existing SSE hub
- * (topic `drawing`, data `{ session, entry }` with `entry` as JSON).
+ * (topic `drawing`, data `{ session, entry }` with `entry` as JSON). Opening a session also
+ * publishes `{ session, started: '1' }` so idle devices can offer to join.
  *
  * Sessions live in memory only: the server is a single container and a board that has nobody
  * on it is not worth keeping, so a restart simply ends them (clients see a 404 and stop). A
@@ -54,6 +55,8 @@ export function openSession(now = Date.now()): { id: string; seq: number } {
 		throw new LedgerError('conflict', 'Too many live drawing sessions are open');
 	const id = randomBytes(4).toString('hex');
 	sessions.set(id, { id, board: emptyBoard(), lastActive: now });
+	// Invitation for the other devices: `{ session, started }`, no entry (hub-cn7.30).
+	publish('drawing', { session: id, started: '1' });
 	return { id, seq: 0 };
 }
 
