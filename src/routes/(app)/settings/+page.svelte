@@ -156,6 +156,12 @@
 			line: 'Celebration sounds and quiet hours.'
 		},
 		{
+			href: resolve('/(app)/settings/drawing'),
+			emoji: '🎨',
+			title: 'Drawing',
+			line: 'The daily drawing prompt on the drawing board.'
+		},
+		{
 			href: resolve('/(app)/settings/notifications'),
 			emoji: '📲',
 			title: 'Notifications',
