@@ -255,7 +255,7 @@ test('insert shapes and stamps, outline or filled, undo @J18.4', async ({ page }
 		const canvas = page.getByTestId('draw-canvas');
 		await expectTappable(page.getByTestId('draw-shapes-open'), 96);
 		await page.getByTestId('draw-shapes-open').click();
-		await expect(page.getByTestId('draw-shape')).toHaveCount(15);
+		await expect(page.getByTestId('draw-shape')).toHaveCount(20);
 		await expectTappable(page.getByTestId('draw-shape').first(), 96);
 
 		// An outlined square dragged out leaves ink and counts as one undoable item.
