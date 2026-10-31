@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
+	import ReplayPlayer from './drawing/ReplayPlayer.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import {
 		PAGE_IDS,
@@ -625,10 +626,10 @@
 		else for (let i = 0; i < s.points.length; i++) segment(s, i);
 	}
 
-	function redraw() {
+	function redraw(list: DrawItem[] = strokes) {
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		for (const s of strokes) paint(s);
+		for (const s of list) paint(s);
 		if (current) paint(current);
 		if (draft) paintShape(draft);
 	}
@@ -1042,7 +1043,10 @@
 		}
 	}
 
-	async function reopen(row: SavedRow) {
+	/** The saved drawing being replayed over the board (read-only: the board's own items are untouched). */
+	let replaying = $state<DrawItem[] | null>(null);
+
+	async function reopen(row: SavedRow, replay = false) {
 		try {
 			const res = await fetch(`/api/drawings/${row.id}`);
 			const data: unknown = res.ok ? (await res.json()).data : null;
@@ -1068,6 +1072,7 @@
 			browsing = false;
 			note = '';
 			redraw();
+			replaying = replay && items.length ? items : null;
 		} catch {
 			note = 'Could not open that drawing.';
 		}
@@ -1120,6 +1125,16 @@
 		data-testid="draw-holder"
 		data-bg={bg ?? ''}
 	>
+		{#if replaying}
+			<ReplayPlayer
+				items={replaying}
+				render={(list) => redraw(list)}
+				ondone={() => {
+					replaying = null;
+					redraw();
+				}}
+			/>
+		{/if}
 		<canvas
 			bind:this={photoCanvas}
 			style:opacity={layers.picture ? undefined : 0}
@@ -1406,6 +1421,13 @@
 								size="kid"
 							/>
 						</button>
+						<button
+							type="button"
+							class="{btn} border-line bg-surface"
+							aria-label="Replay drawing by {row.memberName}"
+							data-testid="draw-replay-open"
+							onclick={() => reopen(row, true)}>Replay</button
+						>
 						<button
 							type="button"
 							class="{btn} border-line bg-surface"
