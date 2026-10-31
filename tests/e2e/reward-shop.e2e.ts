@@ -1,7 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { PIN } from './adult';
+import { ensureHousehold, PIN } from './adult';
 import { openKid, seedKid } from './kid';
 import { expectTappable } from './tap';
+
+test.beforeAll(ensureHousehold);
 
 interface Reward {
 	id: string;
@@ -72,8 +74,12 @@ test('shop cards, make it my goal, and get it now with a preview then the PIN @J
 		);
 		await page.getByTestId('shop-confirm-yes').click();
 		await expect(page.getByTestId('shop-pin')).toBeVisible();
-		// The shared test household has several grown-ups; the baseline one has the standard PIN.
-		await page.getByRole('button', { name: 'Baseline Adult' }).click();
+		// Several grown-ups show a picker, one goes straight to the pad (it depends on which other
+		// specs ran first against the shared household); the baseline adult has the standard PIN.
+		const baseline = page.getByRole('button', { name: 'Baseline Adult' });
+		const one = page.getByRole('button', { name: '1', exact: true });
+		await expect(baseline.or(one)).toBeVisible();
+		if (await baseline.isVisible()) await baseline.click();
 		for (const digit of PIN) await page.getByRole('button', { name: digit, exact: true }).click();
 		await page.getByRole('button', { name: 'Enter PIN' }).click();
 		await expect(page.getByTestId('shop-message')).toContainText(`Enjoy your ${small.title}`);
