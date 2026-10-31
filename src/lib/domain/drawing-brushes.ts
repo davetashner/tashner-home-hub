@@ -5,7 +5,14 @@
  * all paint the same grain. Pure: painting lives in the sheet's brush painter.
  */
 
-export const BRUSH_TOOLS = ['crayon', 'chalk', 'watercolor', 'spray'] as const;
+export const BRUSH_TOOLS = [
+	'crayon',
+	'chalk',
+	'watercolor',
+	'spray',
+	'glitter',
+	'rainbow'
+] as const;
 export type BrushTool = (typeof BRUSH_TOOLS)[number];
 export const isBrushTool = (t: string): t is BrushTool =>
 	(BRUSH_TOOLS as readonly string[]).includes(t);
@@ -13,7 +20,7 @@ export const isBrushTool = (t: string): t is BrushTool =>
 export interface BrushSpec {
 	label: string;
 	/** `dots`: grain stamped along each segment as it is drawn. `wash`: a whole translucent path. */
-	kind: 'dots' | 'wash';
+	kind: 'dots' | 'wash' | 'glitter' | 'rainbow';
 	/** Multiplier on the pen's base width. */
 	widthScale: number;
 	/** Grain per square CSS px of brush footprint (dots brushes). */
@@ -68,6 +75,28 @@ export const BRUSHES: Record<BrushTool, BrushSpec> = {
 		gap: 0.05,
 		levels: [0.45, 0.9],
 		soft: true
+	},
+	// Glitter: the ink color as a solid line, plus sparkles from `glitterSparkles` (density per px^2).
+	glitter: {
+		label: 'Glitter',
+		kind: 'glitter',
+		widthScale: 1.8,
+		density: 0.03,
+		dot: [1.2, 2.6],
+		gap: 0,
+		levels: [1, 1],
+		soft: false
+	},
+	// Rainbow: ignores the ink color; hue starts at red and cycles every RAINBOW_PERIOD px of stroke.
+	rainbow: {
+		label: 'Rainbow',
+		kind: 'rainbow',
+		widthScale: 1.6,
+		density: 0,
+		dot: [0, 0],
+		gap: 0,
+		levels: [1, 1],
+		soft: false
 	}
 };
 
@@ -154,4 +183,54 @@ export function washPasses(
 		{ dx: (rand() - 0.5) * wobble, dy: (rand() - 0.5) * wobble, width: width * 0.72, alpha: 0.18 },
 		{ dx: (rand() - 0.5) * wobble, dy: (rand() - 0.5) * wobble, width: width * 0.4, alpha: 0.14 }
 	];
+}
+
+/** Stroke length in CSS px for one full trip round the hue wheel. */
+export const RAINBOW_PERIOD = 420;
+
+/** Hue (degrees) a rainbow stroke has `along` px from its start: depends only on length, never on speed. */
+export const rainbowHue = (along: number): number =>
+	((((along / RAINBOW_PERIOD) * 360) % 360) + 360) % 360;
+
+/** Most sparkles one glitter segment may add. */
+export const MAX_SPARKLES_PER_SEGMENT = 24;
+
+/**
+ * Sparkles for the glitter segment ending at point `i`: flat `[x, y, size, kind]` quadruples.
+ * Kind 0 is a small bright dot, 1 a dot in the ink color, 2 a star glint (a larger four-point star).
+ * Deterministic in (seed, i, from, to, width).
+ */
+export function glitterSparkles(
+	spec: BrushSpec,
+	seed: number,
+	i: number,
+	from: { x: number; y: number },
+	to: { x: number; y: number },
+	width: number
+): number[] {
+	const rand = seededRandom(hashSeed(seed, i));
+	const dx = to.x - from.x;
+	const dy = to.y - from.y;
+	const len = Math.hypot(dx, dy);
+	const nx = len > 0 ? -dy / len : 0;
+	const ny = len > 0 ? dx / len : 1;
+	// Expected sparkles for the segment's area, rounded up or down by chance so short segments still add up.
+	// A lone point (the stroke's first) gets its round cap's worth.
+	const area = (len > 0 ? len : width * 0.5) * width;
+	const count = Math.min(MAX_SPARKLES_PER_SEGMENT, Math.floor(area * spec.density + rand()));
+	const out: number[] = [];
+	for (let n = 0; n < count; n++) {
+		const along = rand();
+		const off = (rand() * 2 - 1) * (width * 0.4);
+		const size = spec.dot[0] + rand() * (spec.dot[1] - spec.dot[0]);
+		const r = rand();
+		const kind = r < 0.12 ? 2 : r < 0.55 ? 0 : 1;
+		out.push(
+			from.x + dx * along + nx * off,
+			from.y + dy * along + ny * off,
+			kind === 2 ? width * 0.25 + size : size,
+			kind
+		);
+	}
+	return out;
 }

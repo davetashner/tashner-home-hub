@@ -105,7 +105,7 @@ describe('brush widths and saving', () => {
 		const json = serializeDrawing(items, { w: 100, h: 100 });
 		expect(isSavedDrawing(json)).toBe(true);
 		const back = loadDrawing(json, { w: 100, h: 100 }) as Stroke[];
-		expect(back.map((s) => s.seed)).toEqual([100, 101, 102, 103, undefined]);
+		expect(back.map((s) => s.seed)).toEqual([100, 101, 102, 103, 104, 105, undefined]);
 		expect(back.map((s) => s.tool)).toEqual([...BRUSH_TOOLS, 'pen']);
 		const old = JSON.stringify({
 			v: 1,
