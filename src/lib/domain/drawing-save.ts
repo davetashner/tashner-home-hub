@@ -18,6 +18,7 @@ import {
 	type ShapeKind,
 	type Stroke
 } from './drawing.js';
+import { BRUSH_TOOLS, isAlphaTool, isSeed } from './drawing-brushes.js';
 
 export const SAVED_MAX_CHARS = 400_000;
 export const SAVED_MAX_ITEMS = 2000;
@@ -32,8 +33,8 @@ export interface Size {
 	h: number;
 }
 
-/** `a` (hub-cn7.13) is the opacity; saves made before it are opaque. */
-type WireStroke = { t: DrawTool; c: string; p: number[]; m?: number[]; a?: number };
+/** `a` (hub-cn7.13) is the opacity, `z` (hub-cn7.19) seeds a textured brush; saves made before either have none. */
+type WireStroke = { t: DrawTool; c: string; p: number[]; m?: number[]; a?: number; z?: number };
 /** `r` (hub-cn7.5) is the turn in radians; saves made before it have none and open upright. */
 type WireShape = {
 	s: ShapeKind;
@@ -103,7 +104,8 @@ export function serializeDrawing(
 				c: it.color,
 				p: it.points.flatMap((p) => [X(p.x), Y(p.y), K(p.w)]),
 				...(it.mirror ? { m: mirrorWire(it.mirror, X, Y) } : {}),
-				...(it.tool === 'pen' && isTranslucent(it.alpha) ? { a: r2(clampAlpha(it.alpha)) } : {})
+				...(isAlphaTool(it.tool) && isTranslucent(it.alpha) ? { a: r2(clampAlpha(it.alpha)) } : {}),
+				...(it.seed ? { z: it.seed } : {})
 			};
 		})
 	};
@@ -116,7 +118,7 @@ export const isBackground = (v: unknown): v is string =>
 
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isInk = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 64;
-const TOOLS: readonly string[] = ['pen', 'highlighter', 'eraser'];
+const TOOLS: readonly string[] = ['pen', 'highlighter', 'eraser', ...BRUSH_TOOLS];
 
 /** The wire form, or null when the text is not a well-formed drawing within the size limits. */
 function parseWire(json: unknown): Wire | null {
@@ -164,6 +166,7 @@ function parseWire(json: unknown): Wire | null {
 			const p = it.p;
 			if (
 				!TOOLS.includes(it.t as string) ||
+				(it.z !== undefined && !isSeed(it.z)) ||
 				!Array.isArray(p) ||
 				p.length % 3 !== 0 ||
 				!p.every(num) ||
@@ -242,7 +245,8 @@ export function loadDrawing(json: unknown, to: Size): DrawItem[] | null {
 			tool: it.t,
 			color: it.c,
 			points: [],
-			...(it.t === 'pen' && it.a !== undefined && it.a < 1 ? { alpha: clampAlpha(it.a) } : {})
+			...(isAlphaTool(it.t) && it.a !== undefined && it.a < 1 ? { alpha: clampAlpha(it.a) } : {}),
+			...(it.z ? { seed: it.z } : {})
 		};
 		for (let i = 0; i < it.p.length; i += 3)
 			st.points.push({ x: X(it.p[i]), y: Y(it.p[i + 1]), w: it.p[i + 2] * s });

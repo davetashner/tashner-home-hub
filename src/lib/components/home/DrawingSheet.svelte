@@ -96,6 +96,14 @@
 		type Board,
 		type History
 	} from '#lib/domain/drawing-history.js';
+	import {
+		BRUSH_TOOLS,
+		BRUSHES,
+		isAlphaTool,
+		isBrushTool,
+		newSeed
+	} from '#lib/domain/drawing-brushes.js';
+	import { paintBrushSegment, paintWash } from '#lib/components/home/drawing/brush-paint.js';
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import { PALETTE, isTranslucent } from '#lib/domain/drawing-colors.js';
 	import OpacityPicker from './drawing/OpacityPicker.svelte';
@@ -339,6 +347,16 @@
 	function segment(s: Stroke, i: number) {
 		const to = s.points[i];
 		const from = s.points[Math.max(0, i - 1)];
+		if (isBrushTool(s.tool) && BRUSHES[s.tool].kind === 'dots') {
+			const tool = s.tool;
+			const paint = (f: DrawPoint, t: DrawPoint, k: number) =>
+				paintBrushSegment(ctx, tool, (s.seed ?? 0) + k, i, f, t, token(s.color), s.alpha ?? 1);
+			if (!s.mirror) return paint(from, to, 0);
+			const a = mirrorPoints(from.x, from.y, s.mirror);
+			const b = mirrorPoints(to.x, to.y, s.mirror);
+			for (let k = 0; k < a.length; k++) paint({ ...from, ...a[k] }, { ...to, ...b[k] }, k);
+			return;
+		}
 		if (!s.mirror) return segmentLine(s, from, to);
 		const a = mirrorPoints(from.x, from.y, s.mirror);
 		const b = mirrorPoints(to.x, to.y, s.mirror);
@@ -370,6 +388,21 @@
 			highlightPath(
 				s,
 				s.points.map((p, i) => ({ ...p, ...copies[i][k] }))
+			);
+	}
+
+	/** A watercolor wash, once per mirror copy. */
+	function wash(s: Stroke) {
+		const m = s.mirror;
+		if (!m) return paintWash(ctx, s.points, s.seed ?? 0, token(s.color), s.alpha ?? 1);
+		const copies = s.points.map((p) => mirrorPoints(p.x, p.y, m));
+		for (let k = 0; k < m.n; k++)
+			paintWash(
+				ctx,
+				s.points.map((p, i) => ({ ...p, ...copies[i][k] })),
+				(s.seed ?? 0) + k,
+				token(s.color),
+				s.alpha ?? 1
 			);
 	}
 
@@ -572,6 +605,7 @@
 		if (isFill(s)) paintFill(s);
 		else if (isShape(s)) paintShape(s);
 		else if (translucent(s)) highlight(s);
+		else if (s.tool === 'watercolor') wash(s);
 		else for (let i = 0; i < s.points.length; i++) segment(s, i);
 	}
 
@@ -658,11 +692,12 @@
 			tool,
 			color,
 			points: [sample(e)],
-			...(tool === 'pen' && isTranslucent(alpha) ? { alpha } : {})
+			...(isAlphaTool(tool) && isTranslucent(alpha) ? { alpha } : {}),
+			...(isBrushTool(tool) ? { seed: newSeed() } : {})
 		};
 		if (mirrorN)
 			current.mirror = centeredMirror(mirrorN, { w: canvas.width / dpr, h: canvas.height / dpr });
-		if (translucent(current)) redraw();
+		if (translucent(current) || current.tool === 'watercolor') redraw();
 		else segment(current, 0);
 	}
 
@@ -696,9 +731,21 @@
 		for (const c of events.length ? events : [e]) {
 			const last = current.points[current.points.length - 1];
 			current.points.push(sample(c, last.w));
-			if (!translucent(current)) segment(current, current.points.length - 1);
+			if (!translucent(current) && current.tool !== 'watercolor')
+				segment(current, current.points.length - 1);
 		}
-		if (translucent(current)) redraw();
+		if (current.tool === 'watercolor') scheduleWash();
+		else if (translucent(current)) redraw();
+	}
+
+	/** A wash repaints the board, so coalesce a burst of pointer samples into one redraw per frame. */
+	let washFrame = 0;
+	function scheduleWash() {
+		if (washFrame) return;
+		washFrame = requestAnimationFrame(() => {
+			washFrame = 0;
+			redraw();
+		});
 	}
 
 	function up(e: PointerEvent) {
@@ -728,6 +775,12 @@
 		history = recordAdd(history, current);
 		if (current.tool !== 'eraser') recent = pushRecent(recent, current.color);
 		current = null;
+		if (washFrame) {
+			// The last samples were still waiting for their frame: paint the finished wash now.
+			cancelAnimationFrame(washFrame);
+			washFrame = 0;
+			redraw();
+		}
 		count = strokes.length;
 		blank = isBlank(strokes);
 	}
@@ -1441,6 +1494,20 @@
 						tool = tool === 'highlighter' ? 'pen' : 'highlighter';
 					}}>Highlighter</button
 				>
+				{#each BRUSH_TOOLS as b (b)}
+					<button
+						type="button"
+						class="{btn} {tool === b ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={tool === b}
+						data-testid="draw-brush-{b}"
+						onclick={() => {
+							commit();
+							shapeKind = null;
+							bucket = false;
+							tool = tool === b ? 'pen' : b;
+						}}>{BRUSHES[b].label}</button
+					>
+				{/each}
 				<button
 					type="button"
 					class="{btn} {tool === 'eraser'
