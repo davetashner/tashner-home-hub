@@ -68,6 +68,29 @@
 	import { compositePixel, pixelAt, rgbCss, type Rgba } from '#lib/domain/drawing-eyedropper.js';
 	import EyedropperPreview from '#lib/components/home/drawing/EyedropperPreview.svelte';
 	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
+	import TextEditor from '#lib/components/home/drawing/TextEditor.svelte';
+	import TextPanel from '#lib/components/home/drawing/TextPanel.svelte';
+	import {
+		TEXT_SIZE_PX,
+		cleanText,
+		isText,
+		makeText,
+		moveText,
+		relayoutText,
+		resizeText,
+		restyleText,
+		rotateText,
+		textAt,
+		textCorners,
+		textFont,
+		textHandles,
+		textLines,
+		textOrigin,
+		hitText,
+		TEXT_LINE_HEIGHT,
+		type TextItem,
+		type TextSize
+	} from '#lib/domain/drawing-text.js';
 	import {
 		clampPoint,
 		handlePoints,
@@ -177,7 +200,10 @@
 	const pickShape = (k: ShapeKind | null) => {
 		commit();
 		shapeKind = k;
-		if (k) bucket = false;
+		if (k) {
+			bucket = false;
+			textMode = false;
+		}
 		if (k && tool !== 'pen') tool = 'pen';
 		if (k) dropper = false;
 		shapePicking = false;
@@ -211,6 +237,20 @@
 	let bucket = $state(false);
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
 	let boardSize = $state({ w: 0, h: 0 }); // CSS px, for the mirror guides
+	/** Text mode: a tap on the board types words; a tap on placed text selects it. */
+	let textMode = $state(false);
+	let textSize = $state<TextSize>('large');
+	let editing = $state<{
+		x: number;
+		y: number;
+		size: number;
+		box?: { w: number; h: number };
+		rot: number;
+		color: string;
+		value: string;
+	} | null>(null);
+	let editItem: TextItem | null = null;
+	let textTap: Pt | null = null;
 	let count = $state(0); // strokes drawn, for the undo/clear/post enabled state
 	let blank = $state(true);
 	let choosing = $state(false);
@@ -363,9 +403,21 @@
 	let current: Stroke | null = null;
 	let draft: Shape | null = null;
 	/** The shape just placed: still editable (move, resize, rotate) until something else is done. */
-	let selected: Shape | null = null;
-	let sel = $state<{ corners: string; resize: Pt; rotate: Pt; rot: number } | null>(null);
-	let gesture: { kind: 'move' | 'resize' | 'rotate'; id: number; last: Pt } | null = null;
+	let selected: Shape | TextItem | null = null;
+	let sel = $state<{
+		corners: string;
+		resize: Pt;
+		rotate: Pt;
+		rot: number;
+	} | null>(null);
+	let gesture: {
+		kind: 'move' | 'resize' | 'rotate';
+		id: number;
+		last: Pt;
+		/** Text already selected before this touch: a tap that goes nowhere then edits it. */
+		editOnTap?: boolean;
+		travel: number;
+	} | null = null;
 	let armed = false;
 	let dragged = 0;
 	let anchor = { x: 0, y: 0 };
@@ -531,7 +583,9 @@
 	/** The pickers also restyle the shape that is still selected (the tool setting stays for the next one). */
 	function restyle(style: ShapeStyle) {
 		if (!selected) return;
-		const next = restyleShape(selected, style);
+		const next = isText(selected)
+			? restyleText(selected, { color: style.color })
+			: restyleShape(selected, style);
 		if (next === selected) return;
 		Object.assign(selected, next);
 		if (style.color) recent = pushRecent(recent, style.color);
@@ -544,11 +598,11 @@
 			sel = null;
 			return;
 		}
-		const h = handlePoints(selected);
+		const h = isText(selected) ? textHandles(selected) : handlePoints(selected);
 		const w = canvas.width / dpr;
 		const ht = canvas.height / dpr;
 		sel = {
-			corners: selectionCorners(selected)
+			corners: (isText(selected) ? textCorners(selected) : selectionCorners(selected))
 				.map((p) => `${p.x},${p.y}`)
 				.join(' '),
 			resize: clampPoint(h.resize, w, ht),
@@ -598,7 +652,12 @@
 		return true;
 	}
 
-	function startGesture(kind: 'move' | 'resize' | 'rotate', e: PointerEvent, host: Element) {
+	function startGesture(
+		kind: 'move' | 'resize' | 'rotate',
+		e: PointerEvent,
+		host: Element,
+		editOnTap = false
+	) {
 		e.preventDefault();
 		e.stopPropagation();
 		try {
@@ -607,15 +666,23 @@
 			// Synthetic pointers (tests) are not active pointers; real ones always capture.
 		}
 		activeId = e.pointerId;
-		gesture = { kind, id: e.pointerId, last: canvasPt(e) };
+		gesture = { kind, id: e.pointerId, last: canvasPt(e), travel: 0, editOnTap };
 	}
 
 	function moveGesture(e: PointerEvent) {
 		if (!gesture || !selected || e.pointerId !== gesture.id) return;
 		const p = canvasPt(e);
-		const next =
-			gesture.kind === 'move'
-				? moveShape(selected, p.x - gesture.last.x, p.y - gesture.last.y)
+		gesture.travel += Math.hypot(p.x - gesture.last.x, p.y - gesture.last.y);
+		const dx = p.x - gesture.last.x;
+		const dy = p.y - gesture.last.y;
+		const next = isText(selected)
+			? gesture.kind === 'move'
+				? moveText(selected, dx, dy)
+				: gesture.kind === 'resize'
+					? resizeText(selected, p)
+					: rotateText(selected, gesture.last, p)
+			: gesture.kind === 'move'
+				? moveShape(selected, dx, dy)
 				: gesture.kind === 'resize'
 					? resizeShape(selected, p)
 					: rotateShape(selected, gesture.last, p);
@@ -627,8 +694,99 @@
 
 	function endGesture(e: PointerEvent) {
 		if (!gesture || e.pointerId !== gesture.id) return;
+		const tapped = gesture.editOnTap && gesture.travel < TEXT_TAP_SLOP;
 		gesture = null;
 		activeId = -1;
+		if (tapped && selected && isText(selected)) {
+			const t = selected;
+			commit();
+			openEditor({ x: 0, y: 0 }, t);
+		}
+	}
+
+	// --- Text tool (hub-cn7.23) ---
+	const TEXT_TAP_SLOP = 12;
+	const fontFamily = () =>
+		getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim();
+	/** Width of one line at `size`, as the canvas will draw it. */
+	function measurer(size: number): (line: string) => number {
+		ctx.font = textFont(size, fontFamily());
+		return (line) => ctx.measureText(line).width;
+	}
+	const boardCss = () => ({ w: canvas.width / dpr, h: canvas.height / dpr });
+
+	function openEditor(at: Pt, item: TextItem | null) {
+		editItem = item;
+		const size = item?.size ?? TEXT_SIZE_PX[textSize];
+		const o = item ? { x: item.x0, y: item.y0 } : textOrigin(at, size, boardCss());
+		editing = {
+			...o,
+			size,
+			rot: item?.rot ?? 0,
+			box: item ? { w: item.x1 - item.x0, h: item.y1 - item.y0 } : undefined,
+			color: token(item?.color ?? color),
+			value: item?.text ?? ''
+		};
+		if (item) redraw(); // the field stands in for the text while it is typed over
+	}
+
+	/** The field lost focus or Done was pressed: keep, change or drop the text. Safe to call twice. */
+	function finishText(raw: string) {
+		if (!editing) return;
+		const o = editing;
+		const item = editItem;
+		editing = null;
+		editItem = null;
+		const text = cleanText(raw);
+		if (item) {
+			const before = boardNow();
+			const old = { ...item };
+			before.items = before.items.map((x) => (x === item ? old : x));
+			if (text)
+				selected = Object.assign(item, relayoutText({ ...item, text }, measurer(item.size)));
+			else strokes = strokes.filter((x) => x !== item);
+			if (text !== old.text)
+				history = record(history, { type: 'replace', before, after: boardNow() });
+		} else if (text) {
+			const t = makeText(text, color, o.size, { x: o.x, y: o.y }, measurer(o.size));
+			strokes.push(t);
+			selected = t;
+			history = recordAdd(history, t);
+			recent = pushRecent(recent, t.color);
+		}
+		count = strokes.length;
+		blank = isBlank(strokes);
+		redraw();
+		syncSel();
+	}
+
+	function setTextSize(k: TextSize) {
+		textSize = k;
+		if (!selected || !isText(selected)) return;
+		Object.assign(selected, restyleText(selected, { size: TEXT_SIZE_PX[k] }));
+		redraw();
+		syncSel();
+	}
+
+	function paintText(t: TextItem) {
+		if (t === editItem) return;
+		const m = measurer(t.size);
+		Object.assign(t, relayoutText(t, m));
+		ctx.save();
+		if (t.rot) {
+			const c = shapeCenter(t);
+			ctx.translate(c.x, c.y);
+			ctx.rotate(t.rot);
+			ctx.translate(-c.x, -c.y);
+		}
+		ctx.globalCompositeOperation = 'source-over';
+		ctx.globalAlpha = 1;
+		ctx.fillStyle = token(t.color);
+		ctx.textBaseline = 'middle';
+		ctx.textAlign = 'left';
+		const lh = t.size * TEXT_LINE_HEIGHT;
+		textLines(t.text).forEach((line, i) => ctx.fillText(line, t.x0, t.y0 + (i + 0.5) * lh));
+		ctx.restore();
 	}
 
 	function paintShape(s: Shape) {
@@ -700,6 +858,7 @@
 
 	function paint(s: DrawItem) {
 		if (isFill(s)) paintFill(s);
+		else if (isText(s)) paintText(s);
 		else if (isShape(s)) paintShape(s);
 		else if (translucent(s)) highlight(s);
 		else if (whole(s.tool)) wash(s);
@@ -886,13 +1045,26 @@
 		}
 		activeId = e.pointerId;
 		rect = canvas.getBoundingClientRect();
-		if (selected && hitBody(selected, canvasPt(e))) {
-			startGesture('move', e, canvas);
+		if (
+			selected &&
+			(isText(selected) ? hitText(selected, canvasPt(e)) : hitBody(selected, canvasPt(e)))
+		) {
+			startGesture('move', e, canvas, isText(selected));
 			return;
 		}
 		armed = selected !== null;
 		commit();
 		dragged = 0;
+		if (textMode) {
+			const hit = textAt(strokes, canvasPt(e));
+			if (hit) {
+				selected = hit;
+				syncSel();
+				startGesture('move', e, canvas);
+			} else if (armed) activeId = -1;
+			else textTap = canvasPt(e);
+			return;
+		}
 		if (bucket) {
 			// Tap to fill: look at the ink as it stands, flood the area under the finger.
 			activeId = -1;
@@ -992,6 +1164,13 @@
 		touches.delete(e.pointerId);
 		if (drop && e.pointerId === activeId) return dropEnd(e);
 		if (gesture) return endGesture(e);
+		if (textTap && e.pointerId === activeId) {
+			const at = textTap;
+			textTap = null;
+			activeId = -1;
+			if (e.type === 'pointerup') openEditor(at, null);
+			return;
+		}
 		if (e.pointerId === activeId && draft) {
 			activeId = -1;
 			// A plain tap that only dropped the previous selection does not place another shape.
@@ -1269,6 +1448,14 @@
 		photoCtx = photoCanvas.getContext('2d') as CanvasRenderingContext2D;
 		onionCtx = onionCanvas.getContext('2d') as CanvasRenderingContext2D;
 		fit();
+		// Text is drawn in the app font: measure and redraw once it is loaded, so the board matches.
+		void document.fonts
+			?.load(textFont(TEXT_SIZE_PX.medium, fontFamily()))
+			.then(() => {
+				redraw();
+				syncSel();
+			})
+			.catch(() => {});
 		const ro = new ResizeObserver(fit);
 		ro.observe(holder);
 		return () => {
@@ -1383,6 +1570,18 @@
 						stroke-dasharray="10 8"
 					/>
 				</svg>
+			{/if}
+			{#if editing}
+				<TextEditor
+					x={editing.x}
+					y={editing.y}
+					size={editing.size}
+					color={editing.color}
+					rot={editing.rot}
+					box={editing.box}
+					bind:value={editing.value}
+					onfinish={finishText}
+				/>
 			{/if}
 		</div>
 		{#if drop}
@@ -1816,6 +2015,29 @@
 				>
 				<button
 					type="button"
+					class="{btn} {textMode ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+					aria-pressed={textMode}
+					data-testid="draw-text"
+					onclick={() => {
+						commit();
+						textMode = !textMode;
+						if (textMode) {
+							shapeKind = null;
+							bucket = false;
+							tool = 'pen';
+						}
+					}}>Text</button
+				>
+				{#if textMode}
+					<TextPanel
+						size={textSize}
+						editing={editing !== null}
+						onsize={setTextSize}
+						ondone={() => finishText(editing?.value ?? '')}
+					/>
+				{/if}
+				<button
+					type="button"
 					class="{btn} {bucket ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
 					aria-pressed={bucket}
 					data-testid="draw-bucket"
@@ -1823,6 +2045,7 @@
 						commit();
 						bucket = !bucket;
 						if (bucket) {
+							textMode = false;
 							shapeKind = null;
 							dropper = false;
 							tool = 'pen';
@@ -1854,6 +2077,7 @@
 					onclick={() => {
 						commit();
 						shapeKind = null;
+						textMode = false;
 						bucket = false;
 						dropper = false;
 						tool = tool === 'highlighter' ? 'pen' : 'highlighter';
@@ -1884,6 +2108,7 @@
 					onclick={() => {
 						commit();
 						shapeKind = null;
+						textMode = false;
 						bucket = false;
 						dropper = false;
 						tool = tool === 'eraser' ? 'pen' : 'eraser';

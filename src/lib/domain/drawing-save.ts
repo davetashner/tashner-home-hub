@@ -9,6 +9,7 @@ import { mirrorWire, parseMirrorWire } from './drawing-mirror.js';
 import { isDashStyle, type DashStyle } from './drawing-dash.js';
 import { isPhotoId } from './drawing-photo.js';
 import { PALETTE, clampAlpha, isTranslucent } from './drawing-colors.js';
+import { TEXT_MAX_CHARS, TEXT_MAX_SIZE, isText, type TextItem } from './drawing-text.js';
 import { FILL_TOLERANCE, isFill, type FillItem } from './drawing-fill.js';
 import {
 	ALL_SHAPES,
@@ -48,7 +49,9 @@ type WireShape = {
 	d?: DashStyle;
 };
 type WireFill = { k: 1; c: string; x: number; y: number; o: number };
-type WireItem = WireStroke | WireShape | WireFill;
+/** Text (hub-cn7.23): `tx` is the text, `z` the letter size, `b` the box, `r` the turn. */
+type WireText = { tx: string; c: string; z: number; b: number[]; r?: number };
+type WireItem = WireStroke | WireShape | WireFill | WireText;
 interface Wire {
 	v: 1;
 	size: Size;
@@ -91,6 +94,14 @@ export function serializeDrawing(
 		items: items.map((it): WireItem => {
 			if (isFill(it))
 				return { k: 1, c: it.color, x: X(it.x / dpr), y: Y(it.y / dpr), o: it.tolerance };
+			if (isText(it))
+				return {
+					tx: it.text,
+					c: it.color,
+					z: K(it.size),
+					b: [X(it.x0), Y(it.y0), X(it.x1), Y(it.y1)],
+					...(it.rot ? { r: Math.round(it.rot * 1000) / 1000 } : {})
+				};
 			if (isShape(it))
 				return {
 					s: it.shape,
@@ -152,6 +163,21 @@ function parseWire(json: unknown): Wire | null {
 		if (!it || typeof it !== 'object' || !isInk(it.c)) return null;
 		if ('k' in it) {
 			if (it.k !== 1 || !num(it.x) || !num(it.y) || !num(it.o)) return null;
+		} else if ('tx' in it) {
+			const b = it.b;
+			if (
+				typeof it.tx !== 'string' ||
+				!it.tx.length ||
+				it.tx.length > TEXT_MAX_CHARS ||
+				!num(it.z) ||
+				it.z <= 0 ||
+				it.z > TEXT_MAX_SIZE * 8 ||
+				!Array.isArray(b) ||
+				b.length !== 4 ||
+				!b.every(num) ||
+				(it.r !== undefined && !num(it.r))
+			)
+				return null;
 		} else if ('s' in it) {
 			const b = it.b;
 			if (
@@ -228,6 +254,20 @@ export function loadDrawing(json: unknown, to: Size): DrawItem[] | null {
 				spans: new Uint32Array(0)
 			};
 			return f;
+		}
+		if ('tx' in it) {
+			const [x0, y0, x1, y1] = it.b;
+			const tx: TextItem = {
+				text: it.tx,
+				color: it.c,
+				size: it.z * s,
+				x0: X(x0),
+				y0: Y(y0),
+				x1: X(x1),
+				y1: Y(y1),
+				...(it.r ? { rot: it.r } : {})
+			};
+			return tx;
 		}
 		if ('s' in it) {
 			const [x0, y0, x1, y1] = it.b;
