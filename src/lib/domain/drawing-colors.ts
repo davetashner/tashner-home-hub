@@ -9,7 +9,7 @@ const mixColor = (l: number, c: number, h: number): string => `oklch(${l}% ${c} 
 
 /** White, then light to dark greys (no chroma). */
 export const NEUTRAL_COLORS: readonly string[] = [100, 90, 78, 66, 54, 42, 30, 18].map((l) =>
-	lch(l, 0, 0)
+	mixColor(l, 0, 0)
 );
 /** Tan to deep brown. */
 export const BROWN_COLORS: readonly string[] = (
@@ -23,7 +23,7 @@ export const BROWN_COLORS: readonly string[] = (
 		[34, 0.07, 50],
 		[26, 0.05, 45]
 	] as const
-).map(([l, c, h]) => lch(l, c, h));
+).map(([l, c, h]) => mixColor(l, c, h));
 /** Light to deep skin tones. */
 export const SKIN_COLORS: readonly string[] = (
 	[
@@ -36,7 +36,7 @@ export const SKIN_COLORS: readonly string[] = (
 		[40, 0.07, 50],
 		[30, 0.05, 48]
 	] as const
-).map(([l, c, h]) => lch(l, c, h));
+).map(([l, c, h]) => mixColor(l, c, h));
 
 /** Colors added after the first grid, in picker order. */
 export const EXTRA_COLORS: readonly string[] = [...NEUTRAL_COLORS, ...BROWN_COLORS, ...SKIN_COLORS];
