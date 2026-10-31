@@ -708,7 +708,7 @@ test('background color: erasing reveals it, and it saves and reopens @J18.10', a
 		const holder = page.getByTestId('draw-holder');
 		await expectTappable(page.getByTestId('draw-bg-open'), 96);
 		await page.getByTestId('draw-bg-open').click();
-		await expect(page.getByTestId('draw-bg-color')).toHaveCount(24);
+		await expect(page.getByTestId('draw-bg-color')).toHaveCount(48);
 		await expectTappable(page.getByTestId('draw-bg-color').first(), 96);
 		await expectTappable(page.getByTestId('draw-bg-paper'), 96);
 		await page.getByTestId('draw-bg-color').nth(5).click();

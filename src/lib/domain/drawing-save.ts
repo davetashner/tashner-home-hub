@@ -7,10 +7,10 @@
 import { PAGE_SIZE, isPageId, pageFit, type PageId } from './drawing-pages.js';
 import { mirrorWire, parseMirrorWire } from './drawing-mirror.js';
 import { isPhotoId } from './drawing-photo.js';
+import { PALETTE, clampAlpha, isTranslucent } from './drawing-colors.js';
 import { FILL_TOLERANCE, isFill, type FillItem } from './drawing-fill.js';
 import {
 	ALL_SHAPES,
-	COLOR_GRID,
 	isShape,
 	type DrawItem,
 	type DrawTool,
@@ -32,9 +32,18 @@ export interface Size {
 	h: number;
 }
 
-type WireStroke = { t: DrawTool; c: string; p: number[]; m?: number[] };
+/** `a` (hub-cn7.13) is the opacity; saves made before it are opaque. */
+type WireStroke = { t: DrawTool; c: string; p: number[]; m?: number[]; a?: number };
 /** `r` (hub-cn7.5) is the turn in radians; saves made before it have none and open upright. */
-type WireShape = { s: ShapeKind; c: string; f: boolean; w: number; b: number[]; r?: number };
+type WireShape = {
+	s: ShapeKind;
+	c: string;
+	f: boolean;
+	w: number;
+	b: number[];
+	r?: number;
+	a?: number;
+};
 type WireFill = { k: 1; c: string; x: number; y: number; o: number };
 type WireItem = WireStroke | WireShape | WireFill;
 interface Wire {
@@ -50,6 +59,7 @@ interface Wire {
 }
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
+const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * JSON for a drawing made on a canvas of `size` CSS px; `dpr` converts a fill's device-pixel seed.
@@ -85,13 +95,15 @@ export function serializeDrawing(
 					f: it.filled,
 					w: K(it.width),
 					b: [X(it.x0), Y(it.y0), X(it.x1), Y(it.y1)],
-					...(it.rot ? { r: Math.round(it.rot * 1000) / 1000 } : {})
+					...(it.rot ? { r: Math.round(it.rot * 1000) / 1000 } : {}),
+					...(isTranslucent(it.alpha) ? { a: r2(clampAlpha(it.alpha)) } : {})
 				};
 			return {
 				t: it.tool,
 				c: it.color,
 				p: it.points.flatMap((p) => [X(p.x), Y(p.y), K(p.w)]),
-				...(it.mirror ? { m: mirrorWire(it.mirror, X, Y) } : {})
+				...(it.mirror ? { m: mirrorWire(it.mirror, X, Y) } : {}),
+				...(it.tool === 'pen' && isTranslucent(it.alpha) ? { a: r2(clampAlpha(it.alpha)) } : {})
 			};
 		})
 	};
@@ -100,7 +112,7 @@ export function serializeDrawing(
 
 /** A background the board accepts: a color from the grid. */
 export const isBackground = (v: unknown): v is string =>
-	typeof v === 'string' && COLOR_GRID.includes(v);
+	typeof v === 'string' && PALETTE.includes(v);
 
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isInk = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 64;
@@ -144,7 +156,8 @@ function parseWire(json: unknown): Wire | null {
 				!Array.isArray(b) ||
 				b.length !== 4 ||
 				!b.every(num) ||
-				(it.r !== undefined && !num(it.r))
+				(it.r !== undefined && !num(it.r)) ||
+				(it.a !== undefined && !num(it.a))
 			)
 				return null;
 		} else {
@@ -154,7 +167,8 @@ function parseWire(json: unknown): Wire | null {
 				!Array.isArray(p) ||
 				p.length % 3 !== 0 ||
 				!p.every(num) ||
-				(it.m !== undefined && !parseMirrorWire(it.m))
+				(it.m !== undefined && !parseMirrorWire(it.m)) ||
+				(it.a !== undefined && !num(it.a))
 			)
 				return null;
 			points += p.length / 3;
@@ -219,11 +233,17 @@ export function loadDrawing(json: unknown, to: Size): DrawItem[] | null {
 				y0: Y(y0),
 				x1: X(x1),
 				y1: Y(y1),
-				...(it.r ? { rot: it.r } : {})
+				...(it.r ? { rot: it.r } : {}),
+				...(it.a !== undefined && it.a < 1 ? { alpha: clampAlpha(it.a) } : {})
 			};
 			return sh;
 		}
-		const st: Stroke = { tool: it.t, color: it.c, points: [] };
+		const st: Stroke = {
+			tool: it.t,
+			color: it.c,
+			points: [],
+			...(it.t === 'pen' && it.a !== undefined && it.a < 1 ? { alpha: clampAlpha(it.a) } : {})
+		};
 		for (let i = 0; i < it.p.length; i += 3)
 			st.points.push({ x: X(it.p[i]), y: Y(it.p[i + 1]), w: it.p[i + 2] * s });
 		const m = it.m && parseMirrorWire(it.m, X, Y);
