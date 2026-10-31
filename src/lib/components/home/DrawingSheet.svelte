@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import ReplayPlayer from './drawing/ReplayPlayer.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
@@ -356,7 +357,7 @@
 	let rect: DOMRect;
 	// hub-cn7.24: pinch to zoom, two-finger pan. Touch fingers on the canvas, in holder coordinates.
 	let view = $state<View>(FIT);
-	const touches = new Map<number, Pt>();
+	const touches = new SvelteMap<number, Pt>();
 	const guard = createPalmGuard();
 	const css: Record<string, string> = {};
 
