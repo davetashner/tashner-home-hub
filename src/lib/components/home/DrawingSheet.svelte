@@ -80,11 +80,23 @@
 		isBlank,
 		smoothWidth,
 		strokeWidth,
-		undoStroke,
 		type DrawColor,
 		type DrawTool,
 		type Stroke
 	} from '#lib/domain/drawing.js';
+	import {
+		canRedo,
+		canUndo,
+		clearAll,
+		emptyHistory,
+		isFreshBoard,
+		record,
+		recordAdd,
+		redoStep,
+		undoStep as historyUndo,
+		type Board,
+		type History
+	} from '#lib/domain/drawing-history.js';
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
 
@@ -177,6 +189,7 @@
 		count = 0;
 		blank = true;
 		saved = null;
+		resetHistory();
 		drawLines();
 		redraw();
 	}
@@ -619,6 +632,7 @@
 			);
 			if (item) {
 				strokes.push(item);
+				history = recordAdd(history, item);
 				recent = pushRecent(recent, color);
 				count = strokes.length;
 				blank = isBlank(strokes);
@@ -679,6 +693,7 @@
 				return;
 			}
 			strokes.push(draft);
+			history = recordAdd(history, draft);
 			selected = draft;
 			recent = pushRecent(recent, draft.color);
 			draft = null;
@@ -691,26 +706,79 @@
 		if (e.pointerId !== activeId || !current) return;
 		activeId = -1;
 		strokes.push(current);
+		history = recordAdd(history, current);
 		if (current.tool !== 'eraser') recent = pushRecent(recent, current.color);
 		current = null;
 		count = strokes.length;
 		blank = isBlank(strokes);
 	}
 
-	function undo() {
-		commit();
-		strokes = undoStroke(strokes);
+	/** Undo/redo stack for the whole board (see drawing-history.ts). */
+	let history = $state.raw<History<DrawItem>>(emptyHistory());
+	const undoable = $derived(canUndo(history));
+	const redoable = $derived(canRedo(history));
+	/** True when anything differs from a fresh board, so Clear all is not greyed out for a page alone. */
+	const dirty = $derived(count > 0 || page !== null || photoId !== null || bg !== null);
+	let clearToast = $state(false);
+	let toastTimer: ReturnType<typeof setTimeout> | undefined;
+	function resetHistory() {
+		history = emptyHistory();
+		hideToast();
+	}
+	function hideToast() {
+		clearTimeout(toastTimer);
+		clearToast = false;
+	}
+
+	const boardNow = (): Board<DrawItem> => ({ items: [...strokes], page, photoId, bg, layers });
+
+	/** Put a board on the canvases: ink, coloring page, photo, background and layers. */
+	function showBoard(b: Board<DrawItem>) {
+		strokes = [...b.items];
 		count = strokes.length;
 		blank = isBlank(strokes);
+		page = b.page as PageId | null;
+		bg = b.bg;
+		layers = b.layers;
+		if (b.photoId !== photoId) {
+			photoId = b.photoId;
+			photoImg = null; // never show the other photo while this one loads
+			photoSrc = '';
+			loadPhoto();
+		}
+		drawLines();
 		redraw();
 	}
 
+	function undo() {
+		commit();
+		hideToast();
+		const step = historyUndo(history, boardNow());
+		if (!step) return;
+		history = step.history;
+		showBoard(step.board);
+	}
+
+	function redo() {
+		commit();
+		hideToast();
+		const step = redoStep(history, boardNow());
+		if (!step) return;
+		history = step.history;
+		showBoard(step.board);
+	}
+
+	/** Clear all: a fresh board, no confirm. The toast (and plain Undo) bring the old one back. */
 	function clear() {
 		commit();
-		strokes = [];
-		count = 0;
-		blank = true;
-		redraw();
+		const before = boardNow();
+		if (isFreshBoard(before)) return;
+		const after = clearAll<DrawItem>();
+		history = record(history, { type: 'replace', before, after });
+		showBoard(after);
+		clearToast = true;
+		clearTimeout(toastTimer);
+		toastTimer = setTimeout(() => (clearToast = false), 6000);
 	}
 
 	/** A PNG data URL no larger than the note limit: scaled to 1024px, shrunk further if it still is not small. */
@@ -810,6 +878,7 @@
 			const items = loadDrawing(data, { w: canvas.width / dpr, h: canvas.height / dpr });
 			if (!items) throw new Error('bad drawing');
 			commit();
+			resetHistory();
 			page = savedPage(data);
 			bg = savedBackground(data);
 			layers = ALL_VISIBLE;
@@ -851,7 +920,10 @@
 		fit();
 		const ro = new ResizeObserver(fit);
 		ro.observe(holder);
-		return () => ro.disconnect();
+		return () => {
+			ro.disconnect();
+			clearTimeout(toastTimer);
+		};
 	});
 
 	const btn =
@@ -926,6 +998,14 @@
 					/>
 				{/each}
 			</svg>
+		{/if}
+		{#if clearToast}
+			<button
+				type="button"
+				class="{btn} absolute bottom-4 left-1/2 -translate-x-1/2 border-accent bg-surface shadow-raised"
+				data-testid="draw-undo-clear"
+				onclick={undo}>Undo clear</button
+			>
 		{/if}
 		{#if sel}
 			<svg class="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
@@ -1363,16 +1443,23 @@
 				<button
 					type="button"
 					class="{btn} border-line bg-surface"
-					disabled={count === 0}
+					disabled={!undoable}
 					data-testid="draw-undo"
 					onclick={undo}>Undo</button
 				>
 				<button
 					type="button"
 					class="{btn} border-line bg-surface"
-					disabled={count === 0}
+					disabled={!redoable}
+					data-testid="draw-redo"
+					onclick={redo}>Redo</button
+				>
+				<button
+					type="button"
+					class="{btn} border-line bg-surface"
+					disabled={!dirty}
 					data-testid="draw-clear"
-					onclick={clear}>Clear</button
+					onclick={clear}>Clear all</button
 				>
 				<button
 					type="button"
