@@ -48,7 +48,7 @@ async function device(browser: import('@playwright/test').Browser, like: Page) {
 	return { context, page };
 }
 
-test('draw together: invite, join, live strokes, own undo, late joiner, offline @J18.16', async ({
+test('draw together: invite, join, live strokes, own undo, late joiner, offline @J18.18', async ({
 	page,
 	browser
 }) => {
