@@ -177,6 +177,8 @@
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import { PALETTE, isTranslucent } from '#lib/domain/drawing-colors.js';
 	import OpacityPicker from './drawing/OpacityPicker.svelte';
+	import LiveShare from './drawing/LiveShare.svelte';
+	import LiveChips from './drawing/LiveChips.svelte';
 	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
 
 	interface Member {
@@ -189,8 +191,9 @@
 		people: Member[];
 		onpost: (authorId: string, image: string) => void;
 		onclose: () => void;
+		liveJoin?: string;
 	}
-	let { people, onpost, onclose }: Props = $props();
+	let { people, onpost, onclose, liveJoin }: Props = $props();
 
 	// Full class names so Tailwind can see them.
 	const swatch: Record<DrawColor, string> = {
@@ -224,6 +227,19 @@
 	let canvas: HTMLCanvasElement;
 	let onionCanvas: HTMLCanvasElement;
 	let onionCtx: CanvasRenderingContext2D;
+	let live: LiveShare | undefined;
+	const liveStatus = $state({ active: false, online: true, busy: false });
+	function liveLeft(items: DrawItem[]) {
+		strokes = [...items, ...strokes];
+		count = strokes.length;
+		blank = isBlank(strokes);
+		redraw();
+	}
+	$effect(() => {
+		void count;
+		void sel;
+		live?.sync(strokes, selected !== null);
+	});
 	let linesCanvas: HTMLCanvasElement;
 	let linesCtx: CanvasRenderingContext2D;
 	let scratch: HTMLCanvasElement | undefined;
@@ -879,6 +895,7 @@
 	function redraw(list: DrawItem[] = strokes) {
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		if (list === strokes) for (const s of live?.items() ?? []) paint(s);
 		for (const s of list) paint(s);
 		if (current) paint(current);
 		if (draft) paintShape(draft);
@@ -1561,6 +1578,7 @@
 			ro.disconnect();
 			cancelAnimationFrame(playRaf);
 			clearTimeout(toastTimer);
+			live?.sync(strokes, false);
 		};
 	});
 
@@ -1576,6 +1594,16 @@
 	data-testid="draw-sheet"
 	data-no-swipe
 >
+	<LiveShare
+		bind:this={live}
+		status={liveStatus}
+		join={liveJoin}
+		size={() => ({ w: canvas.width / dpr, h: canvas.height / dpr })}
+		dpr={() => dpr}
+		onchange={redraw}
+		onleave={liveLeft}
+		onnote={(m) => (note = m)}
+	/>
 	<div
 		bind:this={holder}
 		class="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-card border-2 border-line bg-draw-paper shadow-raised"
@@ -2258,6 +2286,14 @@
 						mirrorN = nextMirror(mirrorN);
 					}}>Mirror: {mirrorLabel(mirrorN)}</button
 				>
+				<LiveChips
+					active={liveStatus.active}
+					online={liveStatus.online}
+					busy={liveStatus.busy}
+					onstart={() => live?.start()}
+					onstop={() => live?.end()}
+					{btn}
+				/>
 				<button
 					type="button"
 					class="{btn} {flipOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
@@ -2289,7 +2325,7 @@
 				<button
 					type="button"
 					class="{btn} border-line bg-surface"
-					disabled={!dirty}
+					disabled={!dirty || liveStatus.active}
 					data-testid="draw-clear"
 					onclick={clear}>Clear all</button
 				>

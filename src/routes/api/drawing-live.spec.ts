@@ -39,6 +39,14 @@ const newId = async () => (await (await call(open.POST, {})).json()).id as strin
 beforeEach(() => dom.resetSessions());
 
 describe('live drawing API', () => {
+	it('announces a new session to subscribers so other devices can offer to join', async () => {
+		const seen: Record<string, string>[] = [];
+		const unsub = hub.subscribe(['drawing'], (e) => seen.push(e.data))!;
+		const id = await newId();
+		unsub();
+		expect(seen).toEqual([{ session: id, started: '1' }]);
+	});
+
 	it('opens a session, orders two devices, relays over SSE and snapshots for a late joiner', async () => {
 		const id = await newId();
 		const seen: string[] = [];
