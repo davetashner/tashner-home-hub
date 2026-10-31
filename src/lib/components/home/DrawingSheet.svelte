@@ -36,6 +36,20 @@
 		nextMirror,
 		type MirrorCount
 	} from '#lib/domain/drawing-mirror.js';
+	import {
+		addBlank,
+		canAdd,
+		canDelete,
+		duplicate,
+		moveCurrent,
+		newFlipbook,
+		onionItems,
+		removeCurrent,
+		select as selectFrame,
+		store as storeFrame,
+		type Flipbook
+	} from '#lib/domain/drawing-flipbook.js';
+	import FlipbookStrip from './drawing/FlipbookStrip.svelte';
 	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
 		clampPoint,
@@ -148,6 +162,8 @@
 	const memberColor = (c: string): MemberColor => (isMemberColor(c) ? c : 'member-1');
 
 	let canvas: HTMLCanvasElement;
+	let onionCanvas: HTMLCanvasElement;
+	let onionCtx: CanvasRenderingContext2D;
 	let linesCanvas: HTMLCanvasElement;
 	let linesCtx: CanvasRenderingContext2D;
 	let scratch: HTMLCanvasElement | undefined;
@@ -623,12 +639,95 @@
 		const h = Math.max(1, Math.round(holder.clientHeight * dpr));
 		if (canvas.width === w && canvas.height === h) return;
 		boardSize = { w: w / dpr, h: h / dpr };
-		canvas.width = linesCanvas.width = photoCanvas.width = w;
-		canvas.height = linesCanvas.height = photoCanvas.height = h;
+		canvas.width = linesCanvas.width = photoCanvas.width = onionCanvas.width = w;
+		canvas.height = linesCanvas.height = photoCanvas.height = onionCanvas.height = h;
 		drawLines();
 		loadPhoto();
 		redraw();
+		drawOnion();
 	}
+
+	/** Paint items onto another canvas of the board's size (the paint helpers draw on `ctx`). */
+	function paintOn(c: CanvasRenderingContext2D, items: readonly DrawItem[]) {
+		const real = ctx;
+		ctx = c;
+		try {
+			c.setTransform(dpr, 0, 0, dpr, 0, 0);
+			for (const s of items) paint(s);
+		} finally {
+			ctx = real;
+		}
+	}
+
+	/** Flipbook (hub-cn7.25): frames and their thumbnails; the live strokes/history are the current frame. */
+	let flip = $state.raw<Flipbook<DrawItem> | null>(null);
+	let flipOn = $state(false);
+	let onion = $state(true);
+	let thumbs = $state<string[]>([]);
+
+	/** The previous frame, faint under the current one. Its own canvas, so it is never exported. */
+	function drawOnion() {
+		onionCtx.setTransform(1, 0, 0, 1, 0, 0);
+		onionCtx.clearRect(0, 0, onionCanvas.width, onionCanvas.height);
+		const prev = flip && flipOn && onion ? onionItems(flip) : null;
+		if (prev) paintOn(onionCtx, prev);
+	}
+
+	function frameThumb(items: readonly DrawItem[]): string {
+		const { width, height } = fitWithin(canvas.width, canvas.height, 160);
+		const full = document.createElement('canvas');
+		full.width = canvas.width;
+		full.height = canvas.height;
+		paintOn(full.getContext('2d') as CanvasRenderingContext2D, items);
+		const out = document.createElement('canvas');
+		out.width = width;
+		out.height = height;
+		const o = out.getContext('2d') as CanvasRenderingContext2D;
+		o.fillStyle = token(bg ?? PAPER);
+		o.fillRect(0, 0, width, height);
+		o.drawImage(full, 0, 0, width, height);
+		return out.toDataURL('image/png');
+	}
+
+	function refreshThumbs() {
+		if (flip)
+			thumbs = flip.frames.map((f, i) => frameThumb(i === flip!.current ? strokes : f.items));
+	}
+
+	/** Run a frame operation: write the live frame back, apply it, then put the new current frame on the board. */
+	function frameOp(op: (fb: Flipbook<DrawItem>) => Flipbook<DrawItem> | null) {
+		if (!flip) return;
+		commit();
+		hideToast();
+		const next = op(storeFrame(flip, [...strokes], history));
+		if (!next) return;
+		flip = next;
+		const frame = next.frames[next.current];
+		history = frame.history;
+		showBoard({ items: frame.items, page, photoId, bg, layers });
+		refreshThumbs();
+		drawOnion();
+	}
+
+	function toggleFlip() {
+		commit();
+		if (flipOn) {
+			flip = flip && storeFrame(flip, [...strokes], history);
+			flipOn = false;
+		} else {
+			flip = flip ? storeFrame(flip, [...strokes], history) : newFlipbook([...strokes], history);
+			flipOn = true;
+			refreshThumbs();
+		}
+		drawOnion();
+	}
+
+	// The current frame's thumbnail follows every change to the board's history.
+	$effect(() => {
+		void history;
+		if (flipOn && flip && thumbs.length === flip.frames.length)
+			thumbs[flip.current] = frameThumb(strokes);
+	});
 
 	function sample(e: PointerEvent, previous?: number) {
 		const raw = strokeWidth(tool, e.pointerType, e.pressure, size);
@@ -951,6 +1050,9 @@
 			if (!items) throw new Error('bad drawing');
 			commit();
 			resetHistory();
+			flip = null;
+			flipOn = false;
+			drawOnion();
 			page = savedPage(data);
 			bg = savedBackground(data);
 			layers = ALL_VISIBLE;
@@ -989,6 +1091,7 @@
 		ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 		linesCtx = linesCanvas.getContext('2d') as CanvasRenderingContext2D;
 		photoCtx = photoCanvas.getContext('2d') as CanvasRenderingContext2D;
+		onionCtx = onionCanvas.getContext('2d') as CanvasRenderingContext2D;
 		fit();
 		const ro = new ResizeObserver(fit);
 		ro.observe(holder);
@@ -1023,6 +1126,13 @@
 			class="pointer-events-none absolute inset-0 size-full"
 			aria-hidden="true"
 			data-testid="draw-photo-layer"
+		></canvas>
+		<canvas
+			bind:this={onionCanvas}
+			class="pointer-events-none absolute inset-0 size-full opacity-30"
+			aria-hidden="true"
+			data-testid="draw-onion"
+			data-onion={flipOn && onion && flip !== null && flip.current > 0}
 		></canvas>
 		<canvas
 			bind:this={canvas}
@@ -1310,6 +1420,24 @@
 				>Back</Button
 			>
 		{:else}
+			{#if flipOn && flip}
+				<FlipbookStrip
+					{thumbs}
+					current={flip.current}
+					{onion}
+					canAdd={canAdd(flip)}
+					canDelete={canDelete(flip)}
+					onselect={(i) => frameOp((fb) => selectFrame(fb, i))}
+					onadd={() => frameOp(addBlank)}
+					oncopy={() => frameOp(duplicate)}
+					ondelete={() => frameOp(removeCurrent)}
+					onmove={(step) => frameOp((fb) => moveCurrent(fb, step))}
+					ononion={() => {
+						onion = !onion;
+						drawOnion();
+					}}
+				/>
+			{/if}
 			{#if shapePicking}
 				<p class="w-full text-body font-extrabold">Shapes and stamps</p>
 				<div class="flex flex-wrap gap-3" role="group" aria-label="Fill">
@@ -1532,6 +1660,13 @@
 						commit();
 						mirrorN = nextMirror(mirrorN);
 					}}>Mirror: {mirrorLabel(mirrorN)}</button
+				>
+				<button
+					type="button"
+					class="{btn} {flipOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+					aria-pressed={flipOn}
+					data-testid="draw-flipbook"
+					onclick={toggleFlip}>Flipbook</button
 				>
 				<button
 					type="button"
