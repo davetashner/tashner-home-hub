@@ -6,6 +6,7 @@
  */
 import { PAGE_SIZE, isPageId, pageFit, type PageId } from './drawing-pages.js';
 import { mirrorWire, parseMirrorWire } from './drawing-mirror.js';
+import { isDashStyle, type DashStyle } from './drawing-dash.js';
 import { isPhotoId } from './drawing-photo.js';
 import { PALETTE, clampAlpha, isTranslucent } from './drawing-colors.js';
 import { FILL_TOLERANCE, isFill, type FillItem } from './drawing-fill.js';
@@ -44,6 +45,7 @@ type WireShape = {
 	b: number[];
 	r?: number;
 	a?: number;
+	d?: DashStyle;
 };
 type WireFill = { k: 1; c: string; x: number; y: number; o: number };
 type WireItem = WireStroke | WireShape | WireFill;
@@ -97,7 +99,8 @@ export function serializeDrawing(
 					w: K(it.width),
 					b: [X(it.x0), Y(it.y0), X(it.x1), Y(it.y1)],
 					...(it.rot ? { r: Math.round(it.rot * 1000) / 1000 } : {}),
-					...(isTranslucent(it.alpha) ? { a: r2(clampAlpha(it.alpha)) } : {})
+					...(isTranslucent(it.alpha) ? { a: r2(clampAlpha(it.alpha)) } : {}),
+					...(it.dash ? { d: it.dash } : {})
 				};
 			return {
 				t: it.tool,
@@ -159,7 +162,8 @@ function parseWire(json: unknown): Wire | null {
 				b.length !== 4 ||
 				!b.every(num) ||
 				(it.r !== undefined && !num(it.r)) ||
-				(it.a !== undefined && !num(it.a))
+				(it.a !== undefined && !num(it.a)) ||
+				(it.d !== undefined && !isDashStyle(it.d))
 			)
 				return null;
 		} else {
@@ -237,7 +241,8 @@ export function loadDrawing(json: unknown, to: Size): DrawItem[] | null {
 				x1: X(x1),
 				y1: Y(y1),
 				...(it.r ? { rot: it.r } : {}),
-				...(it.a !== undefined && it.a < 1 ? { alpha: clampAlpha(it.a) } : {})
+				...(it.a !== undefined && it.a < 1 ? { alpha: clampAlpha(it.a) } : {}),
+				...(isDashStyle(it.d) ? { dash: it.d } : {})
 			};
 			return sh;
 		}

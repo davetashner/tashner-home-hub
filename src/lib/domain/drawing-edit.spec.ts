@@ -173,4 +173,14 @@ describe('restyleShape', () => {
 		expect(restyleShape(s, {})).toBe(s);
 		expect(restyleShape(s, { color: 'draw-red', filled: false, width: 7 })).toBe(s);
 	});
+
+	it('sets and clears the dash', () => {
+		const s = box();
+		const d = restyleShape(s, { dash: 'dashed' });
+		expect(d.dash).toBe('dashed');
+		expect(restyleShape(d, { dash: 'dashed' })).toBe(d);
+		const back = restyleShape(d, { dash: null });
+		expect('dash' in back).toBe(false);
+		expect(restyleShape(s, { dash: null })).toBe(s);
+	});
 });
