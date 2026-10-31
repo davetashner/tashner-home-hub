@@ -65,6 +65,8 @@
 		type Flipbook
 	} from '#lib/domain/drawing-flipbook.js';
 	import FlipbookStrip from './drawing/FlipbookStrip.svelte';
+	import { compositePixel, pixelAt, rgbCss, type Rgba } from '#lib/domain/drawing-eyedropper.js';
+	import EyedropperPreview from '#lib/components/home/drawing/EyedropperPreview.svelte';
 	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
 		clampPoint,
@@ -177,6 +179,7 @@
 		shapeKind = k;
 		if (k) bucket = false;
 		if (k && tool !== 'pen') tool = 'pen';
+		if (k) dropper = false;
 		shapePicking = false;
 	};
 	const memberColor = (c: string): MemberColor => (isMemberColor(c) ? c : 'member-1');
@@ -201,6 +204,9 @@
 	let shapeKind = $state<ShapeKind | null>(null);
 	let filled = $state(false);
 	let lineStyle = $state<LineStyle>('solid'); // outline style of the next shape (hub-cn7.17)
+	/** Eyedropper mode (hub-cn7.14): a tap or drag picks the color under the finger, then it switches off. */
+	let dropper = $state(false);
+	let drop = $state<{ x: number; y: number; color: string } | null>(null);
 	/** Paint-bucket mode: a tap fills the closed area under it. */
 	let bucket = $state(false);
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
@@ -814,12 +820,64 @@
 		};
 	}
 
+	/** The color of the board under a pointer: every visible layer over the background. */
+	function colorUnder(e: PointerEvent): { x: number; y: number; color: string } {
+		const at = pixelAt(e.clientX, e.clientY, rect, canvas);
+		scratch ??= document.createElement('canvas');
+		scratch.width = scratch.height = 1;
+		const one = scratch.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
+		const read = (src: HTMLCanvasElement | null): Rgba => {
+			one.clearRect(0, 0, 1, 1);
+			if (src) one.drawImage(src, at.x, at.y, 1, 1, 0, 0, 1, 1);
+			else {
+				one.fillStyle = token(bg ?? PAPER);
+				one.fillRect(0, 0, 1, 1);
+			}
+			return Array.from(one.getImageData(0, 0, 1, 1).data) as unknown as Rgba;
+		};
+		const back = read(null);
+		const layer = (src: HTMLCanvasElement) => read(src);
+		const stack: Rgba[] = [];
+		if (photoId && layers.picture) stack.push(layer(photoCanvas));
+		if (layers.drawing) stack.push(layer(canvas));
+		if (page && layers.picture) stack.push(layer(linesCanvas));
+		return {
+			x: e.clientX - holder.getBoundingClientRect().left,
+			y: e.clientY - holder.getBoundingClientRect().top,
+			color: rgbCss(compositePixel(back, stack))
+		};
+	}
+
+	/** Finish an eyedropper drag: the color becomes the ink and the tool switches off. */
+	function dropEnd(e: PointerEvent) {
+		activeId = -1;
+		const picked = e.type === 'pointerup' && drop ? drop.color : null;
+		drop = null;
+		if (!picked) return;
+		pick(picked);
+		recent = pushRecent(recent, picked);
+		dropper = false;
+	}
+
 	function down(e: PointerEvent) {
 		guard.see(e.pointerType);
 		if (zoomDown(e)) return;
 		if (!guard.accepts(e.pointerType) || activeId !== -1 || (e.pointerType === 'mouse' && e.button))
 			return;
 		e.preventDefault();
+		if (dropper) {
+			// Sample before the drawing layer is revealed, so hidden layers are left out of the pick.
+			try {
+				canvas.setPointerCapture(e.pointerId);
+			} catch {
+				// Synthetic pointers (tests) are not active pointers.
+			}
+			commit();
+			activeId = e.pointerId;
+			rect = canvas.getBoundingClientRect();
+			drop = colorUnder(e);
+			return;
+		}
 		layers = revealForDrawing(layers);
 		try {
 			canvas.setPointerCapture(e.pointerId);
@@ -896,6 +954,10 @@
 	function move(e: PointerEvent) {
 		guard.see(e.pointerType); // a hovering pen is noticed before it touches
 		if (zoomMove(e)) return;
+		if (drop && e.pointerId === activeId) {
+			drop = colorUnder(e);
+			return;
+		}
 		if (gesture) return moveGesture(e);
 		if (e.pointerId === activeId && draft && shapeKind) {
 			const p = sample(e);
@@ -928,6 +990,7 @@
 
 	function up(e: PointerEvent) {
 		touches.delete(e.pointerId);
+		if (drop && e.pointerId === activeId) return dropEnd(e);
 		if (gesture) return endGesture(e);
 		if (e.pointerId === activeId && draft) {
 			activeId = -1;
@@ -1322,6 +1385,9 @@
 				</svg>
 			{/if}
 		</div>
+		{#if drop}
+			<EyedropperPreview x={drop.x} y={drop.y} color={drop.color} />
+		{/if}
 		{#if sel}
 			{#each [{ kind: 'resize', label: 'Resize', glyph: '⤡', at: sel.resize }, { kind: 'rotate', label: 'Turn', glyph: '↻', at: sel.rotate }] as h (h.kind)}
 				<button
@@ -1758,9 +1824,25 @@
 						bucket = !bucket;
 						if (bucket) {
 							shapeKind = null;
+							dropper = false;
 							tool = 'pen';
 						}
 					}}>Fill</button
+				>
+				<button
+					type="button"
+					class="{btn} {dropper ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+					aria-pressed={dropper}
+					data-testid="draw-eyedropper"
+					onclick={() => {
+						commit();
+						dropper = !dropper;
+						if (dropper) {
+							shapeKind = null;
+							bucket = false;
+							if (tool === 'eraser') tool = 'pen';
+						}
+					}}>Eyedropper</button
 				>
 				<button
 					type="button"
@@ -1773,6 +1855,7 @@
 						commit();
 						shapeKind = null;
 						bucket = false;
+						dropper = false;
 						tool = tool === 'highlighter' ? 'pen' : 'highlighter';
 					}}>Highlighter</button
 				>
@@ -1786,6 +1869,7 @@
 							commit();
 							shapeKind = null;
 							bucket = false;
+							dropper = false;
 							tool = tool === b ? 'pen' : b;
 						}}>{BRUSHES[b].label}</button
 					>
@@ -1801,6 +1885,7 @@
 						commit();
 						shapeKind = null;
 						bucket = false;
+						dropper = false;
 						tool = tool === 'eraser' ? 'pen' : 'eraser';
 					}}>Eraser</button
 				>
