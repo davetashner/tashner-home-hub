@@ -201,6 +201,14 @@ describe('photo layer', () => {
 			isSavedDrawing(JSON.stringify({ v: 1, size, photo: 'a', page: 'house', items: [] }))
 		).toBe(false);
 	});
+
+	it('round-trips the new stamps', () => {
+		for (const k of ['house', 'tree', 'rocket', 'car', 'butterfly'] as const) {
+			const item: Shape = { ...shape, shape: k };
+			const [back] = loadDrawing(serializeDrawing([item], size), size)!;
+			expect(isShape(back) && back.shape).toBe(k);
+		}
+	});
 });
 
 describe('mirrored strokes (hub-cn7.18)', () => {

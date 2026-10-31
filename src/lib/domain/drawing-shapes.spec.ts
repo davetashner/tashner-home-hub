@@ -81,7 +81,18 @@ describe('bounds and hits', () => {
 
 describe('stamps', () => {
 	it('the new stamps are original multi-part outlines that scale with the box', () => {
-		for (const k of ['bubble', 'cat', 'dog', 'fish', 'bird'] as const) {
+		for (const k of [
+			'bubble',
+			'cat',
+			'dog',
+			'fish',
+			'bird',
+			'house',
+			'tree',
+			'rocket',
+			'car',
+			'butterfly'
+		] as const) {
 			expect(ALL_SHAPES).toContain(k);
 			const small = shapeParts(shape({ shape: k, x0: 0, y0: 0, x1: 100, y1: 100 }));
 			const big = shapeParts(shape({ shape: k, x0: 0, y0: 0, x1: 200, y1: 200 }));

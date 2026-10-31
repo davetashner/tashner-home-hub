@@ -144,7 +144,12 @@ export const STAMP_KINDS = [
 	'cat',
 	'dog',
 	'fish',
-	'bird'
+	'bird',
+	'house',
+	'tree',
+	'rocket',
+	'car',
+	'butterfly'
 ] as const;
 export type ShapeKind = (typeof SHAPE_KINDS)[number] | (typeof STAMP_KINDS)[number];
 export const ALL_SHAPES: readonly ShapeKind[] = [...SHAPE_KINDS, ...STAMP_KINDS];
@@ -163,7 +168,12 @@ export const SHAPE_LABELS: Record<ShapeKind, string> = {
 	cat: 'Cat',
 	dog: 'Dog',
 	fish: 'Fish',
-	bird: 'Bird'
+	bird: 'Bird',
+	house: 'House',
+	tree: 'Tree',
+	rocket: 'Rocket',
+	car: 'Car',
+	butterfly: 'Butterfly'
 };
 
 /** A placed shape: the drag's two corners (a line's two ends), the ink and how it is drawn. */
@@ -363,6 +373,11 @@ export function shapeParts(s: Pick<Shape, 'shape' | 'x0' | 'y0' | 'x1' | 'y1'>):
 		case 'dog':
 		case 'fish':
 		case 'bird':
+		case 'house':
+		case 'tree':
+		case 'rocket':
+		case 'car':
+		case 'butterfly':
 			return stampParts(s.shape, { x, y, w, h });
 		case 'smiley':
 			return [
