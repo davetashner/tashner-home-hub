@@ -1,8 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import ReplayPlayer from './drawing/ReplayPlayer.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import {
+		FIT,
+		clampView,
+		isFit,
+		pinch,
+		toScreen,
+		viewCss,
+		type View
+	} from '#lib/domain/drawing-zoom.js';
 	import {
 		PAGE_IDS,
 		PAGE_LABELS,
@@ -348,6 +358,9 @@
 	let anchor = { x: 0, y: 0 };
 	let activeId = -1;
 	let rect: DOMRect;
+	// hub-cn7.24: pinch to zoom, two-finger pan. Touch fingers on the canvas, in holder coordinates.
+	let view = $state<View>(FIT);
+	const touches = new SvelteMap<number, Pt>();
 	const guard = createPalmGuard();
 	const css: Record<string, string> = {};
 
@@ -522,8 +535,38 @@
 
 	const canvasPt = (e: PointerEvent): Pt => {
 		const r = canvas.getBoundingClientRect();
+		return { x: (e.clientX - r.left) / view.scale, y: (e.clientY - r.top) / view.scale };
+	};
+
+	const holderPt = (e: PointerEvent): Pt => {
+		const r = holder.getBoundingClientRect();
 		return { x: e.clientX - r.left, y: e.clientY - r.top };
 	};
+
+	/** A second finger turns the touch into a pinch: the first finger's stroke is dropped, no stray mark. */
+	function zoomDown(e: PointerEvent): boolean {
+		if (e.pointerType !== 'touch' || !guard.accepts('touch')) return false;
+		touches.set(e.pointerId, holderPt(e));
+		if (touches.size < 2) return false;
+		if (current || draft) {
+			current = null;
+			draft = null;
+			activeId = -1;
+			redraw();
+		}
+		return true;
+	}
+
+	function zoomMove(e: PointerEvent): boolean {
+		if (!touches.has(e.pointerId) || touches.size < 2) return false;
+		const [a, b] = [...touches.values()];
+		const [first] = [...touches.keys()];
+		const p = holderPt(e);
+		const moved = first === e.pointerId ? [p, b] : [a, p];
+		view = pinch(view, a, b, moved[0], moved[1], boardSize);
+		touches.set(e.pointerId, p);
+		return true;
+	}
 
 	function startGesture(kind: 'move' | 'resize' | 'rotate', e: PointerEvent, host: Element) {
 		e.preventDefault();
@@ -647,6 +690,7 @@
 		const h = Math.max(1, Math.round(holder.clientHeight * dpr));
 		if (canvas.width === w && canvas.height === h) return;
 		boardSize = { w: w / dpr, h: h / dpr };
+		view = clampView(view, boardSize);
 		canvas.width = linesCanvas.width = photoCanvas.width = onionCanvas.width = w;
 		canvas.height = linesCanvas.height = photoCanvas.height = onionCanvas.height = h;
 		drawLines();
@@ -740,14 +784,15 @@
 	function sample(e: PointerEvent, previous?: number) {
 		const raw = strokeWidth(tool, e.pointerType, e.pressure, size);
 		return {
-			x: e.clientX - rect.left,
-			y: e.clientY - rect.top,
+			x: (e.clientX - rect.left) / view.scale,
+			y: (e.clientY - rect.top) / view.scale,
 			w: previous === undefined ? raw : smoothWidth(previous, raw)
 		};
 	}
 
 	function down(e: PointerEvent) {
 		guard.see(e.pointerType);
+		if (zoomDown(e)) return;
 		if (!guard.accepts(e.pointerType) || activeId !== -1 || (e.pointerType === 'mouse' && e.button))
 			return;
 		e.preventDefault();
@@ -774,8 +819,8 @@
 				sampleBoard(),
 				canvas.width,
 				canvas.height,
-				(e.clientX - rect.left) * dpr,
-				(e.clientY - rect.top) * dpr,
+				((e.clientX - rect.left) / view.scale) * dpr,
+				((e.clientY - rect.top) / view.scale) * dpr,
 				color
 			);
 			if (item) {
@@ -826,6 +871,7 @@
 
 	function move(e: PointerEvent) {
 		guard.see(e.pointerType); // a hovering pen is noticed before it touches
+		if (zoomMove(e)) return;
 		if (gesture) return moveGesture(e);
 		if (e.pointerId === activeId && draft && shapeKind) {
 			const p = sample(e);
@@ -857,6 +903,7 @@
 	}
 
 	function up(e: PointerEvent) {
+		touches.delete(e.pointerId);
 		if (gesture) return endGesture(e);
 		if (e.pointerId === activeId && draft) {
 			activeId = -1;
@@ -1133,100 +1180,102 @@
 		data-testid="draw-holder"
 		data-bg={bg ?? ''}
 	>
-		{#if replaying}
-			<ReplayPlayer
-				items={replaying}
-				render={(list) => redraw(list)}
-				ondone={() => {
-					replaying = null;
-					redraw();
-				}}
-			/>
-		{/if}
-		<canvas
-			bind:this={photoCanvas}
-			style:opacity={layers.picture ? undefined : 0}
-			class="pointer-events-none absolute inset-0 size-full"
-			aria-hidden="true"
-			data-testid="draw-photo-layer"
-		></canvas>
-		<canvas
-			bind:this={onionCanvas}
-			class="pointer-events-none absolute inset-0 size-full opacity-30"
-			aria-hidden="true"
-			data-testid="draw-onion"
-			data-onion={flipOn && onion && flip !== null && flip.current > 0}
-		></canvas>
-		<canvas
-			bind:this={canvas}
-			class="absolute inset-0 size-full touch-none"
-			aria-label="Drawing canvas"
-			data-testid="draw-canvas"
-			data-blank={blank}
-			data-page={page ?? ''}
-			data-photo={photoId ?? ''}
-			data-layer-drawing={layers.drawing}
-			data-layer-picture={layers.picture}
-			style:opacity={layers.drawing ? undefined : 0}
-			data-strokes={count}
-			data-selected={sel !== null}
-			data-sel-rot={sel ? sel.rot.toFixed(3) : ''}
-			onpointerdown={down}
-			onpointermove={move}
-			onpointerup={up}
-			onpointercancel={up}
-			onpointerenter={(e) => guard.see(e.pointerType)}
-			oncontextmenu={(e) => e.preventDefault()}
-		></canvas>
-		<canvas
-			bind:this={linesCanvas}
-			style:opacity={layers.picture ? undefined : 0}
-			class="pointer-events-none absolute inset-0 size-full"
-			aria-hidden="true"
-			data-testid="draw-lines"
-		></canvas>
-		{#if mirrorN}
-			<svg
-				class="pointer-events-none absolute inset-0 size-full text-ink-muted opacity-50"
-				aria-hidden="true"
-				data-testid="draw-mirror-guides"
-			>
-				{#each mirrorGuides(mirrorN, boardSize) as g, gi (gi)}
-					<line
-						x1={g.x1}
-						y1={g.y1}
-						x2={g.x2}
-						y2={g.y2}
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-dasharray="8 8"
-					/>
-				{/each}
-			</svg>
-		{/if}
-		{#if clearToast}
-			<button
-				type="button"
-				class="{btn} absolute bottom-4 left-1/2 -translate-x-1/2 border-accent bg-surface shadow-raised"
-				data-testid="draw-undo-clear"
-				onclick={undo}>Undo clear</button
-			>
-		{/if}
-		{#if sel}
-			<svg class="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
-				<polygon
-					points={sel.corners}
-					class="fill-none stroke-accent"
-					stroke-width="3"
-					stroke-dasharray="10 8"
+		<div
+			class="absolute inset-0 origin-top-left"
+			style:transform={viewCss(view)}
+			data-testid="draw-stack"
+			data-scale={view.scale.toFixed(3)}
+			data-pan="{view.x.toFixed(1)},{view.y.toFixed(1)}"
+		>
+			{#if replaying}
+				<ReplayPlayer
+					items={replaying}
+					render={(list) => redraw(list)}
+					ondone={() => {
+						replaying = null;
+						redraw();
+					}}
 				/>
-			</svg>
+			{/if}
+			<canvas
+				bind:this={photoCanvas}
+				style:opacity={layers.picture ? undefined : 0}
+				class="pointer-events-none absolute inset-0 size-full"
+				aria-hidden="true"
+				data-testid="draw-photo-layer"
+			></canvas>
+			<canvas
+				bind:this={onionCanvas}
+				class="pointer-events-none absolute inset-0 size-full opacity-30"
+				aria-hidden="true"
+				data-testid="draw-onion"
+				data-onion={flipOn && onion && flip !== null && flip.current > 0}
+			></canvas>
+			<canvas
+				bind:this={canvas}
+				class="absolute inset-0 size-full touch-none"
+				aria-label="Drawing canvas"
+				data-testid="draw-canvas"
+				data-blank={blank}
+				data-page={page ?? ''}
+				data-photo={photoId ?? ''}
+				data-layer-drawing={layers.drawing}
+				data-layer-picture={layers.picture}
+				style:opacity={layers.drawing ? undefined : 0}
+				data-strokes={count}
+				data-selected={sel !== null}
+				data-sel-rot={sel ? sel.rot.toFixed(3) : ''}
+				onpointerdown={down}
+				onpointermove={move}
+				onpointerup={up}
+				onpointercancel={up}
+				onpointerenter={(e) => guard.see(e.pointerType)}
+				oncontextmenu={(e) => e.preventDefault()}
+			></canvas>
+			<canvas
+				bind:this={linesCanvas}
+				style:opacity={layers.picture ? undefined : 0}
+				class="pointer-events-none absolute inset-0 size-full"
+				aria-hidden="true"
+				data-testid="draw-lines"
+			></canvas>
+			{#if mirrorN}
+				<svg
+					class="pointer-events-none absolute inset-0 size-full text-ink-muted opacity-50"
+					aria-hidden="true"
+					data-testid="draw-mirror-guides"
+				>
+					{#each mirrorGuides(mirrorN, boardSize) as g, gi (gi)}
+						<line
+							x1={g.x1}
+							y1={g.y1}
+							x2={g.x2}
+							y2={g.y2}
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-dasharray="8 8"
+						/>
+					{/each}
+				</svg>
+			{/if}
+			{#if sel}
+				<svg class="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
+					<polygon
+						points={sel.corners}
+						class="fill-none stroke-accent"
+						stroke-width="3"
+						stroke-dasharray="10 8"
+					/>
+				</svg>
+			{/if}
+		</div>
+		{#if sel}
 			{#each [{ kind: 'resize', label: 'Resize', glyph: '⤡', at: sel.resize }, { kind: 'rotate', label: 'Turn', glyph: '↻', at: sel.rotate }] as h (h.kind)}
 				<button
 					type="button"
 					class="absolute flex size-tap-kid -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center"
-					style:left="{h.at.x}px"
-					style:top="{h.at.y}px"
+					style:left="{toScreen(view, h.at).x}px"
+					style:top="{toScreen(view, h.at).y}px"
 					aria-label={h.label}
 					data-testid="draw-handle"
 					data-handle={h.kind}
@@ -1242,6 +1291,14 @@
 					>
 				</button>
 			{/each}
+		{/if}
+		{#if clearToast}
+			<button
+				type="button"
+				class="{btn} absolute bottom-4 left-1/2 -translate-x-1/2 border-accent bg-surface shadow-raised"
+				data-testid="draw-undo-clear"
+				onclick={undo}>Undo clear</button
+			>
 		{/if}
 	</div>
 
@@ -1718,6 +1775,13 @@
 					disabled={!redoable}
 					data-testid="draw-redo"
 					onclick={redo}>Redo</button
+				>
+				<button
+					type="button"
+					class="{btn} border-line bg-surface"
+					disabled={isFit(view)}
+					data-testid="draw-fit"
+					onclick={() => (view = FIT)}>Fit</button
 				>
 				<button
 					type="button"
