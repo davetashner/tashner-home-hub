@@ -205,7 +205,7 @@ describe('photo layer', () => {
 	it('round-trips the new stamps', () => {
 		for (const k of ['house', 'tree', 'rocket', 'car', 'butterfly'] as const) {
 			const item: Shape = { ...shape, shape: k };
-						const [back] = loadDrawing(serializeDrawing([item], size), size)!;
+			const [back] = loadDrawing(serializeDrawing([item], size), size)!;
 			expect(isShape(back) && back.shape).toBe(k);
 		}
 	});
