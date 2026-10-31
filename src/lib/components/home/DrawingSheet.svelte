@@ -28,6 +28,14 @@
 		type LayerVisibility
 	} from '#lib/domain/drawing-layers.js';
 	import { containRect, photoSize, photoUrl, thumbUrl } from '#lib/domain/drawing-photo.js';
+	import {
+		centeredMirror,
+		mirrorGuides,
+		mirrorLabel,
+		mirrorPoints,
+		nextMirror,
+		type MirrorCount
+	} from '#lib/domain/drawing-mirror.js';
 	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
 		clampPoint,
@@ -53,6 +61,7 @@
 		shapeParts,
 		shapeWidth,
 		type DrawItem,
+		type DrawPoint,
 		type PathCmd,
 		type Shape,
 		type ShapeKind,
@@ -134,6 +143,8 @@
 	let filled = $state(false);
 	/** Paint-bucket mode: a tap fills the closed area under it. */
 	let bucket = $state(false);
+	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
+	let boardSize = $state({ w: 0, h: 0 }); // CSS px, for the mirror guides
 	let count = $state(0); // strokes drawn, for the undo/clear/post enabled state
 	let blank = $state(true);
 	let choosing = $state(false);
@@ -308,9 +319,17 @@
 		return css[name];
 	}
 
+	/** One segment of a stroke; a mirrored stroke repeats it in every reflected position. */
 	function segment(s: Stroke, i: number) {
 		const to = s.points[i];
 		const from = s.points[Math.max(0, i - 1)];
+		if (!s.mirror) return segmentLine(s, from, to);
+		const a = mirrorPoints(from.x, from.y, s.mirror);
+		const b = mirrorPoints(to.x, to.y, s.mirror);
+		for (let k = 0; k < a.length; k++) segmentLine(s, { ...from, ...a[k] }, { ...to, ...b[k] });
+	}
+
+	function segmentLine(s: Stroke, from: DrawPoint, to: DrawPoint) {
 		ctx.globalCompositeOperation = s.tool === 'eraser' ? 'destination-out' : 'source-over';
 		ctx.globalAlpha = 1;
 		ctx.strokeStyle = token(s.color);
@@ -325,16 +344,27 @@
 
 	/** A highlighter stroke is one translucent path, so its own overlaps do not darken. */
 	function highlight(s: Stroke) {
+		if (!s.mirror) return highlightPath(s.color, s.points);
+		const m = s.mirror;
+		const copies = s.points.map((p) => mirrorPoints(p.x, p.y, m));
+		for (let k = 0; k < m.n; k++)
+			highlightPath(
+				s.color,
+				s.points.map((p, i) => ({ ...p, ...copies[i][k] }))
+			);
+	}
+
+	function highlightPath(color: string, pts: DrawPoint[]) {
 		ctx.globalCompositeOperation = 'source-over';
 		ctx.globalAlpha = HIGHLIGHTER_ALPHA;
-		ctx.strokeStyle = token(s.color);
+		ctx.strokeStyle = token(color);
 		ctx.lineCap = 'round';
 		ctx.lineJoin = 'round';
-		ctx.lineWidth = s.points[0].w;
+		ctx.lineWidth = pts[0].w;
 		ctx.beginPath();
-		ctx.moveTo(s.points[0].x, s.points[0].y);
-		for (const p of s.points) ctx.lineTo(p.x, p.y);
-		if (s.points.length === 1) ctx.lineTo(s.points[0].x + 0.01, s.points[0].y);
+		ctx.moveTo(pts[0].x, pts[0].y);
+		for (const p of pts) ctx.lineTo(p.x, p.y);
+		if (pts.length === 1) ctx.lineTo(pts[0].x + 0.01, pts[0].y);
 		ctx.stroke();
 		ctx.globalAlpha = 1;
 	}
@@ -538,6 +568,7 @@
 		const w = Math.max(1, Math.round(holder.clientWidth * dpr));
 		const h = Math.max(1, Math.round(holder.clientHeight * dpr));
 		if (canvas.width === w && canvas.height === h) return;
+		boardSize = { w: w / dpr, h: h / dpr };
 		canvas.width = linesCanvas.width = photoCanvas.width = w;
 		canvas.height = linesCanvas.height = photoCanvas.height = h;
 		drawLines();
@@ -603,6 +634,8 @@
 			return;
 		}
 		current = { tool, color, points: [sample(e)] };
+		if (mirrorN)
+			current.mirror = centeredMirror(mirrorN, { w: canvas.width / dpr, h: canvas.height / dpr });
 		if (tool === 'highlighter') redraw();
 		else segment(current, 0);
 	}
@@ -875,6 +908,25 @@
 			aria-hidden="true"
 			data-testid="draw-lines"
 		></canvas>
+		{#if mirrorN}
+			<svg
+				class="pointer-events-none absolute inset-0 size-full text-ink-muted opacity-50"
+				aria-hidden="true"
+				data-testid="draw-mirror-guides"
+			>
+				{#each mirrorGuides(mirrorN, boardSize) as g, gi (gi)}
+					<line
+						x1={g.x1}
+						y1={g.y1}
+						x2={g.x2}
+						y2={g.y2}
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-dasharray="8 8"
+					/>
+				{/each}
+			</svg>
+		{/if}
 		{#if sel}
 			<svg class="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
 				<polygon
@@ -1296,6 +1348,17 @@
 						bucket = false;
 						tool = tool === 'eraser' ? 'pen' : 'eraser';
 					}}>Eraser</button
+				>
+				<button
+					type="button"
+					class="{btn} {mirrorN ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+					aria-pressed={mirrorN !== null}
+					data-testid="draw-mirror"
+					data-mirror={mirrorN ?? 0}
+					onclick={() => {
+						commit();
+						mirrorN = nextMirror(mirrorN);
+					}}>Mirror: {mirrorLabel(mirrorN)}</button
 				>
 				<button
 					type="button"

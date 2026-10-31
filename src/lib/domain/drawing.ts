@@ -3,6 +3,7 @@
  * fitting the export under the note image limits. Pure: the canvas itself lives in the sheet.
  */
 
+import type { Mirror } from './drawing-mirror.js';
 import { isFill, type FillItem } from './drawing-fill.js';
 import { stampParts } from './drawing-stamps.js';
 
@@ -64,6 +65,8 @@ export interface Stroke {
 	tool: DrawTool;
 	color: InkColor;
 	points: DrawPoint[];
+	/** Mirror mode (hub-cn7.18): painted once per copy, still one stroke (one undo step). */
+	mirror?: Mirror;
 }
 
 export const PEN_MIN_WIDTH = 2;

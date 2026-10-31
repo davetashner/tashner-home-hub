@@ -202,3 +202,28 @@ describe('photo layer', () => {
 		).toBe(false);
 	});
 });
+
+describe('mirrored strokes (hub-cn7.18)', () => {
+	const mirrored: Stroke = { ...stroke, mirror: { n: 8, cx: 100, cy: 50 } };
+
+	it('round-trips the mirror setting and keeps the center when refitted', () => {
+		const json = serializeDrawing([mirrored], { w: 200, h: 100 });
+		const same = loadDrawing(json, { w: 200, h: 100 }) as Stroke[];
+		expect(same[0].mirror).toEqual({ n: 8, cx: 100, cy: 50 });
+		const bigger = loadDrawing(json, { w: 400, h: 200 }) as Stroke[];
+		expect(bigger[0].mirror).toEqual({ n: 8, cx: 200, cy: 100 });
+		const portrait = loadDrawing(json, { w: 100, h: 300 }) as Stroke[];
+		expect(portrait[0].mirror).toEqual({ n: 8, cx: 50, cy: 150 });
+	});
+
+	it('plain strokes stay plain and a malformed mirror is refused', () => {
+		const plain = loadDrawing(serializeDrawing([stroke], { w: 200, h: 100 }), {
+			w: 200,
+			h: 100
+		}) as Stroke[];
+		expect(plain[0].mirror).toBeUndefined();
+		const wire = JSON.parse(serializeDrawing([mirrored], { w: 200, h: 100 }));
+		wire.items[0].m = [3, 1, 1];
+		expect(isSavedDrawing(JSON.stringify(wire))).toBe(false);
+	});
+});
