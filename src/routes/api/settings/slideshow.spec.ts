@@ -20,7 +20,8 @@ it('defaults to a 30 second fade', async () => {
 		intervalSeconds: 30,
 		transition: 'fade',
 		onThisDay: 'off',
-		livePhotos: 'off'
+		livePhotos: 'off',
+		drawings: 'off'
 	});
 });
 
@@ -30,7 +31,8 @@ it('ignores corrupt rows', async () => {
 		intervalSeconds: 30,
 		transition: 'fade',
 		onThisDay: 'off',
-		livePhotos: 'off'
+		livePhotos: 'off',
+		drawings: 'off'
 	});
 });
 
@@ -39,19 +41,22 @@ it('lets a grown-up change the interval and transition', async () => {
 		intervalSeconds: 60,
 		transition: 'fade',
 		onThisDay: 'off',
-		livePhotos: 'off'
+		livePhotos: 'off',
+		drawings: 'off'
 	});
 	expect(await (await put({ transition: 'kenburns', onThisDay: 'off' })).json()).toEqual({
 		intervalSeconds: 60,
 		transition: 'kenburns',
 		onThisDay: 'off',
-		livePhotos: 'off'
+		livePhotos: 'off',
+		drawings: 'off'
 	});
 	expect(await get()).toEqual({
 		intervalSeconds: 60,
 		transition: 'kenburns',
 		onThisDay: 'off',
-		livePhotos: 'off'
+		livePhotos: 'off',
+		drawings: 'off'
 	});
 });
 
@@ -64,7 +69,8 @@ it('rejects bad values without writing anything', async () => {
 		intervalSeconds: 60,
 		transition: 'kenburns',
 		onThisDay: 'off',
-		livePhotos: 'off'
+		livePhotos: 'off',
+		drawings: 'off'
 	});
 });
 
@@ -77,4 +83,11 @@ it('saves and validates the on-this-day mode', async () => {
 
 it('needs an adult', async () => {
 	await expect(put({ intervalSeconds: 10 }, false)).rejects.toMatchObject({ status: 401 });
+});
+
+it('saves and validates the drawings setting', async () => {
+	expect((await (await put({ drawings: 'on' })).json()).drawings).toBe('on');
+	await expect(put({ drawings: 'maybe' })).rejects.toMatchObject({ status: 400 });
+	expect((await get()).drawings).toBe('on');
+	await put({ drawings: 'off' });
 });

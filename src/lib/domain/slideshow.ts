@@ -4,6 +4,7 @@
  */
 
 import { isOnThisDayMode, type OnThisDayMode } from './on-this-day.js';
+import { isDrawingMode, type DrawingMode } from './drawing-frame.js';
 
 export const TRANSITIONS = ['fade', 'kenburns'] as const;
 export type Transition = (typeof TRANSITIONS)[number];
@@ -28,13 +29,16 @@ export interface SlideshowSettings {
 	onThisDay: OnThisDayMode;
 	/** Play a Live Photo's motion clip once, muted, over its still. */
 	livePhotos: LivePhotoMode;
+	/** Mix posted kids' drawings in among the photos (hub-cn7.28). */
+	drawings: DrawingMode;
 }
 
 export const DEFAULT_SLIDESHOW: SlideshowSettings = {
 	intervalSeconds: 30,
 	transition: 'fade',
 	onThisDay: 'off',
-	livePhotos: 'off'
+	livePhotos: 'off',
+	drawings: 'off'
 };
 
 /** The intervals a grown-up can pick, in seconds. */
@@ -56,7 +60,8 @@ export function parseSlideshowSettings(raw: Record<string, unknown>): SlideshowS
 			: DEFAULT_SLIDESHOW.intervalSeconds,
 		transition: isTransition(raw.transition) ? raw.transition : DEFAULT_SLIDESHOW.transition,
 		onThisDay: isOnThisDayMode(raw.onThisDay) ? raw.onThisDay : DEFAULT_SLIDESHOW.onThisDay,
-		livePhotos: isLivePhotoMode(raw.livePhotos) ? raw.livePhotos : DEFAULT_SLIDESHOW.livePhotos
+		livePhotos: isLivePhotoMode(raw.livePhotos) ? raw.livePhotos : DEFAULT_SLIDESHOW.livePhotos,
+		drawings: isDrawingMode(raw.drawings) ? raw.drawings : DEFAULT_SLIDESHOW.drawings
 	};
 }
 
@@ -107,6 +112,8 @@ export interface SlidePhoto {
 	takenAt?: number | null;
 	/** True when a Live Photo clip exists at /api/photo/[id]/motion. */
 	motion?: boolean;
+	/** Set on a kid's drawing standing in for a photo (`#lib/domain/drawing-frame.js`). */
+	drawing?: { name: string; src: string };
 }
 
 /** Bars thinner than this share of the screen are not worth a backdrop. */

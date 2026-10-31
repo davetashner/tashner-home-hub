@@ -23,6 +23,7 @@
 		type SlideshowSettings,
 		type Size
 	} from '#lib/domain/slideshow.js';
+	import { interleaveDrawings, isDrawingId, type FrameDrawing } from '#lib/domain/drawing-frame.js';
 	import { arrangePlaylist, calendarDay, onThisDayCaption } from '#lib/domain/on-this-day.js';
 
 	/** Fullscreen over the shell (the idle photo frame) rather than inside the page area. */
@@ -35,6 +36,8 @@
 		bg: string | null;
 		motion: Motion | null;
 		caption: string | null;
+		/** The artist's first name when this slide is a kid's drawing, not a photo. */
+		artist?: string;
 		/** Live Photo clip to play over the still, when the setting is on. */
 		clip: string | null;
 		/** Set once the clip has played or failed, so it is not retried. */
@@ -58,10 +61,13 @@
 	let alive = true;
 	/** The photo a long-press asked to hide, while its confirmation sheet is open. */
 	let hiding = $state<string | null>(null);
+	/** Posted drawings to mix in, when the setting is on. */
+	let drawings: FrameDrawing[] = [];
 
 	/** The order for one pass: shuffled, with "on this day" photos favoured or alone if asked. */
 	function arrange(list: SlidePhoto[]): SlidePhoto[] {
-		return arrangePlaylist(list, settings.onThisDay, calendarDay(new Date()), shuffle);
+		const photos = arrangePlaylist(list, settings.onThisDay, calendarDay(new Date()), shuffle);
+		return settings.drawings === 'on' ? interleaveDrawings(photos, shuffle(drawings)) : photos;
 	}
 
 	/** Latest list wins: an older response never replaces a newer one. */
@@ -75,6 +81,13 @@
 		return mine === listRequest ? list : null;
 	}
 
+	/** Drawings never block photos: a failed request just means none this pass. */
+	async function loadDrawings() {
+		if (settings.drawings !== 'on') return;
+		const res = await fetch('/api/photo/drawings').catch(() => null);
+		drawings = res?.ok ? ((await res.json().catch(() => [])) as FrameDrawing[]) : [];
+	}
+
 	function decode(src: string): Promise<boolean> {
 		const img = new Image();
 		img.src = src;
@@ -86,6 +99,20 @@
 
 	/** Downloads and decodes a photo (and its backdrop) so it can appear without a blank frame. */
 	async function prepare(photo: SlidePhoto): Promise<Slide | null> {
+		if (photo.drawing) {
+			if (!(await decode(photo.drawing.src))) return null;
+			return {
+				key: steps,
+				id: photo.id,
+				main: photo.drawing.src,
+				bg: null,
+				motion: null,
+				caption: null,
+				artist: photo.drawing.name,
+				clip: null,
+				ready: false
+			};
+		}
 		const main = photoSrc(photo.id, target);
 		const bg = needsBackdrop(photo, target) ? photoSrc(photo.id, target, 'bg') : null;
 		const [mainOk, bgOk] = await Promise.all([decode(main), bg ? decode(bg) : false]);
@@ -130,7 +157,7 @@
 			if (step.wrapped) {
 				fresh = null;
 				// Pick up added or hidden photos for the following pass.
-				void fetchList().then((list) => {
+				void Promise.all([fetchList(), loadDrawings()]).then(([list]) => {
 					if (list) fresh = arrange(list);
 				});
 			}
@@ -152,7 +179,7 @@
 
 	function onlongpress() {
 		const id = slots[front]?.id;
-		if (!id) return;
+		if (!id || isDrawingId(id)) return;
 		if (page.data.adult !== true) return unlock();
 		hiding = id;
 	}
@@ -199,18 +226,23 @@
 			.then((r) => (r.ok ? r.json() : {}))
 			.then((s: Record<string, unknown>) => (settings = parseSlideshowSettings(s)))
 			.catch(() => {});
-		void Promise.all([fetchList(), loadSettings]).then(([raw]) => {
-			if (!alive) return;
-			// Settings are in by now, so the first pass already honours "on this day".
-			const list = raw && arrange(raw);
-			if (!list || list.length === 0) {
-				status = 'empty';
-				return;
-			}
-			playlist = { photos: list, index: -1 };
-			status = 'playing';
-			void next();
-		});
+		void Promise.all([fetchList(), loadSettings])
+			.then(async ([raw]) => {
+				await loadDrawings();
+				return raw;
+			})
+			.then((raw) => {
+				if (!alive) return;
+				// Settings are in by now, so the first pass already honours "on this day".
+				const list = raw && arrange(raw);
+				if (!list || list.length === 0) {
+					status = 'empty';
+					return;
+				}
+				playlist = { photos: list, index: -1 };
+				status = 'playing';
+				void next();
+			});
 		return () => {
 			alive = false;
 			window.clearTimeout(timer);
@@ -284,6 +316,14 @@
 								/>
 							{/if}
 						</div>
+						{#if slot.artist}
+							<p
+								class="caption absolute top-0 left-0 p-8 text-lead font-bold text-on-frame max-sm:p-4"
+								data-testid="drawing-caption"
+							>
+								Drawn by {slot.artist}
+							</p>
+						{/if}
 						{#if slot.caption}
 							<p
 								class="caption absolute top-0 left-0 p-8 text-lead font-bold text-on-frame max-sm:p-4"

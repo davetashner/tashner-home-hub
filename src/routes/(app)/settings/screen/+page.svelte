@@ -190,6 +190,11 @@
 		{ value: 'on', label: 'On' }
 	];
 
+	const drawingModes = [
+		{ value: 'off' as const, label: 'Off' },
+		{ value: 'on' as const, label: 'On' }
+	];
+
 	const rows = [
 		{
 			key: 'homeMinutes',
@@ -340,6 +345,23 @@
 				</div>
 				<p class="text-body text-ink-muted">
 					{onThisDayLines[slideshow.onThisDay]} Within three days of today.
+				</p>
+			</div>
+			<div class="flex flex-col gap-4">
+				<div class="flex flex-wrap items-center justify-between gap-6">
+					<h2 class="text-title font-bold">Kids' drawings</h2>
+					<div class="flex flex-wrap gap-4" role="group" aria-label="Kids' drawings">
+						{#each drawingModes as m (m.value)}
+							<Button
+								variant={slideshow.drawings === m.value ? 'primary' : 'secondary'}
+								aria-pressed={slideshow.drawings === m.value}
+								onclick={() => changeSlideshow({ drawings: m.value })}>{m.label}</Button
+							>
+						{/each}
+					</div>
+				</div>
+				<p class="text-body text-ink-muted">
+					Drawings posted as notes show among the photos, about one in five, with the artist's name.
 				</p>
 			</div>
 			<div class="flex flex-col gap-4">

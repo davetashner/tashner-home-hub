@@ -24,7 +24,8 @@ describe('settings', () => {
 			intervalSeconds: 30,
 			transition: 'fade',
 			onThisDay: 'off',
-			livePhotos: 'off'
+			livePhotos: 'off',
+			drawings: 'off'
 		});
 		expect(parseSlideshowSettings({})).toEqual(DEFAULT_SLIDESHOW);
 	});
@@ -34,7 +35,8 @@ describe('settings', () => {
 			intervalSeconds: 60,
 			transition: 'kenburns',
 			onThisDay: 'off',
-			livePhotos: 'off'
+			livePhotos: 'off',
+			drawings: 'off'
 		});
 		expect(parseSlideshowSettings({ intervalSeconds: 31, transition: 'spin' })).toEqual(
 			DEFAULT_SLIDESHOW
