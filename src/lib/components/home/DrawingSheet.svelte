@@ -132,7 +132,12 @@
 		isBrushTool,
 		newSeed
 	} from '#lib/domain/drawing-brushes.js';
-	import { paintBrushSegment, paintWash } from '#lib/components/home/drawing/brush-paint.js';
+	import {
+		lengthAt,
+		paintBrushSegment,
+		paintGlitter,
+		paintWash
+	} from '#lib/components/home/drawing/brush-paint.js';
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import { PALETTE, isTranslucent } from '#lib/domain/drawing-colors.js';
 	import OpacityPicker from './drawing/OpacityPicker.svelte';
@@ -382,10 +387,21 @@
 	function segment(s: Stroke, i: number) {
 		const to = s.points[i];
 		const from = s.points[Math.max(0, i - 1)];
-		if (isBrushTool(s.tool) && BRUSHES[s.tool].kind === 'dots') {
+		if (isBrushTool(s.tool) && BRUSHES[s.tool].kind !== 'wash' && s.tool !== 'glitter') {
 			const tool = s.tool;
+			const along = tool === 'rainbow' ? lengthAt(s.points, i - 1 < 0 ? 0 : i - 1) : 0;
 			const paint = (f: DrawPoint, t: DrawPoint, k: number) =>
-				paintBrushSegment(ctx, tool, (s.seed ?? 0) + k, i, f, t, token(s.color), s.alpha ?? 1);
+				paintBrushSegment(
+					ctx,
+					tool,
+					(s.seed ?? 0) + k,
+					i,
+					f,
+					t,
+					token(s.color),
+					s.alpha ?? 1,
+					along
+				);
 			if (!s.mirror) return paint(from, to, 0);
 			const a = mirrorPoints(from.x, from.y, s.mirror);
 			const b = mirrorPoints(to.x, to.y, s.mirror);
@@ -426,18 +442,24 @@
 			);
 	}
 
-	/** A watercolor wash, once per mirror copy. */
+	/** Watercolor and glitter are whole-stroke paints (one path, then sparkles), redrawn as the stroke grows. */
+	const whole = (t: string) => t === 'watercolor' || t === 'glitter';
+
+	/** A watercolor wash or glitter stroke, once per mirror copy. */
 	function wash(s: Stroke) {
 		const m = s.mirror;
-		if (!m) return paintWash(ctx, s.points, s.seed ?? 0, token(s.color), s.alpha ?? 1);
+		const paintOne = s.tool === 'glitter' ? paintGlitter : paintWash;
+		const sparkle = token(PAPER);
+		if (!m) return paintOne(ctx, s.points, s.seed ?? 0, token(s.color), s.alpha ?? 1, sparkle);
 		const copies = s.points.map((p) => mirrorPoints(p.x, p.y, m));
 		for (let k = 0; k < m.n; k++)
-			paintWash(
+			paintOne(
 				ctx,
 				s.points.map((p, i) => ({ ...p, ...copies[i][k] })),
 				(s.seed ?? 0) + k,
 				token(s.color),
-				s.alpha ?? 1
+				s.alpha ?? 1,
+				sparkle
 			);
 	}
 
@@ -674,7 +696,7 @@
 		if (isFill(s)) paintFill(s);
 		else if (isShape(s)) paintShape(s);
 		else if (translucent(s)) highlight(s);
-		else if (s.tool === 'watercolor') wash(s);
+		else if (whole(s.tool)) wash(s);
 		else for (let i = 0; i < s.points.length; i++) segment(s, i);
 	}
 
@@ -851,7 +873,7 @@
 		};
 		if (mirrorN)
 			current.mirror = centeredMirror(mirrorN, { w: canvas.width / dpr, h: canvas.height / dpr });
-		if (translucent(current) || current.tool === 'watercolor') redraw();
+		if (translucent(current) || whole(current.tool)) redraw();
 		else segment(current, 0);
 	}
 
@@ -887,10 +909,10 @@
 		for (const c of events.length ? events : [e]) {
 			const last = current.points[current.points.length - 1];
 			current.points.push(sample(c, last.w));
-			if (!translucent(current) && current.tool !== 'watercolor')
+			if (!translucent(current) && !whole(current.tool))
 				segment(current, current.points.length - 1);
 		}
-		if (current.tool === 'watercolor') scheduleWash();
+		if (whole(current.tool)) scheduleWash();
 		else if (translucent(current)) redraw();
 	}
 
