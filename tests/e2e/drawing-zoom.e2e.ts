@@ -1,6 +1,21 @@
 import { expect, test, type Page } from '@playwright/test';
 import { gotoHydrated } from './hydrated';
 import { expectTappable } from './tap';
+import Database from 'better-sqlite3';
+import { ensureHousehold } from './adult';
+import { trackMember } from './cleanup';
+import { DB_PATH } from './data-dir';
+
+function seedKid(id: string, name: string) {
+	ensureHousehold();
+	const db = new Database(DB_PATH);
+	db.pragma('busy_timeout = 5000');
+	db.prepare(
+		"INSERT OR REPLACE INTO members (id, name, role, color, avatar) VALUES (?, ?, 'child', 'member-3', '🦊')"
+	).run(id, name);
+	db.close();
+	trackMember(id);
+}
 
 // hub-cn7.24: pinch to zoom, two-finger pan, Fit. Fingers are dispatched PointerEvents.
 
@@ -56,7 +71,8 @@ async function spread(page: Page) {
 	]);
 }
 
-test('pinch zooms, a second finger leaves no stray mark, Fit resets', async ({ page }) => {
+test('pinch zooms, a second finger leaves no stray mark, Fit resets', async ({ page }, info) => {
+	seedKid(`e2e-zoom-kid-${info.workerIndex}${info.repeatEachIndex}`, 'Zoom Kid');
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
 	await expect(page.getByTestId('draw-sheet')).toBeVisible();
@@ -93,7 +109,8 @@ test('pinch zooms, a second finger leaves no stray mark, Fit resets', async ({ p
 	await expect(page.getByTestId('draw-stack')).toHaveAttribute('data-pan', '0.0,0.0');
 });
 
-test('zoom is capped at 4x and two fingers pan', async ({ page }) => {
+test('zoom is capped at 4x and two fingers pan', async ({ page }, info) => {
+	seedKid(`e2e-zoom-kid-${info.workerIndex}${info.repeatEachIndex}`, 'Zoom Kid');
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
 	await fire(page, [
@@ -109,7 +126,8 @@ test('zoom is capped at 4x and two fingers pan', async ({ page }) => {
 	await fire(page, [f('pointerup', 1, 0.15, 0.4), f('pointerup', 2, 1.05, 0.4)]);
 });
 
-test('a pen keeps drawing while touches are ignored, zoomed or not', async ({ page }) => {
+test('a pen keeps drawing while touches are ignored, zoomed or not', async ({ page }, info) => {
+	seedKid(`e2e-zoom-kid-${info.workerIndex}${info.repeatEachIndex}`, 'Zoom Kid');
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
 	await spread(page);
