@@ -28,6 +28,8 @@
 		type Layer,
 		type LayerVisibility
 	} from '#lib/domain/drawing-layers.js';
+	import { dashPattern, type LineStyle } from '#lib/domain/drawing-dash.js';
+	import LineStylePicker from './drawing/LineStylePicker.svelte';
 	import { containRect, photoSize, photoUrl, thumbUrl } from '#lib/domain/drawing-photo.js';
 	import {
 		centeredMirror,
@@ -181,6 +183,7 @@
 	/** The shape or stamp the next drag places; null means freehand drawing. */
 	let shapeKind = $state<ShapeKind | null>(null);
 	let filled = $state(false);
+	let lineStyle = $state<LineStyle>('solid'); // outline style of the next shape (hub-cn7.17)
 	/** Paint-bucket mode: a tap fills the closed area under it. */
 	let bucket = $state(false);
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
@@ -569,11 +572,15 @@
 		ctx.lineCap = 'round';
 		ctx.lineJoin = 'round';
 		ctx.lineWidth = s.width;
+		const dash = dashPattern(s.dash, s.width);
 		for (const part of shapeParts(s)) {
 			ctx.beginPath();
 			tracePath(part.cmds);
 			if (part.kind === 'solid' || (part.kind === 'body' && s.filled)) ctx.fill();
-			if (part.kind !== 'solid') ctx.stroke();
+			if (part.kind !== 'solid') {
+				ctx.setLineDash(dash);
+				ctx.stroke();
+			}
 		}
 		ctx.restore();
 	}
@@ -812,6 +819,7 @@
 			filled,
 			width: shapeWidth(size),
 			...(isTranslucent(alpha) ? { alpha } : {}),
+			...(lineStyle !== 'solid' ? { dash: lineStyle } : {}),
 			...placement(kind, from, to)
 		};
 	}
@@ -1479,6 +1487,13 @@
 						>
 					{/each}
 				</div>
+				<LineStylePicker
+					value={lineStyle}
+					onpick={(v) => {
+						lineStyle = v;
+						restyle({ dash: v === 'solid' ? null : v });
+					}}
+				/>
 				<div
 					class="flex flex-wrap gap-3"
 					role="group"

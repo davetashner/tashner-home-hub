@@ -235,3 +235,25 @@ describe('mirrored strokes (hub-cn7.18)', () => {
 		expect(isSavedDrawing(JSON.stringify(wire))).toBe(false);
 	});
 });
+
+describe('line styles', () => {
+	it('keeps dashed and dotted through a save and reopen', () => {
+		for (const dash of ['dashed', 'dotted'] as const) {
+			const back = loadDrawing(serializeDrawing([{ ...shape, dash }], size), size)![0] as Shape;
+			expect(back.dash).toBe(dash);
+		}
+	});
+	it('writes nothing for solid, and old saves open solid', () => {
+		const json = serializeDrawing([shape], size);
+		expect(json).not.toContain('"d"');
+		expect((loadDrawing(json, size)![0] as Shape).dash).toBeUndefined();
+	});
+	it('rejects an unknown style', () => {
+		const bad = JSON.stringify({
+			v: 1,
+			size,
+			items: [{ s: 'star', c: 'x', f: true, w: 1, b: [1, 2, 3, 4], d: 'wavy' }]
+		});
+		expect(loadDrawing(bad, size)).toBeNull();
+	});
+});

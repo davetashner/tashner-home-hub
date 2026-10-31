@@ -212,6 +212,8 @@ export interface Shape {
 	rot?: number;
 	/** Opacity 0.1-1 (hub-cn7.13); absent means opaque. */
 	alpha?: number;
+	/** Outline style (hub-cn7.17); absent means solid. */
+	dash?: 'dashed' | 'dotted';
 }
 
 export type PathCmd =

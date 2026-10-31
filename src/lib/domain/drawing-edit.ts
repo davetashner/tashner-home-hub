@@ -142,7 +142,10 @@ export function rotateShape(s: Shape, from: Pt, to: Pt): Shape {
 }
 
 /** What the ink, brush-size and fill pickers can change on a shape that is still selected. */
-export type ShapeStyle = Partial<Pick<Shape, 'color' | 'filled' | 'width' | 'alpha'>>;
+export type ShapeStyle = Partial<Pick<Shape, 'color' | 'filled' | 'width' | 'alpha'>> & {
+	/** `null` turns the line style back to solid. */
+	dash?: Shape['dash'] | null;
+};
 
 /**
  * Restyle a selected shape (hub-cn7.10). Only the fields given change; the box and turn stay.
@@ -157,10 +160,15 @@ export function restyleShape(s: Shape, style: ShapeStyle): Shape {
 		if (style.alpha < 1) next.alpha = style.alpha;
 		else delete next.alpha;
 	}
+	if (style.dash !== undefined) {
+		if (style.dash === null) delete next.dash;
+		else next.dash = style.dash;
+	}
 	return next.color === s.color &&
 		next.filled === s.filled &&
 		next.width === s.width &&
-		(next.alpha ?? 1) === (s.alpha ?? 1)
+		(next.alpha ?? 1) === (s.alpha ?? 1) &&
+		next.dash === s.dash
 		? s
 		: next;
 }
