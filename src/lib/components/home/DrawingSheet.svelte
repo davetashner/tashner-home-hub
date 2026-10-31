@@ -92,6 +92,12 @@
 		type TextSize
 	} from '#lib/domain/drawing-text.js';
 	import {
+		KEEP_CHIP_MS,
+		loadSnapPref,
+		saveSnapPref,
+		snapStroke
+	} from '#lib/domain/drawing-snap.js';
+	import {
 		clampPoint,
 		handlePoints,
 		hitBody,
@@ -148,6 +154,7 @@
 		redoStep,
 		undoStep as historyUndo,
 		type Board,
+		type Entry,
 		type History
 	} from '#lib/domain/drawing-history.js';
 	import {
@@ -1195,6 +1202,7 @@
 		strokes.push(current);
 		history = recordAdd(history, current);
 		if (current.tool !== 'eraser') recent = pushRecent(recent, current.color);
+		const snapped = snapOn && !textMode ? snapStroke(current) : null;
 		current = null;
 		if (washFrame) {
 			// The last samples were still waiting for their frame: paint the finished wash now.
@@ -1202,7 +1210,9 @@
 			washFrame = 0;
 			redraw();
 		}
+		if (snapped) snapLast(snapped);
 		count = strokes.length;
+		syncLast();
 		blank = isBlank(strokes);
 	}
 
@@ -1225,10 +1235,37 @@
 
 	const boardNow = (): Board<DrawItem> => ({ items: [...strokes], page, photoId, bg, layers });
 
+	/**
+	 * Shape snapping (hub-cn7.21): swap the finished stroke for its clean shape as a second history
+	 * step, so Undo (and the Keep my line chip, which is just that Undo) brings the raw line back.
+	 */
+	let snapOn = $state(false);
+	/** The newest item's kind ('stroke' for ink), for tests and screen readers' sake. */
+	let lastKind = $state('');
+	const syncLast = () => {
+		const l = strokes[strokes.length - 1];
+		lastKind = !l ? '' : isShape(l) ? l.shape : 'stroke';
+	};
+	let snapEntry = $state.raw<Entry<DrawItem> | null>(null);
+	let snapTimer: ReturnType<typeof setTimeout> | undefined;
+	const keepChip = $derived(
+		snapEntry !== null && history.undo[history.undo.length - 1] === snapEntry
+	);
+	function snapLast(shape: Shape) {
+		const before = boardNow();
+		strokes[strokes.length - 1] = shape;
+		history = record(history, { type: 'replace', before, after: boardNow() });
+		snapEntry = history.undo[history.undo.length - 1];
+		clearTimeout(snapTimer);
+		snapTimer = setTimeout(() => (snapEntry = null), KEEP_CHIP_MS);
+		redraw();
+	}
+
 	/** Put a board on the canvases: ink, coloring page, photo, background and layers. */
 	function showBoard(b: Board<DrawItem>) {
 		strokes = [...b.items];
 		count = strokes.length;
+		syncLast();
 		blank = isBlank(strokes);
 		page = b.page as PageId | null;
 		bg = b.bg;
@@ -1443,6 +1480,7 @@
 
 	onMount(() => {
 		loadPrompt();
+		snapOn = loadSnapPref();
 		ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 		linesCtx = linesCanvas.getContext('2d') as CanvasRenderingContext2D;
 		photoCtx = photoCanvas.getContext('2d') as CanvasRenderingContext2D;
@@ -1526,6 +1564,7 @@
 				data-layer-picture={layers.picture}
 				style:opacity={layers.drawing ? undefined : 0}
 				data-strokes={count}
+				data-last={lastKind}
 				data-selected={sel !== null}
 				data-sel-rot={sel ? sel.rot.toFixed(3) : ''}
 				onpointerdown={down}
@@ -1609,6 +1648,14 @@
 					>
 				</button>
 			{/each}
+		{/if}
+		{#if keepChip}
+			<button
+				type="button"
+				class="{btn} absolute bottom-4 left-1/2 -translate-x-1/2 border-accent bg-surface shadow-raised"
+				data-testid="draw-keep-line"
+				onclick={undo}>Keep my line</button
+			>
 		{/if}
 		{#if clearToast}
 			<button
@@ -2113,6 +2160,17 @@
 						dropper = false;
 						tool = tool === 'eraser' ? 'pen' : 'eraser';
 					}}>Eraser</button
+				>
+				<button
+					type="button"
+					class="{btn} {snapOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+					aria-pressed={snapOn}
+					data-testid="draw-snap"
+					onclick={() => {
+						commit();
+						snapOn = !snapOn;
+						saveSnapPref(snapOn);
+					}}>Snap shapes: {snapOn ? 'On' : 'Off'}</button
 				>
 				<button
 					type="button"

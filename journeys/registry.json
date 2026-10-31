@@ -890,6 +890,12 @@
 					"text": "The drawing board shows a daily prompt that is the same on every device; Shuffle gives another, Hide removes it for the day, and a grown-up can turn prompts off in Settings > Drawing.",
 					"status": "built",
 					"beads": ["hub-cn7.27"]
+				},
+				{
+					"id": "J18.17",
+					"text": "Turn on Snap shapes and draw a rough circle, rectangle, triangle, line or arrow to get the clean shape; tap Keep my line (or Undo) to get the original stroke back. Snap is off until you turn it on.",
+					"status": "built",
+					"beads": ["hub-cn7.21"]
 				}
 			]
 		},
