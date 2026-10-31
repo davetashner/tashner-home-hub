@@ -247,7 +247,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J18.1 | Draw with a pen or finger on the Home notes card and post it to the board. | built | wall | `drawing` |
 | J18.2 | Tap a drawing to enlarge it; anyone dismisses it. | built | wall | `drawing` |
 | J18.3 | Pick any color from the big grid, reuse recent colors, choose a brush size, or highlight. | built | wall | `drawing` |
-| J18.4 | Open Shapes, pick a shape or stamp, then tap or drag on the canvas to place it; Undo takes it back. | built | wall | `drawing` |
+| J18.4 | Open Shapes, pick a shape or stamp, then tap or drag on the canvas to place it; Undo takes it back. | built | wall | `drawing-new-shapes`, `drawing` |
 | J18.5 | Tap Fill, pick a color, then tap inside a closed area to paint it; Undo takes the fill back. | built | wall | `drawing` |
 | J18.6 | Save an unfinished drawing, then reopen or delete it later from My drawings. | built | wall | `drawing` |
 | J18.7 | Pick a coloring page and color it in with Fill and the pens; the outlines stay put. | built | wall | `drawing` |
