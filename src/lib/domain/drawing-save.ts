@@ -5,6 +5,7 @@
  * (the wall can rotate between landscape and portrait). Pure: no canvas, no storage.
  */
 import { PAGE_SIZE, isPageId, pageFit, type PageId } from './drawing-pages.js';
+import { mirrorWire, parseMirrorWire } from './drawing-mirror.js';
 import { isPhotoId } from './drawing-photo.js';
 import { FILL_TOLERANCE, isFill, type FillItem } from './drawing-fill.js';
 import {
@@ -31,7 +32,7 @@ export interface Size {
 	h: number;
 }
 
-type WireStroke = { t: DrawTool; c: string; p: number[] };
+type WireStroke = { t: DrawTool; c: string; p: number[]; m?: number[] };
 /** `r` (hub-cn7.5) is the turn in radians; saves made before it have none and open upright. */
 type WireShape = { s: ShapeKind; c: string; f: boolean; w: number; b: number[]; r?: number };
 type WireFill = { k: 1; c: string; x: number; y: number; o: number };
@@ -89,7 +90,8 @@ export function serializeDrawing(
 			return {
 				t: it.tool,
 				c: it.color,
-				p: it.points.flatMap((p) => [X(p.x), Y(p.y), K(p.w)])
+				p: it.points.flatMap((p) => [X(p.x), Y(p.y), K(p.w)]),
+				...(it.mirror ? { m: mirrorWire(it.mirror, X, Y) } : {})
 			};
 		})
 	};
@@ -151,7 +153,8 @@ function parseWire(json: unknown): Wire | null {
 				!TOOLS.includes(it.t as string) ||
 				!Array.isArray(p) ||
 				p.length % 3 !== 0 ||
-				!p.every(num)
+				!p.every(num) ||
+				(it.m !== undefined && !parseMirrorWire(it.m))
 			)
 				return null;
 			points += p.length / 3;
@@ -223,6 +226,8 @@ export function loadDrawing(json: unknown, to: Size): DrawItem[] | null {
 		const st: Stroke = { tool: it.t, color: it.c, points: [] };
 		for (let i = 0; i < it.p.length; i += 3)
 			st.points.push({ x: X(it.p[i]), y: Y(it.p[i + 1]), w: it.p[i + 2] * s });
+		const m = it.m && parseMirrorWire(it.m, X, Y);
+		if (m) st.mirror = m;
 		return st;
 	});
 }
