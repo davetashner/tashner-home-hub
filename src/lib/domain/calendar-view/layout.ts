@@ -143,6 +143,8 @@ export interface SpanBar {
 	startCol: number;
 	endCol: number;
 	lane: number;
+	/** Whole-event length in days minus one, ignoring the week clip. */
+	total: number;
 	continuesBefore: boolean;
 	continuesAfter: boolean;
 }
@@ -156,6 +158,8 @@ export function spanBars(events: CalEvent[], weekKeys: DateKey[], timeZone: stri
 		if (last < weekKeys[0] || first > weekKeys[lastCol]) continue;
 		bars.push({
 			event,
+			// Whole-event length, so clipping at the week edge never reorders equal-looking bars.
+			total: daysBetween(first, last),
 			startCol: Math.max(0, daysBetween(weekKeys[0], first)),
 			endCol: Math.min(lastCol, daysBetween(weekKeys[0], last)),
 			lane: 0,
@@ -163,7 +167,14 @@ export function spanBars(events: CalEvent[], weekKeys: DateKey[], timeZone: stri
 			continuesAfter: last > weekKeys[lastCol]
 		});
 	}
-	bars.sort((a, b) => a.startCol - b.startCol || b.endCol - b.startCol - (a.endCol - a.startCol));
+	// Longer events first (by their full length, not the part inside this row): a row that shows
+	// fewer lanes than events (month cells) then keeps the longer event, not the shorter one.
+	bars.sort(
+		(a, b) =>
+			a.startCol - b.startCol ||
+			b.endCol - b.startCol - (a.endCol - a.startCol) ||
+			b.total - a.total
+	);
 	const laneEnds: number[] = [];
 	for (const bar of bars) {
 		let lane = laneEnds.findIndex((e) => e < bar.startCol);

@@ -230,6 +230,35 @@ describe('spanBars', () => {
 	});
 });
 
+describe('spanBars at a week and month boundary (hub-67t)', () => {
+	// Sat 2026-10-31 is the last cell of its Sunday-start row and the last day of October;
+	// US DST ends Sun 2026-11-01.
+	const week = range('2026-10-25', 7);
+	it('keeps the longer event in lane 0 when both clip to the same single cell', () => {
+		const holiday = allDay('2026-10-31', '2026-11-01', 'School holiday');
+		const grandma = allDay('2026-10-31', '2026-11-02', 'Grandma visits');
+		for (const input of [
+			[holiday, grandma],
+			[grandma, holiday]
+		]) {
+			const bars = spanBars(input, week, NY);
+			const get = (t: string) => bars.find((b) => b.event.title === t)!;
+			expect(get('Grandma visits')).toMatchObject({
+				startCol: 6,
+				endCol: 6,
+				lane: 0,
+				continuesAfter: true
+			});
+			expect(get('School holiday')).toMatchObject({ lane: 1, continuesAfter: true });
+		}
+	});
+	it('continues into the next row across the DST change', () => {
+		const grandma = allDay('2026-10-31', '2026-11-02', 'Grandma visits');
+		const bars = spanBars([grandma], range('2026-11-01', 7), NY);
+		expect(bars[0]).toMatchObject({ startCol: 0, endCol: 1, continuesBefore: true });
+	});
+});
+
 describe('periods', () => {
 	it('computes keys per view', () => {
 		expect(periodKeys('agenda', '2026-10-15')).toHaveLength(7);
