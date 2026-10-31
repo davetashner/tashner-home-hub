@@ -5,6 +5,7 @@
 
 import type { Mirror } from './drawing-mirror.js';
 import { isFill, type FillItem } from './drawing-fill.js';
+import { BRUSHES, isBrushTool, type BrushTool } from './drawing-brushes.js';
 import { stampParts } from './drawing-stamps.js';
 import {
 	EXTRA_DEFAULT_ASPECT,
@@ -22,7 +23,7 @@ export const DRAW_COLORS = [
 	'draw-purple'
 ] as const;
 export type DrawColor = (typeof DRAW_COLORS)[number];
-export type DrawTool = 'pen' | 'highlighter' | 'eraser';
+export type DrawTool = 'pen' | 'highlighter' | 'eraser' | BrushTool;
 
 /**
  * A stroke color: a `--color-draw-*` token name (the six ink swatches) or a CSS color string
@@ -74,6 +75,8 @@ export interface Stroke {
 	mirror?: Mirror;
 	/** Opacity 0.1-1 of a pen stroke (hub-cn7.13); absent means opaque. Highlighter keeps HIGHLIGHTER_ALPHA. */
 	alpha?: number;
+	/** Seeds a textured brush's grain (hub-cn7.19); absent on plain pens and older saves (0). */
+	seed?: number;
 }
 
 export const PEN_MIN_WIDTH = 2;
@@ -93,7 +96,7 @@ export function strokeWidth(
 	size: BrushSize = 'medium'
 ): number {
 	if (tool === 'eraser') return ERASER_WIDTH;
-	const scale = BRUSH_SCALE[size];
+	const scale = BRUSH_SCALE[size] * (isBrushTool(tool) ? BRUSHES[tool].widthScale : 1);
 	// A highlighter is a flat wide marker: pressure would make the translucent band uneven.
 	if (tool === 'highlighter') return HIGHLIGHTER_WIDTH * scale;
 	if (pointerType !== 'pen') return FIXED_WIDTH * scale;
