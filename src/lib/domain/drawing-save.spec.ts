@@ -257,3 +257,29 @@ describe('line styles', () => {
 		expect(loadDrawing(bad, size)).toBeNull();
 	});
 });
+
+describe('text items (hub-cn7.23)', () => {
+	const text = {
+		text: 'Hi\nYou',
+		color: 'draw-blue',
+		size: 80,
+		x0: 40,
+		y0: 60,
+		x1: 400,
+		y1: 252,
+		rot: 0.4
+	};
+	it('round-trips text, size, box and turn', () => {
+		const json = serializeDrawing([text], { w: 1000, h: 600 });
+		expect(isSavedDrawing(json)).toBe(true);
+		expect(loadDrawing(json, { w: 1000, h: 600 })).toEqual([text]);
+	});
+	it('rejects malformed text', () => {
+		const bad = (it: object) =>
+			isSavedDrawing(JSON.stringify({ v: 1, size: { w: 10, h: 10 }, items: [it] }));
+		const ok = { tx: 'x', c: 'draw-red', z: 10, b: [0, 0, 1, 1] };
+		expect(bad(ok)).toBe(true);
+		for (const wrong of [{ tx: '' }, { z: 0 }, { b: [0] }, { tx: 'x'.repeat(500) }])
+			expect(bad({ ...ok, ...wrong })).toBe(false);
+	});
+});
