@@ -3,7 +3,8 @@
  * contract is `drawing-live.ts`. Each device draws locally (instant, with its own undo/redo) and
  * sends in the background. Other people's items live in a `Remote` board painted under the local
  * strokes; the echo of this device's own adds is skipped, since the stroke is already on screen.
- * Clear all is disabled while sharing, and undo only removes your own last item.
+ * Clear all is disabled while sharing, and undo only removes your own last item. A snapped shape
+ * goes out as one add; Keep my line sends an undo plus an add. Text edited after sending is not re-sent.
  */
 import {
 	applyEntries,

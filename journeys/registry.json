@@ -896,6 +896,12 @@
 					"text": "Turn on Snap shapes and draw a rough circle, rectangle, triangle, line or arrow to get the clean shape; tap Keep my line (or Undo) to get the original stroke back. Snap is off until you turn it on.",
 					"status": "built",
 					"beads": ["hub-cn7.21"]
+				},
+				{
+					"id": "J18.18",
+					"text": "Tap Share on the board; another device is invited and joins with one tap. Strokes show on every board as they are drawn, each person undoes only their own, and drawing carries on offline and syncs on reconnect.",
+					"status": "built",
+					"beads": ["hub-cn7.30"]
 				}
 			]
 		},

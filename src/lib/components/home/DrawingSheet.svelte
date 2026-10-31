@@ -1330,6 +1330,7 @@
 		strokes = [...b.items];
 		count = strokes.length;
 		syncLast();
+		live?.sync(strokes, selected !== null);
 		blank = isBlank(strokes);
 		page = b.page as PageId | null;
 		bg = b.bg;
