@@ -1211,13 +1211,6 @@
 		data-testid="draw-holder"
 		data-bg={bg ?? ''}
 	>
-		{#if promptDate && !promptHidden}
-			<PromptBanner
-				prompt={promptForDate(promptDate, promptShuffles)}
-				onshuffle={() => promptShuffles++}
-				ondismiss={hidePrompt}
-			/>
-		{/if}
 		<div
 			class="absolute inset-0 origin-top-left"
 			style:transform={viewCss(view)}
@@ -1343,6 +1336,13 @@
 	<div
 		class="flex flex-wrap content-start gap-3 overflow-y-auto portrait:max-h-1/2 landscape:w-1/4"
 	>
+		{#if promptDate && !promptHidden}
+			<PromptBanner
+				prompt={promptForDate(promptDate, promptShuffles)}
+				onshuffle={() => promptShuffles++}
+				ondismiss={hidePrompt}
+			/>
+		{/if}
 		{#if choosing}
 			<p class="w-full text-body font-extrabold">Who drew it?</p>
 			<div class="flex flex-wrap gap-3" data-testid="draw-authors">
