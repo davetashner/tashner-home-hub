@@ -7,6 +7,7 @@ import { gotoHydrated } from './hydrated';
 import { expectTappable } from './tap';
 import { trackMember } from './cleanup';
 import { DATA_DIR, DB_PATH } from './data-dir';
+import { ALL_SHAPES } from '../../src/lib/domain/drawing';
 import { syntheticJpeg } from '../../src/lib/server/photo-cache/fixtures';
 
 // hub-fkp: the drawing board posts a PNG note. Runs in both wall orientations.
@@ -255,7 +256,7 @@ test('insert shapes and stamps, outline or filled, undo @J18.4', async ({ page }
 		const canvas = page.getByTestId('draw-canvas');
 		await expectTappable(page.getByTestId('draw-shapes-open'), 96);
 		await page.getByTestId('draw-shapes-open').click();
-		await expect(page.getByTestId('draw-shape')).toHaveCount(20);
+		await expect(page.getByTestId('draw-shape')).toHaveCount(ALL_SHAPES.length);
 		await expectTappable(page.getByTestId('draw-shape').first(), 96);
 
 		// An outlined square dragged out leaves ink and counts as one undoable item.

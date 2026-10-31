@@ -6,6 +6,11 @@
 import type { Mirror } from './drawing-mirror.js';
 import { isFill, type FillItem } from './drawing-fill.js';
 import { stampParts } from './drawing-stamps.js';
+import {
+	EXTRA_DEFAULT_ASPECT,
+	EXTRA_SHAPE_KINDS,
+	extraShapeParts
+} from './drawing-shapes-extra.js';
 
 /** Ink and eraser choices. Colors are `--color-draw-*` tokens read at runtime (canvas cannot use classes). */
 export const DRAW_COLORS = [
@@ -134,7 +139,8 @@ export const SHAPE_KINDS = [
 	'star',
 	'heart',
 	'line',
-	'arrow'
+	'arrow',
+	...EXTRA_SHAPE_KINDS
 ] as const;
 export const STAMP_KINDS = [
 	'sun',
@@ -161,6 +167,16 @@ export const SHAPE_LABELS: Record<ShapeKind, string> = {
 	heart: 'Heart',
 	line: 'Line',
 	arrow: 'Arrow',
+	oval: 'Oval',
+	diamond: 'Diamond',
+	pentagon: 'Pentagon',
+	hexagon: 'Hexagon',
+	rounded: 'Rounded rectangle',
+	moon: 'Crescent moon',
+	cloud: 'Cloud',
+	bolt: 'Lightning bolt',
+	rainbow: 'Rainbow',
+	doublearrow: 'Double arrow',
 	sun: 'Sun',
 	flower: 'Flower',
 	smiley: 'Smiley',
@@ -228,7 +244,8 @@ export function placement(
 		return { x0: from.x, y0: from.y, x1: to.x, y1: to.y };
 	const h = SHAPE_DEFAULT_SIZE / 2;
 	if (isLineShape(kind)) return { x0: from.x - h, y0: from.y, x1: from.x + h, y1: from.y };
-	return { x0: from.x - h, y0: from.y - h, x1: from.x + h, y1: from.y + h };
+	const v = h * (EXTRA_DEFAULT_ASPECT[kind] ?? 1);
+	return { x0: from.x - h, y0: from.y - v, x1: from.x + h, y1: from.y + v };
 }
 
 /** The box a shape occupies (normalized, so dragging up and left works). */
@@ -368,6 +385,17 @@ export function shapeParts(s: Pick<Shape, 'shape' | 'x0' | 'y0' | 'x1' | 'y1'>):
 				{ kind: 'solid', cmds: [['E', cx, cy, rx * 0.22, ry * 0.22]] }
 			];
 		}
+		case 'oval':
+		case 'diamond':
+		case 'pentagon':
+		case 'hexagon':
+		case 'rounded':
+		case 'moon':
+		case 'cloud':
+		case 'bolt':
+		case 'rainbow':
+		case 'doublearrow':
+			return extraShapeParts(s.shape, { x, y, w, h });
 		case 'bubble':
 		case 'cat':
 		case 'dog':
