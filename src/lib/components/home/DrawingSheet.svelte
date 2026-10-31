@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import ReplayPlayer from './drawing/ReplayPlayer.svelte';
@@ -25,7 +25,8 @@
 		type PageId
 	} from '#lib/domain/drawing-pages.js';
 	import {
-		loadDrawing,
+		isSavedDrawing,
+		loadFrames,
 		savedBackground,
 		savedPage,
 		savedPhoto,
@@ -58,12 +59,15 @@
 		duplicate,
 		moveCurrent,
 		newFlipbook,
+		fromFrames,
+		frameItems,
 		onionItems,
 		removeCurrent,
 		select as selectFrame,
 		store as storeFrame,
 		type Flipbook
 	} from '#lib/domain/drawing-flipbook.js';
+	import { fpsOf, frameAt, nextSpeed, type PlaySpeed } from '#lib/domain/drawing-flipbook-play.js';
 	import FlipbookStrip from './drawing/FlipbookStrip.svelte';
 	import { compositePixel, pixelAt, rgbCss, type Rgba } from '#lib/domain/drawing-eyedropper.js';
 	import EyedropperPreview from '#lib/components/home/drawing/EyedropperPreview.svelte';
@@ -917,7 +921,7 @@
 	function drawOnion() {
 		onionCtx.setTransform(1, 0, 0, 1, 0, 0);
 		onionCtx.clearRect(0, 0, onionCanvas.width, onionCanvas.height);
-		const prev = flip && flipOn && onion ? onionItems(flip) : null;
+		const prev = flip && flipOn && onion && !playing ? onionItems(flip) : null;
 		if (prev) paintOn(onionCtx, prev);
 	}
 
@@ -942,9 +946,51 @@
 			thumbs = flip.frames.map((f, i) => frameThumb(i === flip!.current ? strokes : f.items));
 	}
 
+	/** Playback (hub-cn7.26): loops the frames on the board's canvas; a tap on the board stops it. */
+	let playing = $state(false);
+	let speed = $state<PlaySpeed>('medium');
+	let playRaf = 0;
+
+	function startPlay() {
+		if (!flip || flip.frames.length < 2) return;
+		commit();
+		const frames = frameItems(storeFrame(flip, [...strokes], history));
+		const first = flip.current;
+		const t0 = performance.now();
+		let shown = -1;
+		playing = true;
+		drawOnion();
+		const tick = (now: number) => {
+			const i = frameAt(now - t0, frames.length, fpsOf(speed), first);
+			if (i !== shown) {
+				shown = i;
+				ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				paintOn(ctx, frames[i]);
+			}
+			playRaf = requestAnimationFrame(tick);
+		};
+		playRaf = requestAnimationFrame(tick);
+	}
+
+	function stopPlay() {
+		if (!playing) return;
+		cancelAnimationFrame(playRaf);
+		playing = false;
+		redraw();
+		drawOnion();
+	}
+
+	// Any change to the live frame (undo, redo, clear) ends playback.
+	$effect(() => {
+		void history;
+		untrack(stopPlay);
+	});
+
 	/** Run a frame operation: write the live frame back, apply it, then put the new current frame on the board. */
 	function frameOp(op: (fb: Flipbook<DrawItem>) => Flipbook<DrawItem> | null) {
 		if (!flip) return;
+		stopPlay();
 		commit();
 		hideToast();
 		const next = op(storeFrame(flip, [...strokes], history));
@@ -958,6 +1004,7 @@
 	}
 
 	function toggleFlip() {
+		stopPlay();
 		commit();
 		if (flipOn) {
 			flip = flip && storeFrame(flip, [...strokes], history);
@@ -1355,6 +1402,24 @@
 	/** Keep the drawing for later. Shown as saved at once; the note changes only if the server refuses. */
 	async function saveAs(memberId: string) {
 		choosing = false;
+		stopPlay();
+		commit();
+		const [first, ...rest] = flip
+			? frameItems(storeFrame(flip, [...strokes], history))
+			: [strokes as readonly DrawItem[]];
+		const data = serializeDrawing(
+			first,
+			{ w: canvas.width / dpr, h: canvas.height / dpr },
+			dpr,
+			page,
+			bg,
+			photoId,
+			rest
+		);
+		if (!isSavedDrawing(data)) {
+			note = 'Too many frames or too much drawing to keep. Take out a frame or some lines.';
+			return;
+		}
 		note = 'Saved!';
 		try {
 			const res = await fetch('/api/drawings', {
@@ -1363,14 +1428,7 @@
 				body: JSON.stringify({
 					memberId,
 					id: saved && saved.memberId === memberId ? saved.id : undefined,
-					data: serializeDrawing(
-						strokes,
-						{ w: canvas.width / dpr, h: canvas.height / dpr },
-						dpr,
-						page,
-						bg,
-						photoId
-					),
+					data,
 					thumb: thumbnail()
 				})
 			});
@@ -1408,12 +1466,14 @@
 		try {
 			const res = await fetch(`/api/drawings/${row.id}`);
 			const data: unknown = res.ok ? (await res.json()).data : null;
-			const items = loadDrawing(data, { w: canvas.width / dpr, h: canvas.height / dpr });
-			if (!items) throw new Error('bad drawing');
+			const frames = loadFrames(data, { w: canvas.width / dpr, h: canvas.height / dpr });
+			if (!frames) throw new Error('bad drawing');
+			const items = frames[0];
+			stopPlay();
 			commit();
 			resetHistory();
-			flip = null;
-			flipOn = false;
+			flip = frames.length > 1 ? fromFrames(frames, 0) : null;
+			flipOn = flip !== null;
 			drawOnion();
 			page = savedPage(data);
 			bg = savedBackground(data);
@@ -1431,6 +1491,7 @@
 			note = '';
 			redraw();
 			replaying = replay && items.length ? items : null;
+			if (flip) refreshThumbs();
 		} catch {
 			note = 'Could not open that drawing.';
 		}
@@ -1498,6 +1559,7 @@
 		ro.observe(holder);
 		return () => {
 			ro.disconnect();
+			cancelAnimationFrame(playRaf);
 			clearTimeout(toastTimer);
 		};
 	});
@@ -1623,6 +1685,15 @@
 				/>
 			{/if}
 		</div>
+		{#if playing}
+			<button
+				type="button"
+				class="absolute inset-0 z-10 size-full cursor-pointer"
+				aria-label="Stop"
+				data-testid="flip-stop"
+				onclick={stopPlay}
+			></button>
+		{/if}
 		{#if drop}
 			<EyedropperPreview x={drop.x} y={drop.y} color={drop.color} />
 		{/if}
@@ -1886,6 +1957,10 @@
 					{onion}
 					canAdd={canAdd(flip)}
 					canDelete={canDelete(flip)}
+					{playing}
+					{speed}
+					onplay={startPlay}
+					onspeed={() => (speed = nextSpeed(speed))}
 					onselect={(i) => frameOp((fb) => selectFrame(fb, i))}
 					onadd={() => frameOp(addBlank)}
 					oncopy={() => frameOp(duplicate)}

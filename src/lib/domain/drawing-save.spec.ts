@@ -8,6 +8,7 @@ import {
 	isSavedDrawing,
 	isBackground,
 	loadDrawing,
+	loadFrames,
 	savedBackground,
 	savedPage,
 	savedPhoto,
@@ -281,5 +282,30 @@ describe('text items (hub-cn7.23)', () => {
 		expect(bad(ok)).toBe(true);
 		for (const wrong of [{ tx: '' }, { z: 0 }, { b: [0] }, { tx: 'x'.repeat(500) }])
 			expect(bad({ ...ok, ...wrong })).toBe(false);
+	});
+});
+
+describe('flipbook frames (hub-cn7.26)', () => {
+	const json = serializeDrawing([stroke], size, 1, null, null, null, [[shape], []]);
+	it('round trips every frame and keeps frame 0 as the top-level items', () => {
+		expect(isSavedDrawing(json)).toBe(true);
+		const frames = loadFrames(json, size)!;
+		expect(frames.map((f) => f.length)).toEqual([1, 1, 0]);
+		expect(isShape(frames[1][0])).toBe(true);
+		expect(loadDrawing(json, size)).toHaveLength(1);
+		expect(JSON.parse(json).items).toHaveLength(1);
+	});
+	it('opens a plain drawing as one frame', () => {
+		expect(loadFrames(serializeDrawing([stroke], size), size)).toHaveLength(1);
+	});
+	it('counts items across all frames and rejects bad or too many frames', () => {
+		const many = Array.from({ length: SAVED_MAX_ITEMS }, () => shape);
+		expect(isSavedDrawing(serializeDrawing(many, size, 1, null, null, null, [[shape]]))).toBe(
+			false
+		);
+		const w = JSON.parse(json);
+		expect(isSavedDrawing(JSON.stringify({ ...w, frames: 'x' }))).toBe(false);
+		expect(isSavedDrawing(JSON.stringify({ ...w, frames: Array(30).fill([]) }))).toBe(false);
+		expect(isSavedDrawing(JSON.stringify({ ...w, frames: [[{ c: 'draw-red' }]] }))).toBe(false);
 	});
 });

@@ -1,11 +1,15 @@
 <script lang="ts">
 	// Flipbook frame strip (hub-cn7.25): thumbnails to pick a frame, plus add, copy, delete,
 	// reorder and the onion-skin toggle. Presentational: the sheet owns the frames.
+	import { PLAY_SPEEDS, type PlaySpeed } from '#lib/domain/drawing-flipbook-play.js';
+
 	interface Props {
 		/** One thumbnail data URL per frame ('' until painted). */
 		thumbs: string[];
 		current: number;
 		onion: boolean;
+		playing: boolean;
+		speed: PlaySpeed;
 		canAdd: boolean;
 		canDelete: boolean;
 		onselect: (index: number) => void;
@@ -14,6 +18,8 @@
 		ondelete: () => void;
 		onmove: (step: -1 | 1) => void;
 		ononion: () => void;
+		onplay: () => void;
+		onspeed: () => void;
 	}
 	let {
 		thumbs,
@@ -26,7 +32,11 @@
 		oncopy,
 		ondelete,
 		onmove,
-		ononion
+		ononion,
+		playing,
+		speed,
+		onplay,
+		onspeed
 	}: Props = $props();
 
 	const btn =
@@ -59,6 +69,17 @@
 		{/each}
 	</div>
 	<div class="flex flex-wrap gap-3">
+		<button
+			type="button"
+			class="{btn} {playing ? 'border-accent bg-accent-soft' : ''}"
+			disabled={thumbs.length < 2}
+			aria-pressed={playing}
+			data-testid="flip-play"
+			onclick={onplay}>Play</button
+		>
+		<button type="button" class={btn} data-testid="flip-speed" data-speed={speed} onclick={onspeed}
+			>Speed: {PLAY_SPEEDS.find((s) => s.id === speed)?.label}</button
+		>
 		<button type="button" class={btn} disabled={!canAdd} data-testid="flip-add" onclick={onadd}
 			>New frame</button
 		>
