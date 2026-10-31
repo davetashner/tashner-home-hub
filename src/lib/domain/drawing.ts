@@ -72,6 +72,8 @@ export interface Stroke {
 	points: DrawPoint[];
 	/** Mirror mode (hub-cn7.18): painted once per copy, still one stroke (one undo step). */
 	mirror?: Mirror;
+	/** Opacity 0.1-1 of a pen stroke (hub-cn7.13); absent means opaque. Highlighter keeps HIGHLIGHTER_ALPHA. */
+	alpha?: number;
 }
 
 export const PEN_MIN_WIDTH = 2;
@@ -205,6 +207,8 @@ export interface Shape {
 	y1: number;
 	/** Turn in radians about the box centre (hub-cn7.5). Absent means upright; lines bake it into their ends. */
 	rot?: number;
+	/** Opacity 0.1-1 (hub-cn7.13); absent means opaque. */
+	alpha?: number;
 }
 
 export type PathCmd =

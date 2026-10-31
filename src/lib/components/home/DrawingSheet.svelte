@@ -65,7 +65,6 @@
 		type PathCmd,
 		type Shape,
 		type ShapeKind,
-		COLOR_GRID,
 		DRAW_COLORS,
 		HIGHLIGHTER_ALPHA,
 		BRUSH_SCALE,
@@ -98,6 +97,8 @@
 		type History
 	} from '#lib/domain/drawing-history.js';
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
+	import { PALETTE, isTranslucent } from '#lib/domain/drawing-colors.js';
+	import OpacityPicker from './drawing/OpacityPicker.svelte';
 	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
 
 	interface Member {
@@ -147,6 +148,8 @@
 	let tool = $state<DrawTool>('pen');
 	let color = $state<InkColor>('draw-black');
 	let size = $state<BrushSize>('medium');
+	/** Opacity of the next pen stroke or shape (hub-cn7.13). */
+	let alpha = $state(1);
 	let recent = $state<string[]>([]);
 	let picking = $state(false);
 	let shapePicking = $state(false);
@@ -355,25 +358,29 @@
 		ctx.stroke();
 	}
 
-	/** A highlighter stroke is one translucent path, so its own overlaps do not darken. */
+	/** Highlighter and faded pen strokes are one translucent path, so their own overlaps do not darken. */
+	const translucent = (s: Stroke) =>
+		s.tool === 'highlighter' || (s.tool === 'pen' && isTranslucent(s.alpha));
+
 	function highlight(s: Stroke) {
-		if (!s.mirror) return highlightPath(s.color, s.points);
+		if (!s.mirror) return highlightPath(s, s.points);
 		const m = s.mirror;
 		const copies = s.points.map((p) => mirrorPoints(p.x, p.y, m));
 		for (let k = 0; k < m.n; k++)
 			highlightPath(
-				s.color,
+				s,
 				s.points.map((p, i) => ({ ...p, ...copies[i][k] }))
 			);
 	}
 
-	function highlightPath(color: string, pts: DrawPoint[]) {
+	function highlightPath(s: Stroke, pts: DrawPoint[]) {
+		const hl = s.tool === 'highlighter';
 		ctx.globalCompositeOperation = 'source-over';
-		ctx.globalAlpha = HIGHLIGHTER_ALPHA;
-		ctx.strokeStyle = token(color);
+		ctx.globalAlpha = hl ? HIGHLIGHTER_ALPHA : (s.alpha ?? 1);
+		ctx.strokeStyle = token(s.color);
 		ctx.lineCap = 'round';
 		ctx.lineJoin = 'round';
-		ctx.lineWidth = pts[0].w;
+		ctx.lineWidth = hl ? pts[0].w : pts.reduce((t, p) => t + p.w, 0) / pts.length;
 		ctx.beginPath();
 		ctx.moveTo(pts[0].x, pts[0].y);
 		for (const p of pts) ctx.lineTo(p.x, p.y);
@@ -507,7 +514,7 @@
 			ctx.translate(-c.x, -c.y);
 		}
 		ctx.globalCompositeOperation = 'source-over';
-		ctx.globalAlpha = 1;
+		ctx.globalAlpha = s.alpha ?? 1;
 		ctx.strokeStyle = ctx.fillStyle = token(s.color);
 		ctx.lineCap = 'round';
 		ctx.lineJoin = 'round';
@@ -564,7 +571,7 @@
 	function paint(s: DrawItem) {
 		if (isFill(s)) paintFill(s);
 		else if (isShape(s)) paintShape(s);
-		else if (s.tool === 'highlighter') highlight(s);
+		else if (translucent(s)) highlight(s);
 		else for (let i = 0; i < s.points.length; i++) segment(s, i);
 	}
 
@@ -647,10 +654,15 @@
 			redraw();
 			return;
 		}
-		current = { tool, color, points: [sample(e)] };
+		current = {
+			tool,
+			color,
+			points: [sample(e)],
+			...(tool === 'pen' && isTranslucent(alpha) ? { alpha } : {})
+		};
 		if (mirrorN)
 			current.mirror = centeredMirror(mirrorN, { w: canvas.width / dpr, h: canvas.height / dpr });
-		if (tool === 'highlighter') redraw();
+		if (translucent(current)) redraw();
 		else segment(current, 0);
 	}
 
@@ -659,7 +671,14 @@
 		from: { x: number; y: number },
 		to: { x: number; y: number }
 	): Shape {
-		return { shape: kind, color, filled, width: shapeWidth(size), ...placement(kind, from, to) };
+		return {
+			shape: kind,
+			color,
+			filled,
+			width: shapeWidth(size),
+			...(isTranslucent(alpha) ? { alpha } : {}),
+			...placement(kind, from, to)
+		};
 	}
 
 	function move(e: PointerEvent) {
@@ -677,9 +696,9 @@
 		for (const c of events.length ? events : [e]) {
 			const last = current.points[current.points.length - 1];
 			current.points.push(sample(c, last.w));
-			if (current.tool !== 'highlighter') segment(current, current.points.length - 1);
+			if (!translucent(current)) segment(current, current.points.length - 1);
 		}
-		if (current.tool === 'highlighter') redraw();
+		if (translucent(current)) redraw();
 	}
 
 	function up(e: PointerEvent) {
@@ -1182,7 +1201,7 @@
 				aria-label="Background colors"
 				data-testid="draw-bg-grid"
 			>
-				{#each COLOR_GRID as c (c)}
+				{#each PALETTE as c (c)}
 					<button
 						type="button"
 						class="size-tap-kid rounded-chip border-4 {bg === c ? 'border-accent' : 'border-line'}"
@@ -1299,7 +1318,7 @@
 					aria-label="All colors"
 					data-testid="draw-grid"
 				>
-					{#each COLOR_GRID as c (c)}
+					{#each PALETTE as c (c)}
 						<button
 							type="button"
 							class="size-tap-kid rounded-chip border-4 {color === c && tool !== 'eraser'
@@ -1354,6 +1373,13 @@
 						{/each}
 					</div>
 				{/if}
+				<OpacityPicker
+					value={alpha}
+					onpick={(a) => {
+						alpha = a;
+						restyle({ alpha: a });
+					}}
+				/>
 				<div class="flex flex-wrap gap-3" role="group" aria-label="Brush size">
 					{#each BRUSH_SIZES as b (b)}
 						<button
