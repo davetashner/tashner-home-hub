@@ -872,6 +872,12 @@
 					"text": "With no background picked, the saved thumbnail and the posted drawing are white paper, not black.",
 					"status": "built",
 					"beads": ["hub-cn7.11"]
+				},
+				{
+					"id": "J18.14",
+					"text": "Tap Clear all to reset ink, page, photo and background; tap Undo clear (or Undo) to bring the board back, and Redo to re-apply.",
+					"status": "built",
+					"beads": ["hub-cn7.12"]
 				}
 			]
 		},

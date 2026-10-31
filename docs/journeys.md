@@ -257,6 +257,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J18.11 | Pick a photo from the family photo library and draw on it; the photo cannot be erased and is saved with the drawing. | built | wall | `drawing` |
 | J18.12 | Open Layers to hide or show the drawing and the picture (photo or coloring page); posting leaves out a hidden layer. | built | wall | `drawing` |
 | J18.13 | With no background picked, the saved thumbnail and the posted drawing are white paper, not black. | built | wall | `drawing` |
+| J18.14 | Tap Clear all to reset ink, page, photo and background; tap Undo clear (or Undo) to bring the board back, and Redo to re-apply. | built | wall | `drawing` |
 | **J19** | **Sitter mode** (Parent at the wall) | | | |
 | J19.1 | A grown-up fills in the info card: emergency contacts, address, allergies, bedtimes, house rules, pets with the vet and pet emergency hospital, Wi-Fi and notes for tonight. | built | wall | untested: undefined |
 | J19.2 | Start a sitter session now or on a schedule, with an optional sitter name, 4-digit PIN and permissions. | built | wall | untested: undefined |
