@@ -6,6 +6,7 @@
 	import HomeControls from '#lib/components/home/HomeControls.svelte';
 	import Icon from '#lib/components/shell/Icon.svelte';
 	import { timerState } from '#lib/components/timers/timers-state.svelte.js';
+	import SportsStrip from '#lib/components/home/SportsStrip.svelte';
 	import HomeNotes from '#lib/components/home/HomeNotes.svelte';
 	import { page } from '$app/state';
 	import { TODO_FALLBACK } from '#lib/domain/nav.js';
@@ -41,6 +42,7 @@
 			<Clock testidPrefix="clock" size="hero" />
 			<div class="contents short:block short:min-w-0 short:flex-1"><WeatherWidget /></div>
 		</div>
+		<SportsStrip />
 		<div class="grid grid-cols-3 gap-8 portrait:grid-cols-1 short:gap-3 tablet:gap-4">
 			{#each tiles as tile (tile.title)}
 				<Card class="short:p-3 tablet:p-5">
