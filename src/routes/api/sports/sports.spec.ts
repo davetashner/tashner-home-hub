@@ -113,6 +113,9 @@ it('ticks on the cadence the games imply', async () => {
 	expect(await sp.sportsTick(db, f, NOW + 20_000)).toBe(false);
 	expect(await sp.sportsTick(db, f, NOW + 46_000)).toBe(true);
 	expect(sp.startSportsScheduler({ HUB_SPORTS: 'off' } as NodeJS.ProcessEnv)).toBeUndefined();
+	expect(
+		sp.startSportsScheduler({ E2E_DATA_DIR: '/tmp/e2e' } as NodeJS.ProcessEnv)
+	).toBeUndefined();
 	const job = sp.startSportsScheduler({} as NodeJS.ProcessEnv);
 	expect(job).toBeDefined();
 	job?.stop();
@@ -134,6 +137,19 @@ it('fetches in the background when no cache exists yet', async () => {
 	vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 	sp.getSports(db, espn('pre', true), NOW);
 	await vi.waitFor(() => expect(sp.getSports(db, f, NOW).updatedAt).not.toBeNull());
+});
+
+it('never calls ESPN under the e2e harness or when switched off', async () => {
+	const { settings } = await import('#lib/server/db/schema.js');
+	const { eq } = await import('drizzle-orm');
+	const db = getDb();
+	db.delete(settings).where(eq(settings.key, 'sports.cache')).run();
+	sp.resetSportsState();
+	const f = vi.fn(espn());
+	for (const env of [{ E2E_DATA_DIR: '/tmp/e2e' }, { HUB_SPORTS: 'off' }]) {
+		expect(sp.getSports(db, f, NOW, env as NodeJS.ProcessEnv)).toMatchObject({ games: [] });
+	}
+	expect(f).not.toHaveBeenCalled();
 });
 
 it('requires an adult to change teams and validates the list', async () => {
