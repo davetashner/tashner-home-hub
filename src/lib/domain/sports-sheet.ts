@@ -1,6 +1,6 @@
 /** Pure logic for the 14-day games sheet: day groups, row labels, calendar clashes (hub-5tk.3). */
 import { resultOf, type Game, type SportsTeam } from '#lib/domain/sports.js';
-import { clockTime, daysAway, shortName } from '#lib/domain/sports-strip.js';
+import { clockTime, daysAway, opponentShort } from '#lib/domain/sports-strip.js';
 
 /** The slice of a calendar event the clash check needs. */
 export interface ClashEvent {
@@ -93,7 +93,7 @@ function rowFor(
 		teamId: game.team,
 		abbr: team?.abbr ?? game.team.split(':')[1]?.toUpperCase() ?? '',
 		state: game.status,
-		title: `${team?.name ?? ''} ${game.home ? 'vs' : 'at'} ${shortName(game.opponent.name)}`.trim(),
+		title: `${team?.name ?? ''} ${game.home ? 'vs' : 'at'} ${opponentShort(game)}`.trim(),
 		time: game.status === 'scheduled' ? clockTime(start, timeZone) : null,
 		channel: game.channel,
 		status: game.status === 'live' && status ? status : null,

@@ -33,6 +33,14 @@ export interface StripCard {
 const DAY_MS = 86_400_000;
 const TWO_WORD_NICKNAMES = new Set(['Blue', 'Red', 'Maple', 'Golden', 'Hockey']);
 
+/**
+ * The opponent's short name: ESPN's own when the game has it, else a guess from the full name
+ * (for snapshots cached before the parser kept it).
+ */
+export function opponentShort(g: Pick<Game, 'opponent'>): string {
+	return g.opponent.short ?? shortName(g.opponent.name);
+}
+
 /** "Pittsburgh Steelers" becomes "Steelers"; "Columbus Blue Jackets" becomes "Blue Jackets". */
 export function shortName(full: string): string {
 	const words = full.trim().split(/\s+/);
@@ -98,7 +106,7 @@ function nextFor(games: readonly Game[], team: SportsTeam, now: number): Game | 
 
 function finalLine(team: SportsTeam, g: Game): string {
 	const mine = `${team.name} ${g.teamScore}`;
-	const theirs = `${shortName(g.opponent.name)} ${g.opponentScore}`;
+	const theirs = `${opponentShort(g)} ${g.opponentScore}`;
 	const lost = (g.teamScore ?? 0) < (g.opponentScore ?? 0);
 	return `Final: ${lost ? `${theirs}, ${mine}` : `${mine}, ${theirs}`}`;
 }
@@ -122,7 +130,7 @@ function cardFor(
 			state: 'live',
 			big: true,
 			eyebrow: status ? `Live · ${status}` : 'Live',
-			title: `${team.name} ${vsAt(live)} ${shortName(live.opponent.name)}`,
+			title: `${team.name} ${vsAt(live)} ${opponentShort(live)}`,
 			sub: live.channel,
 			score:
 				live.teamScore === null || live.opponentScore === null
@@ -143,7 +151,7 @@ function cardFor(
 			big: false,
 			title: finalLine(team, done),
 			sub: next
-				? `Next: ${dayWord(Date.parse(next.start), now, timeZone, false)} ${vsAt(next)} ${shortName(next.opponent.name)}`
+				? `Next: ${dayWord(Date.parse(next.start), now, timeZone, false)} ${vsAt(next)} ${opponentShort(next)}`
 				: null,
 			result: resultOf(done)
 		};
@@ -152,7 +160,7 @@ function cardFor(
 	const next = nextFor(games, team, now);
 	if (!next) return null;
 	const start = Date.parse(next.start);
-	const title = `${team.name} ${vsAt(next)} ${shortName(next.opponent.name)}`;
+	const title = `${team.name} ${vsAt(next)} ${opponentShort(next)}`;
 	const when = [clockTime(start, timeZone), next.channel].filter(Boolean).join(' · ');
 	if (daysAway(start, now, timeZone) === 0) {
 		const left = countdownText(start, now);
