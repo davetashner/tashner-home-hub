@@ -1809,7 +1809,8 @@
 	</div>
 
 	<div
-		class="flex min-h-0 flex-wrap content-start gap-3 overflow-y-auto portrait:h-1/2 landscape:w-1/4"
+		class="flex min-h-0 flex-wrap content-start gap-3 overflow-y-auto portrait:h-1/3 portrait:shrink-0 landscape:w-1/4"
+		data-testid="draw-panel"
 	>
 		{#if mainTools}
 			<div

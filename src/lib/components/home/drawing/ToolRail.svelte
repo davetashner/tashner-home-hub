@@ -13,7 +13,7 @@
 
 <!-- The wrapper carries the stable rail testid; the button keeps the old flat-button testid. -->
 <div
-	class="flex shrink-0 flex-wrap content-start gap-2 overflow-y-auto rounded-card bg-surface-sunken p-2 landscape:w-fit landscape:flex-col landscape:flex-nowrap"
+	class="flex shrink-0 flex-nowrap content-start gap-2 overflow-x-auto rounded-card bg-surface-sunken p-2 landscape:w-fit landscape:flex-col landscape:overflow-x-visible landscape:overflow-y-auto"
 	role="group"
 	aria-label="Tools"
 	data-testid="draw-rail"
@@ -48,7 +48,10 @@
 			</button>
 		</div>
 	{/each}
-	<hr class="m-0 w-full border-line landscape:w-auto" aria-hidden="true" />
+	<hr
+		class="m-0 self-stretch border-s-2 border-line landscape:w-full landscape:self-auto landscape:border-s-0 landscape:border-t-2"
+		aria-hidden="true"
+	/>
 	{#each RAIL_SECTIONS as x (x.id)}
 		<div class="flex" data-testid="draw-rail-{x.id}">
 			<button
