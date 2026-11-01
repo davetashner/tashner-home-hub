@@ -18,7 +18,8 @@ export interface Game {
 	league: League;
 	/** The followed team's id (SportsTeam.id). */
 	team: string;
-	opponent: { name: string; abbr: string };
+	/** `short` is ESPN's shortDisplayName ("Blue Jackets"); caches from before it existed lack it. */
+	opponent: { name: string; abbr: string; short?: string };
 	home: boolean;
 	/** Start time, ISO 8601 UTC. */
 	start: string;
@@ -145,6 +146,7 @@ function parseEvent(raw: unknown, teams: readonly SportsTeam[]): Game[] {
 		const opp = isObj(them.team) ? them.team : {};
 		const oppAbbr = text(opp.abbreviation);
 		const oppName = text(opp.displayName) ?? text(opp.name) ?? oppAbbr;
+		const oppShort = text(opp.shortDisplayName) ?? text(opp.nickname);
 		if (!oppAbbr || !oppName) continue;
 		const live = state === 'live';
 		const hasScore = state === 'live' || state === 'final';
@@ -152,7 +154,9 @@ function parseEvent(raw: unknown, teams: readonly SportsTeam[]): Game[] {
 			id,
 			league: team.league,
 			team: team.id,
-			opponent: { name: oppName, abbr: oppAbbr },
+			opponent: oppShort
+				? { name: oppName, abbr: oppAbbr, short: oppShort }
+				: { name: oppName, abbr: oppAbbr },
 			home: me.homeAway === 'home',
 			start: new Date(start).toISOString(),
 			status: state,

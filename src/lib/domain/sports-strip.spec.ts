@@ -5,6 +5,7 @@ import {
 	countdownText,
 	dayWord,
 	daysAway,
+	opponentShort,
 	shortName,
 	stripCards
 } from '#lib/domain/sports-strip.js';
@@ -26,6 +27,17 @@ const game = (over: Partial<Game> & Pick<Game, 'team' | 'start'>): Game => ({
 	clock: null,
 	channel: 'CBS',
 	...over
+});
+
+describe('opponentShort', () => {
+	it("uses ESPN's short name, else guesses from the full name", () => {
+		expect(
+			opponentShort({ opponent: { name: 'Vegas Golden Knights', abbr: 'VGK', short: 'Knights' } })
+		).toBe('Knights');
+		expect(opponentShort({ opponent: { name: 'Pittsburgh Steelers', abbr: 'PIT' } })).toBe(
+			'Steelers'
+		);
+	});
 });
 
 describe('shortName', () => {

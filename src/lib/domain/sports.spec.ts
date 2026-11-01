@@ -75,6 +75,27 @@ describe('parseEspn', () => {
 		});
 	});
 
+	it("keeps ESPN's short opponent name, falling back to the nickname", () => {
+		const opp = (team: Record<string, string>) =>
+			parseEspn(
+				wrap(
+					event({
+						competitors: [
+							side('BAL', 'Baltimore Ravens', 'home'),
+							{ homeAway: 'away', team: { abbreviation: 'CBJ', ...team } }
+						]
+					})
+				),
+				[RAVENS]
+			)[0].opponent;
+		expect(opp({ displayName: 'Columbus Blue Jackets', shortDisplayName: 'Blue Jackets' })).toEqual(
+			{ name: 'Columbus Blue Jackets', abbr: 'CBJ', short: 'Blue Jackets' }
+		);
+		expect(opp({ displayName: 'Columbus Blue Jackets', nickname: 'Jackets' }).short).toBe(
+			'Jackets'
+		);
+	});
+
 	it('parses a live NFL game from scoreboard string scores', () => {
 		const e = event({
 			state: 'in',
