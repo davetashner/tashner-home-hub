@@ -1591,9 +1591,11 @@
 	/** Esc steps back one level: the open picker or panel first, then the board. */
 	function onKey(e: KeyboardEvent) {
 		if (e.key !== 'Escape' || e.defaultPrevented) return;
-		// The text editor and an active selection keep their own meaning for Esc.
-		if (editing || selected) return;
-		if (choosing) choosing = false;
+		// The text editor keeps its own meaning for Esc.
+		if (editing) return;
+		// A just-drawn shape stays selected: the first Esc lets go of it, like a paint app.
+		if (selected) commit();
+		else if (choosing) choosing = false;
 		else if (pagePicking) pagePicking = false;
 		else if (layersPicking) layersPicking = false;
 		else if (photoPicking) photoPicking = false;
