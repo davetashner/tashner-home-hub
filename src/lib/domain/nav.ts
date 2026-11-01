@@ -13,6 +13,17 @@ export interface Destination {
 	short?: string;
 }
 
+/** A nav-menu entry: a swipe-strip destination or Home. */
+export type NavDestination = Omit<Destination, 'href'> & { href: DestinationPath | '/' };
+
+/** Home heads the menu but is not part of the swipe strip. */
+export const HOME_DESTINATION: NavDestination = {
+	id: 'home',
+	label: 'Home',
+	href: '/',
+	icon: 'home'
+};
+
 /** Main destinations in display order (UI-2). Swiping walks this order. */
 export const DESTINATIONS: readonly Destination[] = [
 	{

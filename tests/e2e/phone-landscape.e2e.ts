@@ -34,7 +34,7 @@ for (const phone of phones) {
 		test('a Home control returns to the home page @J16.3', async ({ page }) => {
 			await gotoHydrated(page, '/chores');
 			await page.waitForLoadState('networkidle');
-			const home = page.getByRole('link', { name: 'Home' });
+			const home = page.locator('header').getByRole('link', { name: 'Home' });
 			await expect(home).toBeVisible();
 			await expectTappable(home);
 			await home.click();

@@ -154,6 +154,24 @@ test('the header clock keeps the time on one line with a crowded header @J0.2', 
 		// The tappable link hugs the clock text, so it cannot swallow the row and send stray taps home.
 		const date = (await page.getByTestId('header-clock-date').boundingBox())!;
 		const content = Math.max((await time.boundingBox())!.width, date.width);
-		expect(clock.width).toBeLessThanOrEqual(content + 1);
+		// The house badge (and the gap after it) sits inside the same link.
+		const badge = (await page.getByTestId('header-home-badge').boundingBox())!;
+		const gap = (await time.boundingBox())!.x - (badge.x + badge.width);
+		expect(clock.width).toBeLessThanOrEqual(content + badge.width + gap + 1);
 	}
+});
+
+test('a house badge fronts the header clock away from home, and Home heads the menu @J0.2', async ({
+	page
+}) => {
+	await gotoHydrated(page, '/');
+	await expect(page.getByTestId('header-home-badge')).toHaveCount(0);
+	const nav = page.getByRole('navigation', { name: 'Main' });
+	await expect(nav.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
+	await nav.getByRole('link', { name: 'Calendar' }).click();
+	await expect(page).toHaveURL(/\/calendar$/);
+	await expect(page.getByTestId('header-home-badge')).toBeVisible();
+	await expect(nav.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current');
+	await nav.getByRole('link', { name: 'Home' }).click();
+	await expect(page).toHaveURL(/\/$/);
 });

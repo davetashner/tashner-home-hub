@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { DESTINATION_URLS } from './urls.js';
 	import Icon from './Icon.svelte';
-	import { isActive, type Destination } from '#lib/domain/nav.js';
+	import { isActive, type NavDestination } from '#lib/domain/nav.js';
 	import {
 		clear,
 		markClicked,
@@ -10,13 +10,15 @@
 		watchNavigation
 	} from './nav-pending.svelte.js';
 
-	let { destination, active }: { destination: Destination; active: boolean } = $props();
+	let { destination, active }: { destination: NavDestination; active: boolean } = $props();
 
 	// Between pointerdown and the route landing (tap or swipe) the target looks active and the old
 	// item does not. If the navigation fails or is cancelled this falls back to the real route.
 	// aria-current stays on the real route: assistive tech should hear a page change only once it
 	// has happened, so the optimistic state is a visual-only data attribute.
 	const pendingHref = $derived(optimisticHref());
+	// Home is icon-only in the tablet portrait bar: its label would crowd the other seven.
+	const home = $derived(destination.id === 'home');
 	const shown = $derived(pendingHref ? isActive(destination.href, pendingHref) : active);
 
 	$effect(watchNavigation);
@@ -45,7 +47,9 @@
 	data-sveltekit-preload-data="tap"
 	class="nav-item flex min-h-tap min-w-0 flex-1 items-center justify-center gap-4 rounded-control px-6 py-4 text-lead font-extrabold max-sm:px-1 max-sm:text-caption portrait:flex-col portrait:gap-2 portrait:text-body landscape:flex-none landscape:justify-start landscape:py-5 short:min-w-tap short:flex-none short:justify-center short:px-0 short:py-2 tablet:gap-1 tablet:px-1 tablet:text-caption portrait:tablet:py-1 landscape:tablet:flex-col landscape:tablet:justify-center landscape:tablet:py-2 {shown
 		? 'bg-accent-soft text-accent'
-		: 'text-ink-muted'}"
+		: 'text-ink-muted'} {home
+		? 'portrait:tablet:w-tap portrait:tablet:flex-none portrait:tablet:px-0'
+		: ''}"
 >
 	<span class="text-title tablet:text-lead tablet:leading-none"
 		><Icon name={destination.icon} /></span
@@ -60,7 +64,9 @@
 	>
 	<span
 		aria-hidden="true"
-		class="hidden whitespace-nowrap max-sm:sr-only portrait:inline short:sr-only tablet:leading-tight landscape:tablet:inline"
+		class="hidden whitespace-nowrap max-sm:sr-only portrait:inline short:sr-only {home
+			? 'portrait:tablet:sr-only'
+			: ''} tablet:leading-tight landscape:tablet:inline"
 		>{destination.short ?? destination.label}</span
 	>
 </a>
