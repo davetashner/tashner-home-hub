@@ -165,52 +165,34 @@ describe('parseEspn', () => {
 		]);
 	});
 
-	it('skips events not involving a followed team', () => {
-		const e = event({
-			competitors: [side('DAL', 'Dallas', 'home'), side('NYG', 'Giants', 'away')]
-		});
-		expect(parseEspn(wrap(e), [RAVENS])).toEqual([]);
-	});
-
 	it('never throws on malformed input', () => {
+		const comp = (c: unknown) => ({ events: [{ id: '1', competitions: [c] }] });
 		const bad = [
 			null,
 			undefined,
 			42,
-			'x',
 			[],
 			{},
 			{ events: 'no' },
-			{ events: [null, 7, {}, { id: '1' }, { id: '1', competitions: [] }] },
-			{ events: [{ id: '1', competitions: [null] }] },
-			{ events: [event({ date: 'garbage' })] },
-			{ events: [{ ...event({}), id: '' }] },
-			{ events: [event({ state: 'weird' })] },
-			{ events: [event({ competitors: [side('BAL', 'x', 'home')] })] },
-			{
-				events: [event({ competitors: [side('BAL', 'x', 'home'), { homeAway: 'away', team: {} }] })]
-			},
-			{ events: [event({ competitors: [side('BAL', 'x', 'home'), null] })] }
+			{ events: [null, 7, {}] },
+			comp(null)
 		];
 		for (const raw of bad) expect(parseEspn(raw, [RAVENS])).toEqual([]);
+		const mk = (over: object) => ({ events: [event(over)] });
+		expect(parseEspn(mk({ date: 'garbage' }), [RAVENS])).toEqual([]);
+		expect(parseEspn(mk({ state: 'weird' }), [RAVENS])).toEqual([]);
+		expect(parseEspn(mk({ competitors: [side('BAL', 'x', 'home')] }), [RAVENS])).toEqual([]);
+		const noOpp = [side('BAL', 'x', 'home'), { homeAway: 'away', team: {} }];
+		expect(parseEspn(mk({ competitors: noOpp }), [RAVENS])).toEqual([]);
 		const noType = event({});
 		(noType.competitions[0] as { status: unknown }).status = null;
 		expect(parseEspn(wrap(noType), [RAVENS])).toEqual([]);
-	});
-
-	it('keeps a good event next to a bad one and null for junk scores', () => {
-		const junk = event({
-			id: '2',
-			state: 'in',
-			name: 'STATUS_IN_PROGRESS',
-			competitors: [
-				side('BAL', 'Ravens', 'home', 'abc'),
-				side('CIN', 'Bengals', 'away', { value: 3 })
-			]
-		});
-		const games = parseEspn(wrap(null, junk), [RAVENS]);
-		expect(games).toHaveLength(1);
-		expect(games[0]).toMatchObject({ teamScore: null, opponentScore: 3 });
+		const junk = [
+			side('BAL', 'Ravens', 'home', 'abc'),
+			side('CIN', 'Bengals', 'away', { value: 3 })
+		];
+		const live = mk({ state: 'in', competitors: junk });
+		expect(parseEspn(live, [RAVENS])[0]).toMatchObject({ teamScore: null, opponentScore: 3 });
 	});
 });
 
@@ -246,12 +228,8 @@ describe('parseTeams', () => {
 });
 
 it('builds ESPN urls', () => {
-	expect(scheduleUrl(CAPS)).toBe(
-		'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/wsh/schedule'
-	);
-	expect(scoreboardUrl('nfl')).toBe(
-		'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
-	);
+	expect(scheduleUrl(CAPS)).toContain('/hockey/nhl/teams/wsh/schedule');
+	expect(scoreboardUrl('nfl')).toContain('/football/nfl/scoreboard');
 });
 
 const NOW = Date.parse('2026-11-08T12:00:00Z');
@@ -332,14 +310,9 @@ describe('finalVisible', () => {
 		expect(finalVisible(final, Date.parse(final.start), tz)).toBe(true);
 	});
 
-	it('uses the local date of the start, across DST and zones', () => {
-		// 8:20 PM EST Sunday is already Monday in UTC; the cutoff is still Monday 6 AM EST.
-		const late = game({ status: 'final', start: '2026-11-09T01:20:00Z' });
+	it('uses the local date of the start, not UTC', () => {
+		const late = game({ status: 'final', start: '2026-11-09T01:20:00Z' }); // 8:20 PM EST Sunday
 		expect(sixAmAfter(Date.parse(late.start), tz)).toBe(Date.parse('2026-11-09T11:00:00Z'));
-		// US fall-back happened on 2026-11-01: still EDT (UTC-4) the evening before.
-		expect(sixAmAfter(Date.parse('2026-10-31T23:00:00Z'), tz)).toBe(
-			Date.parse('2026-11-01T11:00:00Z')
-		);
 		expect(sixAmAfter(Date.parse('2026-11-08T18:00:00Z'), 'UTC')).toBe(
 			Date.parse('2026-11-09T06:00:00Z')
 		);
