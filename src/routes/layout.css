@@ -61,6 +61,16 @@
 	--color-draw-blue: oklch(50% 0.2 260);
 	--color-draw-purple: oklch(50% 0.2 305);
 
+	/* Sports team colours (hub-5tk.2), keyed by team id: Ravens, Commanders, Capitals.
+	   Each -accent reads at 4.5:1 or better on its team colour. */
+	--color-team-bal: oklch(32% 0.13 295);
+	--color-team-bal-accent: oklch(96% 0.03 295);
+	--color-team-was: oklch(35% 0.12 20);
+	--color-team-was-accent: oklch(80% 0.14 85);
+	--color-team-wsh: oklch(50% 0.2 25);
+	--color-team-wsh-accent: oklch(98% 0.01 25);
+	--color-team-wsh-ring: oklch(30% 0.08 260);
+
 	/* Family member colors (chart-safe, distinct hues, similar lightness). */
 	--color-member-1: oklch(62% 0.17 25);
 	--color-member-2: oklch(68% 0.15 65);
@@ -424,6 +434,21 @@
 			--duration-slow: 1ms;
 			--duration-crossfade: 1ms;
 		}
+	}
+}
+
+/* Live game dot: opacity only, still under reduced motion. */
+@keyframes live-pulse {
+	50% {
+		opacity: 0.25;
+	}
+}
+.live-dot {
+	animation: live-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.live-dot {
+		animation: none;
 	}
 }
 
