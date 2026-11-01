@@ -16,9 +16,7 @@
 		type View
 	} from '#lib/domain/drawing-zoom.js';
 	import {
-		PAGE_IDS,
 		PAGE_LABELS,
-		pageDrawing,
 		pageFit,
 		pageLineWidth,
 		pagePaths,
@@ -42,8 +40,7 @@
 		type LayerVisibility
 	} from '#lib/domain/drawing-layers.js';
 	import { dashPattern, type LineStyle } from '#lib/domain/drawing-dash.js';
-	import LineStylePicker from './drawing/LineStylePicker.svelte';
-	import { containRect, photoSize, photoUrl, thumbUrl } from '#lib/domain/drawing-photo.js';
+	import { containRect, photoSize, photoUrl } from '#lib/domain/drawing-photo.js';
 	import {
 		centeredMirror,
 		mirrorGuides,
@@ -116,8 +113,6 @@
 		type ShapeStyle
 	} from '#lib/domain/drawing-edit.js';
 	import {
-		ALL_SHAPES,
-		BRUSH_SIZES,
 		SHAPE_LABELS,
 		SHAPE_MIN_DRAG,
 		isShape,
@@ -129,10 +124,7 @@
 		type PathCmd,
 		type Shape,
 		type ShapeKind,
-		DRAW_COLORS,
 		HIGHLIGHTER_ALPHA,
-		BRUSH_SCALE,
-		FIXED_WIDTH,
 		isInkToken,
 		pushRecent,
 		type BrushSize,
@@ -143,7 +135,6 @@
 		isBlank,
 		smoothWidth,
 		strokeWidth,
-		type DrawColor,
 		type DrawTool,
 		type Stroke
 	} from '#lib/domain/drawing.js';
@@ -176,7 +167,13 @@
 	} from '#lib/components/home/drawing/brush-paint.js';
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import { PALETTE, isTranslucent } from '#lib/domain/drawing-colors.js';
-	import OpacityPicker from './drawing/OpacityPicker.svelte';
+	import PagePicker from './drawing/PagePicker.svelte';
+	import PhotoPicker from './drawing/PhotoPicker.svelte';
+	import DrawingBrowser from './drawing/DrawingBrowser.svelte';
+	import ShapePicker from './drawing/ShapePicker.svelte';
+	import ColorSizePanel from './drawing/ColorSizePanel.svelte';
+	import { toolBtn as btn } from './drawing/tool-btn.js';
+	import type { PhotoRow, SavedRow } from './drawing/rows.js';
 	import LiveShare from './drawing/LiveShare.svelte';
 	import LiveChips from './drawing/LiveChips.svelte';
 	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
@@ -195,15 +192,6 @@
 	}
 	let { people, onpost, onclose, liveJoin }: Props = $props();
 
-	// Full class names so Tailwind can see them.
-	const swatch: Record<DrawColor, string> = {
-		'draw-black': 'bg-draw-black',
-		'draw-red': 'bg-draw-red',
-		'draw-orange': 'bg-draw-orange',
-		'draw-green': 'bg-draw-green',
-		'draw-blue': 'bg-draw-blue',
-		'draw-purple': 'bg-draw-purple'
-	};
 	/** Choose an ink: leaves the eraser, keeps a highlighter, and closes the color grid. */
 	function pick(c: InkColor) {
 		color = c;
@@ -286,14 +274,6 @@
 	/** The saved drawing being edited, so Save overwrites it. */
 	let saved = $state<{ id: string; memberId: string } | null>(null);
 	let note = $state('');
-	interface SavedRow {
-		id: string;
-		memberId: string;
-		memberName: string;
-		memberColor: string;
-		memberAvatar: string | null;
-		thumb: string;
-	}
 	let mine = $state<SavedRow[] | null>(null);
 	let browsing = $state(false);
 	/** The coloring page under the ink, or null for a blank board. */
@@ -314,16 +294,6 @@
 		drawLines();
 		redraw();
 	}
-	/** Small SVG path for a page button. */
-	const pagePreview = (id: PageId): string =>
-		pageDrawing(id)
-			.flat()
-			.map((c) =>
-				c[0] === 'E'
-					? `M${c[1] - c[3]} ${c[2]}a${c[3]} ${c[4]} 0 1 0 ${2 * c[3]} 0a${c[3]} ${c[4]} 0 1 0 ${-2 * c[3]} 0`
-					: c.join(' ')
-			)
-			.join(' ');
 	/** Background color under the ink (a COLOR_GRID color), or null for paper. Erasing reveals it. */
 	let bg = $state<string | null>(null);
 	let bgPicking = $state(false);
@@ -334,11 +304,6 @@
 	/** A library photo under the ink (non-erasable, like a coloring page), or null. */
 	let photoId = $state<string | null>(null);
 	let photoPicking = $state(false);
-	interface PhotoRow {
-		id: string;
-		w: number | null;
-		h: number | null;
-	}
 	let photos = $state<PhotoRow[] | null>(null);
 	let photoCanvas: HTMLCanvasElement;
 	let photoCtx: CanvasRenderingContext2D;
@@ -841,19 +806,6 @@
 			}
 		}
 		ctx.restore();
-	}
-
-	/** SVG path data for a picker preview, so the buttons show the real shape. */
-	function previewPath(kind: ShapeKind): string {
-		const parts = shapeParts({ shape: kind, x0: 6, y0: 6, x1: 38, y1: 38 });
-		return parts
-			.flatMap((p) => p.cmds)
-			.map((c) =>
-				c[0] === 'E'
-					? `M${c[1] - c[3]} ${c[2]}a${c[3]} ${c[4]} 0 1 0 ${2 * c[3]} 0a${c[3]} ${c[4]} 0 1 0 ${-2 * c[3]} 0`
-					: c.join(' ')
-			)
-			.join(' ');
 	}
 
 	/** Replay a fill as row runs; if the canvas was resized since, flood again from the same spot. */
@@ -1609,9 +1561,6 @@
 		}
 		e.preventDefault();
 	}
-
-	const btn =
-		'flex min-h-tap-kid min-w-tap-kid items-center justify-center rounded-control border-2 px-4 text-body font-extrabold transition-transform duration-75 active:scale-95 disabled:opacity-40';
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -1862,42 +1811,7 @@
 				>Back</Button
 			>
 		{:else if pagePicking}
-			<p class="w-full text-body font-extrabold">Coloring pages</p>
-			<div class="flex flex-wrap gap-3" role="group" aria-label="Pages" data-testid="draw-pages">
-				{#each PAGE_IDS as id (id)}
-					<button
-						type="button"
-						class="{btn} flex-col gap-1 {page === id
-							? 'border-accent bg-accent-soft'
-							: 'border-line bg-surface'}"
-						aria-label={PAGE_LABELS[id]}
-						aria-pressed={page === id}
-						data-testid="draw-page"
-						data-page={id}
-						onclick={() => pickPage(id)}
-					>
-						<svg viewBox="0 0 1000 700" class="h-tap-kid w-32" aria-hidden="true">
-							<path
-								d={pagePreview(id)}
-								fill="none"
-								stroke="currentColor"
-								stroke-width="22"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							/>
-						</svg>
-					</button>
-				{/each}
-			</div>
-			<button
-				type="button"
-				class="{btn} border-line bg-surface"
-				data-testid="draw-page-none"
-				onclick={() => pickPage(null)}>Blank page</button
-			>
-			<Button variant="ghost" onclick={() => (pagePicking = false)} data-testid="draw-pages-close"
-				>Back</Button
-			>
+			<PagePicker {page} onpick={pickPage} onback={() => (pagePicking = false)} />
 		{:else if layersPicking}
 			<p class="w-full text-body font-extrabold">Layers</p>
 			<p class="w-full text-body text-ink-muted">Top to bottom. Tap one to show or hide it.</p>
@@ -1925,46 +1839,7 @@
 				data-testid="draw-layers-close">Back</Button
 			>
 		{:else if photoPicking}
-			<p class="w-full text-body font-extrabold">Draw on a photo</p>
-			{#if photos === null}
-				<p class="w-full text-body text-ink-muted">Loading...</p>
-			{:else if photos.length === 0}
-				<p class="w-full text-body text-ink-muted" data-testid="draw-photos-empty">
-					No photos yet. Add some in the photo library settings.
-				</p>
-			{/if}
-			<div class="flex flex-wrap gap-3" role="group" aria-label="Photos" data-testid="draw-photos">
-				{#each photos ?? [] as p (p.id)}
-					<button
-						type="button"
-						class="flex min-h-tap-kid min-w-tap-kid items-center justify-center overflow-hidden rounded-control border-4 p-0 active:scale-95 {photoId ===
-						p.id
-							? 'border-accent'
-							: 'border-line'}"
-						aria-label="Photo"
-						aria-pressed={photoId === p.id}
-						data-testid="draw-photo"
-						data-photo-id={p.id}
-						onclick={() => pickPhoto(p.id)}
-					>
-						<img
-							src={thumbUrl(p.id, p.w, p.h)}
-							alt=""
-							loading="lazy"
-							class="h-tap-kid w-auto max-w-32 object-cover"
-						/>
-					</button>
-				{/each}
-			</div>
-			<button
-				type="button"
-				class="{btn} border-line bg-surface"
-				data-testid="draw-photo-none"
-				onclick={() => pickPhoto(null)}>No photo</button
-			>
-			<Button variant="ghost" onclick={() => (photoPicking = false)} data-testid="draw-photos-close"
-				>Back</Button
-			>
+			<PhotoPicker {photos} {photoId} onpick={pickPhoto} onback={() => (photoPicking = false)} />
 		{:else if bgPicking}
 			<p class="w-full text-body font-extrabold">Background color</p>
 			<button
@@ -1998,52 +1873,7 @@
 				>Back</Button
 			>
 		{:else if browsing}
-			<p class="w-full text-body font-extrabold">My drawings</p>
-			{#if mine === null}
-				<p class="w-full text-body text-ink-muted">Loading...</p>
-			{:else if mine.length === 0}
-				<p class="w-full text-body text-ink-muted" data-testid="draw-mine-empty">
-					No saved drawings yet.
-				</p>
-			{/if}
-			<ul class="flex w-full flex-wrap gap-3" data-testid="draw-mine">
-				{#each mine ?? [] as row (row.id)}
-					<li class="flex items-center gap-2" data-testid="draw-mine-item">
-						<button
-							type="button"
-							class="flex min-h-tap-kid min-w-tap-kid flex-col items-center gap-1 rounded-control border-2 border-line bg-surface-raised p-2 active:scale-95"
-							aria-label="Open drawing by {row.memberName}"
-							data-testid="draw-open"
-							onclick={() => reopen(row)}
-						>
-							<img src={row.thumb} alt="" class="h-24 rounded-chip bg-draw-paper" />
-							<MemberAvatar
-								name={row.memberName}
-								color={memberColor(row.memberColor)}
-								avatar={row.memberAvatar}
-								size="kid"
-							/>
-						</button>
-						<button
-							type="button"
-							class="{btn} border-line bg-surface"
-							aria-label="Replay drawing by {row.memberName}"
-							data-testid="draw-replay-open"
-							onclick={() => reopen(row, true)}>Replay</button
-						>
-						<button
-							type="button"
-							class="{btn} border-line bg-surface"
-							aria-label="Delete drawing by {row.memberName}"
-							data-testid="draw-delete"
-							onclick={() => remove(row)}>✕</button
-						>
-					</li>
-				{/each}
-			</ul>
-			<Button variant="ghost" onclick={() => (browsing = false)} data-testid="draw-mine-close"
-				>Back</Button
-			>
+			<DrawingBrowser {mine} onopen={reopen} ondelete={remove} onback={() => (browsing = false)} />
 		{:else}
 			{#if flipOn && flip}
 				<FlipbookStrip
@@ -2068,65 +1898,20 @@
 				/>
 			{/if}
 			{#if shapePicking}
-				<p class="w-full text-body font-extrabold">Shapes and stamps</p>
-				<div class="flex flex-wrap gap-3" role="group" aria-label="Fill">
-					{#each [false, true] as f (f)}
-						<button
-							type="button"
-							class="{btn} {filled === f
-								? 'border-accent bg-accent-soft'
-								: 'border-line bg-surface'}"
-							aria-pressed={filled === f}
-							data-testid="draw-fill"
-							data-filled={f}
-							onclick={() => {
-								filled = f;
-								restyle({ filled: f });
-							}}>{f ? 'Filled' : 'Outline'}</button
-						>
-					{/each}
-				</div>
-				<LineStylePicker
-					value={lineStyle}
-					onpick={(v) => {
+				<ShapePicker
+					{filled}
+					{lineStyle}
+					{shapeKind}
+					onfill={(f) => {
+						filled = f;
+						restyle({ filled: f });
+					}}
+					onlinestyle={(v) => {
 						lineStyle = v;
 						restyle({ dash: v === 'solid' ? null : v });
 					}}
+					onpick={pickShape}
 				/>
-				<div
-					class="flex flex-wrap gap-3"
-					role="group"
-					aria-label="Shapes"
-					data-testid="draw-shapes"
-				>
-					{#each ALL_SHAPES as k (k)}
-						<button
-							type="button"
-							class="{btn} flex-col gap-1 {shapeKind === k
-								? 'border-accent bg-accent-soft'
-								: 'border-line bg-surface'}"
-							aria-label={SHAPE_LABELS[k]}
-							aria-pressed={shapeKind === k}
-							data-testid="draw-shape"
-							data-shape={k}
-							onclick={() => pickShape(k)}
-						>
-							<svg viewBox="0 0 44 44" class="size-tap-kid" aria-hidden="true">
-								<path
-									d={previewPath(k)}
-									fill={filled ? 'currentColor' : 'none'}
-									stroke="currentColor"
-									stroke-width="3"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/>
-							</svg>
-						</button>
-					{/each}
-				</div>
-				<Button variant="ghost" onclick={() => pickShape(null)} data-testid="draw-shape-off"
-					>Back to pen</Button
-				>
 			{:else if picking}
 				<p class="w-full text-body font-extrabold">Pick a color</p>
 				<div
@@ -2152,75 +1937,23 @@
 					>Back</Button
 				>
 			{:else}
-				<div class="flex flex-wrap gap-3" role="group" aria-label="Ink color">
-					{#each DRAW_COLORS as c (c)}
-						<button
-							type="button"
-							class="size-tap-kid rounded-chip border-4 {swatch[c]} {color === c &&
-							tool !== 'eraser'
-								? 'border-accent'
-								: 'border-line'}"
-							aria-label={c.replace('draw-', '')}
-							aria-pressed={color === c && tool !== 'eraser'}
-							data-testid="draw-color"
-							data-color={c}
-							onclick={() => pick(c)}
-						></button>
-					{/each}
-					<button
-						type="button"
-						class="{btn} border-line bg-surface"
-						data-testid="draw-more-colors"
-						onclick={() => (picking = true)}>More colors</button
-					>
-				</div>
-				{#if recent.length}
-					<div class="flex flex-wrap gap-3" role="group" aria-label="Recent colors">
-						{#each recent as c (c)}
-							<button
-								type="button"
-								class="size-tap-kid rounded-chip border-4 {color === c && tool !== 'eraser'
-									? 'border-accent'
-									: 'border-line'} {isInkToken(c) ? swatch[c] : ''}"
-								style:background-color={isInkToken(c) ? undefined : c}
-								aria-label="Recent color"
-								data-testid="draw-recent"
-								onclick={() => pick(c)}
-							></button>
-						{/each}
-					</div>
-				{/if}
-				<OpacityPicker
-					value={alpha}
-					onpick={(a) => {
+				<ColorSizePanel
+					{color}
+					eraser={tool === 'eraser'}
+					{recent}
+					{alpha}
+					{size}
+					onpick={pick}
+					onmore={() => (picking = true)}
+					onalpha={(a) => {
 						alpha = a;
 						restyle({ alpha: a });
 					}}
+					onsize={(b) => {
+						size = b;
+						restyle({ width: shapeWidth(b) });
+					}}
 				/>
-				<div class="flex flex-wrap gap-3" role="group" aria-label="Brush size">
-					{#each BRUSH_SIZES as b (b)}
-						<button
-							type="button"
-							class="{btn} flex-col gap-1 {size === b
-								? 'border-accent bg-accent-soft'
-								: 'border-line bg-surface'}"
-							aria-pressed={size === b}
-							aria-label={b}
-							data-testid="draw-size"
-							data-size={b}
-							onclick={() => {
-								size = b;
-								restyle({ width: shapeWidth(b) });
-							}}
-						>
-							<span
-								class="rounded-full bg-ink"
-								style:width="{FIXED_WIDTH * BRUSH_SCALE[b]}px"
-								style:height="{FIXED_WIDTH * BRUSH_SCALE[b]}px"
-							></span>
-						</button>
-					{/each}
-				</div>
 				<button
 					type="button"
 					class="{btn} {shapeKind ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
