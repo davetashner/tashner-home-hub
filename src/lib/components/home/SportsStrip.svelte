@@ -4,6 +4,10 @@
 	import { createLiveChannel } from '#lib/domain/live-events.js';
 	import { DEFAULT_TEAMS, type Game, type SportsTeam } from '#lib/domain/sports.js';
 	import { stripCards, type StripCard } from '#lib/domain/sports-strip.js';
+	import { discClass, edgeClass } from '#lib/domain/team-colors.js';
+	// The sheet loads in its own chunk (the home page's bundle budget is full); onMount prefetches
+	// it so a tap still opens it at once.
+	const loadSheet = () => import('#lib/components/home/SportsSheet.svelte');
 	import { isTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 
 	/** Tells the home page when the strip takes room, so it can tighten its spacing. */
@@ -35,6 +39,7 @@
 
 	onMount(() => {
 		void load();
+		void loadSheet().catch(() => undefined);
 		const channel = createLiveChannel({
 			url: '/api/events',
 			topics: ['sports'],
@@ -53,19 +58,9 @@
 		};
 	});
 
-	// Full class names so Tailwind can see them. Colours are keyed by team id: the two WSH teams differ.
-	const disc: Record<string, string> = {
-		'nfl:bal': 'bg-team-bal text-team-bal-accent',
-		'nfl:wsh': 'bg-team-was text-team-was-accent',
-		'nhl:wsh': 'bg-team-wsh text-team-wsh-accent ring-4 ring-team-wsh-ring ring-inset'
-	};
-	const edge: Record<string, string> = {
-		'nfl:bal': 'border-team-bal text-team-bal',
-		'nfl:wsh': 'border-team-was text-team-was',
-		'nhl:wsh': 'border-team-wsh text-team-wsh'
-	};
-	const discOf = (c: StripCard) => disc[c.teamId] ?? 'bg-accent text-on-accent';
-	const edgeOf = (c: StripCard) => edge[c.teamId] ?? 'border-accent text-accent';
+	const discOf = (c: StripCard) => discClass(c.teamId);
+	const edgeOf = (c: StripCard) => edgeClass(c.teamId);
+	let sheetOpen = $state(false);
 </script>
 
 {#if cards.length > 0}
@@ -75,11 +70,14 @@
 		class="flex gap-4 portrait:flex-col short:gap-2"
 	>
 		{#each cards as c (c.key)}
-			<div
+			<button
+				type="button"
+				aria-haspopup="dialog"
+				onclick={() => (sheetOpen = true)}
 				data-testid="sports-card"
 				data-team={c.teamId}
 				data-state={c.state}
-				class="flex min-h-tap min-w-0 items-center gap-4 rounded-card border-2 bg-surface-raised px-5 py-3 shadow-raised short:gap-2 short:px-3 short:py-2 {c.big
+				class="flex min-h-tap min-w-0 items-center gap-4 rounded-card border-2 bg-surface-raised px-5 py-3 text-left shadow-raised transition-transform duration-75 active:scale-95 short:gap-2 short:px-3 short:py-2 {c.big
 					? `flex-2 py-4 ${edgeOf(c)} portrait:flex-none`
 					: 'flex-1 border-line portrait:flex-none'}"
 			>
@@ -89,7 +87,7 @@
 						? 'size-20 text-body short:size-14 short:text-caption'
 						: 'size-16 text-caption short:size-12'}">{c.abbr}</span
 				>
-				<div class="flex min-w-0 flex-1 flex-col">
+				<span class="flex min-w-0 flex-1 flex-col">
 					{#if c.eyebrow}
 						<span
 							data-testid="sports-eyebrow"
@@ -114,18 +112,20 @@
 					{#if c.sub}
 						<span class="truncate text-caption font-bold text-ink-muted">{c.sub}</span>
 					{/if}
-				</div>
+				</span>
 				{#if c.countdown}
-					<div class="flex-none text-right text-ink" data-testid="sports-countdown">
-						<div class="text-title leading-none font-black tabular-nums short:text-lead">
+					<span class="flex-none text-right text-ink" data-testid="sports-countdown">
+						<span class="block text-title leading-none font-black tabular-nums short:text-lead">
 							{c.countdown.value}
-						</div>
-						<div class="mt-1 text-caption font-extrabold tracking-wide text-ink-muted uppercase">
+						</span>
+						<span
+							class="mt-1 block text-caption font-extrabold tracking-wide text-ink-muted uppercase"
+						>
 							{c.countdown.unit}
-						</div>
-					</div>
+						</span>
+					</span>
 				{:else if c.score}
-					<div
+					<span
 						class="flex flex-none items-center gap-3 text-title leading-none font-black text-ink tabular-nums short:text-lead"
 						data-testid="sports-score"
 						aria-label="{c.score.team} to {c.score.opponent}"
@@ -133,7 +133,7 @@
 						<span>{c.score.team}</span><span aria-hidden="true" class="text-ink-muted">–</span><span
 							>{c.score.opponent}</span
 						>
-					</div>
+					</span>
 				{:else if c.result}
 					<span
 						data-testid="sports-result"
@@ -143,7 +143,13 @@
 							: 'bg-ink-muted'}">{c.result}</span
 					>
 				{/if}
-			</div>
+				<span class="sr-only">Show games for the next two weeks</span>
+			</button>
 		{/each}
 	</section>
+{/if}
+{#if sheetOpen}
+	{#await loadSheet() then { default: SportsSheet }}
+		<SportsSheet {games} {teams} {now} {zone} onclose={() => (sheetOpen = false)} />
+	{/await}
 {/if}

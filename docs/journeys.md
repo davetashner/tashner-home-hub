@@ -113,7 +113,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | --- | --- | --- | --- | --- |
 | **J0** | **Wake the screen and see Home** (Everyone, critical) | | | |
 | J0.1 | Touch the sleeping screen: it wakes, and the touch does not press the button under it. | built | wall | `critical-flows` |
-| J0.2 | Home shows the clock, date, weather, next event and the wave background. | built | wall, iphone, ipad | `home`, `shell`, `sports-strip`, `wave-background`, `weather` |
+| J0.2 | Home shows the clock, date, weather, next event and the wave background. | built | wall, iphone, ipad | `home`, `shell`, `sports-sheet`, `sports-strip`, `wave-background`, `weather` |
 | J0.3 | Move between destinations by tap or swipe; collapse the nav rail for a full-screen view. | built | wall | `nav-collapse`, `nav-feedback`, `shell` |
 | J0.4 | Count down to a family date on Home. | built | wall | `countdowns` |
 | J0.5 | Every screen still renders from saved copies when the network drops. | built | wall | `offline` |
