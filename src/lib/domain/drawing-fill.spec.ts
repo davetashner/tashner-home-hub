@@ -68,7 +68,9 @@ describe('floodFill', () => {
 		const t = performance.now();
 		expect(spanArea(floodFill(d, w, h, 100, 100))).toBe(w * h);
 		expect(performance.now() - t).toBeLessThan(20000);
-	});
+		// The per-test timeout must exceed the budget above, or vitest's 5 s default
+		// fires first on a loaded CI runner and the 20 s guard never gets to decide.
+	}, 30000);
 });
 
 describe('makeFill', () => {
