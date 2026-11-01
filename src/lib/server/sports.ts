@@ -150,10 +150,15 @@ let inflight: Promise<unknown> | null = null;
  * What `GET /api/sports` serves. Never waits on the network: returns the cache at once, and only
  * when there is no cache at all does it start a background refresh.
  */
-export function getSports(db: Db, doFetch: Fetch = fetch, now = Date.now()): SportsView {
+export function getSports(
+	db: Db,
+	doFetch: Fetch = fetch,
+	now = Date.now(),
+	env: NodeJS.ProcessEnv = process.env
+): SportsView {
 	const teams = readSportsTeams(db);
 	const cache = readCache(db);
-	if (!cache && !inflight) {
+	if (!cache && !inflight && sportsNetworkOn(env)) {
 		const p = refreshSports(db, doFetch, now)
 			.catch(() => undefined)
 			.finally(() => {
@@ -185,9 +190,18 @@ export async function sportsTick(
 	return true;
 }
 
+/**
+ * Whether the server may call ESPN. `HUB_SPORTS=off` turns it off by hand. The Playwright harness
+ * sets E2E_DATA_DIR (the server inherits it); e2e runs must never depend on live games, which
+ * would change the home layout on game days.
+ */
+export function sportsNetworkOn(env: NodeJS.ProcessEnv): boolean {
+	return env.HUB_SPORTS !== 'off' && !env.E2E_DATA_DIR;
+}
+
 /** Ticks every 15 s; the pure helper decides whether a fetch is due (45 s live, hourly otherwise). */
 export function startSportsScheduler(env: NodeJS.ProcessEnv = process.env): Cron | undefined {
-	if (env.HUB_SPORTS === 'off') return undefined;
+	if (!sportsNetworkOn(env)) return undefined;
 	const tick = () => void sportsTick(getDb()).catch(() => undefined);
 	return new Cron('*/15 * * * * *', { protect: true, catch: true }, tick);
 }
