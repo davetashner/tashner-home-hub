@@ -6,12 +6,18 @@
 	import { stripCards, type StripCard } from '#lib/domain/sports-strip.js';
 	import { isTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 
+	/** Tells the home page when the strip takes room, so it can tighten its spacing. */
+	let { onshown }: { onshown?: (shown: boolean) => void } = $props();
+
 	let games = $state<Game[]>([]);
 	let teams = $state<SportsTeam[]>([...DEFAULT_TEAMS]);
 	let now = $state(Date.now());
 
 	const zone = $derived(isTimeZone(page.data.timeZone) ? page.data.timeZone : runtimeZone());
 	const cards = $derived(stripCards(games, teams, now, zone));
+	$effect(() => {
+		onshown?.(cards.length > 0);
+	});
 
 	async function load() {
 		try {

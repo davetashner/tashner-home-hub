@@ -34,12 +34,12 @@ function game(team: string, over: Record<string, unknown>) {
 	};
 }
 
-async function open(page: Page, games: unknown[]) {
+async function open(page: Page, games: unknown[], path = '/') {
 	await page.route('**/api/sports', (route) =>
 		route.fulfill({ json: { teams: TEAMS, games, updatedAt: NOW } })
 	);
 	await page.clock.setFixedTime(NOW);
-	await gotoHydrated(page, '/');
+	await gotoHydrated(page, path);
 }
 
 async function shot(page: Page, name: string, testInfo: { project: { name: string } }) {
@@ -140,4 +140,23 @@ test('no games: the strip renders nothing', async ({ page }) => {
 	await open(page, []);
 	await expect(page.getByTestId('clock-time')).toBeVisible();
 	await expect(strip(page)).toHaveCount(0);
+});
+
+// A game-day card makes the home page taller: Notes and its buttons must stay on screen and clear
+// of the resting birthday cake in the bottom corner.
+test('game day keeps Notes on screen and clear of the birthday cake @J0.2', async ({ page }) => {
+	await open(
+		page,
+		[game('nfl:bal', { start: iso(2 * HOUR) }), game('nhl:wsh', { start: iso(50 * HOUR) })],
+		'/?season=birthday'
+	);
+	await expect(card(page, 'nfl:bal')).toHaveAttribute('data-state', 'today');
+	const view = page.viewportSize()!;
+	const notes = (await page.getByTestId('home-notes').boundingBox())!;
+	expect(notes.y + notes.height).toBeLessThanOrEqual(view.height);
+	const cake = (await page
+		.getByTestId('seasonal-layer')
+		.locator('[data-sprite="cake"]')
+		.boundingBox())!;
+	expect(cake.y).toBeGreaterThanOrEqual(notes.y + notes.height - 1);
 });

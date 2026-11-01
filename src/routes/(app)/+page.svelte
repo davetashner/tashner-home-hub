@@ -7,6 +7,10 @@
 	import Icon from '#lib/components/shell/Icon.svelte';
 	import { timerState } from '#lib/components/timers/timers-state.svelte.js';
 	import SportsStrip from '#lib/components/home/SportsStrip.svelte';
+
+	// Game days add the sports strip: top-align and tighten the spacing so Notes and its buttons stay
+	// on screen and clear of the corner decorations (the birthday cake).
+	let sportsShown = $state(false);
 	import HomeNotes from '#lib/components/home/HomeNotes.svelte';
 	import { page } from '$app/state';
 	import { TODO_FALLBACK } from '#lib/domain/nav.js';
@@ -35,14 +39,16 @@
 	<SitterHome />
 {:else}
 	<div
-		class="flex min-h-full flex-col justify-center gap-16 p-12 short:justify-start short:gap-3 short:p-3 tablet:gap-8 tablet:p-6"
+		class="flex min-h-full flex-col p-12 {sportsShown
+			? 'justify-start gap-6'
+			: 'justify-center gap-16'} short:justify-start short:gap-3 short:p-3 tablet:gap-8 tablet:p-6"
 	>
 		<!-- Phone landscape: the clock and the weather share one row to save height. -->
 		<div class="contents short:flex short:items-center short:gap-3">
 			<Clock testidPrefix="clock" size="hero" />
 			<div class="contents short:block short:min-w-0 short:flex-1"><WeatherWidget /></div>
 		</div>
-		<SportsStrip />
+		<SportsStrip onshown={(shown) => (sportsShown = shown)} />
 		<div class="grid grid-cols-3 gap-8 portrait:grid-cols-1 short:gap-3 tablet:gap-4">
 			{#each tiles as tile (tile.title)}
 				<Card class="short:p-3 tablet:p-5">
