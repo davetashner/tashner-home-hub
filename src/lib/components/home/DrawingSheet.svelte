@@ -1583,9 +1583,38 @@
 		};
 	});
 
+	/** True while the tools column shows the main tools (not a full sub-panel), so the pinned bars apply. */
+	const mainTools = $derived(
+		!choosing && !pagePicking && !layersPicking && !photoPicking && !bgPicking && !browsing
+	);
+
+	/** Esc steps back one level: the open picker or panel first, then the board. */
+	function onKey(e: KeyboardEvent) {
+		if (e.key !== 'Escape' || e.defaultPrevented) return;
+		// The text editor keeps its own meaning for Esc.
+		if (editing) return;
+		// A just-drawn shape stays selected: the first Esc lets go of it, like a paint app.
+		if (selected) commit();
+		else if (choosing) choosing = false;
+		else if (pagePicking) pagePicking = false;
+		else if (layersPicking) layersPicking = false;
+		else if (photoPicking) photoPicking = false;
+		else if (bgPicking) bgPicking = false;
+		else if (browsing) browsing = false;
+		else if (shapePicking) pickShape(null);
+		else if (picking) picking = false;
+		else {
+			onclose();
+			return;
+		}
+		e.preventDefault();
+	}
+
 	const btn =
 		'flex min-h-tap-kid min-w-tap-kid items-center justify-center rounded-control border-2 px-4 text-body font-extrabold transition-transform duration-75 active:scale-95 disabled:opacity-40';
 </script>
+
+<svelte:window onkeydown={onKey} />
 
 <div
 	class="fixed inset-0 z-50 flex flex-col gap-3 bg-surface p-4 landscape:flex-row"
@@ -1612,6 +1641,15 @@
 		data-testid="draw-holder"
 		data-bg={bg ?? ''}
 	>
+		<button
+			type="button"
+			class="absolute top-4 right-4 z-10 flex size-tap-kid items-center justify-center rounded-chip border-2 border-line bg-surface text-title font-extrabold shadow-raised transition-transform duration-75 active:scale-95"
+			aria-label="Close drawing board"
+			data-testid="draw-close"
+			onclick={onclose}
+		>
+			<span aria-hidden="true">✕</span>
+		</button>
 		<div
 			class="absolute inset-0 origin-top-left"
 			style:transform={viewCss(view)}
@@ -1768,8 +1806,36 @@
 	</div>
 
 	<div
-		class="flex flex-wrap content-start gap-3 overflow-y-auto portrait:max-h-1/2 landscape:w-1/4"
+		class="flex min-h-0 flex-wrap content-start gap-3 overflow-y-auto portrait:max-h-1/2 landscape:w-1/4"
 	>
+		{#if mainTools}
+			<div
+				class="sticky top-0 z-10 flex w-full flex-wrap gap-3 bg-surface pb-2"
+				data-testid="draw-topbar"
+			>
+				<button
+					type="button"
+					class="{btn} border-line bg-surface"
+					disabled={!undoable}
+					data-testid="draw-undo"
+					onclick={undo}>Undo</button
+				>
+				<button
+					type="button"
+					class="{btn} border-line bg-surface"
+					disabled={!redoable}
+					data-testid="draw-redo"
+					onclick={redo}>Redo</button
+				>
+				<button
+					type="button"
+					class="{btn} border-line bg-surface"
+					disabled={isFit(view)}
+					data-testid="draw-fit"
+					onclick={() => (view = FIT)}>Fit</button
+				>
+			</div>
+		{/if}
 		{#if promptDate && !promptHidden}
 			<PromptBanner
 				prompt={promptForDate(promptDate, promptShuffles)}
@@ -2305,27 +2371,6 @@
 				<button
 					type="button"
 					class="{btn} border-line bg-surface"
-					disabled={!undoable}
-					data-testid="draw-undo"
-					onclick={undo}>Undo</button
-				>
-				<button
-					type="button"
-					class="{btn} border-line bg-surface"
-					disabled={!redoable}
-					data-testid="draw-redo"
-					onclick={redo}>Redo</button
-				>
-				<button
-					type="button"
-					class="{btn} border-line bg-surface"
-					disabled={isFit(view)}
-					data-testid="draw-fit"
-					onclick={() => (view = FIT)}>Fit</button
-				>
-				<button
-					type="button"
-					class="{btn} border-line bg-surface"
 					disabled={!dirty || liveStatus.active}
 					data-testid="draw-clear"
 					onclick={clear}>Clear all</button
@@ -2359,18 +2404,25 @@
 					data-testid="draw-bg-open"
 					onclick={() => (bgPicking = true)}>Background</button
 				>
+			{/if}
+		{/if}
+		{#if mainTools}
+			<div
+				class="sticky bottom-0 z-10 mt-auto flex w-full flex-wrap gap-3 bg-surface pt-2"
+				data-testid="draw-bottombar"
+			>
+				<button
+					type="button"
+					class="{btn} border-line bg-surface"
+					data-testid="draw-browse"
+					onclick={browse}>My drawings</button
+				>
 				<button
 					type="button"
 					class="{btn} border-line bg-surface"
 					disabled={blank}
 					data-testid="draw-save"
 					onclick={save}>Save</button
-				>
-				<button
-					type="button"
-					class="{btn} border-line bg-surface"
-					data-testid="draw-browse"
-					onclick={browse}>My drawings</button
 				>
 				{#if note}
 					<p class="w-full text-body font-extrabold" role="status" data-testid="draw-note">
@@ -2388,8 +2440,7 @@
 				>
 					Post to the board
 				</Button>
-				<Button variant="ghost" onclick={onclose} data-testid="draw-close">Close</Button>
-			{/if}
+			</div>
 		{/if}
 	</div>
 </div>
