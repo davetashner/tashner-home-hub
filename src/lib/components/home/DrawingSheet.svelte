@@ -172,6 +172,8 @@
 	import DrawingBrowser from './drawing/DrawingBrowser.svelte';
 	import ShapePicker from './drawing/ShapePicker.svelte';
 	import ColorSizePanel from './drawing/ColorSizePanel.svelte';
+	import ToolRail from './drawing/ToolRail.svelte';
+	import { RAIL_TOOLS, type RailTool } from './drawing/rail-tools.js';
 	import { toolBtn as btn } from './drawing/tool-btn.js';
 	import type { PhotoRow, SavedRow } from './drawing/rows.js';
 	import LiveShare from './drawing/LiveShare.svelte';
@@ -1540,6 +1542,39 @@
 		!choosing && !pagePicking && !layersPicking && !photoPicking && !bgPicking && !browsing
 	);
 
+	/** The rail tool the current flags add up to; the options panel shows only its options. */
+	const rail = $derived<RailTool>(
+		dropper
+			? 'pick'
+			: bucket
+				? 'fill'
+				: textMode
+					? 'text'
+					: shapeKind || shapePicking
+						? 'shapes'
+						: tool === 'eraser'
+							? 'eraser'
+							: tool === 'highlighter'
+								? 'marker'
+								: 'pen'
+	);
+	/** Choose a rail tool: sets the same flags the old flat buttons did, and leaves any sub-panel. */
+	function selectTool(t: RailTool) {
+		if (choosing) return;
+		// Tapping the active tool again keeps its work (a shape still selected); Shapes reopens its picker.
+		if (t === rail && !picking && mainTools) {
+			if (t === 'shapes') shapePicking = true;
+			return;
+		}
+		commit();
+		pagePicking = layersPicking = photoPicking = bgPicking = browsing = picking = false;
+		shapePicking = t === 'shapes';
+		if (t !== 'shapes') shapeKind = null;
+		textMode = t === 'text';
+		bucket = t === 'fill';
+		dropper = t === 'pick';
+		tool = t === 'eraser' ? 'eraser' : t === 'marker' ? 'highlighter' : 'pen';
+	}
 	/** Esc steps back one level: the open picker or panel first, then the board. */
 	function onKey(e: KeyboardEvent) {
 		if (e.key !== 'Escape' || e.defaultPrevented) return;
@@ -1583,6 +1618,7 @@
 		onleave={liveLeft}
 		onnote={(m) => (note = m)}
 	/>
+	<ToolRail active={rail} onselect={selectTool} />
 	<div
 		bind:this={holder}
 		class="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-card border-2 border-line bg-draw-paper shadow-raised"
@@ -1755,7 +1791,7 @@
 	</div>
 
 	<div
-		class="flex min-h-0 flex-wrap content-start gap-3 overflow-y-auto portrait:max-h-1/2 landscape:w-1/4"
+		class="flex min-h-0 flex-wrap content-start gap-3 overflow-y-auto portrait:h-1/2 landscape:w-1/4"
 	>
 		{#if mainTools}
 			<div
@@ -1897,22 +1933,7 @@
 					}}
 				/>
 			{/if}
-			{#if shapePicking}
-				<ShapePicker
-					{filled}
-					{lineStyle}
-					{shapeKind}
-					onfill={(f) => {
-						filled = f;
-						restyle({ filled: f });
-					}}
-					onlinestyle={(v) => {
-						lineStyle = v;
-						restyle({ dash: v === 'solid' ? null : v });
-					}}
-					onpick={pickShape}
-				/>
-			{:else if picking}
+			{#if picking}
 				<p class="w-full text-body font-extrabold">Pick a color</p>
 				<div
 					class="flex flex-wrap gap-3"
@@ -1937,144 +1958,102 @@
 					>Back</Button
 				>
 			{:else}
-				<ColorSizePanel
-					{color}
-					eraser={tool === 'eraser'}
-					{recent}
-					{alpha}
-					{size}
-					onpick={pick}
-					onmore={() => (picking = true)}
-					onalpha={(a) => {
-						alpha = a;
-						restyle({ alpha: a });
-					}}
-					onsize={(b) => {
-						size = b;
-						restyle({ width: shapeWidth(b) });
-					}}
-				/>
-				<button
-					type="button"
-					class="{btn} {shapeKind ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
-					aria-pressed={shapeKind !== null}
-					data-testid="draw-shapes-open"
-					data-shape={shapeKind ?? ''}
-					onclick={() => (shapePicking = true)}
-					>{shapeKind ? SHAPE_LABELS[shapeKind] : 'Shapes'}</button
-				>
-				<button
-					type="button"
-					class="{btn} {textMode ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
-					aria-pressed={textMode}
-					data-testid="draw-text"
-					onclick={() => {
-						commit();
-						textMode = !textMode;
-						if (textMode) {
-							shapeKind = null;
-							bucket = false;
-							tool = 'pen';
-						}
-					}}>Text</button
-				>
-				{#if textMode}
+				{#if rail !== 'shapes'}
+					<p class="w-full text-body font-extrabold" data-testid="draw-options-title">
+						{RAIL_TOOLS.find((t) => t.id === rail)?.label}
+					</p>
+				{/if}
+				{#if rail === 'pen'}
+					<div class="flex flex-wrap gap-3" role="group" aria-label="Brush">
+						{#each BRUSH_TOOLS as b (b)}
+							<button
+								type="button"
+								class="{btn} {tool === b
+									? 'border-accent bg-accent-soft'
+									: 'border-line bg-surface'}"
+								aria-pressed={tool === b}
+								data-testid="draw-brush-{b}"
+								onclick={() => {
+									commit();
+									shapeKind = null;
+									bucket = false;
+									dropper = false;
+									tool = tool === b ? 'pen' : b;
+								}}>{BRUSHES[b].label}</button
+							>
+						{/each}
+					</div>
+				{:else if rail === 'shapes'}
+					{#if shapePicking || !shapeKind}
+						<ShapePicker
+							{filled}
+							{lineStyle}
+							{shapeKind}
+							onfill={(f) => {
+								filled = f;
+								restyle({ filled: f });
+							}}
+							onlinestyle={(v) => {
+								lineStyle = v;
+								restyle({ dash: v === 'solid' ? null : v });
+							}}
+							onpick={pickShape}
+						/>
+					{:else}
+						<p class="w-full text-body font-extrabold">{SHAPE_LABELS[shapeKind]}</p>
+						<button
+							type="button"
+							class="{btn} border-line bg-surface"
+							data-testid="draw-shape-change"
+							onclick={() => (shapePicking = true)}>Change shape</button
+						>
+					{/if}
+				{:else if rail === 'text'}
 					<TextPanel
 						size={textSize}
 						editing={editing !== null}
 						onsize={setTextSize}
 						ondone={() => finishText(editing?.value ?? '')}
 					/>
+				{:else if rail === 'pick'}
+					<p class="w-full text-body text-ink-muted">Tap the drawing to pick a color.</p>
 				{/if}
-				<button
-					type="button"
-					class="{btn} {bucket ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
-					aria-pressed={bucket}
-					data-testid="draw-bucket"
-					onclick={() => {
-						commit();
-						bucket = !bucket;
-						if (bucket) {
-							textMode = false;
-							shapeKind = null;
-							dropper = false;
-							tool = 'pen';
-						}
-					}}>Fill</button
-				>
-				<button
-					type="button"
-					class="{btn} {dropper ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
-					aria-pressed={dropper}
-					data-testid="draw-eyedropper"
-					onclick={() => {
-						commit();
-						dropper = !dropper;
-						if (dropper) {
-							shapeKind = null;
-							bucket = false;
-							if (tool === 'eraser') tool = 'pen';
-						}
-					}}>Eyedropper</button
-				>
-				<button
-					type="button"
-					class="{btn} {tool === 'highlighter'
-						? 'border-accent bg-accent-soft'
-						: 'border-line bg-surface'}"
-					aria-pressed={tool === 'highlighter'}
-					data-testid="draw-highlighter"
-					onclick={() => {
-						commit();
-						shapeKind = null;
-						textMode = false;
-						bucket = false;
-						dropper = false;
-						tool = tool === 'highlighter' ? 'pen' : 'highlighter';
-					}}>Highlighter</button
-				>
-				{#each BRUSH_TOOLS as b (b)}
+				{#if rail !== 'pick'}
+					<ColorSizePanel
+						{color}
+						eraser={rail === 'eraser'}
+						{recent}
+						{alpha}
+						{size}
+						colors={rail !== 'eraser'}
+						opacity={rail === 'pen' || rail === 'shapes'}
+						sizes={rail !== 'fill' && rail !== 'text'}
+						onpick={pick}
+						onmore={() => (picking = true)}
+						onalpha={(a) => {
+							alpha = a;
+							restyle({ alpha: a });
+						}}
+						onsize={(b) => {
+							size = b;
+							restyle({ width: shapeWidth(b) });
+						}}
+					/>
+				{/if}
+				{#if rail === 'pen'}
 					<button
 						type="button"
-						class="{btn} {tool === b ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
-						aria-pressed={tool === b}
-						data-testid="draw-brush-{b}"
+						class="{btn} {snapOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={snapOn}
+						data-testid="draw-snap"
 						onclick={() => {
 							commit();
-							shapeKind = null;
-							bucket = false;
-							dropper = false;
-							tool = tool === b ? 'pen' : b;
-						}}>{BRUSHES[b].label}</button
+							snapOn = !snapOn;
+							saveSnapPref(snapOn);
+						}}>Snap shapes: {snapOn ? 'On' : 'Off'}</button
 					>
-				{/each}
-				<button
-					type="button"
-					class="{btn} {tool === 'eraser'
-						? 'border-accent bg-accent-soft'
-						: 'border-line bg-surface'}"
-					aria-pressed={tool === 'eraser'}
-					data-testid="draw-eraser"
-					onclick={() => {
-						commit();
-						shapeKind = null;
-						textMode = false;
-						bucket = false;
-						dropper = false;
-						tool = tool === 'eraser' ? 'pen' : 'eraser';
-					}}>Eraser</button
-				>
-				<button
-					type="button"
-					class="{btn} {snapOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
-					aria-pressed={snapOn}
-					data-testid="draw-snap"
-					onclick={() => {
-						commit();
-						snapOn = !snapOn;
-						saveSnapPref(snapOn);
-					}}>Snap shapes: {snapOn ? 'On' : 'Off'}</button
-				>
+				{/if}
+				<p class="mt-3 w-full text-body font-extrabold" data-testid="draw-more-title">More</p>
 				<button
 					type="button"
 					class="{btn} {mirrorN ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
