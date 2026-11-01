@@ -5,7 +5,13 @@
 	import { page } from '$app/state';
 	import { swipe } from '#lib/actions/swipe.js';
 	import Button from '#lib/components/ui/Button.svelte';
-	import { TODO_FALLBACK, destinationsFor, isActive, swipeTarget } from '#lib/domain/nav.js';
+	import {
+		HOME_DESTINATION,
+		TODO_FALLBACK,
+		destinationsFor,
+		isActive,
+		swipeTarget
+	} from '#lib/domain/nav.js';
 	import { DESTINATION_URLS } from './urls.js';
 	import OfflineBadge from './OfflineBadge.svelte';
 	import ApprovalsBadge from './ApprovalsBadge.svelte';
@@ -106,11 +112,12 @@
 			page.data.adult === true
 		)
 	);
-	const destinations = $derived(
-		destinationsFor(page.data.todoLabel ?? TODO_FALLBACK).filter(
+	const destinations = $derived([
+		HOME_DESTINATION,
+		...destinationsFor(page.data.todoLabel ?? TODO_FALLBACK).filter(
 			(d) => !(locks.funHidden && isFunPath(d.href))
 		)
-	);
+	]);
 	// Games and Music are hidden for the session: a typed or swiped address goes home instead.
 	$effect(() => {
 		if (locks.funHidden && isFunPath(pathname)) void goto(resolve('/(app)'));
@@ -197,7 +204,16 @@
 						aria-label="Home"
 						class="press-link block w-fit max-w-full min-w-0 rounded-control short:flex short:size-tap short:items-center short:justify-center short:rounded-chip short:border-2 short:border-line short:bg-surface-raised short:text-title short:text-ink short:shadow-raised"
 					>
-						<span class="short:hidden"><Clock testidPrefix="header-clock" /></span>
+						<span class="flex items-center gap-3 short:hidden">
+							<span
+								data-testid="header-home-badge"
+								aria-hidden="true"
+								class="flex size-tap shrink-0 items-center justify-center rounded-control bg-accent-soft text-title text-accent"
+							>
+								<Icon name="home" />
+							</span>
+							<Clock testidPrefix="header-clock" />
+						</span>
 						<span class="hidden short:inline"><Icon name="home" /></span>
 					</a>
 				</div>
@@ -263,7 +279,7 @@
 	<nav
 		aria-label="Main"
 		inert={collapsed && sideRail}
-		class="shell-nav flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-1 max-sm:p-2 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5 short:col-start-1 short:row-span-1 short:w-auto short:min-w-0 short:scrollbar-none short:flex-row short:gap-0 short:overflow-x-auto short:border-r-0 short:bg-surface short:pt-safe-2 short:pr-2 short:pb-2 short:pl-safe-2 portrait:tablet:gap-2 portrait:tablet:pt-1 portrait:tablet:pr-safe-4 portrait:tablet:pb-safe-1 portrait:tablet:pl-safe-4 landscape:tablet:w-rail-tablet landscape:tablet:gap-2 landscape:tablet:overflow-y-auto landscape:tablet:pt-safe-4 landscape:tablet:pr-2 landscape:tablet:pb-safe-4 landscape:tablet:pl-safe-2"
+		class="shell-nav flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-0 max-sm:p-1 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5 short:col-start-1 short:row-span-1 short:w-auto short:min-w-0 short:scrollbar-none short:flex-row short:gap-0 short:overflow-x-auto short:border-r-0 short:bg-surface short:pt-safe-2 short:pr-2 short:pb-2 short:pl-safe-2 portrait:tablet:gap-0 portrait:tablet:pt-1 portrait:tablet:pr-safe-4 portrait:tablet:pb-safe-1 portrait:tablet:pl-safe-4 landscape:tablet:w-rail-tablet landscape:tablet:gap-2 landscape:tablet:overflow-y-auto landscape:tablet:pt-safe-4 landscape:tablet:pr-2 landscape:tablet:pb-safe-4 landscape:tablet:pl-safe-2"
 	>
 		{#each destinations as destination (destination.id)}
 			<NavItem {destination} active={isActive(destination.href, pathname)} />

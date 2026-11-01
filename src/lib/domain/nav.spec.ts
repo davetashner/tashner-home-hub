@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	DESTINATIONS,
+	HOME_DESTINATION,
 	TODO_FALLBACK,
 	destinationIndex,
 	destinationsFor,
@@ -20,6 +21,12 @@ describe('nav', () => {
 			'Games',
 			'Music'
 		]);
+	});
+
+	it('keeps Home out of the swipe strip but active only on the home page', () => {
+		expect(DESTINATIONS.map((d) => d.id)).not.toContain('home');
+		expect(isActive(HOME_DESTINATION.href, '/')).toBe(true);
+		expect(isActive(HOME_DESTINATION.href, '/calendar')).toBe(false);
 	});
 
 	it('matches exact and nested paths only', () => {
