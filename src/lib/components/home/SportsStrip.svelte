@@ -5,7 +5,9 @@
 	import { DEFAULT_TEAMS, type Game, type SportsTeam } from '#lib/domain/sports.js';
 	import { stripCards, type StripCard } from '#lib/domain/sports-strip.js';
 	import { discClass, edgeClass } from '#lib/domain/team-colors.js';
-	import SportsSheet from '#lib/components/home/SportsSheet.svelte';
+	// The sheet loads in its own chunk (the home page's bundle budget is full); onMount prefetches
+	// it so a tap still opens it at once.
+	const loadSheet = () => import('#lib/components/home/SportsSheet.svelte');
 	import { isTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 
 	/** Tells the home page when the strip takes room, so it can tighten its spacing. */
@@ -37,6 +39,7 @@
 
 	onMount(() => {
 		void load();
+		void loadSheet().catch(() => undefined);
 		const channel = createLiveChannel({
 			url: '/api/events',
 			topics: ['sports'],
@@ -146,5 +149,7 @@
 	</section>
 {/if}
 {#if sheetOpen}
-	<SportsSheet {games} {teams} {now} {zone} onclose={() => (sheetOpen = false)} />
+	{#await loadSheet() then { default: SportsSheet }}
+		<SportsSheet {games} {teams} {now} {zone} onclose={() => (sheetOpen = false)} />
+	{/await}
 {/if}
