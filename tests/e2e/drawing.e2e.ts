@@ -1,3 +1,4 @@
+import { reveal } from './drawing-sections';
 import { expect, test, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -176,6 +177,7 @@ test('a finger draws when no pen is around @J18.1', async ({ page }, info) => {
 		await pointerStroke(page, 'touch', 0, [0.2, 0.2], [0.6, 0.6], 1);
 		await expect(page.getByTestId('draw-canvas')).toHaveAttribute('data-blank', 'false');
 		expect(await inkPixels(page)).toBeGreaterThan(200);
+		await reveal(page, 'draw-clear');
 		await page.getByTestId('draw-clear').click();
 		expect(await inkPixels(page)).toBe(0);
 		await page.getByTestId('draw-close').click();
@@ -219,7 +221,9 @@ test('more colors, recent colors, brush sizes and the highlighter @J18.3', async
 		await page.getByTestId('draw-size').first().click(); // thin
 		await pointerStroke(page, 'pen', 0.6, [0.1, 0.2], [0.8, 0.2], 1);
 		const thin = await inkPixels(page);
+		await reveal(page, 'draw-clear');
 		await page.getByTestId('draw-clear').click();
+		await page.getByTestId('draw-rail-pen').click(); // back from Paper to the Pen options
 		await page.getByTestId('draw-size').last().click(); // marker
 		await pointerStroke(page, 'pen', 0.6, [0.1, 0.2], [0.8, 0.2], 2);
 		expect(await inkPixels(page)).toBeGreaterThan(thin * 2);
@@ -228,13 +232,16 @@ test('more colors, recent colors, brush sizes and the highlighter @J18.3', async
 		// The grid color is now a recent color; picking another ink adds to the row.
 		await expect(page.getByTestId('draw-recent')).toHaveCount(1);
 		await page.getByTestId('draw-color').nth(1).click();
+		await reveal(page, 'draw-clear');
 		await page.getByTestId('draw-clear').click();
+		await page.getByTestId('draw-rail-pen').click();
 		await pointerStroke(page, 'pen', 0.6, [0.1, 0.4], [0.8, 0.4], 3);
 		await expect(page.getByTestId('draw-recent')).toHaveCount(2);
 		await page.getByTestId('draw-recent').nth(1).click();
 		await expect(page.getByTestId('draw-recent').nth(1)).toBeVisible();
 
 		// The highlighter is translucent.
+		await reveal(page, 'draw-clear');
 		await page.getByTestId('draw-clear').click();
 		await page.getByTestId('draw-highlighter').click();
 		await pointerStroke(page, 'pen', 1, [0.1, 0.6], [0.8, 0.6], 4);
@@ -357,6 +364,7 @@ test('save a drawing, reopen it from My drawings, delete it @J18.6', async ({ pa
 		await expect(page.getByTestId('draw-note')).toHaveText('Saved!');
 
 		// Clear the board, then open it again from My drawings.
+		await reveal(page, 'draw-clear');
 		await page.getByTestId('draw-clear').click();
 		expect(await inkPixels(page)).toBe(0);
 		await page.getByTestId('draw-browse').click();
@@ -435,7 +443,9 @@ test('coloring page: lines stay, fill stops at them, saves with its page @J18.7'
 		await gotoHydrated(page, '/');
 		await page.getByTestId('note-draw').click();
 		const canvas = page.getByTestId('draw-canvas');
+		await reveal(page, 'draw-pages-open');
 		await expectTappable(page.getByTestId('draw-pages-open'), 96);
+		await reveal(page, 'draw-pages-open');
 		await page.getByTestId('draw-pages-open').click();
 		await expect(page.getByTestId('draw-page')).toHaveCount(4);
 		await expectTappable(page.getByTestId('draw-page').first(), 96);
@@ -468,6 +478,7 @@ test('coloring page: lines stay, fill stops at them, saves with its page @J18.7'
 		await page.getByTestId('draw-save').click();
 		await page.getByTestId('draw-author').filter({ hasText: name }).click();
 		await expect(page.getByTestId('draw-note')).toHaveText('Saved!');
+		await reveal(page, 'draw-pages-open');
 		await page.getByTestId('draw-pages-open').click();
 		await page.getByTestId('draw-page-none').click();
 		await expect(canvas).toHaveAttribute('data-page', '');
@@ -706,7 +717,9 @@ test('background color: erasing reveals it, and it saves and reopens @J18.10', a
 		await page.getByTestId('note-draw').click();
 		const canvas = page.getByTestId('draw-canvas');
 		const holder = page.getByTestId('draw-holder');
+		await reveal(page, 'draw-bg-open');
 		await expectTappable(page.getByTestId('draw-bg-open'), 96);
+		await reveal(page, 'draw-bg-open');
 		await page.getByTestId('draw-bg-open').click();
 		await expect(page.getByTestId('draw-bg-color')).toHaveCount(48);
 		await expectTappable(page.getByTestId('draw-bg-color').first(), 96);
@@ -741,6 +754,7 @@ test('background color: erasing reveals it, and it saves and reopens @J18.10', a
 		expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeGreaterThan(20);
 
 		// Back to paper, then reopen: the color comes back.
+		await reveal(page, 'draw-bg-open');
 		await page.getByTestId('draw-bg-open').click();
 		await page.getByTestId('draw-bg-paper').click();
 		await expect(holder).toHaveAttribute('data-bg', '');
@@ -794,7 +808,9 @@ test('draw on a photo from the library: it stays when erased, and saves with the
 		await gotoHydrated(page, '/');
 		await page.getByTestId('note-draw').click();
 		const canvas = page.getByTestId('draw-canvas');
+		await reveal(page, 'draw-photo-open');
 		await expectTappable(page.getByTestId('draw-photo-open'), 96);
+		await reveal(page, 'draw-photo-open');
 		await page.getByTestId('draw-photo-open').click();
 		const mine = page.getByTestId('draw-photo').and(page.locator(`[data-photo-id="${photoId}"]`));
 		await expectTappable(mine, 96);
@@ -836,6 +852,7 @@ test('draw on a photo from the library: it stays when erased, and saves with the
 		expect(r).toBeGreaterThan(b);
 		const [r2, , b2] = await thumbPixel(page, row.thumb, 0.55, 0.55);
 		expect(b2).toBeGreaterThan(r2);
+		await reveal(page, 'draw-photo-open');
 		await page.getByTestId('draw-photo-open').click();
 		await page.getByTestId('draw-photo-none').click();
 		await expect(canvas).toHaveAttribute('data-photo', '');
@@ -866,19 +883,23 @@ test('layers: hide the drawing or the picture, drawing again brings it back @J18
 		await gotoHydrated(page, '/');
 		await page.getByTestId('note-draw').click();
 		const canvas = page.getByTestId('draw-canvas');
+		await reveal(page, 'draw-layers-open');
 		await expectTappable(page.getByTestId('draw-layers-open'), 96);
 
 		// A plain board has one layer to switch: the drawing.
+		await reveal(page, 'draw-layers-open');
 		await page.getByTestId('draw-layers-open').click();
 		await expect(page.getByTestId('draw-layer')).toHaveCount(1);
 		await expectTappable(page.getByTestId('draw-layer'), 96);
 		await page.getByTestId('draw-layers-close').click();
 
 		// A colored background and a stroke; hide the drawing and post: the stroke is not in the image.
+		await reveal(page, 'draw-bg-open');
 		await page.getByTestId('draw-bg-open').click();
 		await page.getByTestId('draw-bg-color').nth(5).click();
 		await pointerStroke(page, 'pen', 0.9, [0.1, 0.5], [0.9, 0.5], 1);
 		expect(await inkPixels(page)).toBeGreaterThan(0);
+		await reveal(page, 'draw-layers-open');
 		await page.getByTestId('draw-layers-open').click();
 		await page.getByTestId('draw-layer').click();
 		await expect(canvas).toHaveAttribute('data-layer-drawing', 'false');
@@ -900,6 +921,7 @@ test('layers: hide the drawing or the picture, drawing again brings it back @J18
 
 		// Drawing on a hidden layer shows it again first.
 		await page.getByTestId('note-draw').click();
+		await reveal(page, 'draw-layers-open');
 		await page.getByTestId('draw-layers-open').click();
 		await page.getByTestId('draw-layer').click();
 		await page.getByTestId('draw-layers-close').click();
@@ -908,10 +930,12 @@ test('layers: hide the drawing or the picture, drawing again brings it back @J18
 		expect(await opacityOf(page, 'draw-canvas')).toBe('1');
 
 		// With a coloring page there is a second layer: the picture.
+		await reveal(page, 'draw-pages-open');
 		await page.getByTestId('draw-pages-open').click();
 		await page.getByTestId('draw-page').and(page.locator('[data-page="fish"]')).click();
 		await expect(canvas).toHaveAttribute('data-page', 'fish');
 		expect(await lineInk(page)).toBeGreaterThan(2000);
+		await reveal(page, 'draw-layers-open');
 		await page.getByTestId('draw-layers-open').click();
 		await expect(page.getByTestId('draw-layer')).toHaveCount(2);
 		await page.getByTestId('draw-layer').and(page.locator('[data-layer="picture"]')).click();

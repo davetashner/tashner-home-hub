@@ -1,3 +1,4 @@
+import { reveal } from './drawing-sections';
 import { expect, test, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { ensureHousehold } from './adult';
@@ -67,6 +68,7 @@ test('mirror mode draws a stroke in every quadrant as one undo step', async ({ p
 	seedKid(kidId, 'Kid Mirror');
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
+	await reveal(page, 'draw-mirror');
 	const btn = page.getByTestId('draw-mirror');
 	await expectTappable(btn, 96);
 	await expect(btn).toHaveAttribute('data-mirror', '0');

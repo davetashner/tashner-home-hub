@@ -173,7 +173,7 @@
 	import ShapePicker from './drawing/ShapePicker.svelte';
 	import ColorSizePanel from './drawing/ColorSizePanel.svelte';
 	import ToolRail from './drawing/ToolRail.svelte';
-	import { RAIL_TOOLS, type RailTool } from './drawing/rail-tools.js';
+	import { RAIL_TOOLS, type RailSection, type RailTool } from './drawing/rail-tools.js';
 	import { toolBtn as btn } from './drawing/tool-btn.js';
 	import type { PhotoRow, SavedRow } from './drawing/rows.js';
 	import LiveShare from './drawing/LiveShare.svelte';
@@ -1558,9 +1558,27 @@
 								? 'marker'
 								: 'pen'
 	);
+	/** The open rail section (Paper, Magic, Together), or null for the tool's own options. Never changes the tool. */
+	let section = $state<RailSection | null>(null);
+	/** Open a section, or close it when tapped again; the active tool stays as it was. */
+	function selectSection(x: RailSection) {
+		if (choosing) return;
+		if (section === x) {
+			section = null;
+			return;
+		}
+		picking = false;
+		section = x;
+	}
 	/** Choose a rail tool: sets the same flags the old flat buttons did, and leaves any sub-panel. */
 	function selectTool(t: RailTool) {
 		if (choosing) return;
+		// Tapping the active tool while a section is open just returns to the tool's options.
+		if (section && t === rail && mainTools) {
+			section = null;
+			return;
+		}
+		section = null;
 		// Tapping the active tool again keeps its work (a shape still selected); Shapes reopens its picker.
 		if (t === rail && !picking && mainTools) {
 			if (t === 'shapes') shapePicking = true;
@@ -1618,7 +1636,7 @@
 		onleave={liveLeft}
 		onnote={(m) => (note = m)}
 	/>
-	<ToolRail active={rail} onselect={selectTool} />
+	<ToolRail active={rail} {section} onselect={selectTool} onsection={selectSection} />
 	<div
 		bind:this={holder}
 		class="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-card border-2 border-line bg-draw-paper shadow-raised"
@@ -1957,6 +1975,77 @@
 				<Button variant="ghost" onclick={() => (picking = false)} data-testid="draw-grid-close"
 					>Back</Button
 				>
+			{:else if section}
+				{#if section === 'paper'}
+					<p class="w-full text-body font-extrabold" data-testid="draw-options-title">Paper</p>
+					<button
+						type="button"
+						class="{btn} {page ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={page !== null}
+						data-testid="draw-pages-open"
+						onclick={() => (pagePicking = true)}
+						>{page ? PAGE_LABELS[page] : 'Coloring pages'}</button
+					>
+					<button
+						type="button"
+						class="{btn} {photoId ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={photoId !== null}
+						data-testid="draw-photo-open"
+						onclick={openPhotos}>Photo</button
+					>
+					<button
+						type="button"
+						class="{btn} {bg ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={bg !== null}
+						data-testid="draw-bg-open"
+						onclick={() => (bgPicking = true)}>Background</button
+					>
+					<button
+						type="button"
+						class="{btn} {!layers.drawing || !layers.picture
+							? 'border-accent bg-accent-soft'
+							: 'border-line bg-surface'}"
+						data-testid="draw-layers-open"
+						onclick={() => (layersPicking = true)}>Layers</button
+					>
+					<button
+						type="button"
+						class="{btn} border-line bg-surface"
+						disabled={!dirty || liveStatus.active}
+						data-testid="draw-clear"
+						onclick={clear}>Clear all</button
+					>
+				{:else if section === 'magic'}
+					<p class="w-full text-body font-extrabold" data-testid="draw-options-title">Magic</p>
+					<button
+						type="button"
+						class="{btn} {mirrorN ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={mirrorN !== null}
+						data-testid="draw-mirror"
+						data-mirror={mirrorN ?? 0}
+						onclick={() => {
+							commit();
+							mirrorN = nextMirror(mirrorN);
+						}}>Mirror: {mirrorLabel(mirrorN)}</button
+					>
+					<button
+						type="button"
+						class="{btn} {flipOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={flipOn}
+						data-testid="draw-flipbook"
+						onclick={toggleFlip}>Flipbook</button
+					>
+				{:else}
+					<p class="w-full text-body font-extrabold" data-testid="draw-options-title">Together</p>
+					<LiveChips
+						active={liveStatus.active}
+						online={liveStatus.online}
+						busy={liveStatus.busy}
+						onstart={() => live?.start()}
+						onstop={() => live?.end()}
+						{btn}
+					/>
+				{/if}
 			{:else}
 				{#if rail !== 'shapes'}
 					<p class="w-full text-body font-extrabold" data-testid="draw-options-title">
@@ -2053,69 +2142,6 @@
 						}}>Snap shapes: {snapOn ? 'On' : 'Off'}</button
 					>
 				{/if}
-				<p class="mt-3 w-full text-body font-extrabold" data-testid="draw-more-title">More</p>
-				<button
-					type="button"
-					class="{btn} {mirrorN ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
-					aria-pressed={mirrorN !== null}
-					data-testid="draw-mirror"
-					data-mirror={mirrorN ?? 0}
-					onclick={() => {
-						commit();
-						mirrorN = nextMirror(mirrorN);
-					}}>Mirror: {mirrorLabel(mirrorN)}</button
-				>
-				<LiveChips
-					active={liveStatus.active}
-					online={liveStatus.online}
-					busy={liveStatus.busy}
-					onstart={() => live?.start()}
-					onstop={() => live?.end()}
-					{btn}
-				/>
-				<button
-					type="button"
-					class="{btn} {flipOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
-					aria-pressed={flipOn}
-					data-testid="draw-flipbook"
-					onclick={toggleFlip}>Flipbook</button
-				>
-				<button
-					type="button"
-					class="{btn} border-line bg-surface"
-					disabled={!dirty || liveStatus.active}
-					data-testid="draw-clear"
-					onclick={clear}>Clear all</button
-				>
-				<button
-					type="button"
-					class="{btn} {page ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
-					aria-pressed={page !== null}
-					data-testid="draw-pages-open"
-					onclick={() => (pagePicking = true)}>{page ? PAGE_LABELS[page] : 'Coloring pages'}</button
-				>
-				<button
-					type="button"
-					class="{btn} {!layers.drawing || !layers.picture
-						? 'border-accent bg-accent-soft'
-						: 'border-line bg-surface'}"
-					data-testid="draw-layers-open"
-					onclick={() => (layersPicking = true)}>Layers</button
-				>
-				<button
-					type="button"
-					class="{btn} {photoId ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
-					aria-pressed={photoId !== null}
-					data-testid="draw-photo-open"
-					onclick={openPhotos}>Photo</button
-				>
-				<button
-					type="button"
-					class="{btn} {bg ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
-					aria-pressed={bg !== null}
-					data-testid="draw-bg-open"
-					onclick={() => (bgPicking = true)}>Background</button
-				>
 			{/if}
 		{/if}
 		{#if mainTools}

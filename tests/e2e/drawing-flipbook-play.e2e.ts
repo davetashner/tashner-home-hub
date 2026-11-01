@@ -1,3 +1,4 @@
+import { reveal } from './drawing-sections';
 import { expect, test, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { ensureHousehold } from './adult';
@@ -65,6 +66,7 @@ test('flipbook plays, stops on tap, and saves and reopens as a flipbook', async 
 	seedKid(`e2e-flip-play-${info.workerIndex}${info.repeatEachIndex}`, name);
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
+	await reveal(page, 'draw-flipbook');
 	await page.getByTestId('draw-flipbook').click();
 	await expect(page.getByTestId('flip-play')).toBeDisabled();
 	await stroke(page, [0.1, 0.1], [0.4, 0.3]);

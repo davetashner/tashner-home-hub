@@ -1,3 +1,4 @@
+import { reveal } from './drawing-sections';
 import { expect, test } from '@playwright/test';
 import { gotoHydrated } from './hydrated';
 import { expectTappable } from './tap';
@@ -31,6 +32,7 @@ test('Esc closes an open picker, then a sub-panel, then the board', async ({ pag
 	await expect(page.getByTestId('draw-grid')).toHaveCount(0);
 	await expect(page.getByTestId('draw-sheet')).toBeVisible();
 
+	await reveal(page, 'draw-bg-open');
 	await page.getByTestId('draw-bg-open').click();
 	await expect(page.getByLabel('Background colors')).toBeVisible();
 	await page.keyboard.press('Escape');

@@ -1,3 +1,4 @@
+import { reveal } from './drawing-sections';
 import { expect, test, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { ensureHousehold } from './adult';
@@ -88,6 +89,7 @@ test('replay a saved drawing, tap to skip, and the save is untouched', async ({ 
 		await page.getByTestId('draw-save').click();
 		await page.getByTestId('draw-author').filter({ hasText: name }).click();
 		await expect(page.getByTestId('draw-note')).toHaveText('Saved!');
+		await reveal(page, 'draw-clear');
 		await page.getByTestId('draw-clear').click();
 		expect(await inkPixels(page)).toBe(0);
 

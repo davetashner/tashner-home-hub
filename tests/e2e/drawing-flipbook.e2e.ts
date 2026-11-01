@@ -1,3 +1,4 @@
+import { reveal } from './drawing-sections';
 import { expect, test, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { ensureHousehold } from './adult';
@@ -64,6 +65,7 @@ test('flipbook frames keep their own ink and history, with an onion skin', async
 	seedKid(`e2e-flip-kid-${info.workerIndex}${info.repeatEachIndex}`, 'Kid Flip');
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
+	await reveal(page, 'draw-flipbook');
 	const toggle = page.getByTestId('draw-flipbook');
 	await expectTappable(toggle, 96);
 	await expect(page.getByTestId('flip-strip')).toHaveCount(0);
@@ -128,6 +130,7 @@ test('flipbook stops at 24 frames', async ({ page }, info) => {
 	seedKid(`e2e-flip-max-${info.workerIndex}${info.repeatEachIndex}`, 'Kid Max');
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
+	await reveal(page, 'draw-flipbook');
 	await page.getByTestId('draw-flipbook').click();
 	for (let i = 1; i < 24; i++) await page.getByTestId('flip-add').click();
 	await expect(page.getByTestId('flip-frame')).toHaveCount(24);
