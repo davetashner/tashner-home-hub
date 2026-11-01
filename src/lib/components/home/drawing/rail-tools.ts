@@ -41,3 +41,27 @@ export const RAIL_TOOLS: { id: RailTool; label: string; testid: string; icon: st
 		icon: 'M14 6l4 4M17 3l4 4-3 3-4-4zM14 8l-9 9v3h3l9-9z'
 	}
 ];
+
+/** Board-wide sections below the tools (hub-cn7.37.4). Choosing one never changes the active tool. */
+export type RailSection = 'paper' | 'magic' | 'together';
+
+export const RAIL_SECTIONS: { id: RailSection; label: string; testid: string; icon: string }[] = [
+	{
+		id: 'paper',
+		label: 'Paper',
+		testid: 'draw-paper',
+		icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7'
+	},
+	{
+		id: 'magic',
+		label: 'Magic',
+		testid: 'draw-magic',
+		icon: 'M5 19L17 7l2 2L7 21zM15 5l1-2 1 2 2 1-2 1-1 2-1-2-2-1zM4 7l1-1 1 1-1 1z'
+	},
+	{
+		id: 'together',
+		label: 'Together',
+		testid: 'draw-together',
+		icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5'
+	}
+];

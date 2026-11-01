@@ -1,3 +1,4 @@
+import { reveal } from './drawing-sections';
 import { expect, test, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { ensureHousehold } from './adult';
@@ -59,18 +60,23 @@ test('Clear all resets the board and Undo clear, Undo and Redo restore it @J18.1
 	await page.getByTestId('note-draw').click();
 	const canvas = page.getByTestId('draw-canvas');
 	const holder = page.getByTestId('draw-holder');
+	await reveal(page, 'draw-clear');
 	await expect(page.getByTestId('draw-clear')).toBeDisabled();
 	await expect(page.getByTestId('draw-redo')).toBeDisabled();
+	await reveal(page, 'draw-clear');
 	await expectTappable(page.getByTestId('draw-clear'), 96);
 	await expectTappable(page.getByTestId('draw-redo'), 96);
 
 	// A page alone is enough to enable Clear all.
+	await reveal(page, 'draw-pages-open');
 	await page.getByTestId('draw-pages-open').click();
 	await page.getByTestId('draw-page').first().click();
 	await expect(canvas).not.toHaveAttribute('data-page', '');
+	await reveal(page, 'draw-clear');
 	await expect(page.getByTestId('draw-clear')).toBeEnabled();
 
 	// Ink, a background, then clear everything.
+	await reveal(page, 'draw-bg-open');
 	await page.getByTestId('draw-bg-open').click();
 	await page.getByTestId('draw-bg-color').nth(5).click();
 	await stroke(page, [0.1, 0.2], [0.8, 0.3]);
@@ -79,10 +85,12 @@ test('Clear all resets the board and Undo clear, Undo and Redo restore it @J18.1
 	const bg = await holder.getAttribute('data-bg');
 	expect(bg).not.toBe('');
 
+	await reveal(page, 'draw-clear');
 	await page.getByTestId('draw-clear').click();
 	await expect(canvas).toHaveAttribute('data-strokes', '0');
 	await expect(canvas).toHaveAttribute('data-page', '');
 	await expect(holder).toHaveAttribute('data-bg', '');
+	await reveal(page, 'draw-clear');
 	await expect(page.getByTestId('draw-clear')).toBeDisabled();
 
 	// The toast puts back the exact board.
@@ -99,6 +107,7 @@ test('Clear all resets the board and Undo clear, Undo and Redo restore it @J18.1
 	await expect(canvas).toHaveAttribute('data-page', '');
 	await page.getByTestId('draw-undo').click();
 	await expect(canvas).toHaveAttribute('data-strokes', '1');
+	await reveal(page, 'draw-clear');
 	await page.getByTestId('draw-clear').click();
 	await page.getByTestId('draw-undo').click(); // plain Undo restores a clear too
 	await expect(canvas).toHaveAttribute('data-page', pageId!);

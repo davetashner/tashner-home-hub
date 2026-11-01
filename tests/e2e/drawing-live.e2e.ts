@@ -1,3 +1,4 @@
+import { reveal } from './drawing-sections';
 import { expect, test, type Page } from '@playwright/test';
 import { ensureHousehold } from './adult';
 import { holdLock } from './file-lock';
@@ -61,16 +62,20 @@ test('draw together: invite, join, live strokes, own undo, late joiner, offline 
 	try {
 		await gotoHydrated(page, '/');
 		await page.getByTestId('note-draw').click();
+		await reveal(page, 'draw-share');
 		const share = page.getByTestId('draw-share');
 		await expectTappable(share);
 		await share.click();
+		await reveal(page, 'draw-live-status');
 		await expect(page.getByTestId('draw-live-status')).toHaveAttribute('data-online', 'true');
+		await reveal(page, 'draw-clear');
 		await expect(page.getByTestId('draw-clear')).toBeDisabled();
 
 		// The other devices are invited; B joins with one tap.
 		await expect(b.page.getByTestId('draw-invite')).toBeVisible();
 		await expect(c.page.getByTestId('draw-invite')).toBeVisible();
 		await b.page.getByTestId('draw-invite-join').click();
+		await reveal(b.page, 'draw-live-status');
 		await expect(b.page.getByTestId('draw-live-status')).toBeVisible();
 
 		await stroke(page, [0.1, 0.2], [0.4, 0.2]);
@@ -91,6 +96,7 @@ test('draw together: invite, join, live strokes, own undo, late joiner, offline 
 		// B loses the connection, keeps drawing, and it all arrives once back online.
 		await b.context.setOffline(true);
 		await stroke(b.page, [0.6, 0.5], [0.9, 0.5]);
+		await reveal(b.page, 'draw-live-status');
 		await expect(b.page.getByTestId('draw-live-status')).toHaveAttribute('data-online', 'false', {
 			timeout: 20_000
 		});
@@ -98,8 +104,11 @@ test('draw together: invite, join, live strokes, own undo, late joiner, offline 
 		await b.context.setOffline(false);
 		await expect.poll(() => inkPixels(page), { timeout: 30_000 }).toBeGreaterThan(first);
 
+		await reveal(page, 'draw-live-leave');
 		await page.getByTestId('draw-live-leave').click();
+		await reveal(page, 'draw-share');
 		await expect(page.getByTestId('draw-share')).toBeVisible();
+		await reveal(page, 'draw-clear');
 		await expect(page.getByTestId('draw-clear')).toBeEnabled();
 		expect(await inkPixels(page)).toBeGreaterThan(first);
 	} finally {
