@@ -193,11 +193,13 @@
 		inert={collapsed && sideRail}
 		class="shell-header flex items-center justify-between gap-3 pt-safe-4 pr-safe-4 pb-4 pl-safe-4 max-sm:justify-end max-sm:pt-safe-2 max-sm:pr-safe-3 max-sm:pb-2 max-sm:pl-safe-3 sm:flex-wrap sm:gap-8 sm:pt-safe-8 sm:pr-safe-12 sm:pb-8 sm:pl-safe-12 portrait:sm:pr-safe-10 portrait:sm:pl-safe-10 landscape:col-start-2 landscape:row-start-1 landscape:pl-4 landscape:sm:gap-4 landscape:sm:pr-safe-8 landscape:sm:pl-8 short:flex-nowrap short:gap-1 short:pt-safe-2 short:pr-safe-2 short:pb-2 short:pl-2 tablet:flex-nowrap tablet:gap-4 tablet:pt-safe-2 tablet:pb-2 portrait:tablet:pr-safe-6 portrait:tablet:pl-safe-6 landscape:tablet:gap-4 landscape:tablet:pr-safe-6 landscape:tablet:pl-6"
 	>
-		<div class="flex min-w-0 items-center gap-4 landscape:flex-1 landscape:sm:min-w-min">
+		<div
+			class="flex min-w-0 items-center gap-4 landscape:flex-1 landscape:sm:min-w-min tablet:!min-w-0"
+		>
 			{#if pathname === '/'}
 				<span class="max-sm:hidden"></span>
 			{:else}
-				<div class="min-w-0 max-sm:hidden landscape:flex-1 landscape:sm:min-w-min">
+				<div class="min-w-0 max-sm:hidden landscape:flex-1 landscape:sm:min-w-min tablet:!min-w-0">
 					<a
 						href={resolve('/(app)')}
 						data-sveltekit-preload-data="tap"
