@@ -40,7 +40,7 @@
 		<p
 			class="text-ink-muted {size === 'hero'
 				? 'text-title short:text-lead'
-				: 'text-lead tablet:text-caption tablet:whitespace-nowrap'}"
+				: 'max-w-full text-lead tablet:truncate tablet:text-caption'}"
 			data-testid="{testidPrefix}-date"
 		>
 			{clock.date}
