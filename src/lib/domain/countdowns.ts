@@ -13,8 +13,10 @@ export interface CountdownLike {
 }
 
 export const COUNTDOWN_TITLE_MAX = 60;
-/** How many countdowns the home screen shows. */
-export const HOME_COUNTDOWN_LIMIT = 3;
+/** How many countdowns the home screen shows at once: the soonest ones (CD-2). */
+export const HOME_COUNTDOWN_LIMIT = 2;
+/** A countdown only shows on the home screen in its last this-many days (CD-3). */
+export const COUNTDOWN_WINDOW_DAYS = 30;
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -57,21 +59,43 @@ export function countdownLabel(days: number): string {
 	return `${days} days`;
 }
 
+/** "Thu, Nov 26" for a `YYYY-MM-DD` day; the input unchanged when it is not a real day. */
+export function countdownDay(date: string): string {
+	const n = dayNumber(date);
+	if (n === null) return date;
+	return new Intl.DateTimeFormat('en-US', {
+		timeZone: 'UTC',
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric'
+	}).format(new Date(n * 86_400_000));
+}
+
 export interface CountdownView extends CountdownLike {
 	days: number;
 	label: string;
 }
 
-/** Countdowns still to come (today included), soonest first, capped at `limit`. */
+/** The day a countdown starts showing on the home screen: `window` days before its target. */
+export function showsFrom(target: string, window = COUNTDOWN_WINDOW_DAYS): string | null {
+	const n = dayNumber(target);
+	return n === null ? null : new Date((n - window) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Countdowns for the home screen: today through `window` days out, soonest first, capped at
+ * `limit`. One further out waits its turn and appears once it is `window` days away.
+ */
 export function upcomingCountdowns(
 	list: readonly CountdownLike[],
 	today: string,
-	limit = HOME_COUNTDOWN_LIMIT
+	limit = HOME_COUNTDOWN_LIMIT,
+	window = COUNTDOWN_WINDOW_DAYS
 ): CountdownView[] {
 	const out: CountdownView[] = [];
 	for (const c of list) {
 		const days = daysUntil(c.targetDate, today);
-		if (days === null || days < 0) continue;
+		if (days === null || days < 0 || days > window) continue;
 		out.push({ ...c, days, label: countdownLabel(days) });
 	}
 	return out

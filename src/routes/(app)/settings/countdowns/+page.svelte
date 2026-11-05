@@ -3,7 +3,14 @@
 	import { onMount } from 'svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
-	import { countdownLabel, daysUntil, dayIn } from '#lib/domain/countdowns.js';
+	import {
+		COUNTDOWN_WINDOW_DAYS,
+		countdownDay,
+		countdownLabel,
+		daysUntil,
+		dayIn,
+		showsFrom
+	} from '#lib/domain/countdowns.js';
 	import { page } from '$app/state';
 	import { isTimeZone, runtimeZone } from '#lib/domain/time-zone.js';
 
@@ -30,7 +37,10 @@
 	function when(c: Countdown): string {
 		const days = daysUntil(c.targetDate, today);
 		if (days === null) return c.targetDate;
-		return days < 0 ? 'Passed' : countdownLabel(days);
+		if (days < 0) return 'Passed';
+		// CD-3: Home shows a countdown only in its last 30 days.
+		if (days > COUNTDOWN_WINDOW_DAYS) return `Shows from ${countdownDay(showsFrom(c.targetDate)!)}`;
+		return countdownLabel(days);
 	}
 
 	async function load() {
@@ -80,7 +90,12 @@
 
 <section class="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8 max-sm:p-3 short:gap-4 short:p-3">
 	<header class="flex flex-wrap items-center justify-between gap-6">
-		<h1 class="text-headline font-extrabold">Countdowns</h1>
+		<div class="flex flex-col gap-1">
+			<h1 class="text-headline font-extrabold">Countdowns</h1>
+			<p class="text-body text-ink-muted" data-testid="countdown-rule">
+				Home shows the two soonest, each from {COUNTDOWN_WINDOW_DAYS} days out.
+			</p>
+		</div>
 		<Button data-testid="add-countdown" onclick={() => openForm()}>Add countdown</Button>
 	</header>
 
