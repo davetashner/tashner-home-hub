@@ -29,11 +29,33 @@
 	const keys = $derived(periodKeys('week', today));
 	const meals = $derived(mealMap(mealRows));
 
+	/** Rows from the API, made safe to render: anything malformed is dropped, gaps filled. */
+	function normalize(rows: unknown): CalEvent[] {
+		if (!Array.isArray(rows)) return [];
+		return rows.flatMap((r: Partial<CalEvent>, i) =>
+			r && typeof r.title === 'string' && Number.isFinite(r.startsAt) && Number.isFinite(r.endsAt)
+				? [
+						{
+							...r,
+							id: typeof r.id === 'string' ? r.id : `home-week-${i}`,
+							title: r.title,
+							startsAt: r.startsAt!,
+							endsAt: r.endsAt!,
+							allDay: r.allDay === true,
+							location: r.location ?? null,
+							notes: r.notes ?? null,
+							members: Array.isArray(r.members) ? r.members : []
+						}
+					]
+				: []
+		);
+	}
+
 	async function load(ks: string[]) {
 		const r = fetchRange(ks, tz);
 		try {
 			const res = await fetch(`/api/calendar/events?start=${r.start}&end=${r.end}`);
-			if (res.ok) events = await res.json();
+			if (res.ok) events = normalize(await res.json());
 		} catch {
 			// Offline: keep the last week shown.
 		}
