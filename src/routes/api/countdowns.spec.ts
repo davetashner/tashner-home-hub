@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'hub-countdowns-api-'));
 
 const list = await import('./countdowns/+server.js');
+const { getDb } = await import('#lib/server/db/index.js');
+const { calendarSources, events } = await import('#lib/server/db/schema.js');
 const one = await import('./countdowns/[id]/+server.js');
 
 const req = (method: string, body?: unknown) =>
@@ -59,5 +61,39 @@ describe('countdowns API', () => {
 		).rejects.toBeDefined();
 		await expect(call(one.DELETE, { params: { id } }, false)).rejects.toBeDefined();
 		await call(one.DELETE, { params: { id } });
+	});
+	it('counts down to a calendar event, once, for kids too, and unlinks', async () => {
+		const db = getDb();
+		db.insert(calendarSources).values({ id: 'src', provider: 'ics', label: 'Family' }).run();
+		db.insert(events)
+			.values({
+				id: 'ev1',
+				sourceId: 'src',
+				externalId: 'uid-1',
+				title: 'Cousins visit',
+				startsAt: Date.UTC(2026, 11, 5),
+				endsAt: Date.UTC(2026, 11, 6),
+				allDay: true
+			})
+			.run();
+		const post = () => call(list.POST, { request: req('POST', { eventId: 'ev1' }) }, false);
+		const first = await post();
+		expect(first.status).toBe(201);
+		const made = await first.json();
+		expect(made).toMatchObject({ title: 'Cousins visit', targetDate: '2026-12-05' });
+		const again = await post();
+		expect(again.status).toBe(200);
+		expect((await again.json()).id).toBe(made.id);
+		await expect(
+			call(list.POST, { request: req('POST', { eventId: 'nope' }) }, false)
+		).rejects.toMatchObject({ status: 404 });
+		db.delete(events).run();
+		const [shown] = await (await call(list.GET, {})).json();
+		expect(shown.eventMissing).toBe(true);
+		const unlinked = await (
+			await call(one.PATCH, { params: { id: made.id }, request: req('PATCH', { unlink: true }) })
+		).json();
+		expect(unlinked.eventExternalId).toBeNull();
+		await call(one.DELETE, { params: { id: made.id } });
 	});
 });

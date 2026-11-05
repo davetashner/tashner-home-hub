@@ -313,7 +313,13 @@ export const countdowns = sqliteTable('countdowns', {
 	title: text('title').notNull(),
 	/** Local calendar day, YYYY-MM-DD. */
 	targetDate: text('target_date').notNull(),
-	icon: text('icon')
+	icon: text('icon'),
+	/**
+	 * CD-4: a countdown made from a calendar event follows it by (source, external id), which
+	 * survive re-syncs. No foreign key: when the event goes away the countdown keeps its last date.
+	 */
+	eventSourceId: text('event_source_id'),
+	eventExternalId: text('event_external_id')
 });
 
 /** Sticky notes on the family board (MSG-1). Short-lived: expired rows are swept on read. */
