@@ -19,6 +19,9 @@
 		title: string;
 		targetDate: string;
 		icon: string | null;
+		/** CD-4: made from a calendar event; it follows the event's name and date. */
+		eventExternalId: string | null;
+		eventMissing: boolean;
 	}
 
 	let items = $state<Countdown[]>([]);
@@ -63,13 +66,27 @@
 		const res = await safeFetch(editing ? `/api/countdowns/${editing}` : '/api/countdowns', {
 			method: editing ? 'PATCH' : 'POST',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ title, targetDate, icon: icon.trim() || null })
+			// A linked countdown follows its event: only the emoji is its own.
+			body: JSON.stringify(
+				linked ? { icon: icon.trim() || null } : { title, targetDate, icon: icon.trim() || null }
+			)
 		});
 		if (!res.ok) {
 			message = await errorMessage(res);
 			return;
 		}
 		editing = null;
+		await load();
+	}
+
+	const linked = $derived(Boolean(items.find((c) => c.id === editing)?.eventExternalId));
+
+	async function keepAsCustom(c: Countdown) {
+		await safeFetch(`/api/countdowns/${c.id}`, {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ unlink: true })
+		});
 		await load();
 	}
 
@@ -118,6 +135,7 @@
 							bind:value={title}
 							maxlength="60"
 							required
+							disabled={linked}
 							data-testid="countdown-title"
 						/>
 					</label>
@@ -128,10 +146,16 @@
 							type="date"
 							bind:value={targetDate}
 							required
+							disabled={linked}
 							data-testid="countdown-date"
 						/>
 					</label>
 				</div>
+				{#if linked}
+					<p class="text-body text-ink-muted">
+						This one follows its calendar event: change the event to change its name or date.
+					</p>
+				{/if}
 				{#if message}<p class="text-danger" role="alert">{message}</p>{/if}
 				<div class="flex gap-4">
 					<Button type="submit" data-testid="countdown-save">Save</Button>
@@ -152,9 +176,24 @@
 					<span class="w-24 text-center text-headline" aria-hidden="true">{c.icon ?? '⏳'}</span>
 					<span class="flex min-w-48 flex-1 flex-col">
 						<span class="text-lead font-bold">{c.title}</span>
-						<span class="text-body text-ink-muted">{c.targetDate}</span>
+						<span class="text-body text-ink-muted" data-testid="countdown-source">
+							{c.eventMissing
+								? 'The calendar event was deleted'
+								: c.eventExternalId
+									? 'From the calendar'
+									: 'Custom'} · {c.targetDate}
+						</span>
 					</span>
 					<span class="text-lead font-extrabold">{when(c)}</span>
+					{#if c.eventMissing}
+						<Button
+							variant="secondary"
+							onclick={() => keepAsCustom(c)}
+							aria-label="Keep {c.title} as a custom date"
+						>
+							Keep date
+						</Button>
+					{/if}
 					<Button variant="secondary" onclick={() => openForm(c)} aria-label="Edit {c.title}">
 						Edit
 					</Button>

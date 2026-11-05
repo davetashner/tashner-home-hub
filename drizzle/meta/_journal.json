@@ -134,6 +134,13 @@
 			"when": 1793075169930,
 			"tag": "20261027042609_kid_star_goals",
 			"breakpoints": true
+		},
+		{
+			"idx": 19,
+			"version": "6",
+			"when": 1793849829884,
+			"tag": "20261105033709_countdown_events",
+			"breakpoints": true
 		}
 	]
 }

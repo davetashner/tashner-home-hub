@@ -10,6 +10,11 @@ export interface CountdownLike {
 	/** Local calendar day, YYYY-MM-DD. */
 	targetDate: string;
 	icon: string | null;
+	/** CD-4: the calendar event row this countdown follows, when it was made from one. */
+	eventId?: string | null;
+	/** CD-4: made from a calendar event that has since gone away. */
+	eventMissing?: boolean;
+	eventExternalId?: string | null;
 }
 
 export const COUNTDOWN_TITLE_MAX = 60;

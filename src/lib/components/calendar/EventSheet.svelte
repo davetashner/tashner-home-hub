@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import EventCountdown from './EventCountdown.svelte';
 	import { rangeLabel, stripeColor } from '#lib/domain/calendar-view/format.js';
 	import type { CalEvent } from '#lib/domain/calendar-view/layout.js';
 	import type { MemberColor } from '#lib/domain/member-colors.js';
@@ -53,6 +54,9 @@
 		{/if}
 		{#if event.notes}
 			<p class="text-body whitespace-pre-line text-ink-muted">{event.notes}</p>
+		{/if}
+		{#if event.sourceId && !event.pending}
+			<EventCountdown {event} {tz} />
 		{/if}
 		{#if phoneOnly}
 			<p class="text-body font-extrabold text-ink-muted" data-testid="edit-on-phone">
