@@ -43,10 +43,18 @@
 			? 'justify-start gap-6'
 			: 'justify-center gap-16'} short:justify-start short:gap-3 short:p-3 tablet:gap-8 tablet:p-6"
 	>
-		<!-- Phone landscape: the clock and the weather share one row to save height. -->
-		<div class="contents short:flex short:items-center short:gap-3">
-			<Clock testidPrefix="clock" size="hero" />
-			<div class="contents short:block short:min-w-0 short:flex-1"><WeatherWidget /></div>
+		<!-- The clock with the countdown pills beside it (CD-2, mockup B), then the weather.
+		     Phone landscape: clock, weather and pills share one row to save height. -->
+		<div
+			class="flex flex-wrap items-center gap-x-12 gap-y-6 short:flex-nowrap short:gap-3 tablet:gap-6"
+		>
+			<div class="min-w-0 flex-1 short:flex-none"><Clock testidPrefix="clock" size="hero" /></div>
+			<div
+				class="order-last basis-full empty:hidden short:order-none short:min-w-0 short:flex-1 short:basis-0"
+			>
+				<WeatherWidget />
+			</div>
+			<HomeCountdowns />
 		</div>
 		<SportsStrip onshown={(shown) => (sportsShown = shown)} />
 		<div class="grid grid-cols-3 gap-8 portrait:grid-cols-1 short:gap-3 tablet:gap-4">
@@ -72,7 +80,6 @@
 			Timers
 		</button>
 		<HomeControls />
-		<HomeCountdowns />
 		<HomeNotes />
 	</div>
 {/if}

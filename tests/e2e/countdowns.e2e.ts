@@ -19,7 +19,7 @@ const addDays = (date: string, n: number) => {
 	return d.toISOString().slice(0, 10);
 };
 
-test('adults add, edit and delete countdowns; home counts down in days @J0.4', async ({
+test('adults add, edit and delete countdowns; home shows the two soonest @J0.4', async ({
 	page
 }, info) => {
 	const k = Math.max(0, PROJECTS.indexOf(info.project.name));
@@ -44,6 +44,11 @@ test('adults add, edit and delete countdowns; home counts down in days @J0.4', a
 		await add(`Trip ${tag}`, addDays(today, 12), '🏖️');
 		await add(`Party ${tag}`, addDays(today, 1), '🎉');
 		await add(`Old news ${tag}`, addDays(today, -3), '📰');
+		await add(`Far off ${tag}`, addDays(today, 45), '🎄');
+		// CD-3: 45 days out waits; it starts showing 30 days before.
+		await expect(
+			page.getByTestId('countdown-row').filter({ hasText: `Far off ${tag}` })
+		).toContainText('Shows from');
 
 		// Edit: push the trip out by a day.
 		const trip = page.getByTestId('countdown-row').filter({ hasText: `Trip ${tag}` });
@@ -55,13 +60,14 @@ test('adults add, edit and delete countdowns; home counts down in days @J0.4', a
 		expect(px(box!.height)).toBeGreaterThanOrEqual(60);
 
 		await gotoHydrated(page, '/');
+		// CD-2: only the two soonest show.
 		const cards = page.getByTestId('home-countdown');
-		await expect(cards).toHaveCount(3);
+		await expect(cards).toHaveCount(2);
 		await expect(cards.nth(0)).toContainText('Today');
 		await expect(cards.nth(0)).toContainText(`Birthday ${tag}`);
 		await expect(cards.nth(1)).toContainText('Tomorrow');
-		await expect(cards.nth(2)).toContainText('13 days');
 		await expect(page.getByTestId('home-countdowns')).not.toContainText('Old news');
+		await expect(page.getByTestId('home-countdowns')).not.toContainText('Far off');
 
 		// Fits the viewport in both orientations: no sideways scroll.
 		const overflow = await page.evaluate(
@@ -75,6 +81,9 @@ test('adults add, edit and delete countdowns; home counts down in days @J0.4', a
 		await expect(cards.nth(0)).toContainText('Today');
 		await expect(cards.nth(0)).toContainText(`Party ${tag}`);
 		await expect(page.getByTestId('home-countdowns')).not.toContainText(`Birthday ${tag}`);
+		// The trip takes the free spot.
+		await expect(cards.nth(1)).toContainText(`Trip ${tag}`);
+		await expect(cards.nth(1)).toContainText('12 days');
 
 		// Delete.
 		await gotoHydrated(page, '/settings/countdowns');

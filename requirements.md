@@ -127,6 +127,8 @@ The main audience is a young child. Completing a chore should feel like an event
 | MEAL-2 | P2 | Saved recipes/meals that can be reused, with ingredients added to the grocery list in one tap. |
 | WX-1 | P1 | Current weather and a 5-day forecast from a free, keyless API (e.g. Open-Meteo or the US National Weather Service). |
 | CD-1 | P1 | Countdowns to upcoming events, shown on the home screen. |
+| CD-2 | P1 | The home screen shows at most two countdowns, the soonest, as compact pills beside the clock. Anyone, kids included, can add one. |
+| CD-3 | P1 | A countdown shows only in its last 30 days; one set further out waits and appears 30 days before. |
 | MSG-1 | P2 | Family message board / sticky notes. |
 | TMR-1 | P2 | Kitchen timers usable from the touchscreen. |
 

@@ -46,10 +46,18 @@ describe('countdowns API', () => {
 			status: 404
 		});
 	});
-	it('needs an adult to change anything', async () => {
+	it('lets kids add, but only adults edit or delete', async () => {
+		const res = await call(
+			list.POST,
+			{ request: req('POST', { title: 'Kid party', targetDate: '2026-12-01' }) },
+			false
+		);
+		expect(res.status).toBe(201);
+		const { id } = await res.json();
 		await expect(
-			call(list.POST, { request: req('POST', { title: 'x', targetDate: '2026-12-01' }) }, false)
+			call(one.PATCH, { params: { id }, request: req('PATCH', { title: 'y' }) }, false)
 		).rejects.toBeDefined();
-		await expect(call(one.DELETE, { params: { id: 'x' } }, false)).rejects.toBeDefined();
+		await expect(call(one.DELETE, { params: { id } }, false)).rejects.toBeDefined();
+		await call(one.DELETE, { params: { id } });
 	});
 });
