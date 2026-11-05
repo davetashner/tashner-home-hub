@@ -493,8 +493,10 @@
 @utility grid-rows-shell-portrait {
 	grid-template-rows: auto 1fr auto;
 }
+/* minmax(0, 1fr): a plain 1fr track grows to its content's min width (a long kid switcher row),
+   pushing the header and page past the right edge of the screen. */
 @utility grid-cols-shell-landscape {
-	grid-template-columns: auto 1fr;
+	grid-template-columns: auto minmax(0, 1fr);
 }
 @utility grid-rows-shell-landscape {
 	grid-template-rows: auto 1fr;
