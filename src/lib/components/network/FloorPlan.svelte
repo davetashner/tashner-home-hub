@@ -16,8 +16,18 @@
 		now: number;
 		selected: string | null;
 		onselect: (id: string) => void;
+		/** When set, tapping the plan reports the point (in feet) instead of selecting. */
+		onplace?: (x: number, y: number) => void;
 	}
-	let { layout, devices, checkedAt, floor, now, selected, onselect }: Props = $props();
+	let { layout, devices, checkedAt, floor, now, selected, onselect, onplace }: Props = $props();
+
+	let svg = $state<SVGSVGElement>();
+	function place(e: MouseEvent) {
+		const m = svg?.getScreenCTM();
+		if (!onplace || !svg || !m) return;
+		const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+		onplace(p.x, p.y);
+	}
 
 	const box = $derived(planBounds(layout));
 	const rooms = $derived(
@@ -38,6 +48,7 @@
 </script>
 
 <svg
+	bind:this={svg}
 	viewBox="{box.x} {box.y} {box.w} {box.h}"
 	class="block h-auto w-full"
 	role="img"
@@ -89,5 +100,25 @@
 		<text x={box.x + 1} y={box.y + 2} font-size="1" class="fill-ink-muted"
 			>Nothing drawn on this floor.</text
 		>
+	{/if}
+	{#if onplace}
+		<!-- Placing a device: a sheet over the whole plan catches the tap. Keyboard users get the centre. -->
+		<rect
+			x={box.x}
+			y={box.y}
+			width={box.w}
+			height={box.h}
+			class="cursor-crosshair fill-accent-soft opacity-30"
+			role="button"
+			tabindex="0"
+			aria-label="Tap where the device is"
+			data-testid="net-place-sheet"
+			onclick={place}
+			onkeydown={(e) => {
+				if (e.key !== 'Enter' && e.key !== ' ') return;
+				e.preventDefault();
+				onplace(box.x + box.w / 2, box.y + box.h / 2);
+			}}
+		/>
 	{/if}
 </svg>

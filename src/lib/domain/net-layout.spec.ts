@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+	deviceId,
 	parseLayout,
 	planBounds,
 	roomAt,
 	shortSpan,
 	statusLine,
 	toneOf,
+	withPlacement,
 	type NetLayout
 } from './net-layout.js';
 import type { DeviceState } from './lan-monitor.js';
@@ -147,5 +149,25 @@ describe('shortSpan', () => {
 		expect(shortSpan(59 * 60_000)).toBe('59 min');
 		expect(shortSpan(47 * 3600_000)).toBe('47 h');
 		expect(shortSpan(72 * 3600_000)).toBe('3 days');
+	});
+});
+
+describe('withPlacement and deviceId', () => {
+	const l = parseLayout(raw) as NetLayout;
+	it('moves a placed device and adds an unplaced one, without touching the original', () => {
+		const moved = withPlacement(l, 'router', 7.3, 8.8, 2);
+		expect(moved.placements).toEqual([{ id: 'router', x: 7.5, y: 9, floor: 2 }]);
+		expect(withPlacement(moved, 'new', 1, 1, 1).placements.map((p) => p.id)).toEqual([
+			'router',
+			'new'
+		]);
+		expect(l.placements[0]).toEqual({ id: 'router', x: 3, y: 3, floor: 1 });
+		expect(moved.rooms).toBe(l.rooms);
+	});
+	it('slugs names and avoids collisions', () => {
+		expect(deviceId('Garage TV Pi', [])).toBe('garage-tv-pi');
+		expect(deviceId('  Router!! ', ['router', 'router-2'])).toBe('router-3');
+		expect(deviceId('***', [])).toBe('device');
+		expect(deviceId('x'.repeat(50), []).length).toBe(32);
 	});
 });

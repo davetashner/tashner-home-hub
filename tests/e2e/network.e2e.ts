@@ -49,3 +49,34 @@ test('settings links to the Network page @J20.1', async ({ page }, info) => {
 	await page.getByRole('link', { name: /Network/ }).click();
 	await expect(page).toHaveURL(/\/settings\/network$/);
 });
+
+test('an adult imports a plan, edits devices and moves one @J20.2', async ({ page }, info) => {
+	await signInAsAdult(page, `e2e-network-setup-${info.project.name}`);
+	expect((await page.request.put('/api/network', { data: { devices } })).ok()).toBe(true);
+	await gotoHydrated(page, '/settings/network');
+
+	// Import by pasting the plan builder's JSON.
+	await page.getByTestId('net-paste').fill(JSON.stringify(plan));
+	await page.getByTestId('net-paste-import').click();
+	await expect(page.getByText('Imported 2 rooms and 2 device spots.')).toBeVisible();
+
+	// Move the router upstairs: pick it, switch floors, tap the plan. (Projects share one database,
+	// so only the page's own optimistic state is asserted, never the starting room.)
+	const router = page.getByTestId('net-device').filter({ hasText: 'Test router' });
+	await router.click();
+	await page.getByTestId('net-move').click();
+	await expect(page.getByTestId('net-placing')).toBeVisible();
+	await page.getByRole('button', { name: 'Upstairs' }).click();
+	await page.getByTestId('net-place-sheet').click();
+	await expect(router).toContainText('Loft');
+
+	// The device list editor shows each device with its check.
+	await page.getByTestId('net-edit-devices').click();
+	await expect(page.getByTestId('net-row')).toHaveCount(2);
+	await expect(page.getByTestId('net-row-ip').first()).toHaveValue('10.255.1.1');
+	await page.getByTestId('net-save').click();
+	await expect(page.getByText('Saved. The hub checks them every minute.')).toBeVisible();
+
+	// Leave the shared plan as the other tests expect it.
+	expect((await page.request.put('/api/network/layout', { data: plan })).ok()).toBe(true);
+});
