@@ -80,3 +80,13 @@ test('an adult imports a plan, edits devices and moves one @J20.2', async ({ pag
 	// Leave the shared plan as the other tests expect it.
 	expect((await page.request.put('/api/network/layout', { data: plan })).ok()).toBe(true);
 });
+
+test('network alerts can be switched on with the other notifications @J20.3', async ({
+	page
+}, info) => {
+	await signInAsAdult(page, `e2e-network-alerts-${info.project.name}`);
+	await gotoHydrated(page, '/settings/notifications');
+	await expect(
+		page.getByText('Network: a device drops off or a Wi-Fi unit restarts')
+	).toBeVisible();
+});

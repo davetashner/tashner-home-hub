@@ -276,6 +276,6 @@ The full journey run on every device, with videos, happens only on release PRs (
 | **J20** | **Check the home network** (Parent on a phone or iPad) | | | |
 | J20.1 | See which devices are online, room by room on a floor plan of the house. | built | wall | `network` |
 | J20.2 | Import the floor plan and move devices to the rooms they are in. | built | wall | `network` |
-| J20.3 | Get told when a device drops off, and name a device the hub hasn't seen before. | planned | wall | planned |
+| J20.3 | Get told when a device drops off, and name a device the hub hasn't seen before. | built | wall | `network` |
 
 <!-- journeys:end -->

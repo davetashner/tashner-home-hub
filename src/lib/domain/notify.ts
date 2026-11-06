@@ -1,7 +1,7 @@
 // Parent push notifications (ADM-6, REW-3): pure rules. The HTTP call is in #lib/server/notify.js.
 
 export const DEFAULT_NTFY_SERVER = 'https://ntfy.sh';
-export const EVENT_KEYS = ['approval', 'goal', 'redeemed', 'streak', 'sitter'] as const;
+export const EVENT_KEYS = ['approval', 'goal', 'redeemed', 'streak', 'sitter', 'network'] as const;
 export type EventKey = (typeof EVENT_KEYS)[number];
 
 export interface NotifyConfig {
@@ -17,7 +17,7 @@ export const DEFAULT_NOTIFY: NotifyConfig = {
 	serverUrl: DEFAULT_NTFY_SERVER,
 	topic: '',
 	baseUrl: '',
-	events: { approval: true, goal: true, redeemed: true, streak: true, sitter: true }
+	events: { approval: true, goal: true, redeemed: true, streak: true, sitter: true, network: true }
 };
 
 export interface NtfyMessage {
@@ -119,6 +119,16 @@ export const streakMessage = (name: string, days: number, stars: number): NtfyMe
 		`${name} hit a ${days}-day streak and earned ${stars} ${stars === 1 ? 'star' : 'stars'}`,
 		3,
 		['fire']
+	);
+
+/** NET-4: a device dropped off, came back, or a Nest unit restarted. */
+export const networkMessage = (title: string, message: string, urgent: boolean): NtfyMessage =>
+	note(
+		title,
+		message,
+		urgent ? 4 : 3,
+		[urgent ? 'warning' : 'signal_strength'],
+		'/settings/network'
 	);
 
 const SITTER_PATH = '/settings/sitter-mode';

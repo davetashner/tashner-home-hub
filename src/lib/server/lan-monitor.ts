@@ -4,7 +4,14 @@ import { Socket } from 'node:net';
 import { getDb, type Db } from './db/index.js';
 import { settings } from './db/schema.js';
 import {
+	DISCOVERY_PORTS,
 	classifyConnect,
+	decideAlerts,
+	mergeSeen,
+	parseSeen,
+	subnetHosts,
+	type Alerted,
+	type SeenHost,
 	mergeSweep,
 	parseDevices,
 	parseNestStatus,
@@ -13,6 +20,7 @@ import {
 	type NetSnapshot,
 	type Observation
 } from '#lib/domain/lan-monitor.js';
+import { notifyNetwork } from './notify.js';
 import { parseLayout, type DeviceView, type NetLayout } from '#lib/domain/net-layout.js';
 
 /** The household's devices: runtime data only (NET-1). Never seeded from the repo. */
@@ -20,6 +28,10 @@ export const DEVICES_KEY = 'network.devices';
 export const STATUS_KEY = 'network.status';
 /** The house floor plan and device placement (NET-3): runtime data only. */
 export const LAYOUT_KEY = 'network.layout';
+const ALERTED_KEY = 'network.alerted';
+const SEEN_KEY = 'network.seen';
+const IGNORED_KEY = 'network.ignored';
+const DISCOVERY_EVERY_MIN = 15;
 const TIMEOUT_MS = 2500;
 
 export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
@@ -101,8 +113,14 @@ export async function sweepNetwork(
 	const results = await Promise.all(
 		devices.map(async (d) => [d.id, await probeDevice(d, doFetch, connect)] as const)
 	);
-	const snap = mergeSweep(readStatus(db), devices, new Map(results), now());
+	const prev = readStatus(db);
+	const at = now();
+	const snap = mergeSweep(prev, devices, new Map(results), at);
 	writeJson(db, STATUS_KEY, snap);
+	const alerted = (readJson(db, ALERTED_KEY) ?? {}) as Alerted;
+	const decided = decideAlerts(prev, snap, devices, alerted, at);
+	writeJson(db, ALERTED_KEY, decided.alerted);
+	if (decided.notices.length) notifyNetwork(db, decided.notices);
 	return snap;
 }
 
@@ -115,7 +133,57 @@ export function saveLayout(db: Db, raw: unknown): NetLayout | null {
 	return layout;
 }
 
+const readIgnored = (db: Db): string[] => {
+	const raw = readJson(db, IGNORED_KEY);
+	return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === 'string') : [];
+};
+
+/** Hosts seen on the LAN that aren't listed or ignored. */
+export function readUnknown(db: Db): SeenHost[] {
+	const skip = new Set([...readDevices(db).map((d) => d.ip), ...readIgnored(db)]);
+	return parseSeen(readJson(db, SEEN_KEY)).filter((h) => !skip.has(h.ip));
+}
+
+/** Stops listing a host under "New on the network". */
+export function ignoreHost(db: Db, ip: string): void {
+	writeJson(db, IGNORED_KEY, [...new Set([...readIgnored(db), ip])].slice(-256));
+}
+
+/**
+ * Looks for hosts in the router's /24 that answer on a common port. 32 hosts at a time with a
+ * short timeout, so a pass takes well under a minute. Results feed "New on the network".
+ */
+export async function discoverHosts(
+	db: Db,
+	connect: Connect = tcpConnect,
+	now: () => number = Date.now
+): Promise<SeenHost[]> {
+	const devices = readDevices(db);
+	const anchor = devices.find((d) => d.probe.kind === 'nest') ?? devices[0];
+	if (!anchor) return [];
+	const hosts = [anchor.ip, ...subnetHosts(anchor.ip)];
+	const found = new Map<string, number>();
+	let next = 0;
+	const worker = async () => {
+		while (next < hosts.length) {
+			const ip = hosts[next++];
+			for (const port of DISCOVERY_PORTS) {
+				if (classifyConnect(await connect(ip, port, 500)) === 'up') {
+					found.set(ip, port);
+					break;
+				}
+			}
+		}
+	};
+	await Promise.all(Array.from({ length: 32 }, worker));
+	const skip = new Set([...devices.map((d) => d.ip), ...readIgnored(db)]);
+	const seen = mergeSeen(parseSeen(readJson(db, SEEN_KEY)), found, skip, now());
+	writeJson(db, SEEN_KEY, seen);
+	return seen;
+}
+
 export interface NetworkView {
+	unknown: SeenHost[];
 	layout: NetLayout | null;
 	devices: DeviceView[];
 	checkedAt: number | null;
@@ -128,7 +196,8 @@ export function getNetwork(db: Db): NetworkView {
 	return {
 		devices: readDevices(db).map((d) => ({ ...d, state: byId.get(d.id) ?? null })),
 		checkedAt: snap?.checkedAt ?? null,
-		layout: readLayout(db)
+		layout: readLayout(db),
+		unknown: readUnknown(db)
 	};
 }
 
@@ -139,6 +208,8 @@ export function startLanMonitor(env: NodeJS.ProcessEnv = process.env): Cron | un
 		const db = getDb();
 		if (readDevices(db).length === 0) return;
 		void sweepNetwork(db).catch(() => undefined);
+		if (new Date().getMinutes() % DISCOVERY_EVERY_MIN === 0)
+			void discoverHosts(db).catch(() => undefined);
 	};
 	return new Cron('* * * * *', { protect: true, catch: true }, tick);
 }

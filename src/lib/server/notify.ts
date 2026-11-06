@@ -17,6 +17,7 @@ import {
 	sitterEndMessage,
 	sitterStartMessage,
 	streakMessage,
+	networkMessage,
 	parseNotifyConfig,
 	shouldSend,
 	type EventKey,
@@ -187,6 +188,15 @@ export function notifyStreakMilestones(db: Db, memberId: string, paid: Milestone
 			const m = db.select().from(members).where(eq(members.id, memberId)).get();
 			return m ? streakMessage(m.name, p.days, p.stars) : null;
 		});
+}
+
+/** NET-4: devices that dropped off, came back or restarted. */
+export function notifyNetwork(
+	db: Db,
+	notices: { title: string; message: string; urgent: boolean }[]
+): void {
+	for (const n of notices)
+		dispatch(db, 'network', () => networkMessage(n.title, n.message, n.urgent));
 }
 
 /** Call after a sitter's check-in has been stored. */
