@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { createServer } from 'node:net';
 import { openDb } from './db/index.js';
 import {
+	discoverHosts,
+	ignoreHost,
+	readUnknown,
 	getNetwork,
 	probeDevice,
 	readStatus,
@@ -75,7 +78,7 @@ describe('tcpConnect', () => {
 describe('sweepNetwork and getNetwork', () => {
 	it('stores devices, sweeps them and joins the result', async () => {
 		const db = openDb(':memory:');
-		expect(getNetwork(db)).toEqual({ devices: [], checkedAt: null, layout: null });
+		expect(getNetwork(db)).toEqual({ devices: [], checkedAt: null, layout: null, unknown: [] });
 		expect(
 			saveDevices(db, [...devices, { id: 'pub', ip: '8.8.8.8', probe: { kind: 'nest' } }])
 		).toHaveLength(3);
@@ -115,5 +118,53 @@ describe('startLanMonitor', () => {
 		const job = startLanMonitor({});
 		expect(job).toBeDefined();
 		job?.stop();
+	});
+});
+
+describe('alerts and discovery', () => {
+	it('remembers an announced outage between sweeps', async () => {
+		const db = openDb(':memory:');
+		saveDevices(db, devices);
+		const down: Connect = async () => 'EHOSTUNREACH';
+		await sweepNetwork(db, okFetch, down, () => 0);
+		await sweepNetwork(db, okFetch, down, () => 4 * 60_000);
+		const row = db.$client
+			.prepare("select value from settings where key = 'network.alerted'")
+			.get() as { value: string };
+		expect(Object.keys(JSON.parse(row.value)).sort()).toEqual(['server', 'tv']);
+		await sweepNetwork(
+			db,
+			okFetch,
+			async () => null,
+			() => 5 * 60_000
+		);
+		const after = db.$client
+			.prepare("select value from settings where key = 'network.alerted'")
+			.get() as { value: string };
+		expect(JSON.parse(after.value)).toEqual({});
+	});
+
+	it('finds unlisted hosts in the router subnet, and forgets ignored ones', async () => {
+		const db = openDb(':memory:');
+		expect(await discoverHosts(db, async () => null)).toEqual([]);
+		saveDevices(db, devices);
+		// .50 refuses port 80; .60 answers on 22; everything else is silent.
+		const connect: Connect = async (ip, port) =>
+			ip === '10.20.30.50' && port === 80
+				? 'ECONNREFUSED'
+				: ip === '10.20.30.60' && port === 22
+					? null
+					: ip === '10.20.30.4'
+						? null
+						: 'ETIMEDOUT';
+		const seen = await discoverHosts(db, connect, () => 1000);
+		expect(seen.map((h) => [h.ip, h.port])).toEqual([
+			['10.20.30.50', 80],
+			['10.20.30.60', 22]
+		]);
+		expect(getNetwork(db).unknown.map((h) => h.ip)).toEqual(['10.20.30.50', '10.20.30.60']);
+		ignoreHost(db, '10.20.30.50');
+		ignoreHost(db, '10.20.30.50');
+		expect(readUnknown(db).map((h) => h.ip)).toEqual(['10.20.30.60']);
 	});
 });

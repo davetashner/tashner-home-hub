@@ -14,11 +14,13 @@
 		type NetLayout,
 		type Tone
 	} from '#lib/domain/net-layout.js';
+	import type { SeenHost } from '#lib/domain/lan-monitor.js';
 
 	interface View {
 		devices: DeviceView[];
 		checkedAt: number | null;
 		layout: NetLayout | null;
+		unknown: SeenHost[];
 	}
 
 	let view = $state<View | null>(null);
@@ -29,6 +31,19 @@
 	/** The device being moved: the next tap on the plan sets where it is. */
 	let placing = $state<string | null>(null);
 	let placeError = $state('');
+	let setup = $state<ReturnType<typeof NetworkSetup>>();
+
+	async function ignore(ip: string) {
+		if (!view) return;
+		const before = view.unknown;
+		view.unknown = before.filter((h) => h.ip !== ip); // optimistic
+		const res = await fetch('/api/network/ignore', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ ip })
+		}).catch(() => null);
+		if (!res?.ok && view) view.unknown = before;
+	}
 
 	async function load() {
 		const res = await fetch('/api/network').catch(() => null);
@@ -223,6 +238,37 @@
 		</ul>
 	{/if}
 	{#if view}
-		<NetworkSetup devices={view.devices} onchange={load} />
+		{#if view.unknown.length}
+			<Card class="flex flex-col gap-3" data-testid="net-unknown">
+				<h2 class="text-title font-bold">New on the network</h2>
+				<p class="text-body text-ink-muted">
+					These answered a scan of the home network but aren't in the list. Add the ones you care
+					about; ignore the rest.
+				</p>
+				<ul class="flex flex-col gap-3">
+					{#each view.unknown as h (h.ip)}
+						<li class="flex flex-wrap items-center gap-3">
+							<span class="min-w-0 flex-1 text-body">
+								<span class="font-bold">{h.ip}</span>
+								<span class="text-ink-muted">
+									· port {h.port} · first seen {shortSpan(now - h.firstSeen)} ago</span
+								>
+							</span>
+							<button
+								type="button"
+								class="{toggle} border-control-line bg-control"
+								onclick={() => setup?.addHost(h.ip, h.port)}>Add</button
+							>
+							<button
+								type="button"
+								class="{toggle} border-control-line bg-control"
+								onclick={() => ignore(h.ip)}>Ignore</button
+							>
+						</li>
+					{/each}
+				</ul>
+			</Card>
+		{/if}
+		<NetworkSetup bind:this={setup} devices={view.devices} onchange={load} />
 	{/if}
 </section>

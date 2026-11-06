@@ -72,3 +72,19 @@ describe('network layout API', () => {
 		).rejects.toMatchObject({ status: 400 });
 	});
 });
+
+const ignoreRoute = await import('./network/ignore/+server.js');
+
+describe('network ignore API', () => {
+	it('needs an adult and a LAN address', async () => {
+		await expect(
+			call(ignoreRoute.POST, { request: req('POST', { ip: '10.0.0.9' }) }, false)
+		).rejects.toMatchObject({ status: 401 });
+		await expect(
+			call(ignoreRoute.POST, { request: req('POST', { ip: '8.8.8.8' }) })
+		).rejects.toMatchObject({ status: 400 });
+		expect(
+			(await call(ignoreRoute.POST, { request: req('POST', { ip: '10.0.0.9' }) })).status
+		).toBe(200);
+	});
+});

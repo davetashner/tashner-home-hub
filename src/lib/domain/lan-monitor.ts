@@ -192,3 +192,111 @@ export function summarize(snap: NetSnapshot | null): { up: number; down: number;
 	for (const d of snap?.devices ?? []) s[d.reach]++;
 	return s;
 }
+
+/* ---------- alerts (NET-4) ---------- */
+
+/** A device has to stay down this long before anyone is told: a reboot shouldn't page a parent. */
+export const DOWN_ALERT_MS = 3 * 60_000;
+
+export interface Notice {
+	title: string;
+	message: string;
+	urgent: boolean;
+}
+
+/** Ids already announced as down, with when; kept so each outage is told once. */
+export type Alerted = Record<string, number>;
+
+/**
+ * Compares two sweeps and decides what to tell the parents: a device down for 3+ minutes, the
+ * same device coming back, and a Nest unit that restarted (uptime went backwards).
+ */
+export function decideAlerts(
+	prev: NetSnapshot | null,
+	next: NetSnapshot,
+	devices: NetDevice[],
+	alerted: Alerted,
+	now: number
+): { notices: Notice[]; alerted: Alerted } {
+	const names = new Map(devices.map((d) => [d.id, d.name]));
+	const before = new Map((prev?.devices ?? []).map((d) => [d.id, d]));
+	const out: Alerted = {};
+	const notices: Notice[] = [];
+	for (const d of next.devices) {
+		const name = names.get(d.id) ?? d.id;
+		if (d.reach === 'down') {
+			if (alerted[d.id] !== undefined) out[d.id] = alerted[d.id];
+			else if (now - d.since >= DOWN_ALERT_MS) {
+				out[d.id] = now;
+				notices.push({ title: 'Network', message: `${name} stopped answering`, urgent: true });
+			}
+		} else if (d.reach === 'up' && alerted[d.id] !== undefined) {
+			notices.push({ title: 'Network', message: `${name} is back`, urgent: false });
+		}
+		const old = before.get(d.id);
+		if (d.restartedAt && d.restartedAt !== old?.restartedAt && old)
+			notices.push({ title: 'Network', message: `${name} restarted`, urgent: false });
+	}
+	return { notices, alerted: out };
+}
+
+/* ---------- discovery (NET-4) ---------- */
+
+/**
+ * Ports that most home gear listens on or refuses loudly. A refused connection proves a host is
+ * there; phones that silently drop everything won't show, which is fine for "what's plugged in".
+ */
+export const DISCOVERY_PORTS = [80, 443, 22, 8008, 8060, 8080, 62078, 9100] as const;
+
+/** Every host address in the /24 around `ip`, except `ip` itself. Empty for a non-LAN address. */
+export function subnetHosts(ip: string): string[] {
+	if (!isPrivateIp(ip)) return [];
+	const prefix = ip.split('.').slice(0, 3).join('.');
+	const out: string[] = [];
+	for (let i = 1; i <= 254; i++) if (`${prefix}.${i}` !== ip) out.push(`${prefix}.${i}`);
+	return out;
+}
+
+export interface SeenHost {
+	ip: string;
+	/** The first port that answered, as a starting point for the device's check. */
+	port: number;
+	firstSeen: number;
+	lastSeen: number;
+}
+
+const WEEK = 7 * 86_400_000;
+
+/**
+ * Folds a discovery pass into the list of hosts the hub has seen but nobody has named. Known and
+ * ignored addresses are left out, and a host unseen for a week drops off.
+ */
+export function mergeSeen(
+	prev: SeenHost[],
+	found: Map<string, number>,
+	skip: Set<string>,
+	now: number
+): SeenHost[] {
+	const byIp = new Map(prev.map((h) => [h.ip, h]));
+	for (const [ip, port] of found) {
+		const old = byIp.get(ip);
+		byIp.set(ip, { ip, port, firstSeen: old?.firstSeen ?? now, lastSeen: now });
+	}
+	return [...byIp.values()]
+		.filter((h) => !skip.has(h.ip) && now - h.lastSeen < WEEK)
+		.sort((a, b) => Number(a.ip.split('.')[3]) - Number(b.ip.split('.')[3]));
+}
+
+/** Validates the stored seen list. */
+export function parseSeen(raw: unknown): SeenHost[] {
+	if (!Array.isArray(raw)) return [];
+	return raw.filter(
+		(h): h is SeenHost =>
+			isObj(h) &&
+			typeof h.ip === 'string' &&
+			isPrivateIp(h.ip) &&
+			Number.isInteger(h.port) &&
+			typeof h.firstSeen === 'number' &&
+			typeof h.lastSeen === 'number'
+	);
+}

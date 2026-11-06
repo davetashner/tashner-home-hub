@@ -34,6 +34,14 @@
 		message = '';
 		open = true;
 	}
+	/** Opens the editor with a new row for a host found on the network, ready to name. */
+	export function addHost(ip: string, port: number) {
+		if (!open) start();
+		const id = deviceId('new', [...rows.map((r) => r.id), ...fresh]);
+		fresh = [...fresh, id];
+		rows.push({ id, name: '', ip, port });
+		message = 'Name it, then save.';
+	}
 	/** Ids of rows added in this edit: they're renamed from their names on save. */
 	let fresh: string[] = [];
 	function add() {

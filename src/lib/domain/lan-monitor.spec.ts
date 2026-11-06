@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+	DOWN_ALERT_MS,
 	classifyConnect,
+	decideAlerts,
+	mergeSeen,
+	parseSeen,
+	subnetHosts,
 	isPrivateIp,
 	mergeSweep,
 	parseDevices,
@@ -241,5 +246,95 @@ describe('parseSnapshot and summarize', () => {
 		expect(parseSnapshot(null)).toBeNull();
 		expect(parseSnapshot({ checkedAt: 'x', devices: [] })).toBeNull();
 		expect(summarize(null)).toEqual({ up: 0, down: 0, unknown: 0 });
+	});
+});
+
+describe('decideAlerts', () => {
+	const base = (reach: 'up' | 'down', since: number, extra = {}) => ({
+		checkedAt: 0,
+		devices: [
+			{
+				id: 'server',
+				reach,
+				since,
+				lastSeen: null,
+				ms: null,
+				nest: null,
+				restartedAt: null,
+				...extra
+			}
+		]
+	});
+	it('waits three minutes before saying a device is down, then says it once', () => {
+		const t0 = 1_000_000;
+		expect(decideAlerts(null, base('down', t0), devs, {}, t0 + 60_000).notices).toEqual([]);
+		const r = decideAlerts(null, base('down', t0), devs, {}, t0 + 180_000);
+		expect(r.notices).toEqual([
+			{ title: 'Network', message: 'Server stopped answering', urgent: true }
+		]);
+		expect(r.alerted).toEqual({ server: t0 + 180_000 });
+		const again = decideAlerts(base('down', t0), base('down', t0), devs, r.alerted, t0 + 240_000);
+		expect(again.notices).toEqual([]);
+		expect(again.alerted).toEqual(r.alerted);
+	});
+	it('says when an announced device is back and forgets it', () => {
+		const r = decideAlerts(null, base('up', 5), devs, { server: 1 }, 10);
+		expect(r.notices).toEqual([{ title: 'Network', message: 'Server is back', urgent: false }]);
+		expect(r.alerted).toEqual({});
+	});
+	it('reports a restart once, and not on the first sweep', () => {
+		expect(decideAlerts(null, base('up', 0, { restartedAt: 50 }), devs, {}, 100).notices).toEqual(
+			[]
+		);
+		const r = decideAlerts(base('up', 0), base('up', 0, { restartedAt: 50 }), devs, {}, 100);
+		expect(r.notices.map((n) => n.message)).toEqual(['Server restarted']);
+		expect(
+			decideAlerts(
+				base('up', 0, { restartedAt: 50 }),
+				base('up', 0, { restartedAt: 50 }),
+				devs,
+				{},
+				200
+			).notices
+		).toEqual([]);
+	});
+	it('falls back to the id for an unlisted device', () => {
+		const snap = { checkedAt: 0, devices: [{ ...base('down', 0).devices[0], id: 'ghost' }] };
+		expect(decideAlerts(null, snap, devs, {}, DOWN_ALERT_MS).notices[0].message).toBe(
+			'ghost stopped answering'
+		);
+	});
+});
+
+describe('discovery', () => {
+	it('lists the /24 around an address', () => {
+		const hosts = subnetHosts('10.20.30.1');
+		expect(hosts).toHaveLength(253);
+		expect(hosts[0]).toBe('10.20.30.2');
+		expect(hosts.at(-1)).toBe('10.20.30.254');
+		expect(subnetHosts('8.8.8.8')).toEqual([]);
+	});
+	it('merges passes, keeps first-seen, skips known hosts and ages out a week', () => {
+		const week = 7 * 86_400_000;
+		let seen = mergeSeen(
+			[],
+			new Map([
+				['10.20.30.40', 80],
+				['10.20.30.9', 22]
+			]),
+			new Set(),
+			1000
+		);
+		expect(seen.map((h) => h.ip)).toEqual(['10.20.30.9', '10.20.30.40']);
+		seen = mergeSeen(seen, new Map([['10.20.30.40', 443]]), new Set(['10.20.30.9']), 2000);
+		expect(seen).toEqual([{ ip: '10.20.30.40', port: 443, firstSeen: 1000, lastSeen: 2000 }]);
+		expect(mergeSeen(seen, new Map(), new Set(), 2000 + week)).toEqual([]);
+	});
+	it('parses the stored list defensively', () => {
+		const good = { ip: '10.20.30.40', port: 80, firstSeen: 1, lastSeen: 2 };
+		expect(parseSeen([good, { ...good, ip: '8.8.8.8' }, { ...good, port: 'x' }, null])).toEqual([
+			good
+		]);
+		expect(parseSeen('x')).toEqual([]);
 	});
 });
