@@ -114,12 +114,12 @@
 			Import a plan copied or exported from the plan builder. It replaces the current one. To move a
 			device, pick it in the list and tap “Move on the plan”.
 		</p>
-		<label class="{button} flex cursor-pointer items-center self-start">
-			Import a plan file
+		<label class="flex flex-col gap-1">
+			<span class="text-caption text-ink-muted">Plan file</span>
 			<input
 				type="file"
 				accept="application/json,.json"
-				class="sr-only"
+				class="min-h-tap text-body"
 				onchange={importPlan}
 				data-testid="net-import"
 			/>
