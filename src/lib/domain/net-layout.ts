@@ -145,3 +145,34 @@ export function statusLine(
 		state.restartedAt && now - state.restartedAt < 24 * 3600_000 ? ' · restarted today' : '';
 	return up + restart;
 }
+
+/** The layout with one device moved (or first placed) at a point, rounded to half feet. */
+export function withPlacement(
+	layout: NetLayout,
+	id: string,
+	x: number,
+	y: number,
+	floor: Floor
+): NetLayout {
+	const p: Placement = { id, x: half(x), y: half(y), floor };
+	const has = layout.placements.some((q) => q.id === id);
+	return {
+		rooms: layout.rooms,
+		placements: has
+			? layout.placements.map((q) => (q.id === id ? p : q))
+			: [...layout.placements, p]
+	};
+}
+
+/** A stable id for a new device from its name, unique among `taken`: "Garage Pi" → "garage-pi". */
+export function deviceId(name: string, taken: Iterable<string>): string {
+	const base =
+		name
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-+|-+$/g, '')
+			.slice(0, 32) || 'device';
+	const used = new Set(taken);
+	if (!used.has(base)) return base;
+	for (let i = 2; ; i++) if (!used.has(`${base}-${i}`)) return `${base}-${i}`;
+}
