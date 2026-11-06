@@ -192,6 +192,12 @@
 			line: 'Where home is, for the forecast on the home screen.'
 		},
 		{
+			href: resolve('/(app)/settings/network'),
+			emoji: '📶',
+			title: 'Network',
+			line: 'Which devices are online, on a map of the house.'
+		},
+		{
 			href: resolve('/(app)/settings/time-zone'),
 			emoji: '🌍',
 			title: 'Time zone',
