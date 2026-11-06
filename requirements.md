@@ -129,6 +129,10 @@ The main audience is a young child. Completing a chore should feel like an event
 | CD-1 | P1 | Countdowns to upcoming events, shown on the home screen. |
 | CD-2 | P1 | The home screen shows at most two countdowns, the soonest, as compact pills beside the clock. Anyone, kids included, can add one. |
 | CD-3 | P1 | A countdown shows only in its last 30 days; one set further out waits and appears 30 days before. |
+| NET-1 | P2 | The hub checks the home network every minute: each Nest Wifi unit's local status page and whether each listed device answers. The device list is household data kept only on the server. |
+| NET-2 | P2 | Adults can see the network's live status on a floor plan of the house from any browser, without the Google Home app. |
+| NET-3 | P2 | Adults can import and adjust the floor plan and where each device sits. |
+| NET-4 | P2 | Adults are told when a device drops off or a Nest unit restarts, and can name devices the hub hasn't seen before. |
 | MSG-1 | P2 | Family message board / sticky notes. |
 | TMR-1 | P2 | Kitchen timers usable from the touchscreen. |
 
