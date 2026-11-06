@@ -963,6 +963,30 @@
 					"status": "built"
 				}
 			]
+		},
+		{
+			"id": "J20",
+			"name": "Check the home network",
+			"persona": "Parent on a phone or iPad",
+			"critical": false,
+			"devices": ["wall"],
+			"steps": [
+				{
+					"id": "J20.1",
+					"text": "See which devices are online, room by room on a floor plan of the house.",
+					"status": "built"
+				},
+				{
+					"id": "J20.2",
+					"text": "Import the floor plan and move devices to the rooms they are in.",
+					"status": "planned"
+				},
+				{
+					"id": "J20.3",
+					"text": "Get told when a device drops off, and name a device the hub hasn't seen before.",
+					"status": "planned"
+				}
+			]
 		}
 	]
 }

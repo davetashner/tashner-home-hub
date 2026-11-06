@@ -13,10 +13,13 @@ import {
 	type NetSnapshot,
 	type Observation
 } from '#lib/domain/lan-monitor.js';
+import { parseLayout, type DeviceView, type NetLayout } from '#lib/domain/net-layout.js';
 
 /** The household's devices: runtime data only (NET-1). Never seeded from the repo. */
 export const DEVICES_KEY = 'network.devices';
 export const STATUS_KEY = 'network.status';
+/** The house floor plan and device placement (NET-3): runtime data only. */
+export const LAYOUT_KEY = 'network.layout';
 const TIMEOUT_MS = 2500;
 
 export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
@@ -103,8 +106,18 @@ export async function sweepNetwork(
 	return snap;
 }
 
+export const readLayout = (db: Db): NetLayout | null => parseLayout(readJson(db, LAYOUT_KEY));
+
+/** Replaces the floor plan with the valid parts of `raw`; null (nothing saved) when it isn't a layout. */
+export function saveLayout(db: Db, raw: unknown): NetLayout | null {
+	const layout = parseLayout(raw);
+	if (layout) writeJson(db, LAYOUT_KEY, layout);
+	return layout;
+}
+
 export interface NetworkView {
-	devices: (NetDevice & { state: NetSnapshot['devices'][number] | null })[];
+	layout: NetLayout | null;
+	devices: DeviceView[];
 	checkedAt: number | null;
 }
 
@@ -114,7 +127,8 @@ export function getNetwork(db: Db): NetworkView {
 	const byId = new Map((snap?.devices ?? []).map((d) => [d.id, d]));
 	return {
 		devices: readDevices(db).map((d) => ({ ...d, state: byId.get(d.id) ?? null })),
-		checkedAt: snap?.checkedAt ?? null
+		checkedAt: snap?.checkedAt ?? null,
+		layout: readLayout(db)
 	};
 }
 

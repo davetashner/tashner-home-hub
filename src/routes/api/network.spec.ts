@@ -47,3 +47,28 @@ describe('network API', () => {
 		});
 	});
 });
+
+const layoutRoute = await import('./network/layout/+server.js');
+
+describe('network layout API', () => {
+	it('needs an adult', async () => {
+		await expect(
+			call(layoutRoute.PUT, { request: req('PUT', { rooms: [] }) }, false)
+		).rejects.toMatchObject({ status: 401 });
+	});
+	it('saves a plan and returns it with the network view', async () => {
+		const plan = {
+			rooms: [{ id: 'den', name: 'Den', x: 0, y: 0, w: 12, h: 10, floor: 1 }],
+			devices: [{ id: 'lan', x: 4, y: 4, floor: 1 }]
+		};
+		const res = await call(layoutRoute.PUT, { request: req('PUT', plan) });
+		expect(await res.json()).toEqual({ rooms: plan.rooms, placements: plan.devices });
+		const view = await (await call(route.GET, { request: req('GET') })).json();
+		expect(view.layout.rooms[0].name).toBe('Den');
+	});
+	it('refuses something that is not a plan', async () => {
+		await expect(
+			call(layoutRoute.PUT, { request: req('PUT', { rooms: 'x' }) })
+		).rejects.toMatchObject({ status: 400 });
+	});
+});

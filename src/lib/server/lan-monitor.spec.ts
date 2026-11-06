@@ -75,7 +75,7 @@ describe('tcpConnect', () => {
 describe('sweepNetwork and getNetwork', () => {
 	it('stores devices, sweeps them and joins the result', async () => {
 		const db = openDb(':memory:');
-		expect(getNetwork(db)).toEqual({ devices: [], checkedAt: null });
+		expect(getNetwork(db)).toEqual({ devices: [], checkedAt: null, layout: null });
 		expect(
 			saveDevices(db, [...devices, { id: 'pub', ip: '8.8.8.8', probe: { kind: 'nest' } }])
 		).toHaveLength(3);
