@@ -33,3 +33,35 @@ test("home shows this week's calendar and opens an event @J0.2", async ({ page }
 	await page.keyboard.press('Escape');
 	await expect(sheet).toBeHidden();
 });
+
+// hub-kb9: on a Saturday the next week is one swipe (or tap) away.
+test('home week pages to next week and back @J0.2', async ({ page }) => {
+	await gotoHydrated(page, '/');
+	const week = page.getByTestId('home-week');
+	const title = page.getByTestId('home-week-title');
+	await expect(title).toHaveText('This week');
+
+	await week.getByTestId('home-week-next').click();
+	await expect(title).toHaveText('Next week');
+	await week.getByTestId('home-week-next').click();
+	await expect(title).not.toHaveText(/week/);
+
+	await week.getByTestId('home-week-today').click();
+	await expect(title).toHaveText('This week');
+	await expect(week.getByTestId('home-week-today')).toBeHidden();
+
+	await week.getByTestId('home-week-prev').click();
+	await expect(title).toHaveText('Last week');
+});
+
+test('game-day strip sits below the week, above Notes', async ({ page }) => {
+	await gotoHydrated(page, '/');
+	const order = await page.evaluate(() => {
+		const els = [...document.querySelectorAll('[data-testid]')].map((e) =>
+			e.getAttribute('data-testid')
+		);
+		return { week: els.indexOf('home-week'), notes: els.indexOf('home-notes') };
+	});
+	expect(order.week).toBeGreaterThanOrEqual(0);
+	expect(order.week).toBeLessThan(order.notes);
+});
