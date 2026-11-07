@@ -51,8 +51,9 @@
 			</div>
 			<HomeCountdowns />
 		</div>
-		<SportsStrip onshown={(shown) => (sportsShown = shown)} />
 		<HomeWeek />
+		<!-- Game days: the scores sit under the week, above Notes and its drawing board. -->
+		<SportsStrip onshown={(shown) => (sportsShown = shown)} />
 		<!-- The header Timers button is hidden on phone, tablet and short layouts; this stands in. -->
 		<button
 			type="button"
