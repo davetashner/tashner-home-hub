@@ -344,6 +344,52 @@ test('paint bucket fills a closed shape and undo takes it back @J18.5', async ({
 	}
 });
 
+test('paint bucket bridges a small gap in a hand-drawn circle @J18.5', async ({ page }, info) => {
+	const kidId = `e2e-draw-kid5g-${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, 'Kid Gap');
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		const canvas = page.getByTestId('draw-canvas');
+		const box = (await canvas.boundingBox())!;
+
+		// A pen circle in short strokes, leaving an 18 css px opening on its right.
+		const r = 0.3 * Math.min(box.width, box.height);
+		const opening = 18 / r;
+		const at = (t: number): [number, number] => [
+			0.5 + (r * Math.cos(t)) / box.width,
+			0.5 + (r * Math.sin(t)) / box.height
+		];
+		const steps = 24;
+		for (let i = 0; i < steps; i++) {
+			const t0 = opening / 2 + ((2 * Math.PI - opening) * i) / steps;
+			const t1 = opening / 2 + ((2 * Math.PI - opening) * (i + 1)) / steps;
+			await pointerStroke(page, 'touch', 0.5, at(t0), at(t1), 10 + i);
+		}
+		await expect(canvas).toHaveAttribute('data-strokes', String(steps));
+		// The opening really is open: no ink where the circle crosses the x axis.
+		const open = await canvas.evaluate((c: HTMLCanvasElement, rx: number) => {
+			const ctx = c.getContext('2d')!;
+			const x = Math.round(c.width * (0.5 + rx));
+			return ctx.getImageData(x, Math.round(c.height / 2), 1, 1).data[3];
+		}, r / box.width);
+		expect(open).toBe(0);
+		const outline = await inkPixels(page);
+
+		// A tap inside fills the inside only, instead of leaking out over the whole page.
+		await page.getByTestId('draw-bucket').click();
+		await pointerStroke(page, 'touch', 0.5, [0.5, 0.5], [0.5, 0.5], 99);
+		await expect(canvas).toHaveAttribute('data-strokes', String(steps + 1));
+		const filled = await inkPixels(page);
+		const total = await canvas.evaluate((c: HTMLCanvasElement) => c.width * c.height);
+		expect(filled).toBeGreaterThan(outline * 2);
+		expect(filled).toBeLessThan(total / 2);
+		await page.getByTestId('draw-close').click();
+	} finally {
+		wipe(kidId);
+	}
+});
+
 test('save a drawing, reopen it from My drawings, delete it @J18.6', async ({ page }, info) => {
 	const kidId = `e2e-draw-kid6-${info.workerIndex}${info.repeatEachIndex}`;
 	const name = `Kid Saver ${info.workerIndex}${info.repeatEachIndex}`;

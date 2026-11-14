@@ -821,7 +821,7 @@
 				},
 				{
 					"id": "J18.5",
-					"text": "Tap Fill, pick a color, then tap inside a closed area to paint it; Undo takes the fill back.",
+					"text": "Tap Fill, pick a color, then tap inside a closed area to paint it (a small gap in a hand-drawn outline still keeps the color inside); Undo takes the fill back.",
 					"status": "built",
 					"beads": ["hub-cn7.6"]
 				},

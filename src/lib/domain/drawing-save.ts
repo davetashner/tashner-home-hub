@@ -49,7 +49,8 @@ type WireShape = {
 	a?: number;
 	d?: DashStyle;
 };
-type WireFill = { k: 1; c: string; x: number; y: number; o: number };
+/** `g`: the gap the fill bridged, in saved px (hub-h3q); absent on older saves and plain floods. */
+type WireFill = { k: 1; c: string; x: number; y: number; o: number; g?: number };
 /** Text (hub-cn7.23): `tx` is the text, `z` the letter size, `b` the box, `r` the turn. */
 type WireText = { tx: string; c: string; z: number; b: number[]; r?: number };
 type WireItem = WireStroke | WireShape | WireFill | WireText;
@@ -101,7 +102,14 @@ export function serializeDrawing(
 	return JSON.stringify(wire);
 	function toWire(it: DrawItem): WireItem {
 		if (isFill(it))
-			return { k: 1, c: it.color, x: X(it.x / dpr), y: Y(it.y / dpr), o: it.tolerance };
+			return {
+				k: 1,
+				c: it.color,
+				x: X(it.x / dpr),
+				y: Y(it.y / dpr),
+				o: it.tolerance,
+				...(it.gap ? { g: K(it.gap / dpr) } : {})
+			};
 		if (isText(it))
 			return {
 				tx: it.text,
@@ -176,6 +184,7 @@ function parseWire(json: unknown): Wire | null {
 		if (!it || typeof it !== 'object' || !isInk(it.c)) return null;
 		if ('k' in it) {
 			if (it.k !== 1 || !num(it.x) || !num(it.y) || !num(it.o)) return null;
+			if (it.g !== undefined && !(num(it.g) && it.g >= 0)) return null;
 		} else if ('tx' in it) {
 			const b = it.b;
 			if (
@@ -270,6 +279,7 @@ export function loadFrames(json: unknown, to: Size): DrawItem[][] | null {
 				w: FILL_REF,
 				h: FILL_REF,
 				tolerance: it.o || FILL_TOLERANCE,
+				...(it.g ? { gap: ((it.g * s) / to.w) * FILL_REF } : {}),
 				spans: new Uint32Array(0)
 			};
 			return f;
