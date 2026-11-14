@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { floodFill, isFill, makeFill, spanArea } from './drawing-fill.js';
+import { floodFill, gapFill, isFill, makeFill, spanArea } from './drawing-fill.js';
 
 /** A w*h buffer of white, with `paint(x, y)` able to override pixels. */
 function buf(w: number, h: number, paint: (x: number, y: number) => number[] | null = () => null) {
@@ -75,12 +75,85 @@ describe('floodFill', () => {
 	}, 30000);
 });
 
+/** A 2 px thick ring of radius 12 around (20, 20) on a 41x41 board, with an opening `gap` px wide on its right. */
+function ring(gap: number) {
+	return buf(41, 41, (x, y) => {
+		const d = Math.hypot(x - 20, y - 20);
+		const open = x > 28 && Math.abs(y - 20) * 2 < gap;
+		return d >= 11 && d <= 13 && !open ? BLACK : null;
+	});
+}
+/** The pixel indexes a span list covers, for order-free comparison. */
+const pixels = (spans: Uint32Array, w = 41) => {
+	const out = new Set<number>();
+	for (let i = 0; i < spans.length; i += 3)
+		for (let x = spans[i + 1]; x <= spans[i + 2]; x++) out.add(spans[i] * w + x);
+	return out;
+};
+const inDisc = (spans: Uint32Array, r: number) => {
+	for (let i = 0; i < spans.length; i += 3)
+		for (let x = spans[i + 1]; x <= spans[i + 2]; x++)
+			if (Math.hypot(x - 20, spans[i] - 20) > r) return false;
+	return true;
+};
+
+describe('gapFill', () => {
+	it('leaks out of a ring with an opening without a gap, and stays inside with one', () => {
+		const d = ring(4);
+		const plain = gapFill(d, 41, 41, 20, 20, 48, 0);
+		expect(spanArea(plain)).toBe(spanArea(floodFill(d, 41, 41, 20, 20)));
+		expect(inDisc(plain, 14)).toBe(false);
+		const bridged = gapFill(d, 41, 41, 20, 20, 48, 3);
+		// The inside is filled right up to the line (within a few px at the opening only).
+		const inside = floodFill(ring(0), 41, 41, 20, 20);
+		expect(inDisc(bridged, 16)).toBe(true);
+		expect(spanArea(bridged)).toBeGreaterThanOrEqual(spanArea(inside));
+		expect(spanArea(bridged)).toBeLessThan(spanArea(inside) + 20);
+	});
+	it('fills a closed shape exactly like the plain flood', () => {
+		const d = ring(0);
+		expect(pixels(gapFill(d, 41, 41, 20, 20, 48, 3))).toEqual(pixels(floodFill(d, 41, 41, 20, 20)));
+	});
+	it('never paints more than the plain flood, so it never crosses a line', () => {
+		const d = ring(4);
+		const plain = pixels(floodFill(d, 41, 41, 2, 2));
+		const out = gapFill(d, 41, 41, 2, 2, 48, 3);
+		for (const p of pixels(out)) expect(plain.has(p)).toBe(true);
+		// Outside the ring: everything except the ring's inside (give or take the opening).
+		expect(spanArea(out)).toBeGreaterThan(41 * 41 - 600);
+	});
+	it('falls back to the plain flood in a passage narrower than the gap', () => {
+		// A 3 px corridor between two walls.
+		const d = buf(30, 9, (_x, y) => (y === 2 || y === 6 ? BLACK : null));
+		expect(pixels(gapFill(d, 30, 9, 10, 4, 48, 3), 30)).toEqual(
+			pixels(floodFill(d, 30, 9, 10, 4), 30)
+		);
+	});
+	it('is the plain flood for no gap or a seed off the board', () => {
+		const d = ring(4);
+		expect(gapFill(d, 41, 41, 20, 20, 48, 0.5)).toEqual(floodFill(d, 41, 41, 20, 20));
+		expect(gapFill(d, 41, 41, -1, 20, 48, 3).length).toBe(0);
+	});
+	it('fills a 4K canvas quickly', () => {
+		const w = 3840,
+			h = 2160;
+		const d = new Uint8ClampedArray(w * h * 4).fill(255);
+		const t = performance.now();
+		expect(spanArea(gapFill(d, w, h, 100, 100, 48, 16))).toBe(w * h);
+		if (!('__stryker__' in globalThis)) expect(performance.now() - t).toBeLessThan(20000);
+	}, 30000);
+});
+
 describe('makeFill', () => {
 	it('builds an item that remembers the tap and canvas size', () => {
 		const f = makeFill(buf(5, 5), 5, 5, 2.7, 1.2, 'draw-red');
 		expect(f && isFill(f)).toBe(true);
 		expect(f).toMatchObject({ x: 2, y: 1, w: 5, h: 5, color: 'draw-red' });
 		expect(spanArea(f!.spans)).toBe(25);
+	});
+	it('remembers the gap it bridged', () => {
+		expect(makeFill(buf(5, 5), 5, 5, 2, 2, 'draw-red', 48, 2.6)).toMatchObject({ gap: 2 });
+		expect(makeFill(buf(5, 5), 5, 5, 2, 2, 'draw-red')).not.toHaveProperty('gap');
 	});
 	it('is null off canvas', () => {
 		expect(makeFill(buf(5, 5), 5, 5, 9, 9, 'draw-red')).toBeNull();

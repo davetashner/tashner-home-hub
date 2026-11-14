@@ -69,6 +69,14 @@ describe('saved drawing round trip', () => {
 		const [c] = loadDrawing(serializeDrawing([{ ...fill, tolerance: 20 }], size), size)!;
 		expect(isFill(c) && c.tolerance).toBe(20);
 	});
+	it('keeps the gap a fill bridged, scaled to the reference size', () => {
+		// Gap 6 device px at 2x = 3 css px on the 400 px wide canvas.
+		const json = serializeDrawing([{ ...fill, gap: 6 }], size, 2);
+		const [c] = loadDrawing(json, size)!;
+		expect(isFill(c) && c.gap).toBeCloseTo((3 / 400) * FILL_REF);
+		const [old] = loadDrawing(serializeDrawing([fill], size, 2), size)!;
+		expect(old).not.toHaveProperty('gap');
+	});
 	it('loads an empty drawing', () => {
 		expect(loadDrawing(serializeDrawing([], size), size)).toEqual([]);
 	});
@@ -148,7 +156,9 @@ describe('validation', () => {
 			wire([{ s: 'star', c: 'x', f: 'yes', w: 1, b: [1, 2, 3, 4] }]),
 			wire([{ s: 'star', c: 'x', f: true, w: 1, b: [1, 2, 3] }]),
 			wire([{ k: 2, c: 'x', x: 1, y: 1, o: 1 }]),
-			wire([{ k: 1, c: 'x', x: 1, y: 1 }])
+			wire([{ k: 1, c: 'x', x: 1, y: 1 }]),
+			wire([{ k: 1, c: 'x', x: 1, y: 1, o: 1, g: -2 }]),
+			wire([{ k: 1, c: 'x', x: 1, y: 1, o: 1, g: 'big' }])
 		])
 			expect(isSavedDrawing(bad), String(bad)).toBe(false);
 		expect(loadDrawing('nope', size)).toBeNull();

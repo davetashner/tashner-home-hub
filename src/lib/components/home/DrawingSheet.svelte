@@ -68,7 +68,7 @@
 	import FlipbookStrip from './drawing/FlipbookStrip.svelte';
 	import { compositePixel, pixelAt, rgbCss, type Rgba } from '#lib/domain/drawing-eyedropper.js';
 	import EyedropperPreview from '#lib/components/home/drawing/EyedropperPreview.svelte';
-	import { isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
+	import { FILL_GAP_CSS, isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import TextEditor from '#lib/components/home/drawing/TextEditor.svelte';
 	import TextPanel from '#lib/components/home/drawing/TextPanel.svelte';
 	import {
@@ -821,7 +821,8 @@
 				(f.x * canvas.width) / f.w,
 				(f.y * canvas.height) / f.h,
 				f.color,
-				f.tolerance
+				f.tolerance,
+				((f.gap ?? 0) * canvas.width) / f.w
 			);
 			if (!again) return;
 			Object.assign(f, again);
@@ -1100,7 +1101,9 @@
 				canvas.height,
 				((e.clientX - rect.left) / view.scale) * dpr,
 				((e.clientY - rect.top) / view.scale) * dpr,
-				color
+				color,
+				undefined,
+				FILL_GAP_CSS * dpr
 			);
 			if (item) {
 				strokes.push(item);
