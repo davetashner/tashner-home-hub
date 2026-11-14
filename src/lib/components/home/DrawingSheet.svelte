@@ -5,6 +5,7 @@
 	import ReplayPlayer from './drawing/ReplayPlayer.svelte';
 	import PromptBanner from './drawing/PromptBanner.svelte';
 	import { promptForDate } from '#lib/domain/drawing-prompts.js';
+	import { hasStarter } from '#lib/domain/drawing-starter-names.js';
 	import Button from '#lib/components/ui/Button.svelte';
 	import {
 		FIT,
@@ -1505,6 +1506,40 @@
 			})
 			.catch(() => {});
 	}
+	/**
+	 * Start it (hub-585): the prompt's half-done sketch as ordinary ink, one Undo step. The line
+	 * art is its own chunk (the home bundle has a size budget), fetched as soon as a chip shows.
+	 */
+	let starters: typeof import('#lib/domain/drawing-starters.js') | null = null;
+	let startersLoad: Promise<void> | null = null;
+	function loadStarters(): Promise<void> {
+		startersLoad ??= import('#lib/domain/drawing-starters.js').then(
+			(m) => void (starters = m),
+			() => void (startersLoad = null)
+		);
+		return startersLoad;
+	}
+	$effect(() => {
+		if (promptDate && !promptHidden && hasStarter(promptForDate(promptDate, promptShuffles)))
+			void loadStarters();
+	});
+	async function startPrompt(prompt: string) {
+		if (!starters) await loadStarters();
+		if (!starters) return;
+		const items = starters.starterStrokes(prompt, {
+			w: canvas.width / dpr,
+			h: canvas.height / dpr
+		});
+		if (!items.length) return;
+		selected = null;
+		syncSel();
+		strokes.push(...items);
+		history = recordAdd(history, ...items);
+		count = strokes.length;
+		syncLast();
+		blank = isBlank(strokes);
+		redraw();
+	}
 	function hidePrompt() {
 		promptHidden = true;
 		try {
@@ -1844,8 +1879,10 @@
 			</div>
 		{/if}
 		{#if promptDate && !promptHidden}
+			{@const prompt = promptForDate(promptDate, promptShuffles)}
 			<PromptBanner
-				prompt={promptForDate(promptDate, promptShuffles)}
+				{prompt}
+				onstart={hasStarter(prompt) ? () => void startPrompt(prompt) : null}
 				onshuffle={() => promptShuffles++}
 				ondismiss={hidePrompt}
 			/>

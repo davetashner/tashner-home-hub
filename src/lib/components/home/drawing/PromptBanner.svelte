@@ -1,10 +1,17 @@
 <script lang="ts">
 	// Today's drawing prompt (hub-cn7.27): a card at the top of the tool panel, beside the board (never over it) with Shuffle and Hide.
+	// Start it (hub-585) shows only when the prompt has a half-done sketch to put on the board.
 	let {
 		prompt,
+		onstart = null,
 		onshuffle,
 		ondismiss
-	}: { prompt: string; onshuffle: () => void; ondismiss: () => void } = $props();
+	}: {
+		prompt: string;
+		onstart?: (() => void) | null;
+		onshuffle: () => void;
+		ondismiss: () => void;
+	} = $props();
 
 	const chip =
 		'flex min-h-tap-kid min-w-tap-kid items-center justify-center rounded-control border-2 border-control-line bg-control px-4 text-body font-extrabold text-ink transition-transform duration-75 active:scale-95';
@@ -20,6 +27,11 @@
 	>
 		{prompt}
 	</p>
+	{#if onstart}
+		<button type="button" class={chip} onclick={onstart} data-testid="draw-prompt-start">
+			Start it
+		</button>
+	{/if}
 	<button type="button" class={chip} onclick={onshuffle} data-testid="draw-prompt-shuffle">
 		Shuffle
 	</button>
