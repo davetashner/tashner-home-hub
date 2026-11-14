@@ -4,12 +4,14 @@
 const DISC: Record<string, string> = {
 	'nfl:bal': 'bg-team-bal text-team-bal-accent',
 	'nfl:wsh': 'bg-team-was text-team-was-accent',
-	'nhl:wsh': 'bg-team-wsh text-team-wsh-accent ring-4 ring-team-wsh-ring ring-inset'
+	'nhl:wsh': 'bg-team-wsh text-team-wsh-accent ring-4 ring-team-wsh-ring ring-inset',
+	'ncaaf:jmu': 'bg-team-jmu text-team-jmu-accent'
 };
 const EDGE: Record<string, string> = {
 	'nfl:bal': 'border-team-bal text-team-bal',
 	'nfl:wsh': 'border-team-was text-team-was',
-	'nhl:wsh': 'border-team-wsh text-team-wsh'
+	'nhl:wsh': 'border-team-wsh text-team-wsh',
+	'ncaaf:jmu': 'border-team-jmu text-team-jmu'
 };
 
 export const discClass = (teamId: string): string => DISC[teamId] ?? 'bg-accent text-on-accent';

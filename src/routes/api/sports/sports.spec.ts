@@ -46,11 +46,11 @@ const event = (adult: boolean, extra: object = {}) => ({
 });
 const call = (fn: unknown, e: unknown) => (fn as (e: unknown) => unknown)(e);
 
-it('defaults to the three family teams', async () => {
+it('defaults to the family teams', async () => {
 	const res = (await (call(settingsRoute.GET, {}) as Response).json()) as {
 		teams: { id: string }[];
 	};
-	expect(res.teams.map((t) => t.id)).toEqual(['nfl:bal', 'nfl:wsh', 'nhl:wsh']);
+	expect(res.teams.map((t) => t.id)).toEqual(['nfl:bal', 'nfl:wsh', 'nhl:wsh', 'ncaaf:jmu']);
 });
 
 it('refreshes, publishes only on change, and keeps data when offline', async () => {
@@ -64,7 +64,9 @@ it('refreshes, publishes only on change, and keeps data when offline', async () 
 		expect.arrayContaining([
 			'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/bal/schedule',
 			'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/wsh/schedule',
-			'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard'
+			'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard',
+			'https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/jmu/schedule',
+			'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80'
 		])
 	);
 	expect(seen).toEqual(['sports']);
@@ -75,7 +77,7 @@ it('refreshes, publishes only on change, and keeps data when offline', async () 
 	// unchanged: schedules are not refetched within the hour, no publish
 	const calls = f.mock.calls.length;
 	expect(await sp.refreshSports(db, f, NOW + 60_000)).toBe(false);
-	expect(f.mock.calls.length - calls).toBe(2); // scoreboards only
+	expect(f.mock.calls.length - calls).toBe(3); // scoreboards only, one per league
 	expect(seen).toHaveLength(1);
 
 	// live score overlays the schedule and publishes

@@ -36,6 +36,13 @@ describe('findClash', () => {
 	it('uses 3 h for football and 2.5 h for hockey', () => {
 		expect(gameLengthMs('nfl')).toBe(3 * HOUR);
 		expect(gameLengthMs('nhl')).toBe(2.5 * HOUR);
+		expect(gameLengthMs('ncaaf')).toBe(3.5 * HOUR);
+	});
+	it('never clashes a kickoff without a time', () => {
+		const tbd = game({ team: 'ncaaf:jmu', league: 'ncaaf', start: g.start, timeTbd: true });
+		expect(findClash(tbd, [ev({ startsAt: start })])).toBeNull();
+		const [day] = sheetDays([tbd], DEFAULT_TEAMS, [ev({ startsAt: start })], NOW, TZ);
+		expect(day.rows[0]).toMatchObject({ title: 'Dukes vs Steelers', time: 'TBD', clash: null });
 	});
 	it('flags an event inside the game', () => {
 		expect(findClash(g, [ev({ startsAt: start + HOUR })])).toBe('Grandma visit');

@@ -7,7 +7,7 @@ import type { RequestHandler } from './$types';
 /** The followed teams (the family defaults until changed). */
 export const GET: RequestHandler = () => json({ teams: readSportsTeams(getDb()) });
 
-/** Adult only. Body: { teams: [{ league: "nfl" | "nhl", abbr: "BAL", name?: "Ravens" }] }. */
+/** Adult only. Body: { teams: [{ league: "nfl" | "nhl" | "ncaaf", abbr: "BAL", name?: "Ravens" }] }. */
 export const PUT: RequestHandler = async (event) => {
 	requireAdult(event);
 	let body: unknown;
@@ -18,6 +18,6 @@ export const PUT: RequestHandler = async (event) => {
 	}
 	const raw = body && typeof body === 'object' ? (body as { teams?: unknown }).teams : undefined;
 	const teams = saveSportsTeams(getDb(), raw);
-	if (!teams) error(400, 'teams must list at least one { league: "nfl" | "nhl", abbr }');
+	if (!teams) error(400, 'teams must list at least one { league: "nfl" | "nhl" | "ncaaf", abbr }');
 	return json({ teams });
 };

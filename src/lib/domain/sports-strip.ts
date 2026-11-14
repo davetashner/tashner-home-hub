@@ -72,8 +72,11 @@ const localHour = (ms: number, timeZone: string): number =>
 export const daysAway = (ms: number, now: number, timeZone: string): number =>
 	localDay(ms, timeZone) - localDay(now, timeZone);
 
-export const clockTime = (ms: number, timeZone: string): string =>
-	new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(ms);
+/** "7:30 PM"; "TBD" when the kickoff time is not set yet. */
+export const clockTime = (ms: number, timeZone: string, tbd = false): string =>
+	tbd
+		? 'TBD'
+		: new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(ms);
 
 /** "Sun" within the week, "Nov 15" beyond it. */
 function farDay(ms: number, now: number, timeZone: string): string {
@@ -161,9 +164,9 @@ function cardFor(
 	if (!next) return null;
 	const start = Date.parse(next.start);
 	const title = `${team.name} ${vsAt(next)} ${opponentShort(next)}`;
-	const when = [clockTime(start, timeZone), next.channel].filter(Boolean).join(' · ');
+	const when = [clockTime(start, timeZone, next.timeTbd), next.channel].filter(Boolean).join(' · ');
 	if (daysAway(start, now, timeZone) === 0) {
-		const left = countdownText(start, now);
+		const left = next.timeTbd ? null : countdownText(start, now);
 		const unit = team.league === 'nhl' ? 'to puck drop' : 'to kickoff';
 		return {
 			...base,
@@ -173,7 +176,11 @@ function cardFor(
 			eyebrow: 'Today',
 			title,
 			sub: when,
-			countdown: left ? { value: left, unit } : { value: 'Starting', unit: 'now' }
+			countdown: next.timeTbd
+				? null
+				: left
+					? { value: left, unit }
+					: { value: 'Starting', unit: 'now' }
 		};
 	}
 	return {

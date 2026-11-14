@@ -1,6 +1,7 @@
 /** Pure sports helpers: ESPN parsing, next game, live/final visibility, poll cadence (hub-5tk). */
 
-export type League = 'nfl' | 'nhl';
+export type League = 'nfl' | 'nhl' | 'ncaaf';
+export const LEAGUES: readonly League[] = ['nfl', 'nhl', 'ncaaf'];
 export type GameStatus = 'scheduled' | 'live' | 'final' | 'postponed';
 
 export interface SportsTeam {
@@ -21,8 +22,10 @@ export interface Game {
 	/** `short` is ESPN's shortDisplayName ("Blue Jackets"); caches from before it existed lack it. */
 	opponent: { name: string; abbr: string; short?: string };
 	home: boolean;
-	/** Start time, ISO 8601 UTC. */
+	/** Start time, ISO 8601 UTC. When `timeTbd`, only the local date is real (ESPN uses 05:00Z). */
 	start: string;
+	/** Kickoff time not set yet (ESPN `timeValid: false`, common in college football). */
+	timeTbd?: true;
 	status: GameStatus;
 	teamScore: number | null;
 	opponentScore: number | null;
@@ -37,7 +40,8 @@ export interface Game {
 export const DEFAULT_TEAMS: readonly SportsTeam[] = [
 	{ id: 'nfl:bal', league: 'nfl', abbr: 'BAL', name: 'Ravens' },
 	{ id: 'nfl:wsh', league: 'nfl', abbr: 'WSH', name: 'Commanders' },
-	{ id: 'nhl:wsh', league: 'nhl', abbr: 'WSH', name: 'Capitals' }
+	{ id: 'nhl:wsh', league: 'nhl', abbr: 'WSH', name: 'Capitals' },
+	{ id: 'ncaaf:jmu', league: 'ncaaf', abbr: 'JMU', name: 'Dukes' }
 ];
 
 export const MAX_TEAMS = 8;
@@ -49,8 +53,14 @@ const DAY_MS = 86_400_000;
 
 const LEAGUE_PATH: Record<League, string> = {
 	nfl: 'football/nfl',
-	nhl: 'hockey/nhl'
+	nhl: 'hockey/nhl',
+	ncaaf: 'football/college-football'
 };
+
+/** College scoreboards list only ranked games unless asked for a division (80 = FBS). */
+const SCOREBOARD_QUERY: Partial<Record<League, string>> = { ncaaf: '?groups=80' };
+
+export const isFootball = (league: League): boolean => league !== 'nhl';
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
 	!!v && typeof v === 'object' && !Array.isArray(v);
@@ -65,10 +75,10 @@ export function parseTeams(raw: unknown): SportsTeam[] | null {
 		if (!isObj(item)) continue;
 		const league = item.league;
 		const abbr = text(item.abbr)?.toUpperCase();
-		if ((league !== 'nfl' && league !== 'nhl') || !abbr || !/^[A-Z]{2,5}$/.test(abbr)) continue;
+		if (!LEAGUES.includes(league as League) || !abbr || !/^[A-Z]{2,5}$/.test(abbr)) continue;
 		const id = `${league}:${abbr.toLowerCase()}`;
 		if (out.some((t) => t.id === id)) continue;
-		out.push({ id, league, abbr, name: text(item.name)?.slice(0, 40) ?? abbr });
+		out.push({ id, league: league as League, abbr, name: text(item.name)?.slice(0, 40) ?? abbr });
 		if (out.length === MAX_TEAMS) break;
 	}
 	return out.length ? out : null;
@@ -78,7 +88,7 @@ export const scheduleUrl = (t: SportsTeam): string =>
 	`https://site.api.espn.com/apis/site/v2/sports/${LEAGUE_PATH[t.league]}/teams/${t.abbr.toLowerCase()}/schedule`;
 
 export const scoreboardUrl = (league: League): string =>
-	`https://site.api.espn.com/apis/site/v2/sports/${LEAGUE_PATH[league]}/scoreboard`;
+	`https://site.api.espn.com/apis/site/v2/sports/${LEAGUE_PATH[league]}/scoreboard${SCOREBOARD_QUERY[league] ?? ''}`;
 
 function statusOf(type: Record<string, unknown>): GameStatus | null {
 	const name = String(type.name ?? '');
@@ -106,7 +116,7 @@ const ORDINAL = ['', '1st', '2nd', '3rd'];
 function periodText(league: League, period: number, typeName: string): string | null {
 	if (typeName === 'STATUS_HALFTIME') return 'Half';
 	if (!Number.isInteger(period) || period < 1) return null;
-	if (league === 'nfl') return period <= 4 ? `Q${period}` : 'OT';
+	if (isFootball(league)) return period <= 4 ? `Q${period}` : 'OT';
 	if (period <= 3) return ORDINAL[period];
 	return period === 4 ? 'OT' : 'SO';
 }
@@ -150,6 +160,7 @@ function parseEvent(raw: unknown, teams: readonly SportsTeam[]): Game[] {
 		if (!oppAbbr || !oppName) continue;
 		const live = state === 'live';
 		const hasScore = state === 'live' || state === 'final';
+		const tbd = state === 'scheduled' && comp.timeValid === false;
 		games.push({
 			id,
 			league: team.league,
@@ -159,6 +170,7 @@ function parseEvent(raw: unknown, teams: readonly SportsTeam[]): Game[] {
 				: { name: oppName, abbr: oppAbbr },
 			home: me.homeAway === 'home',
 			start: new Date(start).toISOString(),
+			...(tbd ? { timeTbd: true as const } : {}),
 			status: state,
 			teamScore: hasScore ? scoreOf(me.score) : null,
 			opponentScore: hasScore ? scoreOf(them.score) : null,
@@ -215,7 +227,9 @@ export function nextGames(
 		const next = mine
 			.filter((g) => {
 				const t = Date.parse(g.start);
-				return g.status === 'scheduled' && t >= now - LATE_START_MS && t <= now + days * DAY_MS;
+				// A TBD kickoff's placeholder is midnight-ish: keep it all game day.
+				const late = g.timeTbd ? DAY_MS : LATE_START_MS;
+				return g.status === 'scheduled' && t >= now - late && t <= now + days * DAY_MS;
 			})
 			.sort((a, b) => a.start.localeCompare(b.start))[0];
 		const pick = live ?? next;
@@ -270,7 +284,7 @@ export function pollInterval(games: readonly Game[], now: number): number {
 	const busy = games.some((g) => {
 		if (g.status === 'live') return true;
 		const until = Date.parse(g.start) - now;
-		return g.status === 'scheduled' && until <= SOON_MS && until >= -LATE_START_MS;
+		return g.status === 'scheduled' && !g.timeTbd && until <= SOON_MS && until >= -LATE_START_MS;
 	});
 	return busy ? FAST_POLL_MS : SLOW_POLL_MS;
 }
