@@ -18,7 +18,7 @@ import {
 	type Game
 } from './sports.js';
 
-const [RAVENS, CMD, CAPS] = DEFAULT_TEAMS;
+const [RAVENS, CMD, CAPS, JMU] = DEFAULT_TEAMS;
 
 function side(abbr: string, name: string, homeAway: string, score?: unknown) {
 	return { homeAway, team: { abbreviation: abbr, displayName: name }, score };
@@ -217,6 +217,44 @@ describe('parseEspn', () => {
 	});
 });
 
+describe('college football', () => {
+	const jmuGame = (over: Parameters<typeof event>[0], timeValid?: boolean) => {
+		const e = event({
+			date: '2026-11-28T05:00Z',
+			competitors: [
+				side('JMU', 'James Madison Dukes', 'home'),
+				side('CCU', 'Coastal Carolina Chanticleers', 'away')
+			],
+			...over
+		});
+		if (timeValid !== undefined)
+			(e.competitions[0] as Record<string, unknown>).timeValid = timeValid;
+		return e;
+	};
+
+	it('marks a kickoff ESPN has not timed yet as TBD', () => {
+		const [g] = parseEspn(wrap(jmuGame({}, false)), [JMU]);
+		expect(g).toMatchObject({ league: 'ncaaf', team: 'ncaaf:jmu', status: 'scheduled' });
+		expect(g.timeTbd).toBe(true);
+		const [timed] = parseEspn(wrap(jmuGame({}, true)), [JMU]);
+		expect(timed).not.toHaveProperty('timeTbd');
+	});
+
+	it('names quarters like the NFL', () => {
+		const live = jmuGame({ state: 'in', name: 'STATUS_IN_PROGRESS', period: 2, clock: '4:10' });
+		expect(parseEspn(wrap(live), [JMU])[0]).toMatchObject({ period: 'Q2', clock: '4:10' });
+	});
+
+	it('accepts the league in the team setting', () => {
+		expect(parseTeams([{ league: 'ncaaf', abbr: 'jmu', name: 'Dukes' }])).toEqual([JMU]);
+	});
+
+	it('asks the scoreboard for every FBS game, not just the ranked ones', () => {
+		expect(scheduleUrl(JMU)).toContain('/football/college-football/teams/jmu/schedule');
+		expect(scoreboardUrl('ncaaf')).toMatch(/\/football\/college-football\/scoreboard\?groups=80$/);
+	});
+});
+
 describe('parseTeams', () => {
 	it('validates, normalises, dedupes and caps', () => {
 		expect(
@@ -316,6 +354,18 @@ describe('lists', () => {
 		expect(nextGames(games, DEFAULT_TEAMS, NOW, 14).map((g) => g.id)).toEqual(['n1', 'x', 'l']);
 		expect(nextGames([], DEFAULT_TEAMS, NOW)).toEqual([]);
 	});
+
+	it('keeps a TBD kickoff as next all game day', () => {
+		const tbd = game({
+			id: 't',
+			team: 'ncaaf:jmu',
+			league: 'ncaaf',
+			start: hours(-6),
+			timeTbd: true
+		});
+		expect(nextGames([tbd], DEFAULT_TEAMS, NOW).map((g) => g.id)).toEqual(['t']);
+		expect(nextGames([{ ...tbd, timeTbd: undefined }], DEFAULT_TEAMS, NOW)).toEqual([]);
+	});
 });
 
 describe('finalVisible', () => {
@@ -358,5 +408,6 @@ describe('pollInterval', () => {
 		expect(pollInterval([game({ status: 'final', start: late })], NOW)).toBe(SLOW_POLL_MS);
 		const stale = new Date(NOW - 2 * 3_600_000).toISOString();
 		expect(pollInterval([game({ start: stale })], NOW)).toBe(SLOW_POLL_MS);
+		expect(pollInterval([game({ start: soon, timeTbd: true })], NOW)).toBe(SLOW_POLL_MS);
 	});
 });

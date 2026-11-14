@@ -43,14 +43,15 @@ export interface SheetDay {
 const HOUR = 3_600_000;
 export const SHEET_DAYS = 14;
 
-/** How long a game blocks the afternoon: 3 h of football, 2.5 h of hockey. */
+/** How long a game blocks the afternoon: 3 h of NFL, 3.5 h of college football, 2.5 h of hockey. */
 export const gameLengthMs = (league: Game['league']): number =>
-	league === 'nhl' ? 2.5 * HOUR : 3 * HOUR;
+	league === 'nhl' ? 2.5 * HOUR : league === 'ncaaf' ? 3.5 * HOUR : 3 * HOUR;
 
 /** First timed event that intersects the game's playing time, or null. All-day events never clash. */
 export function findClash(game: Game, events: readonly ClashEvent[]): string | null {
 	const start = Date.parse(game.start);
-	if (Number.isNaN(start)) return null;
+	// No kickoff time yet: nothing to clash with.
+	if (Number.isNaN(start) || game.timeTbd) return null;
 	const end = start + gameLengthMs(game.league);
 	const hit = events.find((e) => {
 		if (e.allDay) return false;
@@ -94,7 +95,7 @@ function rowFor(
 		abbr: team?.abbr ?? game.team.split(':')[1]?.toUpperCase() ?? '',
 		state: game.status,
 		title: `${team?.name ?? ''} ${game.home ? 'vs' : 'at'} ${opponentShort(game)}`.trim(),
-		time: game.status === 'scheduled' ? clockTime(start, timeZone) : null,
+		time: game.status === 'scheduled' ? clockTime(start, timeZone, game.timeTbd) : null,
 		channel: game.channel,
 		status: game.status === 'live' && status ? status : null,
 		score:

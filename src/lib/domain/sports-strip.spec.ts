@@ -256,6 +256,17 @@ describe('stripCards', () => {
 		expect(cards[0].state).toBe('normal');
 	});
 
+	it('says TBD for a kickoff without a time, and skips the countdown', () => {
+		const jmu = (start: string) =>
+			game({ team: 'ncaaf:jmu', league: 'ncaaf', start, timeTbd: true, channel: null });
+		// ESPN's placeholder: 05:00Z = midnight Eastern on game day.
+		const [today] = stripCards([jmu('2026-11-08T05:00:00Z')], DEFAULT_TEAMS, NOW, TZ);
+		expect(today).toMatchObject({ state: 'today', eyebrow: 'Today', sub: 'TBD', countdown: null });
+		expect(today.title).toBe('Dukes vs Steelers');
+		const [later] = stripCards([jmu('2026-11-14T05:00:00Z')], DEFAULT_TEAMS, NOW, TZ);
+		expect(later).toMatchObject({ state: 'normal', sub: 'Sat TBD' });
+	});
+
 	it('ignores a final without scores', () => {
 		const cards = stripCards(
 			[game({ team: 'nfl:bal', start: '2026-11-08T14:00:00Z', status: 'final' })],
