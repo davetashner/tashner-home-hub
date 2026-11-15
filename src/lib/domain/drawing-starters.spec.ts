@@ -10,6 +10,9 @@ describe('starters', () => {
 		expect(STARTER_PROMPTS.length).toBeGreaterThanOrEqual(12);
 		for (const p of STARTER_PROMPTS) expect(DRAWING_PROMPTS, p).toContain(p);
 	});
+	it('cover every prompt', () => {
+		for (const p of DRAWING_PROMPTS) expect(hasStarter(p), p).toBe(true);
+	});
 	it('list exactly the prompts that have a sketch', () => {
 		expect([...STARTER_PROMPTS].sort()).toEqual([...SKETCHED_PROMPTS].sort());
 	});

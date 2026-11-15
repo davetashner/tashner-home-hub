@@ -60,12 +60,14 @@ test('the prompt shows, shuffles and hides for the day @J18.16', async ({ page }
 	await expect(page.getByTestId('draw-prompt-banner')).toHaveCount(0);
 });
 
-/** The first prompt that does (or does not) have a starter sketch. */
-function promptWhere(starter: boolean): string {
-	const found = DRAWING_PROMPTS.find((p) => hasStarter(p) === starter);
-	if (!found) throw new Error('no such prompt');
-	return found;
-}
+/** Fraction of the canvas with ink on it. */
+const inkShare = (canvas: import('@playwright/test').Locator) =>
+	canvas.evaluate((c: HTMLCanvasElement) => {
+		const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+		let k = 0;
+		for (let i = 3; i < d.length; i += 4) if (d[i] > 0) k++;
+		return k / (c.width * c.height);
+	});
 
 /** Makes `text` this device's remembered prompt for `date`. */
 async function rememberPrompt(page: Page, date: string, text: string) {
@@ -83,7 +85,8 @@ test('Start it puts a half-done sketch on the board as ink; Undo takes it back @
 	page
 }) => {
 	ensureHousehold();
-	const text = promptWhere(true);
+	const text = 'Draw a dog driving a bus';
+	expect(hasStarter(text)).toBe(true);
 	await rememberPrompt(page, DATE, text);
 	await page.route('**/api/settings/drawing-prompts', (route) =>
 		route.fulfill({ json: { enabled: true, date: DATE } })
@@ -98,12 +101,7 @@ test('Start it puts a half-done sketch on the board as ink; Undo takes it back @
 	await page.getByTestId('draw-prompt-start').click();
 	const n = starterStrokes(text, { w: 100, h: 100 }).length;
 	await expect(canvas).toHaveAttribute('data-strokes', String(n));
-	const ink = await canvas.evaluate((c: HTMLCanvasElement) => {
-		const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
-		let k = 0;
-		for (let i = 3; i < d.length; i += 4) if (d[i] > 0) k++;
-		return k / (c.width * c.height);
-	});
+	const ink = await inkShare(canvas);
 	// A sketch, not a filled page.
 	expect(ink).toBeGreaterThan(0.002);
 	expect(ink).toBeLessThan(0.2);
@@ -114,17 +112,35 @@ test('Start it puts a half-done sketch on the board as ink; Undo takes it back @
 	await page.getByTestId('draw-close').click();
 });
 
-test('no Start it for a prompt without a starter @J18.16', async ({ page }) => {
+// Every prompt has a starter (hub-r53f, hub-j0oj, hub-ia53, hub-wqci): spot-check one from the
+// start, middle and end of the list, each a sketch rather than a filled page.
+test('Start it works across the whole prompt list @J18.16', async ({ page }) => {
 	ensureHousehold();
-	const text = promptWhere(false);
-	await rememberPrompt(page, DATE, text);
 	await page.route('**/api/settings/drawing-prompts', (route) =>
 		route.fulfill({ json: { enabled: true, date: DATE } })
 	);
-	await gotoHydrated(page, '/');
-	await page.getByTestId('note-draw').click();
-	await expect(page.getByTestId('draw-prompt')).toHaveText(text);
-	await expect(page.getByTestId('draw-prompt-start')).toHaveCount(0);
+	const n = DRAWING_PROMPTS.length;
+	for (const text of [
+		DRAWING_PROMPTS[0],
+		DRAWING_PROMPTS[Math.floor(n / 2)],
+		DRAWING_PROMPTS[n - 1]
+	]) {
+		// The newest init script runs last, so it sets this round's prompt.
+		await rememberPrompt(page, DATE, text);
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		const canvas = page.getByTestId('draw-canvas');
+		await expect(page.getByTestId('draw-prompt')).toHaveText(text);
+		await expect(canvas).toHaveAttribute('data-strokes', '0');
+		await page.getByTestId('draw-prompt-start').click();
+		const n2 = starterStrokes(text, { w: 100, h: 100 }).length;
+		await expect(canvas, text).toHaveAttribute('data-strokes', String(n2));
+		const ink = await inkShare(canvas);
+		expect(ink, text).toBeGreaterThan(0.002);
+		expect(ink, text).toBeLessThan(0.2);
+		await page.getByTestId('draw-undo').click();
+		await page.getByTestId('draw-close').click();
+	}
 });
 
 test('no banner when a grown-up has turned prompts off @J18.16', async ({ page }) => {
