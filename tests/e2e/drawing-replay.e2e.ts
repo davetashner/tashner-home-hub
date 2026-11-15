@@ -76,6 +76,68 @@ async function pointerStroke(
 	);
 }
 
+test('make a time-lapse video of a saved drawing and get a download @J18.20', async ({
+	page
+}, info) => {
+	test.setTimeout(60_000);
+	const kidId = `e2e-draw-video-${info.workerIndex}${info.repeatEachIndex}`;
+	const name = `Kid Video ${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, name);
+	try {
+		await gotoHydrated(page, '/');
+		await page.getByTestId('note-draw').click();
+		await pointerStroke(page, 'touch', 0.5, [0.1, 0.3], [0.8, 0.6], 1);
+		await pointerStroke(page, 'touch', 0.5, [0.1, 0.8], [0.8, 0.2], 2);
+		await page.getByTestId('draw-save').click();
+		await page.getByTestId('draw-author').filter({ hasText: name }).click();
+		await expect(page.getByTestId('draw-note')).toHaveText('Saved!');
+		await page.getByTestId('draw-browse').click();
+		await page.getByRole('button', { name: `Replay drawing by ${name}` }).click();
+
+		// No upload: no write request leaves the page while the video is made.
+		const writes: string[] = [];
+		page.on('request', (r) => {
+			if (r.method() !== 'GET') writes.push(r.url());
+		});
+		const make = page.getByTestId('draw-video-make');
+		await expectTappable(make, 96);
+		// The controls fit inside the board at 4K and at the wall size.
+		const wall = page.viewportSize()!;
+		for (const size of [{ width: 3840, height: 2160 }, wall]) {
+			await page.setViewportSize(size);
+			const box = (await make.boundingBox())!;
+			const holder = (await page.getByTestId('draw-holder').boundingBox())!;
+			expect(box.x).toBeGreaterThanOrEqual(holder.x);
+			expect(box.x + box.width).toBeLessThanOrEqual(holder.x + holder.width + 1);
+			expect(box.y + box.height).toBeLessThanOrEqual(holder.y + holder.height + 1);
+		}
+		await make.click();
+		await expect(make).toBeDisabled();
+		const link = page.getByTestId('draw-video-download');
+		await expect(link).toBeVisible({ timeout: 40_000 });
+		await expectTappable(link, 96);
+		await expect(link).toHaveAttribute('download', 'my-drawing.webm');
+		const video = await link.evaluate(async (a: HTMLAnchorElement) => {
+			const blob = await (await fetch(a.href)).blob();
+			return { size: blob.size, type: blob.type, local: a.href.startsWith('blob:') };
+		});
+		expect(video.local).toBe(true);
+		expect(video.type).toBe('video/webm');
+		expect(video.size).toBeGreaterThan(1000);
+		expect(video.size).toBeLessThan(8_000_000);
+		expect(writes).toEqual([]);
+
+		await page.getByTestId('draw-replay-skip').click();
+		await expect(page.getByTestId('draw-replay')).toHaveCount(0);
+		await page.getByTestId('draw-browse').click();
+		await page.getByRole('button', { name: `Delete drawing by ${name}` }).click();
+		await page.getByTestId('draw-mine-close').click();
+		await page.getByTestId('draw-close').click();
+	} finally {
+		wipe(kidId);
+	}
+});
+
 test('replay a saved drawing, tap to skip, and the save is untouched', async ({ page }, info) => {
 	const kidId = `e2e-draw-replay-${info.workerIndex}${info.repeatEachIndex}`;
 	const name = `Kid Replay ${info.workerIndex}${info.repeatEachIndex}`;

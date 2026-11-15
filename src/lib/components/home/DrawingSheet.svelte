@@ -888,6 +888,25 @@
 		}
 	}
 
+	/** One frame of a time-lapse video (hub-t27j.17): paper, picture, the ink so far, coloring lines. */
+	let videoFull: HTMLCanvasElement | null = null;
+	function composeVideoFrame(
+		items: DrawItem[],
+		out: CanvasRenderingContext2D,
+		w: number,
+		h: number
+	) {
+		videoFull ??= document.createElement('canvas');
+		videoFull.width = canvas.width;
+		videoFull.height = canvas.height;
+		paintOn(videoFull.getContext('2d') as CanvasRenderingContext2D, items);
+		out.fillStyle = token(bg ?? PAPER);
+		out.fillRect(0, 0, w, h);
+		if (photoId && layers.picture) out.drawImage(photoCanvas, 0, 0, w, h);
+		out.drawImage(videoFull, 0, 0, w, h);
+		if (layers.picture) out.drawImage(linesCanvas, 0, 0, w, h);
+	}
+
 	/** Flipbook (hub-cn7.25): frames and their thumbnails; the live strokes/history are the current frame. */
 	let flip = $state.raw<Flipbook<DrawItem> | null>(null);
 	let flipOn = $state(false);
@@ -1725,6 +1744,8 @@
 				<ReplayPlayer
 					items={replaying}
 					render={(list) => redraw(list)}
+					compose={composeVideoFrame}
+					boardSize={{ w: boardSize.w, h: boardSize.h }}
 					ondone={() => {
 						replaying = null;
 						redraw();

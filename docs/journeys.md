@@ -263,6 +263,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J18.17 | Turn on Snap shapes and draw a rough circle, rectangle, triangle, line or arrow to get the clean shape; tap Keep my line (or Undo) to get the original stroke back. Snap is off until you turn it on. | built | wall | `drawing-snap` |
 | J18.18 | Tap Share on the board; another device is invited and joins with one tap. Strokes show on every board as they are drawn, each person undoes only their own, and drawing carries on offline and syncs on reconnect. | built | wall | `drawing-live` |
 | J18.19 | With Kids' drawings on in Settings, a posted drawing shows in the photo frame among the photos with the artist's name and a gentle pan; with it off, drawings never appear. | built | wall | `drawing-frame` |
+| J18.20 | Replay a saved drawing and tap Make a video: the replay is recorded as a short WebM clip (at most 15 seconds, small file) and a Save video button downloads it. Nothing is uploaded. | built | wall | `drawing-replay` |
 | **J19** | **Sitter mode** (Parent at the wall) | | | |
 | J19.1 | A grown-up fills in the info card: emergency contacts, address, allergies, bedtimes, house rules, pets with the vet and pet emergency hospital, Wi-Fi and notes for tonight. | built | wall | untested: undefined |
 | J19.2 | Start a sitter session now or on a schedule, with an optional sitter name, 4-digit PIN and permissions. | built | wall | untested: undefined |

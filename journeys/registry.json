@@ -908,6 +908,12 @@
 					"text": "With Kids' drawings on in Settings, a posted drawing shows in the photo frame among the photos with the artist's name and a gentle pan; with it off, drawings never appear.",
 					"status": "built",
 					"beads": ["hub-cn7.28", "hub-t27j.14"]
+				},
+				{
+					"id": "J18.20",
+					"text": "Replay a saved drawing and tap Make a video: the replay is recorded as a short WebM clip (at most 15 seconds, small file) and a Save video button downloads it. Nothing is uploaded.",
+					"status": "built",
+					"beads": ["hub-t27j.17"]
 				}
 			]
 		},
