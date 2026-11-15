@@ -148,6 +148,13 @@
 			"when": 1794763776895,
 			"tag": "20261115172936_art_archive",
 			"breakpoints": true
+		},
+		{
+			"idx": 21,
+			"version": "6",
+			"when": 1794770893332,
+			"tag": "20261115192813_note_wiggle_frames",
+			"breakpoints": true
 		}
 	]
 }

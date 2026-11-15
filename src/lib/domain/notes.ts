@@ -28,19 +28,36 @@ const UNTIL_DAYS: Record<Until, number> = { today: 1, tomorrow: 2, week: 7 };
 
 /** A drawing posted as a note: a PNG data URL. Kept under the 512 KB request limit once base64'd. */
 export const NOTE_IMAGE_MAX_BYTES = 300_000;
+/** A Wiggle note carries its still plus two more frames, each this small (3 PNGs stay inside the 512 KB request limit). */
+export const NOTE_WIGGLE_MAX_BYTES = 100_000;
+export const NOTE_WIGGLE_EXTRA_FRAMES = 2;
 const PNG_URL = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/;
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 /** The bytes of a small PNG data URL, or null when it is anything else. */
-export function parseNoteImage(v: unknown): Uint8Array | null {
-	if (typeof v !== 'string' || v.length > Math.ceil((NOTE_IMAGE_MAX_BYTES * 4) / 3) + 8)
-		return null;
+export function parseNoteImage(v: unknown, max = NOTE_IMAGE_MAX_BYTES): Uint8Array | null {
+	if (typeof v !== 'string' || v.length > Math.ceil((max * 4) / 3) + 8) return null;
 	const m = PNG_URL.exec(v);
 	if (!m || m[1].length % 4 !== 0) return null;
 	const bin = atob(m[1]);
-	if (bin.length > NOTE_IMAGE_MAX_BYTES || bin.length <= PNG_SIGNATURE.length) return null;
+	if (bin.length > max || bin.length <= PNG_SIGNATURE.length) return null;
 	const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
 	return PNG_SIGNATURE.every((b, i) => bytes[i] === b) ? bytes : null;
+}
+
+/**
+ * The extra Wiggle frames of a posted drawing: exactly NOTE_WIGGLE_EXTRA_FRAMES small PNG data URLs,
+ * or null when it is anything else. The still image is the third frame of the loop.
+ */
+export function parseNoteFrames(v: unknown): Uint8Array[] | null {
+	if (!Array.isArray(v) || v.length !== NOTE_WIGGLE_EXTRA_FRAMES) return null;
+	const out: Uint8Array[] = [];
+	for (const f of v) {
+		const b = parseNoteImage(f, NOTE_WIGGLE_MAX_BYTES);
+		if (!b) return null;
+		out.push(b);
+	}
+	return out;
 }
 
 export interface NoteLike {

@@ -280,7 +280,7 @@
 		type MonsterGame,
 		type MonsterTurns
 	} from '#lib/domain/drawing-monster.js';
-	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
+	import { NOTE_IMAGE_MAX_BYTES, NOTE_WIGGLE_MAX_BYTES } from '#lib/domain/notes.js';
 	import { parseStarInfo, starHint, type StarInfo } from '#lib/domain/drawing-stars.js';
 
 	interface Member {
@@ -291,7 +291,7 @@
 	}
 	interface Props {
 		people: Member[];
-		onpost: (authorId: string, image: string) => void;
+		onpost: (authorId: string, image: string, frames?: string[]) => void;
 		onclose: () => void;
 		liveJoin?: string;
 	}
@@ -1796,7 +1796,7 @@
 	function exportPng(): string {
 		return stillFrame(exportPngNow);
 	}
-	function exportPngNow(): string {
+	function exportPngNow(max = NOTE_IMAGE_MAX_BYTES): string {
 		let { width, height } = fitWithin(canvas.width, canvas.height);
 		const out = document.createElement('canvas');
 		let url = '';
@@ -1810,10 +1810,29 @@
 			if (layers.drawing) o.drawImage(canvas, 0, 0, width, height);
 			if (layers.picture) o.drawImage(linesCanvas, 0, 0, width, height);
 			url = out.toDataURL('image/png');
-			if (dataUrlBytes(url) <= NOTE_IMAGE_MAX_BYTES) break;
+			if (dataUrlBytes(url) <= max) break;
 			({ width, height } = fitWithin(width, height, Math.max(width, height) * 0.75));
 		}
 		return url;
+	}
+
+	/** Wiggle on: the still plus two jitter frames, each small (hub-t27j.21). Null when Wiggle is off. */
+	function wiggleExport(): { image: string; frames: string[] } | null {
+		if (!wiggleOn) return null;
+		const save = wiggleVariant;
+		try {
+			const image = stillFrame(() => exportPngNow(NOTE_WIGGLE_MAX_BYTES));
+			const frames: string[] = [];
+			for (let v = 1; v < WIGGLE_VARIANTS; v++) {
+				wiggleVariant = v;
+				redraw();
+				frames.push(exportPngNow(NOTE_WIGGLE_MAX_BYTES));
+			}
+			return { image, frames };
+		} finally {
+			wiggleVariant = save;
+			redraw();
+		}
 	}
 
 	function postAs(p: Member) {
@@ -1826,7 +1845,9 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ memberId: p.id })
 			}).catch(() => {});
-		onpost(p.id, exportPng());
+		const w = wiggleExport();
+		if (w) onpost(p.id, w.image, w.frames);
+		else onpost(p.id, exportPng());
 	}
 
 	// Prompt stars + streak (hub-t27j.8): read when "Who drew it?" opens, shown beside each name.

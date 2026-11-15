@@ -19,7 +19,8 @@ export const POST: RequestHandler = async (event) => {
 			body: body.body,
 			color: body.color,
 			until: body.until,
-			image: body.image
+			image: body.image,
+			frames: body.frames
 		})
 	);
 	return new Response(res.body, { status: 201, headers: res.headers });

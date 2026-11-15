@@ -1022,6 +1022,12 @@
 					"text": "Circle ink with the Lasso and move, resize or copy it while drawing together: the other board sees the ink move too. Eraser scribbles over that ink come along, so the erased gaps stay in the right place.",
 					"status": "built",
 					"beads": ["hub-t27j.22"]
+				},
+				{
+					"id": "J18.39",
+					"text": "Post a drawing made with Wiggle on and its note on the board boils like the drawing did, and it boils again when enlarged (still if reduced motion is on). A drawing posted without Wiggle stays a still picture.",
+					"status": "built",
+					"beads": ["hub-t27j.21"]
 				}
 			]
 		},
