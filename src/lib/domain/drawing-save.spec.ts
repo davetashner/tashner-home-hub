@@ -14,6 +14,7 @@ import {
 	savedPage,
 	savedPhoto,
 	savedSize,
+	savedWiggle,
 	serializeDrawing
 } from './drawing-save.js';
 import { COLOR_GRID, isShape, type DrawItem, type Shape, type Stroke } from './drawing.js';
@@ -341,5 +342,22 @@ describe('flipbook frames (hub-cn7.26)', () => {
 		expect(isSavedDrawing(JSON.stringify({ ...w, frames: 'x' }))).toBe(false);
 		expect(isSavedDrawing(JSON.stringify({ ...w, frames: Array(30).fill([]) }))).toBe(false);
 		expect(isSavedDrawing(JSON.stringify({ ...w, frames: [[{ c: 'draw-red' }]] }))).toBe(false);
+	});
+});
+
+describe('wiggle flag (hub-t27j.4)', () => {
+	const sz = { w: 800, h: 600 };
+	it('round-trips, and old drawings have no wiggle', () => {
+		const on = serializeDrawing([stroke], sz, 1, null, null, null, [], true);
+		expect(savedWiggle(on)).toBe(true);
+		expect(isSavedDrawing(on)).toBe(true);
+		expect(savedWiggle(serializeDrawing([stroke], sz))).toBe(false);
+		expect(serializeDrawing([stroke], sz)).not.toContain('wg');
+		expect(savedWiggle('nope')).toBe(false);
+	});
+	it('rejects a malformed flag', () => {
+		const w = JSON.parse(serializeDrawing([stroke], sz));
+		expect(isSavedDrawing(JSON.stringify({ ...w, wg: 2 }))).toBe(false);
+		expect(isSavedDrawing(JSON.stringify({ ...w, wg: true }))).toBe(false);
 	});
 });
