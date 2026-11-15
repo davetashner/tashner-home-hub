@@ -8,7 +8,10 @@ const SECTION_OF: Record<string, 'paper' | 'magic' | 'together'> = {
 	'draw-layers-open': 'paper',
 	'draw-clear': 'paper',
 	'draw-mirror': 'magic',
+	'draw-kaleido': 'magic',
 	'draw-flipbook': 'magic',
+	'draw-monster': 'magic',
+	'draw-monster-feet': 'magic',
 	'draw-share': 'together',
 	'draw-live-status': 'together',
 	'draw-live-leave': 'together'
