@@ -5,7 +5,20 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
-	import DrawingSheet from './DrawingSheet.svelte';
+	// The drawing board is its own chunk (hub-t27j.26): the home page loads without it, and it is
+	// fetched on idle so the first tap on Draw still opens it at once.
+	const loadSheet = () => import('./DrawingSheet.svelte');
+	let sheet = $state<Awaited<ReturnType<typeof loadSheet>>['default'] | null>(null);
+	function preloadSheet() {
+		void loadSheet().then(
+			(m) => (sheet = m.default),
+			() => {}
+		);
+	}
+	// Opened before the idle preload finished (or it failed): fetch it now.
+	$effect(() => {
+		if (drawing && !sheet) preloadSheet();
+	});
 	import { REWARD_EMOJI } from '#lib/domain/emoji.js';
 	import { createLiveChannel } from '#lib/domain/live-events.js';
 	import { inviteFrom } from '#lib/domain/drawing-live-client.js';
@@ -229,6 +242,8 @@
 
 	onMount(() => {
 		void refresh();
+		if ('requestIdleCallback' in window) requestIdleCallback(preloadSheet, { timeout: 3000 });
+		else setTimeout(preloadSheet, 1000);
 		fetch('/api/members')
 			.then((r) => (r.ok ? r.json() : []))
 			.then((list: Member[]) => (people = list))
@@ -492,7 +507,8 @@
 		</ul>
 	{/if}
 
-	{#if drawing}
+	{#if drawing && sheet}
+		{@const DrawingSheet = sheet}
 		<DrawingSheet
 			{people}
 			onpost={postDrawing}

@@ -11,8 +11,9 @@
 		onopen: (row: SavedRow, replay?: boolean) => void;
 		ondelete: (row: SavedRow) => void;
 		onback: () => void;
+		onartbook: () => void;
 	}
-	let { mine, onopen, ondelete, onback }: Props = $props();
+	let { mine, onopen, ondelete, onback, onartbook }: Props = $props();
 
 	const memberColor = (c: string): MemberColor => (isMemberColor(c) ? c : 'member-1');
 </script>
@@ -60,4 +61,7 @@
 		</li>
 	{/each}
 </ul>
-<Button variant="ghost" onclick={onback} data-testid="draw-mine-close">Back</Button>
+<Button variant="secondary" size="kid" onclick={onartbook} data-testid="draw-art-book"
+	>Art book</Button
+>
+<Button variant="ghost" size="kid" onclick={onback} data-testid="draw-mine-close">Back</Button>

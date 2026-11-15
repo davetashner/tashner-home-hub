@@ -6,6 +6,8 @@
  * can treat like any stroke.
  */
 
+import type { PatternId } from './drawing-pattern.js';
+
 /** Default per-channel difference still counted as "the same color" (soaks up anti-aliased edges). */
 export const FILL_TOLERANCE = 48;
 
@@ -26,6 +28,10 @@ export interface FillItem {
 	tolerance: number;
 	/** Gap radius in device px the fill bridged (0 or absent: a plain flood). */
 	gap?: number;
+	/** Pattern painted in `color` through the runs (hub-t27j.2); absent: a solid fill. */
+	pattern?: PatternId;
+	/** Second color of a vertical gradient from `color` (hub-t27j.3); absent: no gradient. */
+	grad?: string;
 	/** Flat triples [y, x0, x1] (inclusive) of the filled runs. */
 	spans: Uint32Array;
 }
@@ -289,7 +295,9 @@ export function makeFill(
 	y: number,
 	color: string,
 	tolerance = FILL_TOLERANCE,
-	gap = 0
+	gap = 0,
+	pattern?: PatternId,
+	grad?: string
 ): FillItem | null {
 	const spans = gapFill(data, width, height, x, y, tolerance, gap);
 	if (!spans.length) return null;
@@ -302,6 +310,8 @@ export function makeFill(
 		h: height,
 		tolerance,
 		...(gap >= 1 ? { gap: Math.floor(gap) } : {}),
+		...(pattern ? { pattern } : {}),
+		...(grad ? { grad } : {}),
 		spans
 	};
 }
