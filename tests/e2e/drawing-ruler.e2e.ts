@@ -176,3 +176,55 @@ test('the ruler and its handles fit on the 4K wall screen', async ({ page }, inf
 		expect(b.y + b.height).toBeLessThanOrEqual(holder.y + holder.height);
 	}
 });
+
+test('a ruler tilted across a monster band edge cannot leak ink out of the band', async ({
+	page
+}, info) => {
+	const kidId = `e2e-ruler-monster-${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, 'Kid Ruler Monster');
+	await gotoHydrated(page, '/');
+	await page.getByTestId('note-draw').click();
+	await reveal(page, 'draw-ruler-toggle');
+	await page.getByTestId('draw-ruler-toggle').click();
+	const box = (await page.getByTestId('draw-canvas').boundingBox())!;
+
+	// Turn the ruler to 45 degrees (down and to the right), then put its center near the top-left.
+	const turn = (await page.getByTestId('draw-ruler-turn').boundingBox())!;
+	const cx = box.x + Number(await ruler(page).getAttribute('data-cx'));
+	const cy = box.y + Number(await ruler(page).getAttribute('data-cy'));
+	await page.mouse.move(turn.x + turn.width / 2, turn.y + turn.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(cx + 200, cy + 200, { steps: 6 });
+	await page.mouse.up();
+	expect(Number(await ruler(page).getAttribute('data-angle'))).toBeCloseTo(Math.PI / 4, 1);
+	const grip = (await page.getByTestId('draw-ruler-move').boundingBox())!;
+	const gx = grip.x + grip.width / 2;
+	const gy = grip.y + grip.height / 2;
+	await page.mouse.move(gx, gy);
+	await page.mouse.down();
+	await page.mouse.move(box.x + 400, box.y + 230, { steps: 6 });
+	await page.mouse.up();
+
+	await reveal(page, 'draw-monster');
+	await page.getByTestId('draw-monster').click();
+	// A point on the upper edge, 200px up-left of center along the ruler; then a long stroke down-right along it.
+	const mx = box.x + Number(await ruler(page).getAttribute('data-cx'));
+	const my = box.y + Number(await ruler(page).getAttribute('data-cy'));
+	const k = Math.SQRT1_2;
+	const start: [number, number] = [mx + 80 * k - 200 * k, my - 80 * k - 200 * k];
+	await wobble(page, start, [start[0] + 700, start[1] + 700]);
+	await expect(page.getByTestId('draw-canvas')).toHaveAttribute('data-strokes', '1');
+	const rows = await page.getByTestId('draw-canvas').evaluate((c: HTMLCanvasElement) => {
+		const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+		let bottom = -1;
+		for (let y = 0; y < c.height; y++)
+			for (let px = 0; px < c.width; px++)
+				if (d[(y * c.width + px) * 4 + 3] > 0) {
+					bottom = y;
+					break;
+				}
+		return bottom / c.height;
+	});
+	expect(rows).toBeGreaterThan(0);
+	expect(rows).toBeLessThan(0.34);
+});
