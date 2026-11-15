@@ -118,6 +118,12 @@
 		snapStroke
 	} from '#lib/domain/drawing-snap.js';
 	import {
+		createSmoother,
+		loadSmoothPref,
+		saveSmoothPref,
+		type Smoother
+	} from '#lib/domain/drawing-smooth.js';
+	import {
 		clampPoint,
 		handlePoints,
 		hitBody,
@@ -1160,10 +1166,13 @@
 			redraw();
 			return;
 		}
+		smoother = smoothOn ? createSmoother() : null;
+		const first = sample(e);
+		smoother?.push(first);
 		current = {
 			tool,
 			color,
-			points: [sample(e)],
+			points: [first],
 			...(isAlphaTool(tool) && isTranslucent(alpha) ? { alpha } : {}),
 			...(isBrushTool(tool) ? { seed: newSeed() } : {})
 		};
@@ -1193,6 +1202,10 @@
 		};
 	}
 
+	/** Smooth lines (hub-t27j.7): freehand only, so shapes, stamps, fill and text never see it. */
+	let smoothOn = $state(false);
+	let smoother: Smoother | null = null;
+
 	function move(e: PointerEvent) {
 		guard.see(e.pointerType); // a hovering pen is noticed before it touches
 		if (zoomMove(e)) return;
@@ -1212,7 +1225,10 @@
 		const events = e.getCoalescedEvents?.() ?? [];
 		for (const c of events.length ? events : [e]) {
 			const last = current.points[current.points.length - 1];
-			current.points.push(sample(c, last.w));
+			const next = sample(c, last.w);
+			const pt = smoother ? smoother.push(next) : next;
+			if (!pt) continue;
+			current.points.push(pt);
 			if (!translucent(current) && !whole(current.tool))
 				segment(current, current.points.length - 1);
 		}
@@ -1262,6 +1278,13 @@
 		}
 		if (e.pointerId !== activeId || !current) return;
 		activeId = -1;
+		const tail = smoother?.finish();
+		smoother = null;
+		if (tail) {
+			current.points.push(tail);
+			if (!translucent(current) && !whole(current.tool))
+				segment(current, current.points.length - 1);
+		}
 		strokes.push(current);
 		history = recordAdd(history, current);
 		if (current.tool !== 'eraser') recent = pushRecent(recent, current.color);
@@ -1633,6 +1656,7 @@
 	onMount(() => {
 		loadPrompt();
 		snapOn = loadSnapPref();
+		smoothOn = loadSmoothPref();
 		ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 		linesCtx = linesCanvas.getContext('2d') as CanvasRenderingContext2D;
 		photoCtx = photoCanvas.getContext('2d') as CanvasRenderingContext2D;
@@ -2284,6 +2308,17 @@
 							snapOn = !snapOn;
 							saveSnapPref(snapOn);
 						}}>Snap shapes: {snapOn ? 'On' : 'Off'}</button
+					>
+					<button
+						type="button"
+						class="{btn} {smoothOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={smoothOn}
+						data-testid="draw-smooth"
+						onclick={() => {
+							commit();
+							smoothOn = !smoothOn;
+							saveSmoothPref(smoothOn);
+						}}>Smooth lines: {smoothOn ? 'On' : 'Off'}</button
 					>
 				{/if}
 			{/if}

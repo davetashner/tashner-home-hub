@@ -932,6 +932,12 @@
 					"text": "Pick a letter (A to Z) or number (0 to 9) tracing page from the page picker: a dotted guide with a start circle and arrow for each stroke appears under your pen, the eraser cannot rub it out, and it saves and reopens with the drawing like a coloring page.",
 					"status": "built",
 					"beads": ["hub-t27j.13"]
+				},
+				{
+					"id": "J18.24",
+					"text": "Turn on Smooth lines and a wobbly freehand line comes out steadier, ending right where you lift your finger; it is off until you turn it on and is remembered on this device.",
+					"status": "built",
+					"beads": ["hub-t27j.7"]
 				}
 			]
 		},
