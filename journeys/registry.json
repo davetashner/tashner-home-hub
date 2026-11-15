@@ -902,6 +902,12 @@
 					"text": "Tap Share on the board; another device is invited and joins with one tap. Strokes show on every board as they are drawn, each person undoes only their own, and drawing carries on offline and syncs on reconnect.",
 					"status": "built",
 					"beads": ["hub-cn7.30"]
+				},
+				{
+					"id": "J18.19",
+					"text": "With Kids' drawings on in Settings, a posted drawing shows in the photo frame among the photos with the artist's name and a gentle pan; with it off, drawings never appear.",
+					"status": "built",
+					"beads": ["hub-cn7.28", "hub-t27j.14"]
 				}
 			]
 		},
