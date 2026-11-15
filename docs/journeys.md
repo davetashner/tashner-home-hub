@@ -263,6 +263,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J18.17 | Turn on Snap shapes and draw a rough circle, rectangle, triangle, line or arrow to get the clean shape; tap Keep my line (or Undo) to get the original stroke back. Snap is off until you turn it on. | built | wall | `drawing-snap` |
 | J18.18 | Tap Share on the board; another device is invited and joins with one tap. Strokes show on every board as they are drawn, each person undoes only their own, and drawing carries on offline and syncs on reconnect. | built | wall | `drawing-live` |
 | J18.19 | With Kids' drawings on in Settings, a posted drawing shows in the photo frame among the photos with the artist's name and a gentle pan; with it off, drawings never appear. | built | wall | `drawing-frame` |
+| J18.20 | Under Magic, tap How to draw and pick a guide (cat, dog, house, car, flower or fish): faint lines show on the board to trace, Next adds the next step with the earlier ones staying faint, Back goes back and Done hides the guide. The guide lines are never ink: they are not erased, saved or posted. | built | wall | `drawing-guide` |
 | **J19** | **Sitter mode** (Parent at the wall) | | | |
 | J19.1 | A grown-up fills in the info card: emergency contacts, address, allergies, bedtimes, house rules, pets with the vet and pet emergency hospital, Wi-Fi and notes for tonight. | built | wall | untested: undefined |
 | J19.2 | Start a sitter session now or on a schedule, with an optional sitter name, 4-digit PIN and permissions. | built | wall | untested: undefined |

@@ -173,6 +173,17 @@
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import { PALETTE, isTranslucent } from '#lib/domain/drawing-colors.js';
 	import PagePicker from './drawing/PagePicker.svelte';
+	import GuidePicker from './drawing/GuidePicker.svelte';
+	import GuideBar from './drawing/GuideBar.svelte';
+	import {
+		GUIDE_LABELS,
+		guideLayers,
+		isLastStep,
+		nextStep,
+		prevStep,
+		stepLabel,
+		type GuideId
+	} from '#lib/domain/drawing-guide.js';
 	import PhotoPicker from './drawing/PhotoPicker.svelte';
 	import DrawingBrowser from './drawing/DrawingBrowser.svelte';
 	import ShapePicker from './drawing/ShapePicker.svelte';
@@ -286,6 +297,14 @@
 	/** The coloring page under the ink, or null for a blank board. */
 	let page = $state<PageId | null>(null);
 	let pagePicking = $state(false);
+	// How-to-draw guide (hub-t27j.12): faint lines to trace, a screen overlay that is never ink.
+	let guidePicking = $state(false);
+	let guide = $state<{ id: GuideId; step: number; steps: PathCmd[][][] } | null>(null);
+	async function pickGuide(id: GuideId) {
+		guidePicking = false;
+		const art = await import('#lib/domain/drawing-guide-art.js');
+		guide = { id, step: 0, steps: art.GUIDES[id] };
+	}
 	function pickPage(id: PageId | null) {
 		pagePicking = false;
 		if (id === page) return;
@@ -1600,7 +1619,13 @@
 
 	/** True while the tools column shows the main tools (not a full sub-panel), so the pinned bars apply. */
 	const mainTools = $derived(
-		!choosing && !pagePicking && !layersPicking && !photoPicking && !bgPicking && !browsing
+		!choosing &&
+			!pagePicking &&
+			!guidePicking &&
+			!layersPicking &&
+			!photoPicking &&
+			!bgPicking &&
+			!browsing
 	);
 
 	/** The rail tool the current flags add up to; the options panel shows only its options. */
@@ -1646,7 +1671,14 @@
 			return;
 		}
 		commit();
-		pagePicking = layersPicking = photoPicking = bgPicking = browsing = picking = false;
+		pagePicking =
+			layersPicking =
+			photoPicking =
+			bgPicking =
+			browsing =
+			picking =
+			guidePicking =
+				false;
 		shapePicking = t === 'shapes';
 		if (t !== 'shapes') shapeKind = null;
 		textMode = t === 'text';
@@ -1663,6 +1695,7 @@
 		if (selected) commit();
 		else if (choosing) choosing = false;
 		else if (pagePicking) pagePicking = false;
+		else if (guidePicking) guidePicking = false;
 		else if (layersPicking) layersPicking = false;
 		else if (photoPicking) photoPicking = false;
 		else if (bgPicking) bgPicking = false;
@@ -1793,6 +1826,27 @@
 					{/each}
 				</svg>
 			{/if}
+			{#if guide}
+				<svg
+					viewBox="0 0 1000 700"
+					class="pointer-events-none absolute inset-0 size-full text-ink-muted"
+					aria-hidden="true"
+					data-testid="draw-guide-layer"
+					data-step={guide.step}
+				>
+					{#each guideLayers(guide.steps, guide.step) as l, li (li)}
+						<path
+							d={l.d}
+							fill="none"
+							stroke="currentColor"
+							stroke-width="8"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							opacity={l.current ? 0.6 : 0.25}
+						/>
+					{/each}
+				</svg>
+			{/if}
 			{#if sel}
 				<svg class="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
 					<polygon
@@ -1910,6 +1964,17 @@
 				ondismiss={hidePrompt}
 			/>
 		{/if}
+		{#if guide}
+			<GuideBar
+				title={GUIDE_LABELS[guide.id]}
+				label={stepLabel(guide.step, guide.steps.length)}
+				first={guide.step === 0}
+				last={isLastStep(guide.step, guide.steps.length)}
+				onback={() => guide && (guide.step = prevStep(guide.step, guide.steps.length))}
+				onnext={() => guide && (guide.step = nextStep(guide.step, guide.steps.length))}
+				ondone={() => (guide = null)}
+			/>
+		{/if}
 		{#if choosing}
 			<p class="w-full text-body font-extrabold">Who drew it?</p>
 			<div class="flex flex-wrap gap-3" data-testid="draw-authors">
@@ -1928,6 +1993,8 @@
 			<Button variant="ghost" onclick={() => (choosing = false)} data-testid="draw-back"
 				>Back</Button
 			>
+		{:else if guidePicking}
+			<GuidePicker onpick={(id) => void pickGuide(id)} onback={() => (guidePicking = false)} />
 		{:else if pagePicking}
 			<PagePicker {page} onpick={pickPage} onback={() => (pagePicking = false)} />
 		{:else if layersPicking}
@@ -2091,6 +2158,13 @@
 							commit();
 							mirrorN = nextMirror(mirrorN);
 						}}>Mirror: {mirrorLabel(mirrorN)}</button
+					>
+					<button
+						type="button"
+						class="{btn} {guide ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={guide !== null}
+						data-testid="draw-guide-open"
+						onclick={() => (guidePicking = true)}>How to draw</button
 					>
 					<button
 						type="button"
