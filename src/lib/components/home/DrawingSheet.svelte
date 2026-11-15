@@ -1769,6 +1769,7 @@
 			stopPlay();
 			commit();
 			resetHistory();
+			monster = null; // opening a drawing ends any monster game, revealed or not
 			flip = frames.length > 1 ? fromFrames(frames, 0) : null;
 			flipOn = flip !== null;
 			drawOnion();
