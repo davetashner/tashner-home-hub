@@ -5,31 +5,16 @@
  * it on the board as ordinary black pen strokes, so it can be erased and one Undo takes it back.
  * Pure: path maths only.
  */
-import { FIXED_WIDTH, type PathCmd, type Stroke } from './drawing.js';
+import { FIXED_WIDTH, type Stroke } from './drawing.js';
 import { pageFit } from './drawing-pages.js';
+import { circle, hump, open, oval, poly, rect, type Path, type Pt } from './starters/shapes.js';
+import { SET_B } from './starters/set-b.js';
+import { SET_C } from './starters/set-c.js';
+import { SET_D } from './starters/set-d.js';
+import { SET_E } from './starters/set-e.js';
 
-type Path = PathCmd[];
-type Pt = [number, number];
-
-/** An open line through the points. */
-const open = (...pts: Pt[]): Path => [
-	['M', ...pts[0]],
-	...pts.slice(1).map((p): PathCmd => ['L', ...p])
-];
-/** A closed outline through the points. */
-const poly = (...pts: Pt[]): Path => [...open(...pts), ['Z']];
-const rect = (x: number, y: number, w: number, h: number): Path =>
-	poly([x, y], [x + w, y], [x + w, y + h], [x, y + h]);
-const oval = (x: number, y: number, rx: number, ry: number): Path => [['E', x, y, rx, ry]];
-const circle = (x: number, y: number, r: number): Path => oval(x, y, r, r);
-/** A smooth hump from (x0, y) to (x1, y) peaking `rise` above it. */
-const hump = (x0: number, x1: number, y: number, rise: number): Path => [
-	['M', x0, y],
-	['C', x0 + (x1 - x0) * 0.2, y - rise * 1.3, x1 - (x1 - x0) * 0.2, y - rise * 1.3, x1, y]
-];
-
-/** Starters keyed by the exact prompt text in DRAWING_PROMPTS. Each leaves the subject to draw. */
-const STARTERS: Readonly<Record<string, readonly Path[]>> = {
+/** The first batch, keyed by the exact prompt text in DRAWING_PROMPTS. Each leaves the subject to draw. */
+const SET_A: Readonly<Record<string, readonly Path[]>> = {
 	// The bus and its wheels; the driver's seat is empty.
 	'Draw a dog driving a bus': [
 		rect(180, 260, 640, 260),
@@ -149,6 +134,15 @@ const STARTERS: Readonly<Record<string, readonly Path[]>> = {
 		circle(630, 490, 35),
 		open([100, 530], [900, 530])
 	]
+};
+
+/** Every starter: later batches live in starters/set-*.ts, one file per batch. */
+const STARTERS: Readonly<Record<string, readonly Path[]>> = {
+	...SET_A,
+	...SET_B,
+	...SET_C,
+	...SET_D,
+	...SET_E
 };
 
 /** The prompts the sketches cover (must match STARTER_PROMPTS in drawing-starter-names.ts). */

@@ -1,9 +1,15 @@
+import { NAMES_B } from './starters/names-b.js';
+import { NAMES_C } from './starters/names-c.js';
+import { NAMES_D } from './starters/names-d.js';
+import { NAMES_E } from './starters/names-e.js';
+
 /**
  * The prompts that have a starter sketch (hub-585). Kept apart from the line art so the home page
  * bundle only carries the names; the sketches load when a Start it chip is about to show.
- * `drawing-starters.spec.ts` checks this list matches the sketches exactly.
+ * `drawing-starters.spec.ts` checks this list matches the sketches exactly. Later batches keep
+ * their names in starters/names-*.ts.
  */
-export const STARTER_PROMPTS: readonly string[] = [
+const NAMES_A: readonly string[] = [
 	'Draw a dog driving a bus',
 	'Draw a flying house with balloons',
 	'Draw a castle made of ice cream',
@@ -19,6 +25,14 @@ export const STARTER_PROMPTS: readonly string[] = [
 	'Draw a submarine exploring a coral reef',
 	'Draw a pancake stack as tall as a house',
 	'Draw a train that travels through the clouds'
+];
+
+export const STARTER_PROMPTS: readonly string[] = [
+	...NAMES_A,
+	...NAMES_B,
+	...NAMES_C,
+	...NAMES_D,
+	...NAMES_E
 ];
 
 const names = new Set(STARTER_PROMPTS);
