@@ -30,6 +30,8 @@ export interface FillItem {
 	gap?: number;
 	/** Pattern painted in `color` through the runs (hub-t27j.2); absent: a solid fill. */
 	pattern?: PatternId;
+	/** Second color of a vertical gradient from `color` (hub-t27j.3); absent: no gradient. */
+	grad?: string;
 	/** Flat triples [y, x0, x1] (inclusive) of the filled runs. */
 	spans: Uint32Array;
 }
@@ -294,7 +296,8 @@ export function makeFill(
 	color: string,
 	tolerance = FILL_TOLERANCE,
 	gap = 0,
-	pattern?: PatternId
+	pattern?: PatternId,
+	grad?: string
 ): FillItem | null {
 	const spans = gapFill(data, width, height, x, y, tolerance, gap);
 	if (!spans.length) return null;
@@ -308,6 +311,7 @@ export function makeFill(
 		tolerance,
 		...(gap >= 1 ? { gap: Math.floor(gap) } : {}),
 		...(pattern ? { pattern } : {}),
+		...(grad ? { grad } : {}),
 		spans
 	};
 }
