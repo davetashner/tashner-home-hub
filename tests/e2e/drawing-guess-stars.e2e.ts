@@ -86,7 +86,7 @@ async function share(a: Page, b: Page) {
 	await reveal(b, 'draw-live-status');
 }
 
-test('a right guess earns both kids a star, once per round, kids only, and the setting turns it off @J18.39', async ({
+test('a right guess earns both kids a star, once per round, kids only, and the setting turns it off @J18.40', async ({
 	page,
 	browser
 }) => {
@@ -146,7 +146,7 @@ test('a right guess earns both kids a star, once per round, kids only, and the s
 	}
 });
 
-test('an adult on a board earns nothing, and the setting off pays nobody @J18.39', async ({
+test('an adult on a board earns nothing, and the setting off pays nobody @J18.40', async ({
 	page,
 	browser
 }) => {

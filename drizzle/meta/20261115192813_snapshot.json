@@ -1,8 +1,8 @@
 {
 	"version": "6",
 	"dialect": "sqlite",
-	"id": "8b291373-fe83-4b2b-a24d-c97df762a28f",
-	"prevId": "3dc28aa8-d2f8-4b6d-a622-55b03edc0398",
+	"id": "8ea03392-c7ef-4723-8252-a95d83bf915e",
+	"prevId": "33e9ce91-da28-4b97-82ec-bfadbd0b440c",
 	"tables": {
 		"allowance_transactions": {
 			"name": "allowance_transactions",
@@ -143,6 +143,61 @@
 				}
 			},
 			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"art_archive": {
+			"name": "art_archive",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"member_id": {
+					"name": "member_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch('subsec') * 1000)"
+				},
+				"image": {
+					"name": "image",
+					"type": "blob",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"art_archive_member_idx": {
+					"name": "art_archive_member_idx",
+					"columns": ["member_id", "created_at"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"art_archive_member_id_members_id_fk": {
+					"name": "art_archive_member_id_members_id_fk",
+					"tableFrom": "art_archive",
+					"tableTo": "members",
+					"columnsFrom": ["member_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
 			"compositePrimaryKeys": {},
 			"uniqueConstraints": {},
 			"checkConstraints": {}

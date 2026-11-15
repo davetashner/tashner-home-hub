@@ -184,7 +184,7 @@ async function postFrom(page: Page, name: string, wiggle: boolean) {
 	await page.getByTestId('draw-author').filter({ hasText: name }).click();
 }
 
-test('a posted wiggle drawing boils on the board and enlarged; plain stays still @J18.38', async ({
+test('a posted wiggle drawing boils on the board and enlarged; plain stays still @J18.39', async ({
 	page
 }, info) => {
 	const kidId = `e2e-wiggle-post-${info.workerIndex}${info.repeatEachIndex}`;
@@ -223,7 +223,7 @@ test('a posted wiggle drawing boils on the board and enlarged; plain stays still
 	}
 });
 
-test('a posted wiggle drawing holds still for reduced motion @J18.38', async ({ page }, info) => {
+test('a posted wiggle drawing holds still for reduced motion @J18.39', async ({ page }, info) => {
 	const kidId = `e2e-wiggle-rm-${info.workerIndex}${info.repeatEachIndex}`;
 	const name = `Kid WiggleRM ${info.workerIndex}${info.repeatEachIndex}`;
 	seedKid(kidId, name);
