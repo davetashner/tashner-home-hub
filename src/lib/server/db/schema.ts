@@ -344,6 +344,20 @@ export const notes = sqliteTable(
 	(t) => [index('notes_created_idx').on(t.createdAt)]
 );
 
+/** Every posted drawing, kept after its note is dismissed or expires (hub-t27j.23). `id` is the note's id. */
+export const artArchive = sqliteTable(
+	'art_archive',
+	{
+		id: text('id').primaryKey(),
+		memberId: text('member_id')
+			.notNull()
+			.references(() => members.id, { onDelete: 'cascade' }),
+		createdAt: createdAt(),
+		image: blob('image', { mode: 'buffer' }).notNull()
+	},
+	(t) => [index('art_archive_member_idx').on(t.memberId, t.createdAt)]
+);
+
 /** Unfinished drawings kept to reopen later (hub-cn7.7), a few per member. */
 export const savedDrawings = sqliteTable(
 	'saved_drawings',
