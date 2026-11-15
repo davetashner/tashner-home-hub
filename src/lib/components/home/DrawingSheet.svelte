@@ -59,6 +59,16 @@
 		nextMirror,
 		type MirrorCount
 	} from '#lib/domain/drawing-mirror.js';
+	import RulerOverlay from './drawing/RulerOverlay.svelte';
+	import {
+		clampRuler,
+		defaultRuler,
+		nearEdge,
+		projectOnEdge,
+		SNAP_DISTANCE,
+		type Edge,
+		type Ruler
+	} from '#lib/domain/drawing-ruler.js';
 	import {
 		kaleidoscopeGuides,
 		kaleidoscopeLabel,
@@ -339,6 +349,9 @@
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
 	let kaleidoN = $state<KaleidoscopeCount | null>(null); // kaleidoscope: slices per stroke (hub-t27j.1)
 	let boardSize = $state({ w: 0, h: 0 }); // CSS px, for the mirror guides
+	// hub-t27j.16: the ruler is an overlay (never ink, never saved). A stroke that starts near its edge is pulled onto it.
+	let ruler = $state<Ruler | null>(null);
+	let rulerEdge: Edge | null = null;
 	/** Wiggle (hub-t27j.4): lines boil. The variant is painted only; stored strokes never change. */
 	let wiggleOn = $state(false);
 	let wiggleVariant: number | null = null; // null = paint the strokes as drawn
@@ -1180,6 +1193,7 @@
 		if (canvas.width === w && canvas.height === h) return;
 		boardSize = { w: w / dpr, h: h / dpr };
 		view = clampView(view, boardSize);
+		if (ruler) ruler = clampRuler(ruler, boardSize);
 		canvas.width = linesCanvas.width = photoCanvas.width = onionCanvas.width = w;
 		canvas.height = linesCanvas.height = photoCanvas.height = onionCanvas.height = h;
 		drawLines();
@@ -1332,6 +1346,13 @@
 			thumbs[flip.current] = frameThumb(strokes);
 	});
 
+	/** A point pulled onto the locked ruler edge, then held inside the monster band so a tilted ruler can't leak ink out of it. */
+	function onRuler<T extends { x: number; y: number }>(p: T): T {
+		if (!rulerEdge) return p;
+		const q = projectOnEdge(rulerEdge, p);
+		return { ...p, x: q.x, y: monster ? clampToBand(monster, q.y, boardSize.h) : q.y };
+	}
+
 	function sample(e: PointerEvent, previous?: number) {
 		const raw = strokeWidth(tool, e.pointerType, e.pressure, size);
 		const y = (e.clientY - rect.top) / view.scale;
@@ -1477,6 +1498,8 @@
 			...(isAlphaTool(tool) && isTranslucent(alpha) ? { alpha } : {}),
 			...(isBrushTool(tool) ? { seed: newSeed() } : {})
 		};
+		rulerEdge = ruler ? nearEdge(ruler, current.points[0], SNAP_DISTANCE / view.scale) : null;
+		current.points[0] = onRuler(current.points[0]);
 		if (mirrorN || kaleidoN) {
 			const size = { w: canvas.width / dpr, h: canvas.height / dpr };
 			current.mirror = kaleidoN
@@ -1530,7 +1553,7 @@
 			const next = sample(c, last.w);
 			const pt = smoother ? smoother.push(next) : next;
 			if (!pt) continue;
-			current.points.push(pt);
+			current.points.push(onRuler(pt));
 			if (!translucent(current) && !whole(current.tool))
 				segment(current, current.points.length - 1);
 		}
@@ -2246,6 +2269,16 @@
 				aria-hidden="true"
 				data-testid="draw-lines"
 			></canvas>
+			{#if ruler}
+				<RulerOverlay
+					{ruler}
+					toBoard={(x, y) => {
+						const r = canvas.getBoundingClientRect();
+						return { x: (x - r.left) / view.scale, y: (y - r.top) / view.scale };
+					}}
+					onchange={(r) => (ruler = clampRuler(r, boardSize))}
+				/>
+			{/if}
 			{#if mirrorN || kaleidoN}
 				<svg
 					class="pointer-events-none absolute inset-0 size-full text-ink-muted opacity-50"
@@ -2675,6 +2708,16 @@
 							mirrorN = nextMirror(mirrorN);
 							kaleidoN = null;
 						}}>Mirror: {mirrorLabel(mirrorN)}</button
+					>
+					<button
+						type="button"
+						class="{btn} {ruler ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={ruler !== null}
+						data-testid="draw-ruler-toggle"
+						onclick={() => {
+							commit();
+							ruler = ruler ? null : defaultRuler(boardSize);
+						}}>Ruler: {ruler ? 'On' : 'Off'}</button
 					>
 					<button
 						type="button"
