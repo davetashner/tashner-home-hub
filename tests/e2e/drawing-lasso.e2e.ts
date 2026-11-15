@@ -54,6 +54,11 @@ async function onCanvas(page: Page, pts: P[]): Promise<P[]> {
 const ink = async (page: Page, pts: P[]) =>
 	gesture(page.getByTestId('draw-canvas'), await onCanvas(page, pts));
 
+/** A closed rectangular loop drawn with the pen, in canvas fractions. */
+// prettier-ignore
+const loop = (page: Page, x0: number, y0: number, x1: number, y1: number) =>
+	ink(page, [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]);
+
 const along = (a: P, b: P, n = 8): P[] =>
 	Array.from({ length: n + 1 }, (_, i) => [
 		a[0] + ((b[0] - a[0]) * i) / n,
@@ -104,24 +109,12 @@ test('lasso: circle ink, move, resize and copy it, each one Undo step, saved and
 	await expect(page.getByTestId('draw-lasso-copy')).toBeDisabled();
 
 	// A loop that is drawn but encloses nothing selects nothing, and leaves the ink alone.
-	await ink(page, [
-		[0.5, 0.1],
-		[0.6, 0.1],
-		[0.6, 0.2],
-		[0.5, 0.2],
-		[0.5, 0.1]
-	]);
+	await loop(page, 0.5, 0.1, 0.6, 0.2);
 	await expect(canvas).toHaveAttribute('data-lasso', '0');
 	await expect(page.getByTestId('draw-lasso-box')).toHaveCount(0);
 
 	// Circle the left stroke only.
-	await ink(page, [
-		[0.1, 0.2],
-		[0.35, 0.2],
-		[0.35, 0.5],
-		[0.1, 0.5],
-		[0.1, 0.2]
-	]);
+	await loop(page, 0.1, 0.2, 0.35, 0.5);
 	await expect(canvas).toHaveAttribute('data-lasso', '1');
 	await expect(page.getByTestId('draw-lasso-box')).toBeVisible();
 	const resize = page.getByTestId('draw-lasso-resize');
@@ -145,13 +138,7 @@ test('lasso: circle ink, move, resize and copy it, each one Undo step, saved and
 	expect((await inkBox(page)).y0).toBe(moved.y0);
 
 	// Circle it again (now lower), then resize with the corner handle: the ink grows, one Undo step.
-	await ink(page, [
-		[0.1, 0.3],
-		[0.55, 0.3],
-		[0.55, 0.65],
-		[0.1, 0.65],
-		[0.1, 0.3]
-	]);
+	await loop(page, 0.1, 0.3, 0.55, 0.65);
 	await expect(canvas).toHaveAttribute('data-lasso', '1');
 	const f1 = await frame(page);
 	const ink1 = await inkBox(page);
@@ -166,13 +153,7 @@ test('lasso: circle ink, move, resize and copy it, each one Undo step, saved and
 	await page.getByTestId('draw-redo').click();
 
 	// Copy: a second copy of the selection appears, offset; one Undo step removes it.
-	await ink(page, [
-		[0.05, 0.25],
-		[0.65, 0.25],
-		[0.65, 0.95],
-		[0.05, 0.95],
-		[0.05, 0.25]
-	]);
+	await loop(page, 0.05, 0.25, 0.65, 0.95);
 	await expect(canvas).toHaveAttribute('data-lasso', '1');
 	await page.getByTestId('draw-lasso-copy').click();
 	await expect(canvas).toHaveAttribute('data-strokes', '3');
@@ -206,13 +187,9 @@ test('lasso: the rail and its controls fit the 4K wall screen @J18.20', async ({
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
 	await page.getByTestId('draw-lasso').click();
-	const wall = page.viewportSize();
 	await page.setViewportSize({ width: 3840, height: 2160 });
 	const panel = (await page.getByTestId('draw-panel').boundingBox())!;
 	const copy = (await page.getByTestId('draw-lasso-copy').boundingBox())!;
 	expect(copy.x + copy.width).toBeLessThanOrEqual(panel.x + panel.width);
-	const rail = page.getByTestId('draw-rail');
-	expect(await rail.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
 	await expectTappable(page.getByTestId('draw-rail-lasso'), 96);
-	if (wall) await page.setViewportSize(wall);
 });

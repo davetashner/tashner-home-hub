@@ -20,17 +20,12 @@ export interface Box {
 	h: number;
 }
 
-/** A loop needs at least this many points and this much area (CSS px squared) to count. */
 export const MIN_LOOP_POINTS = 3;
 export const MIN_LOOP_AREA = 400;
-/** Strokes are selected when more than this share of their points sit inside the loop. */
 export const INSIDE_SHARE = 0.5;
-/** How far the dashed box floats around the selected ink. */
 export const BOX_PAD = 16;
-/** Resizing never shrinks the selection below this box side, or grows it past MAX_SCALE. */
 export const MIN_SIDE = 48;
 export const MAX_SCALE = 8;
-/** Where a copy lands relative to the original. */
 export const COPY_OFFSET: Pt = { x: 48, y: 48 };
 
 /** Freehand ink the lasso can pick up. */
