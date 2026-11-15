@@ -15,9 +15,9 @@ describe('starters', () => {
 	});
 	it('know which prompts have one', () => {
 		expect(hasStarter('Draw a dog driving a bus')).toBe(true);
-		expect(hasStarter('Draw a dragon having breakfast')).toBe(false);
+		expect(hasStarter('Draw something with no starter')).toBe(false);
 		expect(hasStarter('toString')).toBe(false);
-		expect(starterPaths('Draw a dragon having breakfast')).toBeNull();
+		expect(starterPaths('Draw something with no starter')).toBeNull();
 	});
 	it('stay on the page', () => {
 		for (const p of STARTER_PROMPTS)
@@ -91,6 +91,6 @@ describe('starterStrokes', () => {
 		});
 	});
 	it('is empty for a prompt without a starter', () => {
-		expect(starterStrokes('Draw a dragon having breakfast', { w: 800, h: 600 })).toEqual([]);
+		expect(starterStrokes('Draw something with no starter', { w: 800, h: 600 })).toEqual([]);
 	});
 });
