@@ -269,6 +269,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J18.23 | Pick a letter (A to Z) or number (0 to 9) tracing page from the page picker: a dotted guide with a start circle and arrow for each stroke appears under your pen, the eraser cannot rub it out, and it saves and reopens with the drawing like a coloring page. | built | wall | `drawing-tracing` |
 | J18.24 | Turn on Smooth lines and a wobbly freehand line comes out steadier, ending right where you lift your finger; it is off until you turn it on and is remembered on this device. | built | wall | `drawing-smooth` |
 | J18.25 | Pick Lasso and circle some of the ink: the lines inside get a dashed box. Drag to move them, pull the corner to resize, or tap Copy for a duplicate; each is one Undo step. | built | wall | `drawing-lasso` |
+| J18.26 | In My drawings, open Art book and pick a kid: their posted drawings sit by month, newest first, and Then and now shows their earliest drawing beside their latest, or any two months side by side; a kid with no drawings gets a friendly empty book. | built | wall | `drawing-art-book` |
 | **J19** | **Sitter mode** (Parent at the wall) | | | |
 | J19.1 | A grown-up fills in the info card: emergency contacts, address, allergies, bedtimes, house rules, pets with the vet and pet emergency hospital, Wi-Fi and notes for tonight. | built | wall | untested: undefined |
 | J19.2 | Start a sitter session now or on a schedule, with an optional sitter name, 4-digit PIN and permissions. | built | wall | untested: undefined |
