@@ -175,6 +175,7 @@
 	import PagePicker from './drawing/PagePicker.svelte';
 	import PhotoPicker from './drawing/PhotoPicker.svelte';
 	import DrawingBrowser from './drawing/DrawingBrowser.svelte';
+	import ArtBook from './drawing/ArtBook.svelte';
 	import ShapePicker from './drawing/ShapePicker.svelte';
 	import ColorSizePanel from './drawing/ColorSizePanel.svelte';
 	import ToolRail from './drawing/ToolRail.svelte';
@@ -283,6 +284,7 @@
 	let note = $state('');
 	let mine = $state<SavedRow[] | null>(null);
 	let browsing = $state(false);
+	let artBook = $state(false);
 	/** The coloring page under the ink, or null for a blank board. */
 	let page = $state<PageId | null>(null);
 	let pagePicking = $state(false);
@@ -1600,7 +1602,13 @@
 
 	/** True while the tools column shows the main tools (not a full sub-panel), so the pinned bars apply. */
 	const mainTools = $derived(
-		!choosing && !pagePicking && !layersPicking && !photoPicking && !bgPicking && !browsing
+		!choosing &&
+			!pagePicking &&
+			!layersPicking &&
+			!photoPicking &&
+			!bgPicking &&
+			!browsing &&
+			!artBook
 	);
 
 	/** The rail tool the current flags add up to; the options panel shows only its options. */
@@ -1646,7 +1654,7 @@
 			return;
 		}
 		commit();
-		pagePicking = layersPicking = photoPicking = bgPicking = browsing = picking = false;
+		pagePicking = layersPicking = photoPicking = bgPicking = browsing = artBook = picking = false;
 		shapePicking = t === 'shapes';
 		if (t !== 'shapes') shapeKind = null;
 		textMode = t === 'text';
@@ -1666,6 +1674,7 @@
 		else if (layersPicking) layersPicking = false;
 		else if (photoPicking) photoPicking = false;
 		else if (bgPicking) bgPicking = false;
+		else if (artBook) artBook = false;
 		else if (browsing) browsing = false;
 		else if (shapePicking) pickShape(null);
 		else if (picking) picking = false;
@@ -1990,8 +1999,16 @@
 			<Button variant="ghost" onclick={() => (bgPicking = false)} data-testid="draw-bg-close"
 				>Back</Button
 			>
+		{:else if artBook}
+			<ArtBook {people} onback={() => (artBook = false)} />
 		{:else if browsing}
-			<DrawingBrowser {mine} onopen={reopen} ondelete={remove} onback={() => (browsing = false)} />
+			<DrawingBrowser
+				{mine}
+				onopen={reopen}
+				ondelete={remove}
+				onback={() => (browsing = false)}
+				onartbook={() => (artBook = true)}
+			/>
 		{:else}
 			{#if flipOn && flip}
 				<FlipbookStrip

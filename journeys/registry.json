@@ -908,6 +908,12 @@
 					"text": "With Kids' drawings on in Settings, a posted drawing shows in the photo frame among the photos with the artist's name and a gentle pan; with it off, drawings never appear.",
 					"status": "built",
 					"beads": ["hub-cn7.28", "hub-t27j.14"]
+				},
+				{
+					"id": "J18.20",
+					"text": "In My drawings, open Art book and pick a kid: their posted drawings sit by month, newest first, and Then and now shows their earliest drawing beside their latest, or any two months side by side; a kid with no drawings gets a friendly empty book.",
+					"status": "built",
+					"beads": ["hub-t27j.15"]
 				}
 			]
 		},
