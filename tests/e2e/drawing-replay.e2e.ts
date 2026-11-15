@@ -76,7 +76,7 @@ async function pointerStroke(
 	);
 }
 
-test('make a time-lapse video of a saved drawing and get a download @J18.20', async ({
+test('make a time-lapse video of a saved drawing and get a download @J18.27', async ({
 	page
 }, info) => {
 	test.setTimeout(60_000);
