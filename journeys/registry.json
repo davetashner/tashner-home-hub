@@ -887,7 +887,7 @@
 				},
 				{
 					"id": "J18.16",
-					"text": "The drawing board shows a daily prompt, a random pick that stays for the day and skips recently shown ones; Shuffle gives another, Start it (on some prompts) puts a half-done sketch on the board as ink to finish, Hide removes it for the day, and a grown-up can turn prompts off in Settings > Drawing.",
+					"text": "The drawing board shows a daily prompt, a random pick that stays for the day and skips recently shown ones; Shuffle gives another, Start it (on every prompt) puts a half-done sketch on the board as ink to finish, Hide removes it for the day, and a grown-up can turn prompts off in Settings > Drawing.",
 					"status": "built",
 					"beads": ["hub-cn7.27"]
 				},

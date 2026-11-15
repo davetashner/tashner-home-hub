@@ -1,2 +1,32 @@
 /** The prompts with a starter in set-e.ts (names only: this ships in the home bundle). */
-export const NAMES_E: readonly string[] = [];
+export const NAMES_E: readonly string[] = [
+	'Draw a big bowl of noodles',
+	'Draw a birthday cake with lots of candles',
+	'Draw an ice cream cone with your favorite scoops',
+	'Draw a pizza with silly toppings',
+	'Draw a fruit basket full of colors',
+	'Draw a cupcake wearing sprinkles',
+	'Draw a teddy bear picnic',
+	'Draw a toy box spilling over with toys',
+	'Draw a robot dog playing fetch',
+	'Draw a giant sunflower taller than you',
+	'Draw a mushroom house in the woods',
+	'Draw a fairy riding a dragonfly',
+	'Draw a knight befriending a dragon',
+	'Draw a princess who fixes robots',
+	'Draw a treasure chest on the ocean floor',
+	'Draw a map to a secret island',
+	'Draw a carousel at the fair',
+	'Draw a Ferris wheel at night',
+	'Draw a circus tent with a striped top',
+	'Draw a musician playing the drums',
+	'Draw a guitar made of flowers',
+	'Draw a soccer game in the rain',
+	'Draw a basketball hoop on a sunny day',
+	'Draw a snowy hill with sleds',
+	'Draw an umbrella on a rainy day',
+	'Draw a hat with a whole garden on top',
+	'Draw a fishbowl with a happy goldfish',
+	'Draw a pumpkin patch in the fall',
+	'Draw a cozy fireplace with stockings'
+];
