@@ -168,7 +168,7 @@ test('a posted drawing stays in the art book after its note is dismissed; an adu
 	await expect(drawing).toHaveCount(1);
 	await expect(drawing).toHaveAttribute('src', new RegExp(note.id));
 	await expect(page.getByTestId('art-remove')).toHaveCount(0); // kids cannot remove
-	const img = await page.request.get(`/api/notes/${note.id}/image`);
+	const img = await page.request.get(`/api/drawings/posted/${note.id}/image`);
 	expect(img.status()).toBe(200);
 
 	// Kids cannot delete through the API either.

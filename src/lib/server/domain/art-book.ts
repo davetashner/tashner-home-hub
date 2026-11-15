@@ -15,7 +15,7 @@ export function listMemberDrawings(db: Db, memberId: string): ArtEntry[] {
 		.map((r) => ({
 			id: r.id,
 			createdAt: r.createdAt,
-			src: `/api/notes/${r.id}/image?v=${r.createdAt}`
+			src: `/api/drawings/posted/${r.id}/image?v=${r.createdAt}`
 		}));
 }
 

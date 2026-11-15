@@ -23,8 +23,8 @@ describe('listMemberDrawings', () => {
 		createNote(db, { authorId: 'sib', body: '', image: PNG }, 1500);
 		createNote(db, { authorId: 'kid', body: 'text only' }, 3000);
 		expect(listMemberDrawings(db, 'kid')).toEqual([
-			{ id: b.id, createdAt: 2000, src: `/api/notes/${b.id}/image?v=2000` },
-			{ id: a.id, createdAt: 1000, src: `/api/notes/${a.id}/image?v=1000` }
+			{ id: b.id, createdAt: 2000, src: `/api/drawings/posted/${b.id}/image?v=2000` },
+			{ id: a.id, createdAt: 1000, src: `/api/drawings/posted/${a.id}/image?v=1000` }
 		]);
 		expect(listMemberDrawings(db, 'nobody')).toEqual([]);
 	});
