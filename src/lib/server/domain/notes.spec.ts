@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDb, type Db } from '../db/index.js';
 import { members } from '../db/schema.js';
 import { subscribe } from './events.js';
-import { createNote, dismissNote, listNotes, noteImage, pinNote } from './notes.js';
+import { createNote, dismissNote, listNotes, noteFrame, noteImage, pinNote } from './notes.js';
 
 let db: Db;
 beforeEach(() => {
@@ -87,6 +87,29 @@ describe('drawing notes', () => {
 		const bytes = noteImage(db, n.id);
 		expect(bytes?.[1]).toBe(0x50);
 		expect(listNotes(db, 2000)[0].imageUrl).toBe(n.imageUrl);
+	});
+	it('stores two wiggle frames and serves them; plain drawings have none', () => {
+		const n = createNote(db, { authorId: 'kid', body: '', image: PNG, frames: [PNG, PNG] }, 1000);
+		expect(n.frameUrls).toEqual([
+			`/api/notes/${n.id}/image?v=1000&f=1`,
+			`/api/notes/${n.id}/image?v=1000&f=2`
+		]);
+		expect(noteFrame(db, n.id, 2)?.[1]).toBe(0x50);
+		expect(listNotes(db, 2000)[0].frameUrls).toHaveLength(2);
+		expect(noteFrame(db, n.id, 3)).toBeNull();
+		const plain = createNote(db, { authorId: 'kid', body: '', image: PNG });
+		expect(plain.frameUrls).toEqual([]);
+		expect(noteFrame(db, plain.id, 1)).toBeNull();
+		expect(noteFrame(db, 'missing', 1)).toBeNull();
+	});
+	it('rejects frames that are malformed or have no image', () => {
+		const bad = (frames: unknown, image: unknown = PNG) =>
+			code(() => createNote(db, { authorId: 'kid', body: '', image, frames }));
+		expect(bad([PNG])).toBe('invalid');
+		expect(bad(['data:x', PNG])).toBe('invalid');
+		expect(
+			code(() => createNote(db, { authorId: 'kid', body: 'text only', frames: [PNG, PNG] }))
+		).toBe('invalid');
 	});
 	it('keeps a caption when given and leaves text notes imageless', () => {
 		expect(createNote(db, { authorId: 'kid', body: 'Look', image: PNG }).body).toBe('Look');

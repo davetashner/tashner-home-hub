@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
 	NOTE_IMAGE_MAX_BYTES,
 	NOTE_MAX,
+	NOTE_WIGGLE_MAX_BYTES,
 	cleanNoteBody,
 	compareNotes,
 	expiryFor,
 	isExpired,
 	isNoteColor,
 	isUntil,
+	parseNoteFrames,
 	parseNoteImage,
 	startOfDay,
 	untilLabel,
@@ -113,6 +115,28 @@ describe('note images', () => {
 		const bits = Buffer.alloc(NOTE_IMAGE_MAX_BYTES + 3);
 		bits.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 		expect(parseNoteImage('data:image/png;base64,' + bits.toString('base64'))).toBeNull();
+	});
+});
+
+describe('parseNoteFrames', () => {
+	const PNG =
+		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+	it('accepts exactly two small PNGs', () => {
+		expect(parseNoteFrames([PNG, PNG])?.length).toBe(2);
+	});
+	it('rejects the wrong count, non-arrays and bad entries', () => {
+		expect(parseNoteFrames([PNG])).toBeNull();
+		expect(parseNoteFrames([PNG, PNG, PNG])).toBeNull();
+		expect(parseNoteFrames('x')).toBeNull();
+		expect(parseNoteFrames(undefined)).toBeNull();
+		expect(parseNoteFrames([PNG, 'data:x'])).toBeNull();
+	});
+	it('holds each frame to the smaller wiggle limit', () => {
+		const bits = Buffer.alloc(NOTE_WIGGLE_MAX_BYTES + 3);
+		bits.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+		const big = 'data:image/png;base64,' + bits.toString('base64');
+		expect(parseNoteFrames([PNG, big])).toBeNull();
+		expect(parseNoteImage(big)).not.toBeNull(); // fine as a normal note image
 	});
 });
 
