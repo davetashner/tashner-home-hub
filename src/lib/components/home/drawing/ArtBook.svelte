@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Button from '#lib/components/ui/Button.svelte';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
@@ -32,6 +33,24 @@
 	let comparing = $state(false);
 	let thenKey = $state('');
 	let nowKey = $state('');
+
+	const adult = $derived(page.data.adult === true);
+
+	/** Adults only: takes the drawing out of the book. The tile goes first, the server catches up. */
+	async function removeDrawing(d: ArtEntry) {
+		const before = entries;
+		entries = (entries ?? []).filter((e) => e.id !== d.id);
+		try {
+			const res = await fetch(`/api/drawings/posted/${encodeURIComponent(d.id)}`, {
+				method: 'DELETE',
+				headers: { 'content-type': 'application/json' },
+				body: '{}'
+			});
+			if (!res.ok) entries = before;
+		} catch {
+			entries = before;
+		}
+	}
 
 	const months = $derived(groupByMonth(entries ?? []));
 	const pair = $derived(thenAndNow(entries ?? []));
@@ -155,13 +174,22 @@
 			<p class="text-body font-extrabold text-ink-muted">{m.label}</p>
 			<ul class="flex flex-wrap gap-3">
 				{#each m.entries as d (d.id)}
-					<li>
+					<li class="flex flex-col items-center gap-2" data-testid="art-item">
 						<img
 							src={d.src}
 							alt="{who.name}'s drawing from {m.label}"
 							class="h-24 rounded-chip bg-draw-paper"
 							data-testid="art-drawing"
 						/>
+						{#if adult}
+							<button
+								type="button"
+								class="{btn} border-line bg-surface px-3"
+								aria-label="Remove this drawing from the book"
+								data-testid="art-remove"
+								onclick={() => void removeDrawing(d)}>Remove</button
+							>
+						{/if}
 					</li>
 				{/each}
 			</ul>
