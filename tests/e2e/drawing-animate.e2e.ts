@@ -87,9 +87,16 @@ const inkBox = (page: Page, from = 0, to = 1) =>
 		[from, to]
 	);
 
-const seedAndOpen = async (page: Page, info: { workerIndex: number; repeatEachIndex: number }) => {
-	const name = `Kid Animate ${info.workerIndex}${info.repeatEachIndex}`;
-	seedKid(`e2e-animate-kid-${info.workerIndex}${info.repeatEachIndex}`, name);
+const kidOf = (info: { workerIndex: number; repeatEachIndex: number }, tag = '') =>
+	`e2e-animate-kid-${tag}${info.workerIndex}${info.repeatEachIndex}`;
+
+const seedAndOpen = async (
+	page: Page,
+	info: { workerIndex: number; repeatEachIndex: number },
+	tag = ''
+) => {
+	const name = `Kid Animate ${tag}${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidOf(info, tag), name);
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
 	return name;
@@ -251,4 +258,59 @@ test('animate: the motion buttons fit the 4K wall screen @J18.31', async ({ page
 		expect(b.y + b.height).toBeLessThanOrEqual(panel.y + panel.height);
 		await expectTappable(page.getByTestId(`draw-motion-${m}`), 96);
 	}
+});
+
+test('animate: animated ink still moves with Wiggle on, and a post stays still @J18.31', async ({
+	page
+}, info) => {
+	const name = await seedAndOpen(page, info, 'w');
+	const canvas = page.getByTestId('draw-canvas');
+	await ink(page, along([0.05, 0.5], [0.3, 0.5]));
+	const still = await inkBox(page);
+	await lassoOn(page);
+	await loop(page, 0.02, 0.4, 0.35, 0.6);
+	await page.getByTestId('draw-motion-launch').click();
+	await expect(canvas).toHaveAttribute('data-animated', '1');
+	await reveal(page, 'draw-wiggle');
+	await page.getByTestId('draw-wiggle').click();
+	await expect(canvas).toHaveAttribute('data-wiggle', 'live');
+	await expect
+		.poll(async () => (await inkBox(page)).y0 < still.y0 - 100, { timeout: 5000 })
+		.toBe(true);
+	await page.getByTestId('draw-post').click();
+	await page.getByTestId('draw-author').filter({ hasText: name }).click();
+	await expect(page.getByTestId('draw-sheet')).toHaveCount(0);
+	const kidId = kidOf(info, 'w');
+	const notes = (await (await page.request.get('/api/notes')).json()) as {
+		authorId: string;
+		imageUrl: string | null;
+	}[];
+	const png = await page.request.get(notes.find((n) => n.authorId === kidId)!.imageUrl!);
+	const url = `data:image/png;base64,${(await png.body()).toString('base64')}`;
+	const rows = await page.evaluate(async (u) => {
+		const img = new Image();
+		img.src = u;
+		await img.decode();
+		const c = document.createElement('canvas');
+		c.width = img.width;
+		c.height = img.height;
+		const g = c.getContext('2d')!;
+		g.drawImage(img, 0, 0);
+		const d = g.getImageData(0, 0, c.width, c.height).data;
+		let top = c.height;
+		for (let y = 0; y < c.height && top === c.height; y++)
+			for (let x = 0; x < c.width; x++)
+				if (
+					Math.max(
+						d[(y * c.width + x) * 4],
+						d[(y * c.width + x) * 4 + 1],
+						d[(y * c.width + x) * 4 + 2]
+					) < 90
+				) {
+					top = y;
+					break;
+				}
+		return top / c.height;
+	}, url);
+	expect(rows).toBeGreaterThan(0.4); // drawn at mid-height, not launched toward the top
 });
