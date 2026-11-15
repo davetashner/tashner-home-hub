@@ -60,6 +60,16 @@
 		type MirrorCount
 	} from '#lib/domain/drawing-mirror.js';
 	import RulerOverlay from './drawing/RulerOverlay.svelte';
+	import ProtractorOverlay from './drawing/ProtractorOverlay.svelte';
+	import {
+		aimAngle,
+		clampProtractor,
+		defaultProtractor,
+		nearCenter,
+		pointOnRay,
+		CENTER_SNAP_DISTANCE,
+		type Protractor
+	} from '#lib/domain/drawing-protractor.js';
 	import {
 		clampRuler,
 		defaultRuler,
@@ -354,6 +364,10 @@
 	// hub-t27j.16: the ruler is an overlay (never ink, never saved). A stroke that starts near its edge is pulled onto it.
 	let ruler = $state<Ruler | null>(null);
 	let rulerEdge: Edge | null = null;
+	// hub-t27j.24: the protractor overlay (never ink, never saved). A stroke that starts at its center
+	// becomes a straight ray at the nearest 15 degrees once the pen has moved away from the center.
+	let protractor = $state<Protractor | null>(null);
+	let protractorRay: { angle: number | null } | null = null;
 	/** Wiggle (hub-t27j.4): lines boil. The variant is painted only; stored strokes never change. */
 	let wiggleOn = $state(false);
 	let wiggleVariant: number | null = null; // null = paint the strokes as drawn
@@ -847,8 +861,11 @@
 		const d = lassoDrag;
 		lassoDrag = null;
 		// One move, resize or copy is one Undo step.
-		if (d?.moved)
+		if (d?.moved) {
 			history = record(history, { type: 'replace', before: d.before, after: boardNow() });
+			// Live share: the moved ink replaces the old (undo the tail, re-add it).
+			live?.sync(strokes, false);
+		}
 	}
 	function lassoCopy() {
 		if (!lasso) return;
@@ -1196,6 +1213,7 @@
 		boardSize = { w: w / dpr, h: h / dpr };
 		view = clampView(view, boardSize);
 		if (ruler) ruler = clampRuler(ruler, boardSize);
+		if (protractor) protractor = clampProtractor(protractor, boardSize);
 		canvas.width = linesCanvas.width = photoCanvas.width = onionCanvas.width = w;
 		canvas.height = linesCanvas.height = photoCanvas.height = onionCanvas.height = h;
 		drawLines();
@@ -1347,6 +1365,17 @@
 		if (flipOn && flip && thumbs.length === flip.frames.length)
 			thumbs[flip.current] = frameThumb(strokes);
 	});
+
+	/** A pen point of a stroke started at the protractor center, held on the snapped ray. */
+	function protractorPoint<T extends { x: number; y: number }>(
+		p: Protractor,
+		ray: { angle: number | null },
+		pt: T
+	): T {
+		ray.angle ??= aimAngle(p, pt);
+		const q = ray.angle === null ? { x: p.cx, y: p.cy } : pointOnRay(p, ray.angle, pt);
+		return { ...pt, x: q.x, y: monster ? clampToBand(monster, q.y, boardSize.h) : q.y };
+	}
 
 	/** A point pulled onto the locked ruler edge, then held inside the monster band so a tilted ruler can't leak ink out of it. */
 	function onRuler<T extends { x: number; y: number }>(p: T): T {
@@ -1502,6 +1531,16 @@
 		};
 		rulerEdge = ruler ? nearEdge(ruler, current.points[0], SNAP_DISTANCE / view.scale) : null;
 		current.points[0] = onRuler(current.points[0]);
+		protractorRay =
+			protractor && nearCenter(protractor, current.points[0], CENTER_SNAP_DISTANCE / view.scale)
+				? { angle: null }
+				: null;
+		if (protractor && protractorRay)
+			current.points[0] = {
+				...current.points[0],
+				x: protractor.cx,
+				y: monster ? clampToBand(monster, protractor.cy, boardSize.h) : protractor.cy
+			};
 		if (mirrorN || kaleidoN) {
 			const size = { w: canvas.width / dpr, h: canvas.height / dpr };
 			current.mirror = kaleidoN
@@ -1555,7 +1594,13 @@
 			const next = sample(c, last.w);
 			const pt = smoother ? smoother.push(next) : next;
 			if (!pt) continue;
-			current.points.push(onRuler(pt));
+			current.points.push(
+				rulerEdge
+					? onRuler(pt)
+					: protractor && protractorRay
+						? protractorPoint(protractor, protractorRay, pt)
+						: pt
+			);
 			if (!translucent(current) && !whole(current.tool))
 				segment(current, current.points.length - 1);
 		}
@@ -2303,6 +2348,16 @@
 					onchange={(r) => (ruler = clampRuler(r, boardSize))}
 				/>
 			{/if}
+			{#if protractor}
+				<ProtractorOverlay
+					{protractor}
+					toBoard={(x, y) => {
+						const r = canvas.getBoundingClientRect();
+						return { x: (x - r.left) / view.scale, y: (y - r.top) / view.scale };
+					}}
+					onchange={(p) => (protractor = clampProtractor(p, boardSize))}
+				/>
+			{/if}
 			{#if mirrorN || kaleidoN}
 				<svg
 					class="pointer-events-none absolute inset-0 size-full text-ink-muted opacity-50"
@@ -2748,7 +2803,19 @@
 						onclick={() => {
 							commit();
 							ruler = ruler ? null : defaultRuler(boardSize);
+							protractor = null;
 						}}>Ruler: {ruler ? 'On' : 'Off'}</button
+					>
+					<button
+						type="button"
+						class="{btn} {protractor ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={protractor !== null}
+						data-testid="draw-protractor-toggle"
+						onclick={() => {
+							commit();
+							protractor = protractor ? null : defaultProtractor(boardSize);
+							ruler = null;
+						}}>Protractor: {protractor ? 'On' : 'Off'}</button
 					>
 					<button
 						type="button"
