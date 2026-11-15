@@ -92,7 +92,7 @@ async function postAs(page: Page, name: string) {
 	await expect(page.getByTestId('draw-sheet')).toHaveCount(0);
 }
 
-test('a prompt drawing earns one star a day and shows the streak @J18.19', async ({
+test('a prompt drawing earns one star a day and shows the streak @J18.21', async ({
 	page
 }, info) => {
 	const tag = `s${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
@@ -145,7 +145,7 @@ test('a prompt drawing earns one star a day and shows the streak @J18.19', async
 	}
 });
 
-test('no star when the board is not showing the prompt @J18.19', async ({ page }, info) => {
+test('no star when the board is not showing the prompt @J18.21', async ({ page }, info) => {
 	const tag = `n${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
 	const kidId = `e2e-star-kid-${tag}`;
 	const kidName = `Kid ${tag}`;
@@ -165,7 +165,7 @@ test('no star when the board is not showing the prompt @J18.19', async ({ page }
 
 // The setting is shared household state and both wall projects run at once, so this one feeds the
 // endpoint through a route (the server rule itself is unit tested) instead of flipping the real flag.
-test('a grown-up turns prompt stars off in Settings > Drawing @J18.19', async ({ page }) => {
+test('a grown-up turns prompt stars off in Settings > Drawing @J18.21', async ({ page }) => {
 	ensureHousehold();
 	let current = true;
 	const puts: unknown[] = [];
