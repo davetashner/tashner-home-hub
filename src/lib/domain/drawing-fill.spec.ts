@@ -144,6 +144,15 @@ describe('gapFill', () => {
 	}, 30000);
 });
 
+describe('makeFill pattern', () => {
+	it('carries the pattern only when one is given', () => {
+		expect(makeFill(buf(5, 5), 5, 5, 2, 2, 'draw-red', undefined, 0, 'bricks')?.pattern).toBe(
+			'bricks'
+		);
+		expect(makeFill(buf(5, 5), 5, 5, 2, 2, 'draw-red')).not.toHaveProperty('pattern');
+	});
+});
+
 describe('makeFill', () => {
 	it('builds an item that remembers the tap and canvas size', () => {
 		const f = makeFill(buf(5, 5), 5, 5, 2.7, 1.2, 'draw-red');
