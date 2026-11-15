@@ -339,7 +339,9 @@ export const notes = sqliteTable(
 		/** Epoch ms after which the note is gone, or null to stay until dismissed. */
 		expiresAt: ms('expires_at'),
 		/** A drawing (small PNG) posted as the note. Lives and dies with the row: dismissing or expiring it frees the bytes. */
-		image: blob('image', { mode: 'buffer' })
+		image: blob('image', { mode: 'buffer' }),
+		/** Wiggle drawings (hub-t27j.21): two more jitter frames as a JSON array of PNG data URLs; null when still. */
+		imageFrames: text('image_frames')
 	},
 	(t) => [index('notes_created_idx').on(t.createdAt)]
 );

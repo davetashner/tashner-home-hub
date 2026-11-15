@@ -5,6 +5,7 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
+	import WiggleImg from './drawing/WiggleImg.svelte';
 	// The drawing board is its own chunk (hub-t27j.26): the home page loads without it, and it is
 	// fetched on idle so the first tap on Draw still opens it at once.
 	const loadSheet = () => import('./DrawingSheet.svelte');
@@ -51,6 +52,8 @@
 		authorColor: string;
 		authorAvatar: string | null;
 		imageUrl: string | null;
+		/** Extra Wiggle frames (hub-t27j.21): the drawing boils when present. */
+		frameUrls?: string[];
 	}
 	interface Member {
 		id: string;
@@ -183,7 +186,7 @@
 	}
 
 	/** A finished drawing: shown at once from the local PNG, then sent. */
-	function postDrawing(authorId: string, image: string) {
+	function postDrawing(authorId: string, image: string, frames?: string[]) {
 		const who = people.find((p) => p.id === authorId);
 		if (!who) return;
 		const t = Date.now();
@@ -202,11 +205,12 @@
 				authorName: who.name,
 				authorColor: who.color,
 				authorAvatar: who.avatar,
-				imageUrl: image
+				imageUrl: image,
+				frameUrls: frames
 			}
 		];
 		drawing = false;
-		sendNew(tempId, { authorId, body: '', image });
+		sendNew(tempId, { authorId, body: '', image, ...(frames ? { frames } : {}) });
 	}
 
 	function dismiss(n: Note) {
@@ -460,8 +464,9 @@
 							data-testid="note-image"
 							onclick={() => (zoom = n)}
 						>
-							<img
+							<WiggleImg
 								src={n.imageUrl}
+								frames={n.frameUrls}
 								alt="Drawing by {n.authorName}"
 								class="max-h-80 w-full rounded-control object-contain short:max-h-40"
 							/>
@@ -528,10 +533,12 @@
 			aria-label="Drawing by {zoom.authorName}"
 			data-testid="note-zoom"
 		>
-			<img
+			<WiggleImg
 				src={zoom.imageUrl}
+				frames={zoom.frameUrls}
 				alt="Drawing by {zoom.authorName}"
-				class="min-h-0 w-full flex-1 rounded-card bg-draw-paper object-contain"
+				class="size-full min-h-0 flex-1 rounded-card bg-draw-paper object-contain"
+				wrapClass="min-h-0 w-full flex-1"
 			/>
 			<Button size="kid" onclick={() => (zoom = null)} data-testid="note-zoom-close">Close</Button>
 		</div>

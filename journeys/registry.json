@@ -1004,6 +1004,12 @@
 					"text": "While sharing, tap Guess game under Together: one board gets a secret word to draw, the other sees the strokes live and four big answers. A right pick celebrates on both boards, a wrong one says try again, New round swaps who draws, and if a board drops the round ends cleanly.",
 					"status": "built",
 					"beads": ["hub-t27j.10"]
+				},
+				{
+					"id": "J18.36",
+					"text": "Post a drawing made with Wiggle on and its note on the board boils like the drawing did, and it boils again when enlarged (still if reduced motion is on). A drawing posted without Wiggle stays a still picture.",
+					"status": "built",
+					"beads": ["hub-t27j.21"]
 				}
 			]
 		},

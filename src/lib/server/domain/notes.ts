@@ -7,6 +7,7 @@ import {
 	expiryFor,
 	isNoteColor,
 	isUntil,
+	parseNoteFrames,
 	parseNoteImage,
 	visibleNotes,
 	NOTE_MAX
@@ -30,6 +31,8 @@ export interface NoteView {
 	authorAvatar: string | null;
 	/** URL of the drawing, or null for a text note. */
 	imageUrl: string | null;
+	/** Extra Wiggle frames (empty unless drawn with Wiggle on); cycle [imageUrl, ...frameUrls]. */
+	frameUrls: string[];
 }
 
 export interface NoteInput {
@@ -40,6 +43,8 @@ export interface NoteInput {
 	until?: unknown;
 	/** Optional drawing: a `data:image/png;base64,` URL of at most NOTE_IMAGE_MAX_BYTES. */
 	image?: unknown;
+	/** Optional Wiggle frames: two small PNG data URLs, only with an image (hub-t27j.21). */
+	frames?: unknown;
 }
 
 const invalid = (msg: string) => new LedgerError('invalid', msg);
@@ -57,16 +62,23 @@ const view = (db: Db, id: string): NoteView | undefined => {
 			authorName: members.name,
 			authorColor: members.color,
 			authorAvatar: members.avatar,
-			hasImage: sql<number>`${notes.image} is not null`
+			hasImage: sql<number>`${notes.image} is not null`,
+			frames: notes.imageFrames
 		})
 		.from(notes)
 		.innerJoin(members, eq(members.id, notes.authorId))
 		.where(eq(notes.id, id))
 		.get();
 	if (!row) return undefined;
-	const { hasImage, ...rest } = row;
+	const { hasImage, frames, ...rest } = row;
 	// The timestamp busts the browser cache if an id were ever reused.
-	return { ...rest, imageUrl: hasImage ? `/api/notes/${id}/image?v=${row.createdAt}` : null };
+	const url = (f: number) => `/api/notes/${id}/image?v=${row.createdAt}${f ? `&f=${f}` : ''}`;
+	const extra = hasImage && frames ? (JSON.parse(frames) as string[]) : [];
+	return {
+		...rest,
+		imageUrl: hasImage ? url(0) : null,
+		frameUrls: extra.map((_, i) => url(i + 1))
+	};
 };
 
 /** The drawing's PNG bytes, or null when the note is gone or has none. */
@@ -74,11 +86,22 @@ export function noteImage(db: Db, id: string): Buffer | null {
 	return db.select({ image: notes.image }).from(notes).where(eq(notes.id, id)).get()?.image ?? null;
 }
 
+/** Extra Wiggle frame `f` (1-based) as PNG bytes, or null when the note has no such frame. */
+export function noteFrame(db: Db, id: string, f: number): Buffer | null {
+	const raw = db.select({ f: notes.imageFrames }).from(notes).where(eq(notes.id, id)).get()?.f;
+	if (!raw) return null;
+	const url = (JSON.parse(raw) as string[])[f - 1];
+	return url ? Buffer.from(url.slice(url.indexOf(',') + 1), 'base64') : null;
+}
+
 /** Posts a note. Open to every member, children included: no PIN. */
 export function createNote(db: Db, input: NoteInput, now = Date.now()): NoteView {
 	const hasImage = input.image !== undefined && input.image !== null;
 	const image = hasImage ? parseNoteImage(input.image) : null;
 	if (hasImage && image === null) throw invalid('image must be a small PNG data URL');
+	const hasFrames = input.frames !== undefined && input.frames !== null;
+	if (hasFrames && (image === null || parseNoteFrames(input.frames) === null))
+		throw invalid('frames must be two small PNG data URLs and need an image');
 	// A drawing may stand alone; a caption is optional then.
 	const caption =
 		image !== null && (input.body === undefined || input.body === null || input.body === '')
@@ -103,7 +126,8 @@ export function createNote(db: Db, input: NoteInput, now = Date.now()): NoteView
 			color,
 			createdAt: now,
 			expiresAt: expiryFor(untilRaw, now, householdTimeZone(db)),
-			image: image === null ? null : Buffer.from(image)
+			image: image === null ? null : Buffer.from(image),
+			imageFrames: hasFrames ? JSON.stringify(input.frames) : null
 		})
 		.run();
 	publish('notes', { kind: 'note', noteId: id });

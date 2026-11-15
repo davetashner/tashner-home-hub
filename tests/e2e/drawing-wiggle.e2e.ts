@@ -170,3 +170,71 @@ test('wiggle holds still for reduced motion @J18.30', async ({ page }) => {
 	await expect(canvas).toHaveAttribute('data-wiggle', 'still');
 	expect(await looksOver(page, 700)).toBe(1);
 });
+
+// hub-t27j.21: a drawing posted with Wiggle on boils in its note tile and when enlarged.
+async function postFrom(page: Page, name: string, wiggle: boolean) {
+	await gotoHydrated(page, '/');
+	await page.getByTestId('note-draw').click();
+	await stroke(page, [0.1, 0.2], [0.8, 0.6]);
+	if (wiggle) {
+		await reveal(page, 'draw-wiggle');
+		await page.getByTestId('draw-wiggle').click();
+	}
+	await page.getByTestId('draw-post').click();
+	await page.getByTestId('draw-author').filter({ hasText: name }).click();
+}
+
+test('a posted wiggle drawing boils on the board and enlarged; plain stays still @J18.36', async ({
+	page
+}, info) => {
+	const kidId = `e2e-wiggle-post-${info.workerIndex}${info.repeatEachIndex}`;
+	const name = `Kid WigglePost ${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, name);
+	try {
+		await postFrom(page, name, true);
+		const tile = page.getByTestId('note').filter({ hasText: name });
+		const boil = tile.getByTestId('wiggle-img');
+		await expect(boil).toHaveAttribute('data-wiggle', 'live');
+		await expect(boil.locator('img')).toHaveCount(3);
+		const seen = new Set<string | null>();
+		const end = Date.now() + 1500;
+		while (Date.now() < end) {
+			seen.add(await boil.getAttribute('data-frame'));
+			await page.waitForTimeout(30);
+		}
+		expect(seen.size).toBe(3);
+
+		// Survives a reload (served from the server), and boils enlarged too.
+		await page.reload();
+		await gotoHydrated(page, '/');
+		await tile.getByTestId('note-image').click();
+		const zoomed = page.getByTestId('note-zoom').getByTestId('wiggle-img');
+		await expect(zoomed).toHaveAttribute('data-wiggle', 'live');
+		await expect(zoomed.locator('img')).toHaveCount(3);
+		await page.getByTestId('note-zoom-close').click();
+		await tile.getByTestId('note-dismiss').click();
+
+		// Posted without Wiggle: a single still image.
+		await postFrom(page, name, false);
+		await expect(tile.getByTestId('note-image')).toBeVisible();
+		await expect(tile.getByTestId('wiggle-img')).toHaveCount(0);
+	} finally {
+		wipe(kidId);
+	}
+});
+
+test('a posted wiggle drawing holds still for reduced motion @J18.36', async ({ page }, info) => {
+	const kidId = `e2e-wiggle-rm-${info.workerIndex}${info.repeatEachIndex}`;
+	const name = `Kid WiggleRM ${info.workerIndex}${info.repeatEachIndex}`;
+	seedKid(kidId, name);
+	try {
+		await page.emulateMedia({ reducedMotion: 'reduce' });
+		await postFrom(page, name, true);
+		const boil = page.getByTestId('note').filter({ hasText: name }).getByTestId('wiggle-img');
+		await expect(boil).toHaveAttribute('data-wiggle', 'still');
+		await page.waitForTimeout(700);
+		await expect(boil).toHaveAttribute('data-frame', '0');
+	} finally {
+		wipe(kidId);
+	}
+});
