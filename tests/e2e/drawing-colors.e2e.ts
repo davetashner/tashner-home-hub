@@ -82,6 +82,16 @@ test('white, grey, brown and skin colors, and a faded pen and shape @J18.15', as
 		// Opacity steps are tappable; a faded pen stroke is translucent, an opaque one is not.
 		await expectTappable(page.getByTestId('draw-opacity').first(), 96);
 		await expect(page.getByTestId('draw-opacity')).toHaveCount(4);
+		// Every label ("100%" is the widest) fits inside its chip, here and on the 4K touch
+		// monitor at scale 1, where the type is largest (hub-b24).
+		const wall = page.viewportSize();
+		for (const size of [wall, { width: 3840, height: 2160 }]) {
+			if (size) await page.setViewportSize(size);
+			for (const chip of await page.getByTestId('draw-opacity').all()) {
+				expect(await chip.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+			}
+		}
+		if (wall) await page.setViewportSize(wall);
 		await page.getByTestId('draw-more-colors').click();
 		await page.getByTestId('draw-grid-color').nth(40).click(); // a skin tone
 		await page.getByTestId('draw-opacity').and(page.locator('[data-opacity="0.5"]')).click();

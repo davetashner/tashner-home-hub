@@ -12,7 +12,7 @@
 	{#each OPACITY_STEPS as a (a)}
 		<button
 			type="button"
-			class="flex size-tap-kid items-center justify-center rounded-chip border-4 bg-surface text-caption font-extrabold {value ===
+			class="flex h-tap-kid min-w-tap-kid items-center justify-center rounded-chip border-4 bg-surface px-3 text-caption font-extrabold whitespace-nowrap {value ===
 			a
 				? 'border-accent bg-accent-soft'
 				: 'border-line'}"
