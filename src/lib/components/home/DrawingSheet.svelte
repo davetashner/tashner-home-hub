@@ -257,6 +257,7 @@
 	import type { PhotoRow, SavedRow } from './drawing/rows.js';
 	import LiveShare from './drawing/LiveShare.svelte';
 	import LiveChips from './drawing/LiveChips.svelte';
+	import GuessGame from './drawing/GuessGame.svelte';
 	import MonsterBar from './drawing/MonsterBar.svelte';
 	import MonsterOverlay from './drawing/MonsterOverlay.svelte';
 	import {
@@ -310,6 +311,7 @@
 	let onionCanvas: HTMLCanvasElement;
 	let onionCtx: CanvasRenderingContext2D;
 	let live: LiveShare | undefined;
+	let guessGame: GuessGame | undefined;
 	const liveStatus = $state({ active: false, online: true, busy: false });
 	function liveLeft(items: DrawItem[]) {
 		strokes = [...items, ...strokes];
@@ -2183,6 +2185,7 @@
 		onchange={redraw}
 		onleave={liveLeft}
 		onnote={(m) => (note = m)}
+		ongame={(raw) => guessGame?.frame(raw)}
 	/>
 	<ToolRail active={rail} {section} onselect={selectTool} onsection={selectSection} />
 	<div
@@ -2481,6 +2484,13 @@
 				{/if}
 			</div>
 		{/if}
+		<GuessGame
+			bind:this={guessGame}
+			ids={() => live?.ids() ?? null}
+			active={liveStatus.active}
+			showStart={section === 'together'}
+			onnote={(m) => (note = m)}
+		/>
 		{#each shownChallenges as c (c.id)}
 			<ChallengeBanner
 				name={people.find((p) => p.id === c.memberId)?.name ?? ''}
