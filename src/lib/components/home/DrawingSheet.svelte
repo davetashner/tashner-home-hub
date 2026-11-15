@@ -47,6 +47,7 @@
 	import { dashPattern, type LineStyle } from '#lib/domain/drawing-dash.js';
 	import { containRect, photoSize, photoUrl } from '#lib/domain/drawing-photo.js';
 	import {
+		centeredKaleidoscope,
 		centeredMirror,
 		mirrorGuides,
 		mirrorLabel,
@@ -54,6 +55,12 @@
 		nextMirror,
 		type MirrorCount
 	} from '#lib/domain/drawing-mirror.js';
+	import {
+		kaleidoscopeGuides,
+		kaleidoscopeLabel,
+		nextKaleidoscope,
+		type KaleidoscopeCount
+	} from '#lib/domain/drawing-kaleidoscope.js';
 	import {
 		addBlank,
 		canAdd,
@@ -191,6 +198,7 @@
 	import LiveShare from './drawing/LiveShare.svelte';
 	import LiveChips from './drawing/LiveChips.svelte';
 	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
+	import { parseStarInfo, starHint, type StarInfo } from '#lib/domain/drawing-stars.js';
 
 	interface Member {
 		id: string;
@@ -266,6 +274,7 @@
 	/** Paint-bucket mode: a tap fills the closed area under it. */
 	let bucket = $state(false);
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
+	let kaleidoN = $state<KaleidoscopeCount | null>(null); // kaleidoscope: slices per stroke (hub-t27j.1)
 	let boardSize = $state({ w: 0, h: 0 }); // CSS px, for the mirror guides
 	/** Text mode: a tap on the board types words; a tap on placed text selects it. */
 	let textMode = $state(false);
@@ -1158,8 +1167,12 @@
 			...(isAlphaTool(tool) && isTranslucent(alpha) ? { alpha } : {}),
 			...(isBrushTool(tool) ? { seed: newSeed() } : {})
 		};
-		if (mirrorN)
-			current.mirror = centeredMirror(mirrorN, { w: canvas.width / dpr, h: canvas.height / dpr });
+		if (mirrorN || kaleidoN) {
+			const size = { w: canvas.width / dpr, h: canvas.height / dpr };
+			current.mirror = kaleidoN
+				? centeredKaleidoscope(kaleidoN, size)
+				: centeredMirror(mirrorN!, size);
+		}
 		if (translucent(current) || whole(current.tool)) redraw();
 		else segment(current, 0);
 	}
@@ -1385,8 +1398,29 @@
 
 	function postAs(p: Member) {
 		if (chooseFor === 'save') return saveAs(p.id);
+		// A drawing made while the daily prompt is showing earns its star; the server decides.
+		if (promptDate && prompt && !promptHidden)
+			void fetch('/api/drawing-stars', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ memberId: p.id })
+			}).catch(() => {});
 		onpost(p.id, exportPng());
 	}
+
+	// Prompt stars + streak (hub-t27j.8): read when "Who drew it?" opens, shown beside each name.
+	let starsOn = $state(false);
+	let starInfo = $state<Record<string, StarInfo>>({});
+	$effect(() => {
+		if (!choosing || chooseFor === 'save') return;
+		void fetch('/api/drawing-stars')
+			.then(async (res) => {
+				const body = res.ok ? await res.json() : null;
+				starsOn = body?.enabled === true;
+				starInfo = parseStarInfo(body);
+			})
+			.catch(() => {});
+	});
 
 	/** A small PNG for the My drawings list. */
 	function thumbnail(): string {
@@ -1798,13 +1832,13 @@
 				aria-hidden="true"
 				data-testid="draw-lines"
 			></canvas>
-			{#if mirrorN}
+			{#if mirrorN || kaleidoN}
 				<svg
 					class="pointer-events-none absolute inset-0 size-full text-ink-muted opacity-50"
 					aria-hidden="true"
 					data-testid="draw-mirror-guides"
 				>
-					{#each mirrorGuides(mirrorN, boardSize) as g, gi (gi)}
+					{#each kaleidoN ? kaleidoscopeGuides(kaleidoN, boardSize) : mirrorGuides(mirrorN!, boardSize) as g, gi (gi)}
 						<line
 							x1={g.x1}
 							y1={g.y1}
@@ -1945,7 +1979,15 @@
 						onclick={() => postAs(p)}
 					>
 						<MemberAvatar name={p.name} color={memberColor(p.color)} avatar={p.avatar} size="kid" />
-						<span>{p.name}</span>
+						<span class="flex flex-col items-start">
+							<span>{p.name}</span>
+							{#if starsOn && chooseFor !== 'save'}
+								{@const hint = starHint(starInfo[p.id], !!promptDate && !!prompt && !promptHidden)}
+								{#if hint}<span class="text-body text-ink-muted" data-testid="draw-author-hint"
+										>{hint}</span
+									>{/if}
+							{/if}
+						</span>
 					</button>
 				{/each}
 			</div>
@@ -2114,7 +2156,20 @@
 						onclick={() => {
 							commit();
 							mirrorN = nextMirror(mirrorN);
+							kaleidoN = null;
 						}}>Mirror: {mirrorLabel(mirrorN)}</button
+					>
+					<button
+						type="button"
+						class="{btn} {kaleidoN ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={kaleidoN !== null}
+						data-testid="draw-kaleido"
+						data-kaleido={kaleidoN ?? 0}
+						onclick={() => {
+							commit();
+							kaleidoN = nextKaleidoscope(kaleidoN);
+							mirrorN = null;
+						}}>Kaleidoscope: {kaleidoscopeLabel(kaleidoN)}</button
 					>
 					<button
 						type="button"

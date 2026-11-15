@@ -85,7 +85,7 @@ async function stroke(page: Page, from: [number, number], to: [number, number], 
 const style = (page: Page, s: string) =>
 	page.getByTestId('draw-fill-style').and(page.locator(`[data-style="${s}"]`));
 
-test('bucket fills a closed shape with a pattern, undo, save and reopen, post @J18.19', async ({
+test('bucket fills a closed shape with a pattern, undo, save and reopen, post @J18.22', async ({
 	page
 }, info) => {
 	const kidId = `e2e-pattern-kid-${info.workerIndex}${info.repeatEachIndex}`;
