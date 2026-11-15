@@ -74,7 +74,7 @@ async function open(page: Page) {
 	await reveal(page, 'draw-monster');
 }
 
-test('monster game: each turn draws in one band, the rest is folded, reveal shows all @J18.21', async ({
+test('monster game: each turn draws in one band, the rest is folded, reveal shows all @J18.28', async ({
 	page
 }, info) => {
 	const name = `Kid Monster ${info.workerIndex}${info.repeatEachIndex}`;

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Button from '#lib/components/ui/Button.svelte';
 	import { PAGE_IDS, PAGE_LABELS, pageDrawing, type PageId } from '#lib/domain/drawing-pages.js';
+	import { TRACE_CHARS, traceId } from '#lib/domain/drawing-tracing.js';
 	import { toolBtn as btn } from './tool-btn.js';
 
 	interface Props {
@@ -46,6 +47,24 @@
 					stroke-linejoin="round"
 				/>
 			</svg>
+		</button>
+	{/each}
+</div>
+<p class="w-full text-body font-extrabold">Tracing: letters and numbers</p>
+<div class="flex flex-wrap gap-3" role="group" aria-label="Tracing" data-testid="draw-tracing">
+	{#each TRACE_CHARS as ch (ch)}
+		<button
+			type="button"
+			class="{btn} {page === traceId(ch)
+				? 'border-accent bg-accent-soft'
+				: 'border-line bg-surface'}"
+			aria-label="Trace {ch}"
+			aria-pressed={page === traceId(ch)}
+			data-testid="draw-trace"
+			data-page={traceId(ch)}
+			onclick={() => onpick(traceId(ch))}
+		>
+			{ch}
 		</button>
 	{/each}
 </div>

@@ -21,8 +21,8 @@
 		type View
 	} from '#lib/domain/drawing-zoom.js';
 	import {
-		PAGE_LABELS,
 		pageFit,
+		pageLabel,
 		pageLineWidth,
 		pagePaths,
 		type PageId
@@ -81,6 +81,13 @@
 	import { compositePixel, pixelAt, rgbCss, type Rgba } from '#lib/domain/drawing-eyedropper.js';
 	import EyedropperPreview from '#lib/components/home/drawing/EyedropperPreview.svelte';
 	import { FILL_GAP_CSS, isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
+	import {
+		PATTERN_CELL_CSS,
+		patternTile,
+		type FillStyle,
+		type PatternId
+	} from '#lib/domain/drawing-pattern.js';
+	import FillStylePicker from './drawing/FillStylePicker.svelte';
 	import TextEditor from '#lib/components/home/drawing/TextEditor.svelte';
 	import TextPanel from '#lib/components/home/drawing/TextPanel.svelte';
 	import {
@@ -110,6 +117,12 @@
 		saveSnapPref,
 		snapStroke
 	} from '#lib/domain/drawing-snap.js';
+	import {
+		createSmoother,
+		loadSmoothPref,
+		saveSmoothPref,
+		type Smoother
+	} from '#lib/domain/drawing-smooth.js';
 	import {
 		clampPoint,
 		handlePoints,
@@ -182,9 +195,24 @@
 	import PagePicker from './drawing/PagePicker.svelte';
 	import PhotoPicker from './drawing/PhotoPicker.svelte';
 	import DrawingBrowser from './drawing/DrawingBrowser.svelte';
+	import ArtBook from './drawing/ArtBook.svelte';
 	import ShapePicker from './drawing/ShapePicker.svelte';
 	import ColorSizePanel from './drawing/ColorSizePanel.svelte';
 	import ToolRail from './drawing/ToolRail.svelte';
+	import {
+		copyOffset,
+		copyStrokes,
+		frameOf,
+		inBox,
+		inkBounds,
+		isLoop,
+		moveBy,
+		resizeHandle,
+		resizeTo,
+		selectInside,
+		transformStrokes,
+		type Box
+	} from '#lib/domain/drawing-lasso.js';
 	import { RAIL_TOOLS, type RailSection, type RailTool } from './drawing/rail-tools.js';
 	import { toolBtn as btn } from './drawing/tool-btn.js';
 	import type { PhotoRow, SavedRow } from './drawing/rows.js';
@@ -203,6 +231,7 @@
 		type MonsterTurns
 	} from '#lib/domain/drawing-monster.js';
 	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
+	import { parseStarInfo, starHint, type StarInfo } from '#lib/domain/drawing-stars.js';
 
 	interface Member {
 		id: string;
@@ -270,6 +299,7 @@
 	/** The shape or stamp the next drag places; null means freehand drawing. */
 	let shapeKind = $state<ShapeKind | null>(null);
 	let filled = $state(false);
+	let fillStyle = $state<FillStyle>('solid'); // what the bucket paints (hub-t27j.2)
 	let lineStyle = $state<LineStyle>('solid'); // outline style of the next shape (hub-cn7.17)
 	/** Eyedropper mode (hub-cn7.14): a tap or drag picks the color under the finger, then it switches off. */
 	let dropper = $state(false);
@@ -306,6 +336,7 @@
 	let note = $state('');
 	let mine = $state<SavedRow[] | null>(null);
 	let browsing = $state(false);
+	let artBook = $state(false);
 	/** The coloring page under the ink, or null for a blank board. */
 	let page = $state<PageId | null>(null);
 	let pagePicking = $state(false);
@@ -417,7 +448,7 @@
 			? photoId
 				? 'Photo'
 				: page
-					? PAGE_LABELS[page]
+					? pageLabel(page)
 					: LAYER_LABELS[l]
 			: LAYER_LABELS[l];
 	let dpr = 1;
@@ -441,6 +472,20 @@
 		travel: number;
 	} | null = null;
 	let armed = false;
+	// Lasso (hub-t27j.6): the loop being drawn, the selected strokes (indices into `strokes`) and their frame.
+	let lassoMode = $state(false);
+	let lassoLoop = $state<Pt[] | null>(null);
+	let lassoIdx: number[] = [];
+	let lasso = $state<{ frame: Box; handle: Pt; count: number } | null>(null);
+	let lassoDrag: {
+		kind: 'move' | 'resize';
+		id: number;
+		from: Pt;
+		frame: Box;
+		origs: Stroke[];
+		before: Board<DrawItem>;
+		moved: boolean;
+	} | null = null;
 	let dragged = 0;
 	let anchor = { x: 0, y: 0 };
 	let activeId = -1;
@@ -636,7 +681,98 @@
 	function commit() {
 		selected = null;
 		gesture = null;
+		lassoClear();
 		syncSel();
+	}
+
+	/** The strokes the lasso holds right now, in board order: what later features (animate) build on. */
+	const lassoStrokes = (): Stroke[] => lassoIdx.map((i) => strokes[i] as Stroke);
+	function lassoShow() {
+		const ink = inkBounds(lassoStrokes());
+		if (!ink) return lassoClear();
+		const frame = frameOf(ink);
+		lasso = {
+			frame,
+			handle: clampPoint(resizeHandle(frame), canvas.width / dpr, canvas.height / dpr),
+			count: lassoIdx.length
+		};
+	}
+	function lassoClear() {
+		lassoIdx = [];
+		lassoLoop = null;
+		lassoDrag = null;
+		lasso = null;
+	}
+	function lassoStart(kind: 'move' | 'resize', e: PointerEvent, host: Element) {
+		if (!lasso) return;
+		e.preventDefault();
+		e.stopPropagation();
+		try {
+			host.setPointerCapture(e.pointerId);
+		} catch {
+			// Synthetic pointers (tests) are not active pointers.
+		}
+		activeId = e.pointerId;
+		lassoDrag = {
+			kind,
+			id: e.pointerId,
+			from: canvasPt(e),
+			frame: lasso.frame,
+			origs: lassoStrokes(),
+			before: boardNow(),
+			moved: false
+		};
+	}
+	function lassoDown(e: PointerEvent) {
+		const p = canvasPt(e);
+		if (lasso && inBox(p, lasso.frame, 24)) return lassoStart('move', e, canvas);
+		lassoClear();
+		lassoLoop = [p];
+	}
+	function lassoMove(e: PointerEvent) {
+		if (e.pointerId !== activeId) return;
+		const p = canvasPt(e);
+		if (lassoLoop) {
+			const last = lassoLoop[lassoLoop.length - 1];
+			if (Math.hypot(p.x - last.x, p.y - last.y) >= 3) lassoLoop = [...lassoLoop, p];
+			return;
+		}
+		const d = lassoDrag;
+		if (!d || e.pointerId !== d.id) return;
+		const t = d.kind === 'move' ? moveBy(p.x - d.from.x, p.y - d.from.y) : resizeTo(d.frame, p);
+		transformStrokes(d.origs, t).forEach((s, k) => (strokes[lassoIdx[k]] = s));
+		d.moved = true;
+		lassoShow();
+		redraw();
+	}
+	function lassoEnd(e: PointerEvent) {
+		if (e.pointerId !== activeId) return;
+		activeId = -1;
+		const loop = lassoLoop;
+		lassoLoop = null;
+		if (loop) {
+			lassoIdx = e.type === 'pointerup' && isLoop(loop) ? selectInside(strokes, loop) : [];
+			lassoShow();
+			return;
+		}
+		const d = lassoDrag;
+		lassoDrag = null;
+		// One move, resize or copy is one Undo step.
+		if (d?.moved)
+			history = record(history, { type: 'replace', before: d.before, after: boardNow() });
+	}
+	function lassoCopy() {
+		if (!lasso) return;
+		const size = { w: canvas.width / dpr, h: canvas.height / dpr };
+		const copies = copyStrokes(lassoStrokes(), copyOffset(lasso.frame, size));
+		strokes.push(...copies);
+		history = recordAdd(history, ...copies);
+		lassoIdx = copies.map((_, k) => strokes.length - copies.length + k);
+		count = strokes.length;
+		blank = isBlank(strokes);
+		syncLast();
+		lassoShow();
+		redraw();
 	}
 
 	const canvasPt = (e: PointerEvent): Pt => {
@@ -838,6 +974,20 @@
 		ctx.restore();
 	}
 
+	/** A canvas pattern of `id` in `color`, anchored at the canvas origin so tiles line up. */
+	function patternPaint(id: PatternId, color: string): CanvasPattern | string {
+		const size = Math.max(4, Math.round(PATTERN_CELL_CSS * dpr));
+		const tile = document.createElement('canvas');
+		tile.width = tile.height = size;
+		const t = tile.getContext('2d');
+		if (!t) return token(color);
+		t.putImageData(new ImageData(patternTile(id, size, [0, 0, 0]), size, size), 0, 0);
+		t.globalCompositeOperation = 'source-in';
+		t.fillStyle = token(color);
+		t.fillRect(0, 0, size, size);
+		return ctx.createPattern(tile, 'repeat') ?? token(color);
+	}
+
 	/** Replay a fill as row runs; if the canvas was resized since, flood again from the same spot. */
 	function paintFill(f: FillItem) {
 		let spans = f.spans;
@@ -850,7 +1000,8 @@
 				(f.y * canvas.height) / f.h,
 				f.color,
 				f.tolerance,
-				((f.gap ?? 0) * canvas.width) / f.w
+				((f.gap ?? 0) * canvas.width) / f.w,
+				f.pattern
 			);
 			if (!again) return;
 			Object.assign(f, again);
@@ -860,7 +1011,7 @@
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.globalCompositeOperation = 'source-over';
 		ctx.globalAlpha = 1;
-		ctx.fillStyle = token(f.color);
+		ctx.fillStyle = f.pattern ? patternPaint(f.pattern, f.color) : token(f.color);
 		for (let i = 0; i < spans.length; i += 3)
 			ctx.fillRect(spans[i + 1], spans[i], spans[i + 2] - spans[i + 1] + 1, 1);
 		ctx.restore();
@@ -909,6 +1060,25 @@
 		} finally {
 			ctx = real;
 		}
+	}
+
+	/** One frame of a time-lapse video (hub-t27j.17): paper, picture, the ink so far, coloring lines. */
+	let videoFull: HTMLCanvasElement | null = null;
+	function composeVideoFrame(
+		items: DrawItem[],
+		out: CanvasRenderingContext2D,
+		w: number,
+		h: number
+	) {
+		videoFull ??= document.createElement('canvas');
+		videoFull.width = canvas.width;
+		videoFull.height = canvas.height;
+		paintOn(videoFull.getContext('2d') as CanvasRenderingContext2D, items);
+		out.fillStyle = token(bg ?? PAPER);
+		out.fillRect(0, 0, w, h);
+		if (photoId && layers.picture) out.drawImage(photoCanvas, 0, 0, w, h);
+		out.drawImage(videoFull, 0, 0, w, h);
+		if (layers.picture) out.drawImage(linesCanvas, 0, 0, w, h);
 	}
 
 	/** Flipbook (hub-cn7.25): frames and their thumbnails; the live strokes/history are the current frame. */
@@ -1105,6 +1275,7 @@
 		}
 		activeId = e.pointerId;
 		rect = canvas.getBoundingClientRect();
+		if (lassoMode) return lassoDown(e);
 		if (
 			selected &&
 			(isText(selected) ? hitText(selected, canvasPt(e)) : hitBody(selected, canvasPt(e)))
@@ -1137,7 +1308,8 @@
 				((e.clientY - rect.top) / view.scale) * dpr,
 				color,
 				undefined,
-				FILL_GAP_CSS * dpr
+				FILL_GAP_CSS * dpr,
+				fillStyle === 'solid' ? undefined : fillStyle
 			);
 			if (item) {
 				strokes.push(item);
@@ -1156,10 +1328,13 @@
 			redraw();
 			return;
 		}
+		smoother = smoothOn ? createSmoother() : null;
+		const first = sample(e);
+		smoother?.push(first);
 		current = {
 			tool,
 			color,
-			points: [sample(e)],
+			points: [first],
 			...(isAlphaTool(tool) && isTranslucent(alpha) ? { alpha } : {}),
 			...(isBrushTool(tool) ? { seed: newSeed() } : {})
 		};
@@ -1189,6 +1364,10 @@
 		};
 	}
 
+	/** Smooth lines (hub-t27j.7): freehand only, so shapes, stamps, fill and text never see it. */
+	let smoothOn = $state(false);
+	let smoother: Smoother | null = null;
+
 	function move(e: PointerEvent) {
 		guard.see(e.pointerType); // a hovering pen is noticed before it touches
 		if (zoomMove(e)) return;
@@ -1196,6 +1375,7 @@
 			drop = colorUnder(e);
 			return;
 		}
+		if (lassoMode && (lassoLoop || lassoDrag)) return lassoMove(e);
 		if (gesture) return moveGesture(e);
 		if (e.pointerId === activeId && draft && shapeKind) {
 			const p = sample(e);
@@ -1208,7 +1388,10 @@
 		const events = e.getCoalescedEvents?.() ?? [];
 		for (const c of events.length ? events : [e]) {
 			const last = current.points[current.points.length - 1];
-			current.points.push(sample(c, last.w));
+			const next = sample(c, last.w);
+			const pt = smoother ? smoother.push(next) : next;
+			if (!pt) continue;
+			current.points.push(pt);
 			if (!translucent(current) && !whole(current.tool))
 				segment(current, current.points.length - 1);
 		}
@@ -1229,6 +1412,7 @@
 	function up(e: PointerEvent) {
 		touches.delete(e.pointerId);
 		if (drop && e.pointerId === activeId) return dropEnd(e);
+		if (lassoLoop || lassoDrag) return lassoEnd(e);
 		if (gesture) return endGesture(e);
 		if (textTap && e.pointerId === activeId) {
 			const at = textTap;
@@ -1258,6 +1442,13 @@
 		}
 		if (e.pointerId !== activeId || !current) return;
 		activeId = -1;
+		const tail = smoother?.finish();
+		smoother = null;
+		if (tail) {
+			current.points.push(tail);
+			if (!translucent(current) && !whole(current.tool))
+				segment(current, current.points.length - 1);
+		}
 		strokes.push(current);
 		history = recordAdd(history, current);
 		if (current.tool !== 'eraser') recent = pushRecent(recent, current.color);
@@ -1341,6 +1532,7 @@
 
 	/** Put a board on the canvases: ink, coloring page, photo, background and layers. */
 	function showBoard(b: Board<DrawItem>) {
+		lassoClear();
 		strokes = [...b.items];
 		count = strokes.length;
 		syncLast();
@@ -1413,8 +1605,29 @@
 
 	function postAs(p: Member) {
 		if (chooseFor === 'save') return saveAs(p.id);
+		// A drawing made while the daily prompt is showing earns its star; the server decides.
+		if (promptDate && prompt && !promptHidden)
+			void fetch('/api/drawing-stars', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ memberId: p.id })
+			}).catch(() => {});
 		onpost(p.id, exportPng());
 	}
+
+	// Prompt stars + streak (hub-t27j.8): read when "Who drew it?" opens, shown beside each name.
+	let starsOn = $state(false);
+	let starInfo = $state<Record<string, StarInfo>>({});
+	$effect(() => {
+		if (!choosing || chooseFor === 'save') return;
+		void fetch('/api/drawing-stars')
+			.then(async (res) => {
+				const body = res.ok ? await res.json() : null;
+				starsOn = body?.enabled === true;
+				starInfo = parseStarInfo(body);
+			})
+			.catch(() => {});
+	});
 
 	/** A small PNG for the My drawings list. */
 	function thumbnail(): string {
@@ -1627,6 +1840,7 @@
 	onMount(() => {
 		loadPrompt();
 		snapOn = loadSnapPref();
+		smoothOn = loadSmoothPref();
 		ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 		linesCtx = linesCanvas.getContext('2d') as CanvasRenderingContext2D;
 		photoCtx = photoCanvas.getContext('2d') as CanvasRenderingContext2D;
@@ -1652,24 +1866,32 @@
 
 	/** True while the tools column shows the main tools (not a full sub-panel), so the pinned bars apply. */
 	const mainTools = $derived(
-		!choosing && !pagePicking && !layersPicking && !photoPicking && !bgPicking && !browsing
+		!choosing &&
+			!pagePicking &&
+			!layersPicking &&
+			!photoPicking &&
+			!bgPicking &&
+			!browsing &&
+			!artBook
 	);
 
 	/** The rail tool the current flags add up to; the options panel shows only its options. */
 	const rail = $derived<RailTool>(
 		dropper
 			? 'pick'
-			: bucket
-				? 'fill'
-				: textMode
-					? 'text'
-					: shapeKind || shapePicking
-						? 'shapes'
-						: tool === 'eraser'
-							? 'eraser'
-							: tool === 'highlighter'
-								? 'marker'
-								: 'pen'
+			: lassoMode
+				? 'lasso'
+				: bucket
+					? 'fill'
+					: textMode
+						? 'text'
+						: shapeKind || shapePicking
+							? 'shapes'
+							: tool === 'eraser'
+								? 'eraser'
+								: tool === 'highlighter'
+									? 'marker'
+									: 'pen'
 	);
 	/** The open rail section (Paper, Magic, Together), or null for the tool's own options. Never changes the tool. */
 	let section = $state<RailSection | null>(null);
@@ -1698,12 +1920,13 @@
 			return;
 		}
 		commit();
-		pagePicking = layersPicking = photoPicking = bgPicking = browsing = picking = false;
+		pagePicking = layersPicking = photoPicking = bgPicking = browsing = artBook = picking = false;
 		shapePicking = t === 'shapes';
 		if (t !== 'shapes') shapeKind = null;
 		textMode = t === 'text';
 		bucket = t === 'fill';
 		dropper = t === 'pick';
+		lassoMode = t === 'lasso';
 		tool = t === 'eraser' ? 'eraser' : t === 'marker' ? 'highlighter' : 'pen';
 	}
 	/** Esc steps back one level: the open picker or panel first, then the board. */
@@ -1718,6 +1941,7 @@
 		else if (layersPicking) layersPicking = false;
 		else if (photoPicking) photoPicking = false;
 		else if (bgPicking) bgPicking = false;
+		else if (artBook) artBook = false;
 		else if (browsing) browsing = false;
 		else if (shapePicking) pickShape(null);
 		else if (picking) picking = false;
@@ -1777,6 +2001,8 @@
 				<ReplayPlayer
 					items={replaying}
 					render={(list) => redraw(list)}
+					compose={composeVideoFrame}
+					boardSize={{ w: boardSize.w, h: boardSize.h }}
 					ondone={() => {
 						replaying = null;
 						redraw();
@@ -1811,6 +2037,10 @@
 				data-strokes={count}
 				data-last={lastKind}
 				data-selected={sel !== null}
+				data-lasso={lasso?.count ?? 0}
+				data-lasso-frame={lasso
+					? [lasso.frame.x, lasso.frame.y, lasso.frame.w, lasso.frame.h].map(Math.round).join(',')
+					: ''}
 				data-sel-rot={sel ? sel.rot.toFixed(3) : ''}
 				onpointerdown={down}
 				onpointermove={move}
@@ -1856,6 +2086,30 @@
 						stroke-width="3"
 						stroke-dasharray="10 8"
 					/>
+				</svg>
+			{/if}
+			{#if lasso || lassoLoop}
+				<svg class="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
+					{#if lasso}
+						<rect
+							x={lasso.frame.x}
+							y={lasso.frame.y}
+							width={lasso.frame.w}
+							height={lasso.frame.h}
+							class="fill-none stroke-accent"
+							stroke-width="3"
+							stroke-dasharray="10 8"
+							data-testid="draw-lasso-box"
+						/>
+					{/if}
+					{#if lassoLoop}
+						<polyline
+							points={lassoLoop.map((p) => `${p.x},${p.y}`).join(' ')}
+							class="fill-none stroke-accent"
+							stroke-width="3"
+							stroke-dasharray="6 8"
+						/>
+					{/if}
 				</svg>
 			{/if}
 			{#if editing}
@@ -1905,6 +2159,25 @@
 					>
 				</button>
 			{/each}
+		{/if}
+		{#if lasso && !lassoLoop}
+			<button
+				type="button"
+				class="absolute flex size-tap-kid -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center"
+				style:left="{toScreen(view, lasso.handle).x}px"
+				style:top="{toScreen(view, lasso.handle).y}px"
+				aria-label="Resize"
+				data-testid="draw-lasso-resize"
+				onpointerdown={(e) => lassoStart('resize', e, e.currentTarget)}
+				onpointermove={lassoMove}
+				onpointerup={lassoEnd}
+				onpointercancel={lassoEnd}
+			>
+				<span
+					class="flex size-12 items-center justify-center rounded-full border-2 border-accent bg-surface text-body font-extrabold"
+					aria-hidden="true">⤡</span
+				>
+			</button>
 		{/if}
 		{#if keepChip}
 			<button
@@ -1984,7 +2257,15 @@
 						onclick={() => postAs(p)}
 					>
 						<MemberAvatar name={p.name} color={memberColor(p.color)} avatar={p.avatar} size="kid" />
-						<span>{p.name}</span>
+						<span class="flex flex-col items-start">
+							<span>{p.name}</span>
+							{#if starsOn && chooseFor !== 'save'}
+								{@const hint = starHint(starInfo[p.id], !!promptDate && !!prompt && !promptHidden)}
+								{#if hint}<span class="text-body text-ink-muted" data-testid="draw-author-hint"
+										>{hint}</span
+									>{/if}
+							{/if}
+						</span>
 					</button>
 				{/each}
 			</div>
@@ -2053,8 +2334,16 @@
 			<Button variant="ghost" onclick={() => (bgPicking = false)} data-testid="draw-bg-close"
 				>Back</Button
 			>
+		{:else if artBook}
+			<ArtBook {people} onback={() => (artBook = false)} />
 		{:else if browsing}
-			<DrawingBrowser {mine} onopen={reopen} ondelete={remove} onback={() => (browsing = false)} />
+			<DrawingBrowser
+				{mine}
+				onopen={reopen}
+				ondelete={remove}
+				onback={() => (browsing = false)}
+				onartbook={() => (artBook = true)}
+			/>
 		{:else}
 			{#if flipOn && flip}
 				<FlipbookStrip
@@ -2110,8 +2399,7 @@
 						class="{btn} {page ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
 						aria-pressed={page !== null}
 						data-testid="draw-pages-open"
-						onclick={() => (pagePicking = true)}
-						>{page ? PAGE_LABELS[page] : 'Coloring pages'}</button
+						onclick={() => (pagePicking = true)}>{page ? pageLabel(page) : 'Coloring pages'}</button
 					>
 					<button
 						type="button"
@@ -2259,10 +2547,23 @@
 						onsize={setTextSize}
 						ondone={() => finishText(editing?.value ?? '')}
 					/>
+				{:else if rail === 'fill'}
+					<FillStylePicker value={fillStyle} onpick={(v) => (fillStyle = v)} />
 				{:else if rail === 'pick'}
 					<p class="w-full text-body text-ink-muted">Tap the drawing to pick a color.</p>
+				{:else if rail === 'lasso'}
+					<p class="w-full text-body text-ink-muted">
+						Draw a loop around your lines, then drag them, or pull the corner to resize.
+					</p>
+					<button
+						type="button"
+						class="{btn} border-line bg-surface"
+						disabled={!lasso}
+						data-testid="draw-lasso-copy"
+						onclick={lassoCopy}>Copy</button
+					>
 				{/if}
-				{#if rail !== 'pick'}
+				{#if rail !== 'pick' && rail !== 'lasso'}
 					<ColorSizePanel
 						{color}
 						eraser={rail === 'eraser'}
@@ -2295,6 +2596,17 @@
 							snapOn = !snapOn;
 							saveSnapPref(snapOn);
 						}}>Snap shapes: {snapOn ? 'On' : 'Off'}</button
+					>
+					<button
+						type="button"
+						class="{btn} {smoothOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={smoothOn}
+						data-testid="draw-smooth"
+						onclick={() => {
+							commit();
+							smoothOn = !smoothOn;
+							saveSmoothPref(smoothOn);
+						}}>Smooth lines: {smoothOn ? 'On' : 'Off'}</button
 					>
 				{/if}
 			{/if}
