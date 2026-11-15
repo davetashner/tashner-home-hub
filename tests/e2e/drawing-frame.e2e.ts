@@ -45,7 +45,7 @@ async function stub(page: Page, drawings: 'on' | 'off', photoId: string) {
 	return drawingRequests;
 }
 
-test('a posted drawing joins the frame with the artist name when the setting is on', async ({
+test('a posted drawing joins the frame with the artist name and a gentle pan when the setting is on @J18.19', async ({
 	page
 }, info) => {
 	const photoId = `${info.project.name}-drawing-frame`;
@@ -60,12 +60,13 @@ test('a posted drawing joins the frame with the artist name when the setting is 
 	await expect(front).toHaveAttribute('data-photo-id', 'drawing:note-1');
 	await expect(page.getByTestId('drawing-caption')).toHaveText('Drawn by Ada');
 	await expect(front.locator('[data-part="main"]')).toHaveCSS('object-fit', 'contain');
+	await expect(front.locator('.kenburns')).toHaveCount(1);
 
 	await page.clock.fastForward(10_000);
 	await expect(front).toHaveAttribute('data-photo-id', photoId);
 });
 
-test('drawings stay out of the frame, and are never requested, by default', async ({
+test('drawings stay out of the frame, and are never requested, by default @J18.19', async ({
 	page
 }, info) => {
 	const photoId = `${info.project.name}-drawing-off`;

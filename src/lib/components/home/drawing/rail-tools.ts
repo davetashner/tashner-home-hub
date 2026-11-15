@@ -1,5 +1,5 @@
-/** The tool rail's seven tools (hub-cn7.37.3). Brush variants live under Pen, the highlighter is Marker. */
-export type RailTool = 'pen' | 'marker' | 'eraser' | 'fill' | 'shapes' | 'text' | 'pick';
+/** The tool rail's eight tools (hub-cn7.37.3). Brush variants live under Pen, the highlighter is Marker. */
+export type RailTool = 'pen' | 'marker' | 'eraser' | 'fill' | 'shapes' | 'text' | 'pick' | 'lasso';
 
 export const RAIL_TOOLS: { id: RailTool; label: string; testid: string; icon: string }[] = [
 	{
@@ -39,6 +39,12 @@ export const RAIL_TOOLS: { id: RailTool; label: string; testid: string; icon: st
 		label: 'Pick color',
 		testid: 'draw-eyedropper',
 		icon: 'M14 6l4 4M17 3l4 4-3 3-4-4zM14 8l-9 9v3h3l9-9z'
+	},
+	{
+		id: 'lasso',
+		label: 'Lasso',
+		testid: 'draw-lasso',
+		icon: 'M12 4c5 0 9 2 9 5s-4 5-9 5-9-2-9-5 4-5 9-5zM8 14c-1 2 0 4 2 5l1 2'
 	}
 ];
 

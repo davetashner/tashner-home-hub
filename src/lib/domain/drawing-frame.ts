@@ -5,7 +5,7 @@
  * Replay hook (hub-cn7.22): a card carries `src` for the still; a replay would add an optional
  * field here and render it where Slideshow.svelte shows `slot.card`.
  */
-import type { SlidePhoto } from './slideshow.js';
+import type { Motion, SlidePhoto } from './slideshow.js';
 
 export const DRAWING_MODES = ['off', 'on'] as const;
 export type DrawingMode = (typeof DRAWING_MODES)[number];
@@ -62,4 +62,22 @@ export function interleaveDrawings(
 	});
 	if (used === 0) out.push(cards[used++]);
 	return out;
+}
+
+/** Slower and smaller than a photo's Ken Burns: a drawing is shown whole, so it only drifts. */
+const DRAWING_ZOOM = 1.04;
+const DRAWING_PANS = [
+	['-1%', '-0.5%'],
+	['1%', '0.5%'],
+	['1%', '-0.5%'],
+	['-1%', '0.5%']
+] as const;
+
+/** The gentle pan a posted drawing gets on the frame (transform only), varying with the step. */
+export function drawingPan(step: number): Motion {
+	const n = DRAWING_PANS.length;
+	const [x, y] = DRAWING_PANS[((Math.trunc(step) % n) + n) % n] ?? DRAWING_PANS[0];
+	const still = 'scale(1) translate(0, 0)';
+	const moved = `scale(${DRAWING_ZOOM}) translate(${x}, ${y})`;
+	return step % 2 === 0 ? { from: still, to: moved } : { from: moved, to: still };
 }

@@ -82,7 +82,7 @@ async function stroke(page: Page, from: [number, number], to: [number, number]) 
 	);
 }
 
-test('wiggle boils the lines, stays out of the strokes, and saves with the drawing @J18.19', async ({
+test('wiggle boils the lines, stays out of the strokes, and saves with the drawing @J18.26', async ({
 	page
 }, info) => {
 	const kidId = `e2e-wiggle-kid-${info.workerIndex}${info.repeatEachIndex}`;
@@ -159,7 +159,7 @@ test('wiggle boils the lines, stays out of the strokes, and saves with the drawi
 	}
 });
 
-test('wiggle holds still for reduced motion @J18.19', async ({ page }) => {
+test('wiggle holds still for reduced motion @J18.26', async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();

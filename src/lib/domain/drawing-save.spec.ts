@@ -78,6 +78,17 @@ describe('saved drawing round trip', () => {
 		const [old] = loadDrawing(serializeDrawing([fill], size, 2), size)!;
 		expect(old).not.toHaveProperty('gap');
 	});
+	it('keeps the pattern of a fill, and rejects an unknown one (hub-t27j.2)', () => {
+		const [c] = loadDrawing(serializeDrawing([{ ...fill, pattern: 'stars' }], size), size)!;
+		expect(isFill(c) && c.pattern).toBe('stars');
+		const [plain] = loadDrawing(serializeDrawing([fill], size), size)!;
+		expect(plain).not.toHaveProperty('pattern');
+		const wire = JSON.parse(serializeDrawing([{ ...fill, pattern: 'dots' }], size));
+		wire.items[0].p = 'plaid';
+		expect(loadDrawing(wire, size)).toBeNull();
+		wire.items[0].p = 7;
+		expect(loadDrawing(wire, size)).toBeNull();
+	});
 	it('loads an empty drawing', () => {
 		expect(loadDrawing(serializeDrawing([], size), size)).toEqual([]);
 	});
