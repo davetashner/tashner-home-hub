@@ -980,6 +980,12 @@
 					"text": "After circling some ink with the Lasso, tap Swim, Fly, Bounce or Launch and it loops across the board while the rest stays still; circle other ink for a second motion. Stop or Undo takes it off. The motion is saved with the drawing and plays again when it is reopened; posting shares the still picture, and reduced-motion settings keep it still.",
 					"status": "built",
 					"beads": ["hub-t27j.5"]
+				},
+				{
+					"id": "J18.32",
+					"text": "Under Magic, tap How to draw and pick a guide (cat, dog, house, car, flower or fish): faint lines show on the board to trace, Next adds the next step with the earlier ones staying faint, Back goes back and Done hides the guide. The guide lines are never ink: they are not erased, saved or posted.",
+					"status": "built",
+					"beads": ["hub-t27j.12"]
 				}
 			]
 		},

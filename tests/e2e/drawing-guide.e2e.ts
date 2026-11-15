@@ -59,7 +59,7 @@ async function stroke(page: Page) {
 	});
 }
 
-test('a how-to-draw guide shows faint steps to trace, never as ink @J18.20', async ({
+test('a how-to-draw guide shows faint steps to trace, never as ink @J18.32', async ({
 	page
 }, info) => {
 	const kidId = `e2e-guide-kid-${info.workerIndex}${info.repeatEachIndex}`;

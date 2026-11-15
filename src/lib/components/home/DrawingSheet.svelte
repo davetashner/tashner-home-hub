@@ -2068,7 +2068,15 @@
 			return;
 		}
 		commit();
-		pagePicking = layersPicking = photoPicking = bgPicking = browsing = artBook = picking = guidePicking = false;
+		pagePicking =
+			layersPicking =
+			photoPicking =
+			bgPicking =
+			browsing =
+			artBook =
+			picking =
+			guidePicking =
+				false;
 		shapePicking = t === 'shapes';
 		if (t !== 'shapes') shapeKind = null;
 		textMode = t === 'text';
@@ -2655,6 +2663,13 @@
 						disabled={monster !== null || liveStatus.active || !blank}
 						data-testid="draw-monster-feet"
 						onclick={() => startGame(4)}>Monster with feet</button
+					>
+					<button
+						type="button"
+						class="{btn} {guide ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={guide !== null}
+						data-testid="draw-guide-open"
+						onclick={() => (guidePicking = true)}>How to draw</button
 					>
 					<button
 						type="button"
