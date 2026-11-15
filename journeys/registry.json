@@ -956,6 +956,12 @@
 					"text": "Replay a saved drawing and tap Make a video: the replay is recorded as a short WebM clip (at most 15 seconds, small file) and a Save video button downloads it. Nothing is uploaded.",
 					"status": "built",
 					"beads": ["hub-t27j.17"]
+				},
+				{
+					"id": "J18.28",
+					"text": "Play the Monster game on one screen: each player draws only their band (head, body, legs, or feet), the earlier parts are folded away except a thin strip to line up the neck, and Reveal! shows the whole monster to post like any drawing.",
+					"status": "built",
+					"beads": ["hub-t27j.9"]
 				}
 			]
 		},

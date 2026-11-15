@@ -218,6 +218,18 @@
 	import type { PhotoRow, SavedRow } from './drawing/rows.js';
 	import LiveShare from './drawing/LiveShare.svelte';
 	import LiveChips from './drawing/LiveChips.svelte';
+	import MonsterBar from './drawing/MonsterBar.svelte';
+	import MonsterOverlay from './drawing/MonsterOverlay.svelte';
+	import {
+		clampToBand,
+		inBand,
+		isDrawing,
+		nextPlayer,
+		reveal as revealMonster,
+		startMonster,
+		type MonsterGame,
+		type MonsterTurns
+	} from '#lib/domain/drawing-monster.js';
 	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
 	import { parseStarInfo, starHint, type StarInfo } from '#lib/domain/drawing-stars.js';
 
@@ -297,6 +309,9 @@
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
 	let kaleidoN = $state<KaleidoscopeCount | null>(null); // kaleidoscope: slices per stroke (hub-t27j.1)
 	let boardSize = $state({ w: 0, h: 0 }); // CSS px, for the mirror guides
+	/** Fold-the-paper monster game in play (hub-t27j.9); null when not playing. */
+	let monster = $state<MonsterGame | null>(null);
+	let monsterFloor = 0; // history depth when this turn began: Undo never reaches into an earlier player's ink
 	/** Text mode: a tap on the board types words; a tap on placed text selects it. */
 	let textMode = $state(false);
 	let textSize = $state<TextSize>('large');
@@ -1181,9 +1196,10 @@
 
 	function sample(e: PointerEvent, previous?: number) {
 		const raw = strokeWidth(tool, e.pointerType, e.pressure, size);
+		const y = (e.clientY - rect.top) / view.scale;
 		return {
 			x: (e.clientX - rect.left) / view.scale,
-			y: (e.clientY - rect.top) / view.scale,
+			y: monster ? clampToBand(monster, y, boardSize.h) : y,
 			w: previous === undefined ? raw : smoothWidth(previous, raw)
 		};
 	}
@@ -1233,6 +1249,11 @@
 		if (!guard.accepts(e.pointerType) || activeId !== -1 || (e.pointerType === 'mouse' && e.button))
 			return;
 		e.preventDefault();
+		if (isDrawing(monster)) {
+			// Only the current band takes ink: taps elsewhere, fills and text are ignored.
+			const y = (e.clientY - canvas.getBoundingClientRect().top) / view.scale;
+			if (bucket || textMode || !inBand(monster, y, boardSize.h)) return;
+		}
 		if (dropper) {
 			// Sample before the drawing layer is revealed, so hidden layers are left out of the pick.
 			try {
@@ -1447,8 +1468,27 @@
 
 	/** Undo/redo stack for the whole board (see drawing-history.ts). */
 	let history = $state.raw<History<DrawItem>>(emptyHistory());
-	const undoable = $derived(canUndo(history));
+	const undoable = $derived(canUndo(history) && (!monster || history.undo.length > monsterFloor));
 	const redoable = $derived(canRedo(history));
+
+	function startGame(turns: MonsterTurns) {
+		commit();
+		monster = startMonster(turns);
+		monsterFloor = history.undo.length;
+		bucket = textMode = false;
+	}
+	function nextMonsterTurn() {
+		if (!monster) return;
+		commit();
+		monster = nextPlayer(monster);
+		monsterFloor = history.undo.length;
+		history = { ...history, redo: [] };
+	}
+	function revealMonsterGame() {
+		if (!monster) return;
+		commit();
+		monster = revealMonster(monster);
+	}
 	/** True when anything differs from a fresh board, so Clear all is not greyed out for a page alone. */
 	const dirty = $derived(count > 0 || page !== null || photoId !== null || bg !== null);
 	let clearToast = $state(false);
@@ -2035,6 +2075,9 @@
 					{/each}
 				</svg>
 			{/if}
+			{#if monster}
+				<MonsterOverlay game={monster} height={boardSize.h} />
+			{/if}
 			{#if sel}
 				<svg class="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
 					<polygon
@@ -2184,6 +2227,14 @@
 					data-testid="draw-fit"
 					onclick={() => (view = FIT)}>Fit</button
 				>
+				{#if monster}
+					<MonsterBar
+						game={monster}
+						onnext={nextMonsterTurn}
+						onreveal={revealMonsterGame}
+						onend={() => (monster = null)}
+					/>
+				{/if}
 			</div>
 		{/if}
 		{#if promptDate && prompt && !promptHidden}
@@ -2375,7 +2426,7 @@
 					<button
 						type="button"
 						class="{btn} border-line bg-surface"
-						disabled={!dirty || liveStatus.active}
+						disabled={!dirty || liveStatus.active || isDrawing(monster)}
 						data-testid="draw-clear"
 						onclick={clear}>Clear all</button
 					>
@@ -2404,6 +2455,21 @@
 							kaleidoN = nextKaleidoscope(kaleidoN);
 							mirrorN = null;
 						}}>Kaleidoscope: {kaleidoscopeLabel(kaleidoN)}</button
+					>
+					<button
+						type="button"
+						class="{btn} {monster ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={monster !== null}
+						disabled={monster !== null || liveStatus.active || !blank}
+						data-testid="draw-monster"
+						onclick={() => startGame(3)}>Monster game</button
+					>
+					<button
+						type="button"
+						class="{btn} border-line bg-surface"
+						disabled={monster !== null || liveStatus.active || !blank}
+						data-testid="draw-monster-feet"
+						onclick={() => startGame(4)}>Monster with feet</button
 					>
 					<button
 						type="button"
@@ -2559,7 +2625,7 @@
 				<button
 					type="button"
 					class="{btn} border-line bg-surface"
-					disabled={blank}
+					disabled={blank || isDrawing(monster)}
 					data-testid="draw-save"
 					onclick={save}>Save</button
 				>
@@ -2570,7 +2636,7 @@
 				{/if}
 				<Button
 					size="kid"
-					disabled={blank}
+					disabled={blank || isDrawing(monster)}
 					onclick={() => {
 						chooseFor = 'post';
 						choosing = true;
