@@ -270,6 +270,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J18.24 | Turn on Smooth lines and a wobbly freehand line comes out steadier, ending right where you lift your finger; it is off until you turn it on and is remembered on this device. | built | wall | `drawing-smooth` |
 | J18.25 | Pick Lasso and circle some of the ink: the lines inside get a dashed box. Drag to move them, pull the corner to resize, or tap Copy for a duplicate; each is one Undo step. | built | wall | `drawing-lasso` |
 | J18.26 | In My drawings, open Art book and pick a kid: their posted drawings sit by month, newest first, and Then and now shows their earliest drawing beside their latest, or any two months side by side; a kid with no drawings gets a friendly empty book. | built | wall | `drawing-art-book` |
+| J18.27 | Replay a saved drawing and tap Make a video: the replay is recorded as a short WebM clip (at most 15 seconds, small file) and a Save video button downloads it. Nothing is uploaded. | built | wall | `drawing-replay` |
 | **J19** | **Sitter mode** (Parent at the wall) | | | |
 | J19.1 | A grown-up fills in the info card: emergency contacts, address, allergies, bedtimes, house rules, pets with the vet and pet emergency hospital, Wi-Fi and notes for tonight. | built | wall | untested: undefined |
 | J19.2 | Start a sitter session now or on a schedule, with an optional sitter name, 4-digit PIN and permissions. | built | wall | untested: undefined |

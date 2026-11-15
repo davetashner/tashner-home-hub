@@ -950,6 +950,12 @@
 					"text": "In My drawings, open Art book and pick a kid: their posted drawings sit by month, newest first, and Then and now shows their earliest drawing beside their latest, or any two months side by side; a kid with no drawings gets a friendly empty book.",
 					"status": "built",
 					"beads": ["hub-t27j.15"]
+				},
+				{
+					"id": "J18.27",
+					"text": "Replay a saved drawing and tap Make a video: the replay is recorded as a short WebM clip (at most 15 seconds, small file) and a Save video button downloads it. Nothing is uploaded.",
+					"status": "built",
+					"beads": ["hub-t27j.17"]
 				}
 			]
 		},
