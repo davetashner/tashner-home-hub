@@ -4,6 +4,7 @@
  */
 
 import type { Mirror } from './drawing-mirror.js';
+import type { Motion } from './drawing-animate.js';
 import { isFill, type FillItem } from './drawing-fill.js';
 import { BRUSHES, isBrushTool, type BrushTool } from './drawing-brushes.js';
 import { stampParts } from './drawing-stamps.js';
@@ -78,6 +79,8 @@ export interface Stroke {
 	alpha?: number;
 	/** Seeds a textured brush's grain (hub-cn7.19); absent on plain pens and older saves (0). */
 	seed?: number;
+	/** Tap to animate (hub-t27j.5): the loop this ink plays on the board; the points never change. */
+	motion?: Motion;
 }
 
 export const PEN_MIN_WIDTH = 2;

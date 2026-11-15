@@ -36,9 +36,11 @@
 		onleave: (items: DrawItem[]) => void;
 		/** A short message for the sheet's status line. */
 		onnote: (message: string) => void;
+		/** A guess-game frame (hub-t27j.10): JSON of the public round, or `null` when it ended. */
+		ongame?: (raw: string) => void;
 		status: { active: boolean; online: boolean; busy: boolean };
 	}
-	let { join, size, dpr, onchange, onleave, onnote, status }: Props = $props();
+	let { join, size, dpr, onchange, onleave, onnote, ongame, status }: Props = $props();
 
 	const JSON_HEADERS = { 'content-type': 'application/json' };
 
@@ -52,6 +54,9 @@
 	let gapTimer: ReturnType<typeof setTimeout> | undefined;
 	let cache: Record<number, DrawItem[]> = {};
 	let cacheSize = '';
+
+	/** This board's session and author id, or null when not sharing. */
+	export const ids = () => (remote ? { session, me } : null);
 
 	/** Remote ink for the canvas, decoded for its current size. */
 	export function items(): DrawItem[] {
@@ -156,7 +161,10 @@
 			url: '/api/events',
 			topics: ['drawing'],
 			create: (url) => new EventSource(url),
-			onEvent: (_t, data) => apply([entryFor(data, session)]),
+			onEvent: (_t, data) => {
+				if (data.session === session && typeof data.game === 'string') ongame?.(data.game);
+				apply([entryFor(data, session)]);
+			},
 			onStatus: (up) => (status.online = up),
 			onOpen: () => {
 				void refetch();

@@ -20,6 +20,16 @@ import {
 	type LiveBoard,
 	type LiveEntry
 } from '#lib/domain/drawing-live.js';
+import {
+	dropped,
+	guess,
+	publicRound,
+	startRound,
+	touch,
+	type GuessResult,
+	type PublicRound,
+	type Round
+} from '#lib/domain/drawing-guess.js';
 import { publish } from './events.js';
 import { LedgerError } from './ledger.js';
 
@@ -32,6 +42,8 @@ interface Session {
 	id: string;
 	board: LiveBoard;
 	lastActive: number;
+	/** The draw-and-guess round in progress, if any (hub-t27j.10). */
+	game: Round | null;
 }
 
 const sessions = new Map<string, Session>();
@@ -54,7 +66,7 @@ export function openSession(now = Date.now()): { id: string; seq: number } {
 	if (sessions.size >= MAX_SESSIONS)
 		throw new LedgerError('conflict', 'Too many live drawing sessions are open');
 	const id = randomBytes(4).toString('hex');
-	sessions.set(id, { id, board: emptyBoard(), lastActive: now });
+	sessions.set(id, { id, board: emptyBoard(), lastActive: now, game: null });
 	// Invitation for the other devices: `{ session, started }`, no entry (hub-cn7.30).
 	publish('drawing', { session: id, started: '1' });
 	return { id, seq: 0 };
@@ -89,3 +101,67 @@ export function postEvent(
 
 /** Test hook: forget every session. */
 export const resetSessions = () => sessions.clear();
+
+export interface GameReply {
+	/** What every board may see; null when no round is on. */
+	game: PublicRound | null;
+	/** The secret word, sent only to the drawer. */
+	word?: string;
+	result?: GuessResult;
+}
+
+const reply = (r: Round | null, author: string, result?: GuessResult): GameReply => ({
+	game: r ? publicRound(r) : null,
+	...(r && r.drawer === author ? { word: r.word } : {}),
+	...(result ? { result } : {})
+});
+
+const announce = (id: string, r: Round | null) =>
+	publish('drawing', { session: id, game: JSON.stringify(r ? publicRound(r) : null) });
+
+/**
+ * Draw-and-guess actions on a session: `start` (a first round, or a new one with the roles
+ * swapped), `guess` (`index` into the choices), `ping` (a board checking in) and `leave`.
+ * The word never leaves the server except in the drawer's own reply. A round ends when either
+ * player leaves or goes quiet; the next ping from the other board finds out.
+ */
+export function gameAction(
+	id: string,
+	author: unknown,
+	body: Record<string, unknown>,
+	now = Date.now(),
+	rand: () => number = Math.random
+): GameReply {
+	if (!isAuthor(author)) throw new LedgerError('invalid', 'author must be a short string');
+	const s = get(id, now);
+	const end = () => {
+		if (s.game) announce(id, null);
+		s.game = null;
+		return reply(null, author);
+	};
+	switch (body.action) {
+		case 'start':
+			s.game = startRound(s.game, author, now, rand);
+			announce(id, s.game);
+			return reply(s.game, author);
+		case 'leave':
+			return end();
+		case 'ping': {
+			if (!s.game) return reply(null, author);
+			const before = s.game.v;
+			s.game = touch(s.game, author, now);
+			if (dropped(s.game, now)) return end();
+			if (s.game.v !== before) announce(id, s.game);
+			return reply(s.game, author);
+		}
+		case 'guess': {
+			if (!s.game) return reply(null, author);
+			const r = guess(s.game, author, body.index);
+			s.game = r.round;
+			if (r.result !== 'ignored') announce(id, s.game);
+			return reply(s.game, author, r.result);
+		}
+		default:
+			throw new LedgerError('invalid', 'unknown game action');
+	}
+}
