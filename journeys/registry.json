@@ -971,6 +971,12 @@
 				},
 				{
 					"id": "J18.30",
+					"text": "Tap Wiggle and the lines boil like a hand-drawn cartoon (still if reduced motion is on); the strokes underneath never change, Undo works, it is still when off, and a drawing saved with Wiggle wiggles again when reopened.",
+					"status": "built",
+					"beads": ["hub-t27j.4"]
+				},
+				{
+					"id": "J18.31",
 					"text": "Post a drawing, then dismiss its note (or let it expire): the drawing stays in that kid's art book. A parent can tap Remove under a drawing to take it out of the book for good.",
 					"status": "built",
 					"beads": ["hub-t27j.23"]

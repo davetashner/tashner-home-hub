@@ -141,7 +141,7 @@ test('a kid with no drawings gets a friendly empty book', async ({ page }) => {
 
 const DATA_URL = `data:image/png;base64,${PNG.toString('base64')}`;
 
-test('a posted drawing stays in the art book after its note is dismissed; an adult can remove it @J18.30', async ({
+test('a posted drawing stays in the art book after its note is dismissed; an adult can remove it @J18.31', async ({
 	page,
 	browser
 }, info) => {
