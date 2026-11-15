@@ -4,6 +4,8 @@
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import ReplayPlayer from './drawing/ReplayPlayer.svelte';
 	import PromptBanner from './drawing/PromptBanner.svelte';
+	import ChallengeBanner from './drawing/ChallengeBanner.svelte';
+	import { visibleChallenges, type Challenge } from '#lib/domain/drawing-challenges.js';
 	import {
 		nextPromptMemory,
 		parsePromptMemory,
@@ -1746,6 +1748,7 @@
 
 	function postAs(p: Member) {
 		if (chooseFor === 'save') return saveAs(p.id);
+		if (challenges.some((c) => c.memberId === p.id)) finishChallenge({ memberId: p.id });
 		// A drawing made while the daily prompt is showing earns its star; the server decides.
 		if (promptDate && prompt && !promptHidden)
 			void fetch('/api/drawing-stars', {
@@ -1976,6 +1979,32 @@
 		blank = isBlank(strokes);
 		redraw();
 	}
+	// Grown-up challenges (hub-t27j.11): a kid's own prompt replaces the daily one until done or posted.
+	let challenges = $state<Challenge[]>([]);
+	let laterIds = $state<string[]>([]);
+	const shownChallenges = $derived(
+		visibleChallenges(challenges, people).filter((c) => !laterIds.includes(c.id))
+	);
+	function loadChallenges() {
+		void fetch('/api/settings/drawing-challenges')
+			.then(async (res) => {
+				const body: unknown = res.ok ? await res.json() : null;
+				if (Array.isArray(body)) challenges = body as Challenge[];
+			})
+			.catch(() => {});
+	}
+	/** Clears at once, then tells the server (a failure only means it shows again next time). */
+	function finishChallenge(payload: { id: string } | { memberId: string }) {
+		challenges =
+			'id' in payload
+				? challenges.filter((c) => c.id !== payload.id)
+				: challenges.filter((c) => c.memberId !== payload.memberId);
+		void fetch('/api/settings/drawing-challenges/done', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(payload)
+		}).catch(() => {});
+	}
 	function hidePrompt() {
 		promptHidden = true;
 		try {
@@ -1987,6 +2016,7 @@
 
 	onMount(() => {
 		loadPrompt();
+		loadChallenges();
 		snapOn = loadSnapPref();
 		smoothOn = loadSmoothPref();
 		ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
@@ -2418,7 +2448,15 @@
 				{/if}
 			</div>
 		{/if}
-		{#if promptDate && prompt && !promptHidden}
+		{#each shownChallenges as c (c.id)}
+			<ChallengeBanner
+				name={people.find((p) => p.id === c.memberId)?.name ?? ''}
+				text={c.text}
+				ondone={() => finishChallenge({ id: c.id })}
+				onlater={() => (laterIds = [...laterIds, c.id])}
+			/>
+		{/each}
+		{#if promptDate && prompt && !promptHidden && !shownChallenges.length}
 			{@const shown = prompt}
 			<PromptBanner
 				prompt={shown}
