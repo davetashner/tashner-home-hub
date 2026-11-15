@@ -83,7 +83,7 @@ async function edgeY(page: Page): Promise<{ x: number; y: number }> {
 	return { x: box!.x + cx - 300, y: box!.y + cy - 80 }; // thick 160: top edge is 80 above center
 }
 
-test('a ruler straightens strokes along its edge, moves and turns, and is never ink @J18.20', async ({
+test('a ruler straightens strokes along its edge, moves and turns, and is never ink @J18.34', async ({
 	page
 }, info) => {
 	const kidId = `e2e-ruler-kid-${info.workerIndex}${info.repeatEachIndex}`;
