@@ -74,6 +74,13 @@
 	import { compositePixel, pixelAt, rgbCss, type Rgba } from '#lib/domain/drawing-eyedropper.js';
 	import EyedropperPreview from '#lib/components/home/drawing/EyedropperPreview.svelte';
 	import { FILL_GAP_CSS, isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
+	import {
+		PATTERN_CELL_CSS,
+		patternTile,
+		type FillStyle,
+		type PatternId
+	} from '#lib/domain/drawing-pattern.js';
+	import FillStylePicker from './drawing/FillStylePicker.svelte';
 	import TextEditor from '#lib/components/home/drawing/TextEditor.svelte';
 	import TextPanel from '#lib/components/home/drawing/TextPanel.svelte';
 	import {
@@ -251,6 +258,7 @@
 	/** The shape or stamp the next drag places; null means freehand drawing. */
 	let shapeKind = $state<ShapeKind | null>(null);
 	let filled = $state(false);
+	let fillStyle = $state<FillStyle>('solid'); // what the bucket paints (hub-t27j.2)
 	let lineStyle = $state<LineStyle>('solid'); // outline style of the next shape (hub-cn7.17)
 	/** Eyedropper mode (hub-cn7.14): a tap or drag picks the color under the finger, then it switches off. */
 	let dropper = $state(false);
@@ -815,6 +823,20 @@
 		ctx.restore();
 	}
 
+	/** A canvas pattern of `id` in `color`, anchored at the canvas origin so tiles line up. */
+	function patternPaint(id: PatternId, color: string): CanvasPattern | string {
+		const size = Math.max(4, Math.round(PATTERN_CELL_CSS * dpr));
+		const tile = document.createElement('canvas');
+		tile.width = tile.height = size;
+		const t = tile.getContext('2d');
+		if (!t) return token(color);
+		t.putImageData(new ImageData(patternTile(id, size, [0, 0, 0]), size, size), 0, 0);
+		t.globalCompositeOperation = 'source-in';
+		t.fillStyle = token(color);
+		t.fillRect(0, 0, size, size);
+		return ctx.createPattern(tile, 'repeat') ?? token(color);
+	}
+
 	/** Replay a fill as row runs; if the canvas was resized since, flood again from the same spot. */
 	function paintFill(f: FillItem) {
 		let spans = f.spans;
@@ -827,7 +849,8 @@
 				(f.y * canvas.height) / f.h,
 				f.color,
 				f.tolerance,
-				((f.gap ?? 0) * canvas.width) / f.w
+				((f.gap ?? 0) * canvas.width) / f.w,
+				f.pattern
 			);
 			if (!again) return;
 			Object.assign(f, again);
@@ -837,7 +860,7 @@
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.globalCompositeOperation = 'source-over';
 		ctx.globalAlpha = 1;
-		ctx.fillStyle = token(f.color);
+		ctx.fillStyle = f.pattern ? patternPaint(f.pattern, f.color) : token(f.color);
 		for (let i = 0; i < spans.length; i += 3)
 			ctx.fillRect(spans[i + 1], spans[i], spans[i + 2] - spans[i + 1] + 1, 1);
 		ctx.restore();
@@ -1108,7 +1131,8 @@
 				((e.clientY - rect.top) / view.scale) * dpr,
 				color,
 				undefined,
-				FILL_GAP_CSS * dpr
+				FILL_GAP_CSS * dpr,
+				fillStyle === 'solid' ? undefined : fillStyle
 			);
 			if (item) {
 				strokes.push(item);
@@ -2168,6 +2192,8 @@
 						onsize={setTextSize}
 						ondone={() => finishText(editing?.value ?? '')}
 					/>
+				{:else if rail === 'fill'}
+					<FillStylePicker value={fillStyle} onpick={(v) => (fillStyle = v)} />
 				{:else if rail === 'pick'}
 					<p class="w-full text-body text-ink-muted">Tap the drawing to pick a color.</p>
 				{/if}
