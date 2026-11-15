@@ -191,6 +191,7 @@
 	import LiveShare from './drawing/LiveShare.svelte';
 	import LiveChips from './drawing/LiveChips.svelte';
 	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
+	import { parseStarInfo, starHint, type StarInfo } from '#lib/domain/drawing-stars.js';
 
 	interface Member {
 		id: string;
@@ -1373,8 +1374,29 @@
 
 	function postAs(p: Member) {
 		if (chooseFor === 'save') return saveAs(p.id);
+		// A drawing made while the daily prompt is showing earns its star; the server decides.
+		if (promptDate && prompt && !promptHidden)
+			void fetch('/api/drawing-stars', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ memberId: p.id })
+			}).catch(() => {});
 		onpost(p.id, exportPng());
 	}
+
+	// Prompt stars + streak (hub-t27j.8): read when "Who drew it?" opens, shown beside each name.
+	let starsOn = $state(false);
+	let starInfo = $state<Record<string, StarInfo>>({});
+	$effect(() => {
+		if (!choosing || chooseFor === 'save') return;
+		void fetch('/api/drawing-stars')
+			.then(async (res) => {
+				const body = res.ok ? await res.json() : null;
+				starsOn = body?.enabled === true;
+				starInfo = parseStarInfo(body);
+			})
+			.catch(() => {});
+	});
 
 	/** A small PNG for the My drawings list. */
 	function thumbnail(): string {
@@ -1933,7 +1955,15 @@
 						onclick={() => postAs(p)}
 					>
 						<MemberAvatar name={p.name} color={memberColor(p.color)} avatar={p.avatar} size="kid" />
-						<span>{p.name}</span>
+						<span class="flex flex-col items-start">
+							<span>{p.name}</span>
+							{#if starsOn && chooseFor !== 'save'}
+								{@const hint = starHint(starInfo[p.id], !!promptDate && !!prompt && !promptHidden)}
+								{#if hint}<span class="text-body text-ink-muted" data-testid="draw-author-hint"
+										>{hint}</span
+									>{/if}
+							{/if}
+						</span>
 					</button>
 				{/each}
 			</div>
