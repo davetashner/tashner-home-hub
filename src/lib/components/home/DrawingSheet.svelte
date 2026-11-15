@@ -21,8 +21,8 @@
 		type View
 	} from '#lib/domain/drawing-zoom.js';
 	import {
-		PAGE_LABELS,
 		pageFit,
+		pageLabel,
 		pageLineWidth,
 		pagePaths,
 		type PageId
@@ -47,6 +47,7 @@
 	import { dashPattern, type LineStyle } from '#lib/domain/drawing-dash.js';
 	import { containRect, photoSize, photoUrl } from '#lib/domain/drawing-photo.js';
 	import {
+		centeredKaleidoscope,
 		centeredMirror,
 		mirrorGuides,
 		mirrorLabel,
@@ -54,6 +55,12 @@
 		nextMirror,
 		type MirrorCount
 	} from '#lib/domain/drawing-mirror.js';
+	import {
+		kaleidoscopeGuides,
+		kaleidoscopeLabel,
+		nextKaleidoscope,
+		type KaleidoscopeCount
+	} from '#lib/domain/drawing-kaleidoscope.js';
 	import {
 		addBlank,
 		canAdd,
@@ -74,6 +81,13 @@
 	import { compositePixel, pixelAt, rgbCss, type Rgba } from '#lib/domain/drawing-eyedropper.js';
 	import EyedropperPreview from '#lib/components/home/drawing/EyedropperPreview.svelte';
 	import { FILL_GAP_CSS, isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
+	import {
+		PATTERN_CELL_CSS,
+		patternTile,
+		type FillStyle,
+		type PatternId
+	} from '#lib/domain/drawing-pattern.js';
+	import FillStylePicker from './drawing/FillStylePicker.svelte';
 	import TextEditor from '#lib/components/home/drawing/TextEditor.svelte';
 	import TextPanel from '#lib/components/home/drawing/TextPanel.svelte';
 	import {
@@ -103,6 +117,12 @@
 		saveSnapPref,
 		snapStroke
 	} from '#lib/domain/drawing-snap.js';
+	import {
+		createSmoother,
+		loadSmoothPref,
+		saveSmoothPref,
+		type Smoother
+	} from '#lib/domain/drawing-smooth.js';
 	import {
 		clampPoint,
 		handlePoints,
@@ -198,6 +218,7 @@
 	import LiveShare from './drawing/LiveShare.svelte';
 	import LiveChips from './drawing/LiveChips.svelte';
 	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
+	import { parseStarInfo, starHint, type StarInfo } from '#lib/domain/drawing-stars.js';
 
 	interface Member {
 		id: string;
@@ -265,6 +286,7 @@
 	/** The shape or stamp the next drag places; null means freehand drawing. */
 	let shapeKind = $state<ShapeKind | null>(null);
 	let filled = $state(false);
+	let fillStyle = $state<FillStyle>('solid'); // what the bucket paints (hub-t27j.2)
 	let lineStyle = $state<LineStyle>('solid'); // outline style of the next shape (hub-cn7.17)
 	/** Eyedropper mode (hub-cn7.14): a tap or drag picks the color under the finger, then it switches off. */
 	let dropper = $state(false);
@@ -272,6 +294,7 @@
 	/** Paint-bucket mode: a tap fills the closed area under it. */
 	let bucket = $state(false);
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
+	let kaleidoN = $state<KaleidoscopeCount | null>(null); // kaleidoscope: slices per stroke (hub-t27j.1)
 	let boardSize = $state({ w: 0, h: 0 }); // CSS px, for the mirror guides
 	/** Text mode: a tap on the board types words; a tap on placed text selects it. */
 	let textMode = $state(false);
@@ -408,7 +431,7 @@
 			? photoId
 				? 'Photo'
 				: page
-					? PAGE_LABELS[page]
+					? pageLabel(page)
 					: LAYER_LABELS[l]
 			: LAYER_LABELS[l];
 	let dpr = 1;
@@ -934,6 +957,20 @@
 		ctx.restore();
 	}
 
+	/** A canvas pattern of `id` in `color`, anchored at the canvas origin so tiles line up. */
+	function patternPaint(id: PatternId, color: string): CanvasPattern | string {
+		const size = Math.max(4, Math.round(PATTERN_CELL_CSS * dpr));
+		const tile = document.createElement('canvas');
+		tile.width = tile.height = size;
+		const t = tile.getContext('2d');
+		if (!t) return token(color);
+		t.putImageData(new ImageData(patternTile(id, size, [0, 0, 0]), size, size), 0, 0);
+		t.globalCompositeOperation = 'source-in';
+		t.fillStyle = token(color);
+		t.fillRect(0, 0, size, size);
+		return ctx.createPattern(tile, 'repeat') ?? token(color);
+	}
+
 	/** Replay a fill as row runs; if the canvas was resized since, flood again from the same spot. */
 	function paintFill(f: FillItem) {
 		let spans = f.spans;
@@ -946,7 +983,8 @@
 				(f.y * canvas.height) / f.h,
 				f.color,
 				f.tolerance,
-				((f.gap ?? 0) * canvas.width) / f.w
+				((f.gap ?? 0) * canvas.width) / f.w,
+				f.pattern
 			);
 			if (!again) return;
 			Object.assign(f, again);
@@ -956,7 +994,7 @@
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.globalCompositeOperation = 'source-over';
 		ctx.globalAlpha = 1;
-		ctx.fillStyle = token(f.color);
+		ctx.fillStyle = f.pattern ? patternPaint(f.pattern, f.color) : token(f.color);
 		for (let i = 0; i < spans.length; i += 3)
 			ctx.fillRect(spans[i + 1], spans[i], spans[i + 2] - spans[i + 1] + 1, 1);
 		ctx.restore();
@@ -1228,7 +1266,8 @@
 				((e.clientY - rect.top) / view.scale) * dpr,
 				color,
 				undefined,
-				FILL_GAP_CSS * dpr
+				FILL_GAP_CSS * dpr,
+				fillStyle === 'solid' ? undefined : fillStyle
 			);
 			if (item) {
 				strokes.push(item);
@@ -1247,15 +1286,22 @@
 			redraw();
 			return;
 		}
+		smoother = smoothOn ? createSmoother() : null;
+		const first = sample(e);
+		smoother?.push(first);
 		current = {
 			tool,
 			color,
-			points: [sample(e)],
+			points: [first],
 			...(isAlphaTool(tool) && isTranslucent(alpha) ? { alpha } : {}),
 			...(isBrushTool(tool) ? { seed: newSeed() } : {})
 		};
-		if (mirrorN)
-			current.mirror = centeredMirror(mirrorN, { w: canvas.width / dpr, h: canvas.height / dpr });
+		if (mirrorN || kaleidoN) {
+			const size = { w: canvas.width / dpr, h: canvas.height / dpr };
+			current.mirror = kaleidoN
+				? centeredKaleidoscope(kaleidoN, size)
+				: centeredMirror(mirrorN!, size);
+		}
 		if (translucent(current) || whole(current.tool)) redraw();
 		else segment(current, 0);
 	}
@@ -1275,6 +1321,10 @@
 			...placement(kind, from, to)
 		};
 	}
+
+	/** Smooth lines (hub-t27j.7): freehand only, so shapes, stamps, fill and text never see it. */
+	let smoothOn = $state(false);
+	let smoother: Smoother | null = null;
 
 	function move(e: PointerEvent) {
 		guard.see(e.pointerType); // a hovering pen is noticed before it touches
@@ -1296,7 +1346,10 @@
 		const events = e.getCoalescedEvents?.() ?? [];
 		for (const c of events.length ? events : [e]) {
 			const last = current.points[current.points.length - 1];
-			current.points.push(sample(c, last.w));
+			const next = sample(c, last.w);
+			const pt = smoother ? smoother.push(next) : next;
+			if (!pt) continue;
+			current.points.push(pt);
 			if (!translucent(current) && !whole(current.tool))
 				segment(current, current.points.length - 1);
 		}
@@ -1347,6 +1400,13 @@
 		}
 		if (e.pointerId !== activeId || !current) return;
 		activeId = -1;
+		const tail = smoother?.finish();
+		smoother = null;
+		if (tail) {
+			current.points.push(tail);
+			if (!translucent(current) && !whole(current.tool))
+				segment(current, current.points.length - 1);
+		}
 		strokes.push(current);
 		history = recordAdd(history, current);
 		if (current.tool !== 'eraser') recent = pushRecent(recent, current.color);
@@ -1484,8 +1544,29 @@
 
 	function postAs(p: Member) {
 		if (chooseFor === 'save') return saveAs(p.id);
+		// A drawing made while the daily prompt is showing earns its star; the server decides.
+		if (promptDate && prompt && !promptHidden)
+			void fetch('/api/drawing-stars', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ memberId: p.id })
+			}).catch(() => {});
 		onpost(p.id, exportPng());
 	}
+
+	// Prompt stars + streak (hub-t27j.8): read when "Who drew it?" opens, shown beside each name.
+	let starsOn = $state(false);
+	let starInfo = $state<Record<string, StarInfo>>({});
+	$effect(() => {
+		if (!choosing || chooseFor === 'save') return;
+		void fetch('/api/drawing-stars')
+			.then(async (res) => {
+				const body = res.ok ? await res.json() : null;
+				starsOn = body?.enabled === true;
+				starInfo = parseStarInfo(body);
+			})
+			.catch(() => {});
+	});
 
 	/** A small PNG for the My drawings list. */
 	function thumbnail(): string {
@@ -1698,6 +1779,7 @@
 	onMount(() => {
 		loadPrompt();
 		snapOn = loadSnapPref();
+		smoothOn = loadSmoothPref();
 		ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 		linesCtx = linesCanvas.getContext('2d') as CanvasRenderingContext2D;
 		photoCtx = photoCanvas.getContext('2d') as CanvasRenderingContext2D;
@@ -1904,13 +1986,13 @@
 				aria-hidden="true"
 				data-testid="draw-lines"
 			></canvas>
-			{#if mirrorN}
+			{#if mirrorN || kaleidoN}
 				<svg
 					class="pointer-events-none absolute inset-0 size-full text-ink-muted opacity-50"
 					aria-hidden="true"
 					data-testid="draw-mirror-guides"
 				>
-					{#each mirrorGuides(mirrorN, boardSize) as g, gi (gi)}
+					{#each kaleidoN ? kaleidoscopeGuides(kaleidoN, boardSize) : mirrorGuides(mirrorN!, boardSize) as g, gi (gi)}
 						<line
 							x1={g.x1}
 							y1={g.y1}
@@ -2094,7 +2176,15 @@
 						onclick={() => postAs(p)}
 					>
 						<MemberAvatar name={p.name} color={memberColor(p.color)} avatar={p.avatar} size="kid" />
-						<span>{p.name}</span>
+						<span class="flex flex-col items-start">
+							<span>{p.name}</span>
+							{#if starsOn && chooseFor !== 'save'}
+								{@const hint = starHint(starInfo[p.id], !!promptDate && !!prompt && !promptHidden)}
+								{#if hint}<span class="text-body text-ink-muted" data-testid="draw-author-hint"
+										>{hint}</span
+									>{/if}
+							{/if}
+						</span>
 					</button>
 				{/each}
 			</div>
@@ -2220,8 +2310,7 @@
 						class="{btn} {page ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
 						aria-pressed={page !== null}
 						data-testid="draw-pages-open"
-						onclick={() => (pagePicking = true)}
-						>{page ? PAGE_LABELS[page] : 'Coloring pages'}</button
+						onclick={() => (pagePicking = true)}>{page ? pageLabel(page) : 'Coloring pages'}</button
 					>
 					<button
 						type="button"
@@ -2263,7 +2352,20 @@
 						onclick={() => {
 							commit();
 							mirrorN = nextMirror(mirrorN);
+							kaleidoN = null;
 						}}>Mirror: {mirrorLabel(mirrorN)}</button
+					>
+					<button
+						type="button"
+						class="{btn} {kaleidoN ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={kaleidoN !== null}
+						data-testid="draw-kaleido"
+						data-kaleido={kaleidoN ?? 0}
+						onclick={() => {
+							commit();
+							kaleidoN = nextKaleidoscope(kaleidoN);
+							mirrorN = null;
+						}}>Kaleidoscope: {kaleidoscopeLabel(kaleidoN)}</button
 					>
 					<button
 						type="button"
@@ -2341,6 +2443,8 @@
 						onsize={setTextSize}
 						ondone={() => finishText(editing?.value ?? '')}
 					/>
+				{:else if rail === 'fill'}
+					<FillStylePicker value={fillStyle} onpick={(v) => (fillStyle = v)} />
 				{:else if rail === 'pick'}
 					<p class="w-full text-body text-ink-muted">Tap the drawing to pick a color.</p>
 				{:else if rail === 'lasso'}
@@ -2388,6 +2492,17 @@
 							snapOn = !snapOn;
 							saveSnapPref(snapOn);
 						}}>Snap shapes: {snapOn ? 'On' : 'Off'}</button
+					>
+					<button
+						type="button"
+						class="{btn} {smoothOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={smoothOn}
+						data-testid="draw-smooth"
+						onclick={() => {
+							commit();
+							smoothOn = !smoothOn;
+							saveSmoothPref(smoothOn);
+						}}>Smooth lines: {smoothOn ? 'On' : 'Off'}</button
 					>
 				{/if}
 			{/if}

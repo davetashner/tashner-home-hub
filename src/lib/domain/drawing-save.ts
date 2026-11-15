@@ -10,6 +10,7 @@ import { isDashStyle, type DashStyle } from './drawing-dash.js';
 import { isPhotoId } from './drawing-photo.js';
 import { PALETTE, clampAlpha, isTranslucent } from './drawing-colors.js';
 import { TEXT_MAX_CHARS, TEXT_MAX_SIZE, isText, type TextItem } from './drawing-text.js';
+import { isPatternId, type PatternId } from './drawing-pattern.js';
 import { FILL_TOLERANCE, isFill, type FillItem } from './drawing-fill.js';
 import {
 	ALL_SHAPES,
@@ -50,7 +51,7 @@ type WireShape = {
 	d?: DashStyle;
 };
 /** `g`: the gap the fill bridged, in saved px (hub-h3q); absent on older saves and plain floods. */
-type WireFill = { k: 1; c: string; x: number; y: number; o: number; g?: number };
+type WireFill = { k: 1; c: string; x: number; y: number; o: number; g?: number; p?: PatternId };
 /** Text (hub-cn7.23): `tx` is the text, `z` the letter size, `b` the box, `r` the turn. */
 type WireText = { tx: string; c: string; z: number; b: number[]; r?: number };
 type WireItem = WireStroke | WireShape | WireFill | WireText;
@@ -108,7 +109,8 @@ export function serializeDrawing(
 				x: X(it.x / dpr),
 				y: Y(it.y / dpr),
 				o: it.tolerance,
-				...(it.gap ? { g: K(it.gap / dpr) } : {})
+				...(it.gap ? { g: K(it.gap / dpr) } : {}),
+				...(it.pattern ? { p: it.pattern } : {})
 			};
 		if (isText(it))
 			return {
@@ -185,6 +187,7 @@ function parseWire(json: unknown): Wire | null {
 		if ('k' in it) {
 			if (it.k !== 1 || !num(it.x) || !num(it.y) || !num(it.o)) return null;
 			if (it.g !== undefined && !(num(it.g) && it.g >= 0)) return null;
+			if (it.p !== undefined && !isPatternId(it.p)) return null;
 		} else if ('tx' in it) {
 			const b = it.b;
 			if (
@@ -280,6 +283,7 @@ export function loadFrames(json: unknown, to: Size): DrawItem[][] | null {
 				h: FILL_REF,
 				tolerance: it.o || FILL_TOLERANCE,
 				...(it.g ? { gap: ((it.g * s) / to.w) * FILL_REF } : {}),
+				...(it.p ? { pattern: it.p } : {}),
 				spans: new Uint32Array(0)
 			};
 			return f;

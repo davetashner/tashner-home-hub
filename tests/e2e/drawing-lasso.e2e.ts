@@ -87,7 +87,7 @@ const inkBox = (page: Page) =>
 const frame = async (page: Page) =>
 	(await page.getByTestId('draw-canvas').getAttribute('data-lasso-frame'))!.split(',').map(Number);
 
-test('lasso: circle ink, move, resize and copy it, each one Undo step, saved and reopened @J18.20', async ({
+test('lasso: circle ink, move, resize and copy it, each one Undo step, saved and reopened @J18.25', async ({
 	page
 }, info) => {
 	const name = `Kid Lasso ${info.workerIndex}${info.repeatEachIndex}`;
@@ -183,7 +183,7 @@ test('lasso: circle ink, move, resize and copy it, each one Undo step, saved and
 	await expect(page.getByRole('button', { name: `Open drawing by ${name}` })).toHaveCount(0);
 });
 
-test('lasso: the rail and its controls fit the 4K wall screen @J18.20', async ({ page }) => {
+test('lasso: the rail and its controls fit the 4K wall screen @J18.25', async ({ page }) => {
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
 	await page.getByTestId('draw-lasso').click();
