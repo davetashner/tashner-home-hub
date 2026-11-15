@@ -21,8 +21,8 @@
 		type View
 	} from '#lib/domain/drawing-zoom.js';
 	import {
-		PAGE_LABELS,
 		pageFit,
+		pageLabel,
 		pageLineWidth,
 		pagePaths,
 		type PageId
@@ -411,7 +411,7 @@
 			? photoId
 				? 'Photo'
 				: page
-					? PAGE_LABELS[page]
+					? pageLabel(page)
 					: LAYER_LABELS[l]
 			: LAYER_LABELS[l];
 	let dpr = 1;
@@ -2113,8 +2113,7 @@
 						class="{btn} {page ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
 						aria-pressed={page !== null}
 						data-testid="draw-pages-open"
-						onclick={() => (pagePicking = true)}
-						>{page ? PAGE_LABELS[page] : 'Coloring pages'}</button
+						onclick={() => (pagePicking = true)}>{page ? pageLabel(page) : 'Coloring pages'}</button
 					>
 					<button
 						type="button"
