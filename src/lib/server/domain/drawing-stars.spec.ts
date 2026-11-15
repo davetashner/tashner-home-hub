@@ -6,6 +6,9 @@ import { LedgerError } from './ledger.js';
 import { starBalance } from './stars.js';
 import {
 	awardDrawingStar,
+	awardGameStar,
+	gameStarsEnabled,
+	setGameStarsEnabled,
 	drawingStarSummary,
 	drawingStarsEnabled,
 	readDrawingStarsSetting,
@@ -106,5 +109,28 @@ describe('drawingStarSummary', () => {
 	it('treats a malformed stored setting as on', () => {
 		db.insert(schema.settings).values({ key: 'drawing.stars', value: '{bad' }).run();
 		expect(readDrawingStarsSetting(db)).toBe(true);
+	});
+});
+
+describe('awardGameStar (hub-t27j.25)', () => {
+	it('pays a kid once per round and again for the next round', () => {
+		expect(awardGameStar(db, 'kid', 'game:s:1', T0)).toBe(true);
+		expect(awardGameStar(db, 'kid', 'game:s:1', T0)).toBe(false);
+		expect(awardGameStar(db, 'kid', 'game:s:2', T0)).toBe(true);
+		expect(starBalance(db, 'kid')).toBe(2);
+	});
+	it('never pays adults or unknown members', () => {
+		expect(awardGameStar(db, 'grown', 'game:s:1', T0)).toBe(false);
+		expect(awardGameStar(db, 'nobody', 'game:s:1', T0)).toBe(false);
+		expect(starBalance(db, 'grown')).toBe(0);
+	});
+	it('pays nothing while the setting is off, and does not touch the daily star', () => {
+		expect(gameStarsEnabled(db)).toBe(true);
+		setGameStarsEnabled(db, false);
+		expect(gameStarsEnabled(db)).toBe(false);
+		expect(awardGameStar(db, 'kid', 'game:s:1', T0)).toBe(false);
+		setGameStarsEnabled(db, true);
+		expect(awardGameStar(db, 'kid', 'game:s:1', T0)).toBe(true);
+		expect(awardDrawingStar(db, 'kid', T0)).toEqual({ awarded: true, streak: 1 });
 	});
 });

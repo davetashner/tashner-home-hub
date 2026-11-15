@@ -96,6 +96,12 @@ export interface Round {
 	wrongs: number;
 	lastSeen: Record<string, number>;
 	recent: string[];
+	/** Which household member is on each board (author id -> member id), for star rewards. */
+	players: Record<string, string>;
+	/** Stars were handed out for this round already (once per solved round). */
+	rewarded: boolean;
+	/** How many kids got a star for this round. */
+	stars: number;
 }
 
 /** What every board may see: the word only once it is solved. */
@@ -108,6 +114,8 @@ export interface PublicRound {
 	status: RoundStatus;
 	wrongs: number;
 	word?: string;
+	/** Kids who earned a star for this solved round (omitted when none). */
+	stars?: number;
 }
 
 /** Fisher-Yates on a copy. */
@@ -162,9 +170,41 @@ export function startRound(
 			[drawer]: now,
 			...(prev?.drawer && prev.drawer !== drawer ? { [prev.drawer]: now } : {})
 		},
-		recent: [...recent, word].slice(-RECENT)
+		recent: [...recent, word].slice(-RECENT),
+		players: { ...prev?.players },
+		rewarded: false,
+		stars: 0
 	};
 }
+
+/** Who is playing on a board: a short member id string, otherwise ignored. */
+export function isPlayerId(v: unknown): v is string {
+	return typeof v === 'string' && v.length > 0 && v.length <= 64;
+}
+
+/** Remembers which member is on a board; no-op for junk or an unchanged pick. */
+export function setPlayer(r: Round, author: string, member: unknown): Round {
+	if (!isPlayerId(member) || r.players[author] === member) return r;
+	return { ...r, players: { ...r.players, [author]: member } };
+}
+
+/**
+ * The distinct members to reward for a solved round: the drawer's and the guesser's picks, once
+ * each (a kid on both boards still earns one star). Empty until solved or once already rewarded.
+ */
+export function rewardMembers(r: Round): string[] {
+	if (r.status !== 'solved' || r.rewarded) return [];
+	const picks = [r.drawer, r.guesser].flatMap((a) => (a && r.players[a] ? [r.players[a]] : []));
+	return [...new Set(picks)];
+}
+
+/** Marks the round rewarded with the number of kids who earned a star. */
+export const markRewarded = (r: Round, stars: number): Round => ({
+	...r,
+	v: r.v + 1,
+	rewarded: true,
+	stars
+});
 
 export const publicRound = (r: Round): PublicRound => ({
 	v: r.v,
@@ -174,7 +214,8 @@ export const publicRound = (r: Round): PublicRound => ({
 	choices: [...r.choices],
 	status: r.status,
 	wrongs: r.wrongs,
-	...(r.status === 'solved' ? { word: r.word } : {})
+	...(r.status === 'solved' ? { word: r.word } : {}),
+	...(r.stars > 0 ? { stars: r.stars } : {})
 });
 
 /** A board checked in. The first board other than the drawer becomes the guesser. */
@@ -228,6 +269,7 @@ export function parsePublicRound(raw: unknown): PublicRound | null {
 	if (!Array.isArray(p.choices) || p.choices.length !== GUESS_CHOICES || !p.choices.every(str))
 		return null;
 	if (p.word !== undefined && !str(p.word)) return null;
+	if (p.stars !== undefined && !int(p.stars)) return null;
 	return {
 		v: p.v,
 		round: p.round,
@@ -236,7 +278,8 @@ export function parsePublicRound(raw: unknown): PublicRound | null {
 		choices: p.choices as string[],
 		status: p.status,
 		wrongs: p.wrongs,
-		...(p.word !== undefined ? { word: p.word } : {})
+		...(p.word !== undefined ? { word: p.word } : {}),
+		...(p.stars !== undefined ? { stars: p.stars } : {})
 	};
 }
 

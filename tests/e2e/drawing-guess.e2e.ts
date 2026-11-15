@@ -70,6 +70,10 @@ test('draw and guess: secret word, four choices, right and wrong, new round, dro
 		await expectTappable(start, 96);
 		await start.click();
 
+		// Each board says who is playing first.
+		await page.getByTestId('draw-guess-who-pick').first().click();
+		await b.page.getByTestId('draw-guess-who-pick').first().click();
+
 		// A draws the secret word; B has never been told it.
 		const a = page.getByTestId('draw-guess');
 		await expect(a).toHaveAttribute('data-role', 'drawer');

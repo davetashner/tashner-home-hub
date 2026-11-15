@@ -103,3 +103,52 @@ export function drawingStarSummary(db: Db, now = Date.now()) {
 	}
 	return { enabled: drawingStarsEnabled(db), date: today, streaks };
 }
+
+export const GAME_STARS_KEY = 'drawing.gameStars';
+
+/** Stars for the draw-and-guess game (hub-t27j.25); on unless a grown-up turns it off. */
+export const gameStarsEnabled = (db: Db): boolean => flag(db, GAME_STARS_KEY);
+
+export function setGameStarsEnabled(db: Db, enabled: boolean): void {
+	const value = JSON.stringify(enabled);
+	db.insert(settings)
+		.values({ key: GAME_STARS_KEY, value })
+		.onConflictDoUpdate({ target: settings.key, set: { value, updatedAt: Date.now() } })
+		.run();
+}
+
+/**
+ * Awards one star for a solved guess round to a child. `refId` names the round, so a repeat for
+ * the same round never pays twice. Adults, unknown members and the off setting earn nothing.
+ */
+export function awardGameStar(db: Db, memberId: string, refId: string, now = Date.now()): boolean {
+	return db.transaction((tx) => {
+		const member = tx.select().from(members).where(eq(members.id, memberId)).get();
+		if (!member || member.role !== 'child' || !gameStarsEnabled(db)) return false;
+		const done = tx
+			.select({ id: starTransactions.id })
+			.from(starTransactions)
+			.where(
+				and(
+					eq(starTransactions.memberId, memberId),
+					eq(starTransactions.reason, DRAWING_STAR_REASON),
+					eq(starTransactions.refId, refId)
+				)
+			)
+			.get();
+		if (done) return false;
+		tx.insert(starTransactions)
+			.values({
+				id: randomUUID(),
+				memberId,
+				delta: DRAWING_STAR_VALUE,
+				reason: DRAWING_STAR_REASON,
+				refId,
+				note: 'Solved a draw and guess round',
+				status: 'approved',
+				createdAt: now
+			})
+			.run();
+		return true;
+	});
+}

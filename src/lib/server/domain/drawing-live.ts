@@ -23,13 +23,18 @@ import {
 import {
 	dropped,
 	guess,
+	markRewarded,
 	publicRound,
+	rewardMembers,
+	setPlayer,
 	startRound,
 	touch,
 	type GuessResult,
 	type PublicRound,
 	type Round
 } from '#lib/domain/drawing-guess.js';
+import type { Db } from '../db/index.js';
+import { awardGameStar } from './drawing-stars.js';
 import { publish } from './events.js';
 import { LedgerError } from './ledger.js';
 
@@ -130,10 +135,14 @@ export function gameAction(
 	author: unknown,
 	body: Record<string, unknown>,
 	now = Date.now(),
-	rand: () => number = Math.random
+	rand: () => number = Math.random,
+	db: Db | null = null
 ): GameReply {
 	if (!isAuthor(author)) throw new LedgerError('invalid', 'author must be a short string');
 	const s = get(id, now);
+	const remember = () => {
+		if (s.game) s.game = setPlayer(s.game, author, body.member);
+	};
 	const end = () => {
 		if (s.game) announce(id, null);
 		s.game = null;
@@ -142,13 +151,16 @@ export function gameAction(
 	switch (body.action) {
 		case 'start':
 			s.game = startRound(s.game, author, now, rand);
+			remember();
 			announce(id, s.game);
 			return reply(s.game, author);
 		case 'leave':
 			return end();
+		case 'who':
 		case 'ping': {
 			if (!s.game) return reply(null, author);
 			const before = s.game.v;
+			remember();
 			s.game = touch(s.game, author, now);
 			if (dropped(s.game, now)) return end();
 			if (s.game.v !== before) announce(id, s.game);
@@ -158,6 +170,12 @@ export function gameAction(
 			if (!s.game) return reply(null, author);
 			const r = guess(s.game, author, body.index);
 			s.game = r.round;
+			if (r.result === 'right' && db) {
+				// Once per solved round: `rewarded` flips here and the ledger row is keyed by the round.
+				const kids = rewardMembers(s.game);
+				const paid = kids.filter((m) => awardGameStar(db, m, `game:${id}:${s.game!.round}`, now));
+				s.game = markRewarded(s.game, paid.length);
+			}
 			if (r.result !== 'ignored') announce(id, s.game);
 			return reply(s.game, author, r.result);
 		}

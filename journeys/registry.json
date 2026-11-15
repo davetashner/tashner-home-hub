@@ -1004,6 +1004,12 @@
 					"text": "While sharing, tap Guess game under Together: one board gets a secret word to draw, the other sees the strokes live and four big answers. A right pick celebrates on both boards, a wrong one says try again, New round swaps who draws, and if a board drops the round ends cleanly.",
 					"status": "built",
 					"beads": ["hub-t27j.10"]
+				},
+				{
+					"id": "J18.36",
+					"text": "In Draw and guess each board picks Who's playing first. When the guess is right, both kids playing earn one star in the star ledger, once per solved round (grown-ups earn none), and a grown-up can turn it off under Settings > Drawing > Stars for the guess game.",
+					"status": "built",
+					"beads": ["hub-t27j.25"]
 				}
 			]
 		},
