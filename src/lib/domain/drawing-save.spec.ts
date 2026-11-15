@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PALETTE } from './drawing-colors.js';
 import { makeFill } from './drawing-fill.js';
 import {
 	FILL_REF,
@@ -13,6 +14,7 @@ import {
 	savedPage,
 	savedPhoto,
 	savedSize,
+	savedWiggle,
 	serializeDrawing
 } from './drawing-save.js';
 import { COLOR_GRID, isShape, type DrawItem, type Shape, type Stroke } from './drawing.js';
@@ -76,6 +78,29 @@ describe('saved drawing round trip', () => {
 		expect(isFill(c) && c.gap).toBeCloseTo((3 / 400) * FILL_REF);
 		const [old] = loadDrawing(serializeDrawing([fill], size, 2), size)!;
 		expect(old).not.toHaveProperty('gap');
+	});
+	it('keeps the pattern of a fill, and rejects an unknown one (hub-t27j.2)', () => {
+		const [c] = loadDrawing(serializeDrawing([{ ...fill, pattern: 'stars' }], size), size)!;
+		expect(isFill(c) && c.pattern).toBe('stars');
+		const [plain] = loadDrawing(serializeDrawing([fill], size), size)!;
+		expect(plain).not.toHaveProperty('pattern');
+		const wire = JSON.parse(serializeDrawing([{ ...fill, pattern: 'dots' }], size));
+		wire.items[0].p = 'plaid';
+		expect(loadDrawing(wire, size)).toBeNull();
+		wire.items[0].p = 7;
+		expect(loadDrawing(wire, size)).toBeNull();
+	});
+	it('keeps the gradient end of a fill, and rejects a bad one (hub-t27j.3)', () => {
+		const end = PALETTE[2];
+		const [c] = loadDrawing(serializeDrawing([{ ...fill, grad: end }], size), size)!;
+		expect(isFill(c) && c.grad).toBe(end);
+		const [plain] = loadDrawing(serializeDrawing([fill], size), size)!;
+		expect(plain).not.toHaveProperty('grad');
+		const wire = JSON.parse(serializeDrawing([{ ...fill, grad: end }], size));
+		wire.items[0].e = 'javascript:1';
+		expect(loadDrawing(wire, size)).toBeNull();
+		wire.items[0].e = 7;
+		expect(loadDrawing(wire, size)).toBeNull();
 	});
 	it('loads an empty drawing', () => {
 		expect(loadDrawing(serializeDrawing([], size), size)).toEqual([]);
@@ -317,5 +342,22 @@ describe('flipbook frames (hub-cn7.26)', () => {
 		expect(isSavedDrawing(JSON.stringify({ ...w, frames: 'x' }))).toBe(false);
 		expect(isSavedDrawing(JSON.stringify({ ...w, frames: Array(30).fill([]) }))).toBe(false);
 		expect(isSavedDrawing(JSON.stringify({ ...w, frames: [[{ c: 'draw-red' }]] }))).toBe(false);
+	});
+});
+
+describe('wiggle flag (hub-t27j.4)', () => {
+	const sz = { w: 800, h: 600 };
+	it('round-trips, and old drawings have no wiggle', () => {
+		const on = serializeDrawing([stroke], sz, 1, null, null, null, [], true);
+		expect(savedWiggle(on)).toBe(true);
+		expect(isSavedDrawing(on)).toBe(true);
+		expect(savedWiggle(serializeDrawing([stroke], sz))).toBe(false);
+		expect(serializeDrawing([stroke], sz)).not.toContain('wg');
+		expect(savedWiggle('nope')).toBe(false);
+	});
+	it('rejects a malformed flag', () => {
+		const w = JSON.parse(serializeDrawing([stroke], sz));
+		expect(isSavedDrawing(JSON.stringify({ ...w, wg: 2 }))).toBe(false);
+		expect(isSavedDrawing(JSON.stringify({ ...w, wg: true }))).toBe(false);
 	});
 });

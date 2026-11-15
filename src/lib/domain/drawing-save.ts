@@ -10,6 +10,8 @@ import { isDashStyle, type DashStyle } from './drawing-dash.js';
 import { isPhotoId } from './drawing-photo.js';
 import { PALETTE, clampAlpha, isTranslucent } from './drawing-colors.js';
 import { TEXT_MAX_CHARS, TEXT_MAX_SIZE, isText, type TextItem } from './drawing-text.js';
+import { isGradientEnd } from './drawing-gradient.js';
+import { isPatternId, type PatternId } from './drawing-pattern.js';
 import { FILL_TOLERANCE, isFill, type FillItem } from './drawing-fill.js';
 import {
 	ALL_SHAPES,
@@ -50,7 +52,16 @@ type WireShape = {
 	d?: DashStyle;
 };
 /** `g`: the gap the fill bridged, in saved px (hub-h3q); absent on older saves and plain floods. */
-type WireFill = { k: 1; c: string; x: number; y: number; o: number; g?: number };
+type WireFill = {
+	k: 1;
+	c: string;
+	x: number;
+	y: number;
+	o: number;
+	g?: number;
+	p?: PatternId;
+	e?: string;
+};
 /** Text (hub-cn7.23): `tx` is the text, `z` the letter size, `b` the box, `r` the turn. */
 type WireText = { tx: string; c: string; z: number; b: number[]; r?: number };
 type WireItem = WireStroke | WireShape | WireFill | WireText;
@@ -66,6 +77,8 @@ interface Wire {
 	items: WireItem[];
 	/** Flipbook (hub-cn7.26): the frames AFTER the first. `items` is frame 0, so old readers see a plain drawing. */
 	frames?: WireItem[][];
+	/** Wiggle (hub-t27j.4): 1 when the drawing was saved with its lines boiling. Absent means still. */
+	wg?: 1;
 }
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -84,7 +97,8 @@ export function serializeDrawing(
 	page: PageId | null = null,
 	bg: string | null = null,
 	photo: string | null = null,
-	more: readonly (readonly DrawItem[])[] = []
+	more: readonly (readonly DrawItem[])[] = [],
+	wiggle = false
 ): string {
 	const fit = page ? pageFit(size) : { s: 1, ox: 0, oy: 0 };
 	const X = (x: number) => r1((x - fit.ox) / fit.s);
@@ -97,7 +111,8 @@ export function serializeDrawing(
 		...(bg && isBackground(bg) ? { bg } : {}),
 		...(!page && isPhotoId(photo) ? { photo } : {}),
 		items: items.map(toWire),
-		...(more.length ? { frames: more.map((f) => f.map(toWire)) } : {})
+		...(more.length ? { frames: more.map((f) => f.map(toWire)) } : {}),
+		...(wiggle ? { wg: 1 as const } : {})
 	};
 	return JSON.stringify(wire);
 	function toWire(it: DrawItem): WireItem {
@@ -108,7 +123,9 @@ export function serializeDrawing(
 				x: X(it.x / dpr),
 				y: Y(it.y / dpr),
 				o: it.tolerance,
-				...(it.gap ? { g: K(it.gap / dpr) } : {})
+				...(it.gap ? { g: K(it.gap / dpr) } : {}),
+				...(it.pattern ? { p: it.pattern } : {}),
+				...(it.grad ? { e: it.grad } : {})
 			};
 		if (isText(it))
 			return {
@@ -172,6 +189,7 @@ function parseWire(json: unknown): Wire | null {
 	if (w.bg !== undefined && !isBackground(w.bg)) return null;
 	if (w.photo !== undefined && (!isPhotoId(w.photo) || w.page !== undefined)) return null;
 	if (!Array.isArray(w.items)) return null;
+	if (w.wg !== undefined && w.wg !== 1) return null;
 	if (w.frames !== undefined) {
 		if (!Array.isArray(w.frames) || w.frames.length >= MAX_FRAMES || !w.frames.every(Array.isArray))
 			return null;
@@ -185,6 +203,8 @@ function parseWire(json: unknown): Wire | null {
 		if ('k' in it) {
 			if (it.k !== 1 || !num(it.x) || !num(it.y) || !num(it.o)) return null;
 			if (it.g !== undefined && !(num(it.g) && it.g >= 0)) return null;
+			if (it.p !== undefined && !isPatternId(it.p)) return null;
+			if (it.e !== undefined && !isGradientEnd(it.e)) return null;
 		} else if ('tx' in it) {
 			const b = it.b;
 			if (
@@ -245,6 +265,9 @@ export const savedBackground = (json: unknown): string | null => parseWire(json)
 /** The library photo a saved drawing sits on, or null. */
 export const savedPhoto = (json: unknown): string | null => parseWire(json)?.photo ?? null;
 
+/** True when a saved drawing was kept with Wiggle on (hub-t27j.4). */
+export const savedWiggle = (json: unknown): boolean => parseWire(json)?.wg === 1;
+
 /** The canvas size a saved drawing was made on, or null when it is not valid. */
 export function savedSize(json: unknown): Size | null {
 	return parseWire(json)?.size ?? null;
@@ -280,6 +303,8 @@ export function loadFrames(json: unknown, to: Size): DrawItem[][] | null {
 				h: FILL_REF,
 				tolerance: it.o || FILL_TOLERANCE,
 				...(it.g ? { gap: ((it.g * s) / to.w) * FILL_REF } : {}),
+				...(it.p ? { pattern: it.p } : {}),
+				...(it.e ? { grad: it.e } : {}),
 				spans: new Uint32Array(0)
 			};
 			return f;
