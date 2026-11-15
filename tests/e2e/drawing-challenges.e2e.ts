@@ -22,12 +22,29 @@ function seedKid(id: string, name: string) {
 	trackMember(id);
 }
 
-test('a grown-up sets a challenge in Settings and can remove it @J18.20', async ({
+test('a grown-up sets a challenge in Settings and can remove it @J18.33', async ({
 	page
 }, info) => {
 	const kidId = `e2e-chal-kid-${info.workerIndex}${info.repeatEachIndex}`;
 	const name = `Kid Chal${info.workerIndex}${info.repeatEachIndex}`;
 	seedKid(kidId, name);
+	// The API is mocked (a real challenge, even briefly, would hide the daily prompt on a parallel
+	// test's board); the real API is covered by its own unit spec.
+	let stored: { id: string; memberId: string; text: string }[] = [];
+	const sent: { method: string; body: Record<string, string> }[] = [];
+	await page.route('**/api/settings/drawing-challenges', async (route) => {
+		const method = route.request().method();
+		if (method === 'GET') return route.fulfill({ json: stored });
+		const body = route.request().postDataJSON() as Record<string, string>;
+		sent.push({ method, body });
+		if (method === 'POST') {
+			const made = { id: 'c1', memberId: body.memberId, text: body.text };
+			stored = [made];
+			return route.fulfill({ status: 201, json: made });
+		}
+		stored = stored.filter((c) => c.id !== body.id);
+		return route.fulfill({ json: stored });
+	});
 	await signInAsAdult(page, 'e2e-baseline-adult');
 	await gotoHydrated(page, '/settings/drawing');
 	await page.getByTestId('challenge-kid').selectOption({ label: name });
@@ -36,34 +53,15 @@ test('a grown-up sets a challenge in Settings and can remove it @J18.20', async 
 	await page.getByTestId('challenge-add').click();
 	const row = page.getByTestId('challenge-row').filter({ hasText: name });
 	await expect(row).toContainText('Draw what you want for dinner Friday');
-	try {
-		// It reached the server for that kid.
-		const list = (await (await page.request.get('/api/settings/drawing-challenges')).json()) as {
-			memberId: string;
-			text: string;
-		}[];
-		expect(list.find((c) => c.memberId === kidId)?.text).toBe(
-			'Draw what you want for dinner Friday'
-		);
-		await row.getByTestId('challenge-remove').click();
-		await expect(row).toHaveCount(0);
-		await expect
-			.poll(async () => {
-				const l = (await (await page.request.get('/api/settings/drawing-challenges')).json()) as {
-					memberId: string;
-				}[];
-				return l.some((c) => c.memberId === kidId);
-			})
-			.toBe(false);
-	} finally {
-		const db = new Database(DB_PATH);
-		db.pragma('busy_timeout = 5000');
-		db.prepare("DELETE FROM settings WHERE key = 'drawing.challenges'").run();
-		db.close();
-	}
+	expect(sent).toEqual([
+		{ method: 'POST', body: { memberId: kidId, text: 'Draw what you want for dinner Friday' } }
+	]);
+	await row.getByTestId('challenge-remove').click();
+	await expect(row).toHaveCount(0);
+	expect(sent.at(-1)).toEqual({ method: 'DELETE', body: { id: 'c1' } });
 });
 
-test('the board shows the challenge instead of the daily prompt; Done and posting clear it @J18.20', async ({
+test('the board shows the challenge instead of the daily prompt; Done and posting clear it @J18.33', async ({
 	page
 }, info) => {
 	const doneId = `e2e-chal-a-${info.workerIndex}${info.repeatEachIndex}`;

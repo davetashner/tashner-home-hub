@@ -986,6 +986,12 @@
 					"text": "Under Magic, tap How to draw and pick a guide (cat, dog, house, car, flower or fish): faint lines show on the board to trace, Next adds the next step with the earlier ones staying faint, Back goes back and Done hides the guide. The guide lines are never ink: they are not erased, saved or posted.",
 					"status": "built",
 					"beads": ["hub-t27j.12"]
+				},
+				{
+					"id": "J18.33",
+					"text": "A grown-up sets a drawing challenge for one kid in Settings > Drawing; it shows on the board instead of the daily prompt (\"A challenge for <name>\"), and tapping Done or posting as that kid clears it.",
+					"status": "built",
+					"beads": ["hub-t27j.11"]
 				}
 			]
 		},
