@@ -23,7 +23,12 @@
 		type SlideshowSettings,
 		type Size
 	} from '#lib/domain/slideshow.js';
-	import { interleaveDrawings, isDrawingId, type FrameDrawing } from '#lib/domain/drawing-frame.js';
+	import {
+		drawingPan,
+		interleaveDrawings,
+		isDrawingId,
+		type FrameDrawing
+	} from '#lib/domain/drawing-frame.js';
 	import { arrangePlaylist, calendarDay, onThisDayCaption } from '#lib/domain/on-this-day.js';
 
 	/** Fullscreen over the shell (the idle photo frame) rather than inside the page area. */
@@ -106,7 +111,7 @@
 				id: photo.id,
 				main: photo.drawing.src,
 				bg: null,
-				motion: null,
+				motion: drawingPan(steps),
 				caption: null,
 				artist: photo.drawing.name,
 				clip: null,

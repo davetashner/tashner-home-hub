@@ -59,7 +59,7 @@ const inkHeight = (page: Page) =>
 		return hi < 0 ? 0 : ((hi - lo) * c.getBoundingClientRect().height) / c.height;
 	});
 
-test('Smooth lines steadies a wobbly stroke, is undoable and remembered @J18.19', async ({
+test('Smooth lines steadies a wobbly stroke, is undoable and remembered @J18.24', async ({
 	page
 }, info) => {
 	const tag = `m${Date.now().toString(36)}${info.workerIndex}${info.repeatEachIndex}`;
