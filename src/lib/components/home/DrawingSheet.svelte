@@ -1374,6 +1374,13 @@
 		return { ...pt, x: q.x, y: monster ? clampToBand(monster, q.y, boardSize.h) : q.y };
 	}
 
+	/** A point pulled onto the locked ruler edge, then held inside the monster band so a tilted ruler can't leak ink out of it. */
+	function onRuler<T extends { x: number; y: number }>(p: T): T {
+		if (!rulerEdge) return p;
+		const q = projectOnEdge(rulerEdge, p);
+		return { ...p, x: q.x, y: monster ? clampToBand(monster, q.y, boardSize.h) : q.y };
+	}
+
 	function sample(e: PointerEvent, previous?: number) {
 		const raw = strokeWidth(tool, e.pointerType, e.pressure, size);
 		const y = (e.clientY - rect.top) / view.scale;
@@ -1520,8 +1527,7 @@
 			...(isBrushTool(tool) ? { seed: newSeed() } : {})
 		};
 		rulerEdge = ruler ? nearEdge(ruler, current.points[0], SNAP_DISTANCE / view.scale) : null;
-		if (rulerEdge)
-			current.points[0] = { ...current.points[0], ...projectOnEdge(rulerEdge, current.points[0]) };
+		current.points[0] = onRuler(current.points[0]);
 		protractorRay =
 			protractor && nearCenter(protractor, current.points[0], CENTER_SNAP_DISTANCE / view.scale)
 				? { angle: null }
@@ -1587,7 +1593,7 @@
 			if (!pt) continue;
 			current.points.push(
 				rulerEdge
-					? { ...pt, ...projectOnEdge(rulerEdge, pt) }
+					? onRuler(pt)
 					: protractor && protractorRay
 						? protractorPoint(protractor, protractorRay, pt)
 						: pt
