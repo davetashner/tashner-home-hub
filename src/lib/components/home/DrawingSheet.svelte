@@ -83,10 +83,12 @@
 	import { FILL_GAP_CSS, isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
 		PATTERN_CELL_CSS,
+		isPatternId,
 		patternTile,
 		type FillStyle,
 		type PatternId
 	} from '#lib/domain/drawing-pattern.js';
+	import { DEFAULT_GRADIENT_END, gradientStops } from '#lib/domain/drawing-gradient.js';
 	import FillStylePicker from './drawing/FillStylePicker.svelte';
 	import TextEditor from '#lib/components/home/drawing/TextEditor.svelte';
 	import TextPanel from '#lib/components/home/drawing/TextPanel.svelte';
@@ -300,6 +302,7 @@
 	let shapeKind = $state<ShapeKind | null>(null);
 	let filled = $state(false);
 	let fillStyle = $state<FillStyle>('solid'); // what the bucket paints (hub-t27j.2)
+	let gradEnd = $state(DEFAULT_GRADIENT_END); // bottom color of a gradient fill (hub-t27j.3)
 	let lineStyle = $state<LineStyle>('solid'); // outline style of the next shape (hub-cn7.17)
 	/** Eyedropper mode (hub-cn7.14): a tap or drag picks the color under the finger, then it switches off. */
 	let dropper = $state(false);
@@ -1001,7 +1004,8 @@
 				f.color,
 				f.tolerance,
 				((f.gap ?? 0) * canvas.width) / f.w,
-				f.pattern
+				f.pattern,
+				f.grad
 			);
 			if (!again) return;
 			Object.assign(f, again);
@@ -1011,7 +1015,12 @@
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.globalCompositeOperation = 'source-over';
 		ctx.globalAlpha = 1;
-		ctx.fillStyle = f.pattern ? patternPaint(f.pattern, f.color) : token(f.color);
+		const g = f.grad && gradientStops(spans, token(f.color), token(f.grad));
+		if (g) {
+			const lg = ctx.createLinearGradient(0, g.y0, 0, g.y1);
+			for (const [at, c] of g.stops) lg.addColorStop(at, c);
+			ctx.fillStyle = lg;
+		} else ctx.fillStyle = f.pattern ? patternPaint(f.pattern, f.color) : token(f.color);
 		for (let i = 0; i < spans.length; i += 3)
 			ctx.fillRect(spans[i + 1], spans[i], spans[i + 2] - spans[i + 1] + 1, 1);
 		ctx.restore();
@@ -1309,7 +1318,8 @@
 				color,
 				undefined,
 				FILL_GAP_CSS * dpr,
-				fillStyle === 'solid' ? undefined : fillStyle
+				isPatternId(fillStyle) ? fillStyle : undefined,
+				fillStyle === 'gradient' ? gradEnd : undefined
 			);
 			if (item) {
 				strokes.push(item);
@@ -2548,7 +2558,12 @@
 						ondone={() => finishText(editing?.value ?? '')}
 					/>
 				{:else if rail === 'fill'}
-					<FillStylePicker value={fillStyle} onpick={(v) => (fillStyle = v)} />
+					<FillStylePicker
+						value={fillStyle}
+						onpick={(v) => (fillStyle = v)}
+						{gradEnd}
+						onend={(c) => (gradEnd = c)}
+					/>
 				{:else if rail === 'pick'}
 					<p class="w-full text-body text-ink-muted">Tap the drawing to pick a color.</p>
 				{:else if rail === 'lasso'}
