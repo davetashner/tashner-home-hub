@@ -861,8 +861,11 @@
 		const d = lassoDrag;
 		lassoDrag = null;
 		// One move, resize or copy is one Undo step.
-		if (d?.moved)
+		if (d?.moved) {
 			history = record(history, { type: 'replace', before: d.before, after: boardNow() });
+			// Live share: the moved ink replaces the old (undo the tail, re-add it).
+			live?.sync(strokes, false);
+		}
 	}
 	function lassoCopy() {
 		if (!lasso) return;
