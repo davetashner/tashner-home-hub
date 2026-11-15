@@ -97,11 +97,45 @@ describe('selecting ink', () => {
 	const fill = { fill: true } as unknown as FillItem;
 	const items: DrawItem[] = [inside, outside, straddle, half, eraser, shape, fill];
 
-	it('picks strokes with most of their points inside, in order', () => {
-		expect(selectInside(items, square)).toEqual([0, 2]);
-		expect(lassoSelection(items, square)).toEqual([inside, straddle]);
+	it('picks strokes with most of their points inside, in order, with the eraser cuts over them', () => {
+		// Index 4 is the eraser at (50, 50): inside the loop and drawn after the selected ink.
+		expect(selectInside(items, square)).toEqual([0, 2, 4]);
+		expect(lassoSelection(items, square)).toEqual([inside, straddle, eraser]);
 	});
-	it('ignores eraser cuts, shapes and fills', () => {
+	it('takes eraser strokes only when mostly inside the loop and over selected ink', () => {
+		const cutIn = stroke(
+			[
+				[40, 40],
+				[60, 60]
+			],
+			{ tool: 'eraser' }
+		);
+		const cutOut = stroke(
+			[
+				[400, 400],
+				[450, 450]
+			],
+			{ tool: 'eraser' }
+		);
+		const cutMostlyOut = stroke(
+			[
+				[40, 40],
+				[400, 400],
+				[450, 450]
+			],
+			{ tool: 'eraser' }
+		);
+		const cutBefore = stroke([[40, 40]], { tool: 'eraser' });
+		const board: DrawItem[] = [cutBefore, inside, cutIn, cutOut, cutMostlyOut, shape];
+		// The cut drawn before the ink cannot have cut it; the far cuts stay put.
+		expect(selectInside(board, square)).toEqual([1, 2]);
+	});
+	it('never selects eraser strokes alone', () => {
+		expect(selectInside([eraser, outside], square)).toEqual([]);
+		expect(selectInside([outside, eraser], square)).toEqual([]);
+		expect(selectInside([stroke([], { tool: 'eraser' }), inside], square)).toEqual([1]);
+	});
+	it('ignores shapes and fills, and lone eraser cuts', () => {
 		expect(isLassoInk(eraser)).toBe(false);
 		expect(isLassoInk(shape)).toBe(false);
 		expect(isLassoInk(fill)).toBe(false);

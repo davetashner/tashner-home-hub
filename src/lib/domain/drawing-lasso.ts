@@ -2,7 +2,7 @@
  * Lasso (hub-t27j.6): circle some freehand ink to select it, then move, resize or copy it.
  *
  * Only freehand ink is selectable (pen, highlighter and the textured brushes). Shapes, fills and
- * text have their own edit flow, and the eraser is a cut, not ink. A stroke is inside the loop
+ * text have their own edit flow, and an eraser stroke is only picked up together with ink it cuts. A stroke is inside the loop
  * when more than half of its points are. Every transform returns NEW strokes (the originals are
  * left alone), so the sheet can keep the originals as the undo "before". Pure: no canvas, no DOM.
  */
@@ -56,17 +56,33 @@ export function polygonArea(poly: readonly Pt[]): number {
 export const isLoop = (poly: readonly Pt[]): boolean =>
 	poly.length >= MIN_LOOP_POINTS && polygonArea(poly) >= MIN_LOOP_AREA;
 
-/** Indices (into `items`) of the strokes the loop encloses. Empty for a malformed loop. */
+const insideShare = (points: readonly Pt[], loop: readonly Pt[]): number => {
+	let inside = 0;
+	for (const p of points) if (pointInPolygon(p, loop)) inside++;
+	return inside / points.length;
+};
+
+/**
+ * Indices (into `items`) of the strokes the loop encloses. Empty for a malformed loop.
+ * Eraser strokes whose points are mostly inside the loop come along (hub-t27j.22) when some
+ * selected ink lies under them, so erased gaps travel with the ink they cut.
+ */
 export function selectInside(items: readonly DrawItem[], loop: readonly Pt[]): number[] {
 	if (!isLoop(loop)) return [];
-	const out: number[] = [];
+	const ink: number[] = [];
 	items.forEach((item, i) => {
 		if (!isLassoInk(item) || item.points.length === 0) return;
-		let inside = 0;
-		for (const p of item.points) if (pointInPolygon(p, loop)) inside++;
-		if (inside / item.points.length > INSIDE_SHARE) out.push(i);
+		if (insideShare(item.points, loop) > INSIDE_SHARE) ink.push(i);
 	});
-	return out;
+	if (ink.length === 0) return [];
+	const first = ink[0];
+	const out = [...ink];
+	items.forEach((item, i) => {
+		if (i < first || !('points' in item) || !Array.isArray(item.points)) return;
+		if (item.tool !== 'eraser' || item.points.length === 0) return;
+		if (insideShare(item.points, loop) > INSIDE_SHARE) out.push(i);
+	});
+	return out.sort((x, y) => x - y);
 }
 
 /** The strokes the loop encloses, in board order: the selection later features build on. */
