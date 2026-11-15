@@ -54,6 +54,16 @@
 		nextMirror,
 		type MirrorCount
 	} from '#lib/domain/drawing-mirror.js';
+	import RulerOverlay from './drawing/RulerOverlay.svelte';
+	import {
+		clampRuler,
+		defaultRuler,
+		nearEdge,
+		projectOnEdge,
+		SNAP_DISTANCE,
+		type Edge,
+		type Ruler
+	} from '#lib/domain/drawing-ruler.js';
 	import {
 		addBlank,
 		canAdd,
@@ -259,6 +269,9 @@
 	let bucket = $state(false);
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
 	let boardSize = $state({ w: 0, h: 0 }); // CSS px, for the mirror guides
+	// hub-t27j.16: the ruler is an overlay (never ink, never saved). A stroke that starts near its edge is pulled onto it.
+	let ruler = $state<Ruler | null>(null);
+	let rulerEdge: Edge | null = null;
 	/** Text mode: a tap on the board types words; a tap on placed text selects it. */
 	let textMode = $state(false);
 	let textSize = $state<TextSize>('large');
@@ -868,6 +881,7 @@
 		if (canvas.width === w && canvas.height === h) return;
 		boardSize = { w: w / dpr, h: h / dpr };
 		view = clampView(view, boardSize);
+		if (ruler) ruler = clampRuler(ruler, boardSize);
 		canvas.width = linesCanvas.width = photoCanvas.width = onionCanvas.width = w;
 		canvas.height = linesCanvas.height = photoCanvas.height = onionCanvas.height = h;
 		drawLines();
@@ -1134,6 +1148,9 @@
 			...(isAlphaTool(tool) && isTranslucent(alpha) ? { alpha } : {}),
 			...(isBrushTool(tool) ? { seed: newSeed() } : {})
 		};
+		rulerEdge = ruler ? nearEdge(ruler, current.points[0], SNAP_DISTANCE / view.scale) : null;
+		if (rulerEdge)
+			current.points[0] = { ...current.points[0], ...projectOnEdge(rulerEdge, current.points[0]) };
 		if (mirrorN)
 			current.mirror = centeredMirror(mirrorN, { w: canvas.width / dpr, h: canvas.height / dpr });
 		if (translucent(current) || whole(current.tool)) redraw();
@@ -1175,7 +1192,8 @@
 		const events = e.getCoalescedEvents?.() ?? [];
 		for (const c of events.length ? events : [e]) {
 			const last = current.points[current.points.length - 1];
-			current.points.push(sample(c, last.w));
+			const s = sample(c, last.w);
+			current.points.push(rulerEdge ? { ...s, ...projectOnEdge(rulerEdge, s) } : s);
 			if (!translucent(current) && !whole(current.tool))
 				segment(current, current.points.length - 1);
 		}
@@ -1774,6 +1792,16 @@
 				aria-hidden="true"
 				data-testid="draw-lines"
 			></canvas>
+			{#if ruler}
+				<RulerOverlay
+					{ruler}
+					toBoard={(x, y) => {
+						const r = canvas.getBoundingClientRect();
+						return { x: (x - r.left) / view.scale, y: (y - r.top) / view.scale };
+					}}
+					onchange={(r) => (ruler = clampRuler(r, boardSize))}
+				/>
+			{/if}
 			{#if mirrorN}
 				<svg
 					class="pointer-events-none absolute inset-0 size-full text-ink-muted opacity-50"
@@ -2091,6 +2119,16 @@
 							commit();
 							mirrorN = nextMirror(mirrorN);
 						}}>Mirror: {mirrorLabel(mirrorN)}</button
+					>
+					<button
+						type="button"
+						class="{btn} {ruler ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={ruler !== null}
+						data-testid="draw-ruler-toggle"
+						onclick={() => {
+							commit();
+							ruler = ruler ? null : defaultRuler(boardSize);
+						}}>Ruler: {ruler ? 'On' : 'Off'}</button
 					>
 					<button
 						type="button"
