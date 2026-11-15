@@ -4,6 +4,8 @@
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import ReplayPlayer from './drawing/ReplayPlayer.svelte';
 	import PromptBanner from './drawing/PromptBanner.svelte';
+	import ChallengeBanner from './drawing/ChallengeBanner.svelte';
+	import { visibleChallenges, type Challenge } from '#lib/domain/drawing-challenges.js';
 	import {
 		nextPromptMemory,
 		parsePromptMemory,
@@ -57,6 +59,16 @@
 		nextMirror,
 		type MirrorCount
 	} from '#lib/domain/drawing-mirror.js';
+	import RulerOverlay from './drawing/RulerOverlay.svelte';
+	import {
+		clampRuler,
+		defaultRuler,
+		nearEdge,
+		projectOnEdge,
+		SNAP_DISTANCE,
+		type Edge,
+		type Ruler
+	} from '#lib/domain/drawing-ruler.js';
 	import {
 		kaleidoscopeGuides,
 		kaleidoscopeLabel,
@@ -197,6 +209,17 @@
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import { PALETTE, isTranslucent } from '#lib/domain/drawing-colors.js';
 	import PagePicker from './drawing/PagePicker.svelte';
+	import GuidePicker from './drawing/GuidePicker.svelte';
+	import GuideBar from './drawing/GuideBar.svelte';
+	import {
+		GUIDE_LABELS,
+		guideLayers,
+		isLastStep,
+		nextStep,
+		prevStep,
+		stepLabel,
+		type GuideId
+	} from '#lib/domain/drawing-guide.js';
 	import PhotoPicker from './drawing/PhotoPicker.svelte';
 	import DrawingBrowser from './drawing/DrawingBrowser.svelte';
 	import ArtBook from './drawing/ArtBook.svelte';
@@ -217,6 +240,18 @@
 		transformStrokes,
 		type Box
 	} from '#lib/domain/drawing-lasso.js';
+	import {
+		MOTIONS,
+		PHASE_STEP,
+		groupCentres,
+		hasMotion,
+		isAnimated,
+		motionAt,
+		setMotion,
+		stopMotion,
+		stripMotion,
+		type MotionKind
+	} from '#lib/domain/drawing-animate.js';
 	import { RAIL_TOOLS, type RailSection, type RailTool } from './drawing/rail-tools.js';
 	import { toolBtn as btn } from './drawing/tool-btn.js';
 	import type { PhotoRow, SavedRow } from './drawing/rows.js';
@@ -316,6 +351,9 @@
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
 	let kaleidoN = $state<KaleidoscopeCount | null>(null); // kaleidoscope: slices per stroke (hub-t27j.1)
 	let boardSize = $state({ w: 0, h: 0 }); // CSS px, for the mirror guides
+	// hub-t27j.16: the ruler is an overlay (never ink, never saved). A stroke that starts near its edge is pulled onto it.
+	let ruler = $state<Ruler | null>(null);
+	let rulerEdge: Edge | null = null;
 	/** Wiggle (hub-t27j.4): lines boil. The variant is painted only; stored strokes never change. */
 	let wiggleOn = $state(false);
 	let wiggleVariant: number | null = null; // null = paint the strokes as drawn
@@ -339,13 +377,16 @@
 	/** Run `fn` with the strokes painted as drawn (exports and thumbnails never carry a wiggle frame). */
 	function stillFrame<T>(fn: () => T): T {
 		const v = wiggleVariant;
-		if (v === null) return fn();
+		const t = animT; // tap to animate (hub-t27j.5): the motion loop pauses for the export too
+		if (v === null && t === null) return fn();
 		wiggleVariant = null;
+		animT = null;
 		redraw();
 		try {
 			return fn();
 		} finally {
 			wiggleVariant = v;
+			animT = t;
 			redraw();
 		}
 	}
@@ -380,6 +421,14 @@
 	/** The coloring page under the ink, or null for a blank board. */
 	let page = $state<PageId | null>(null);
 	let pagePicking = $state(false);
+	// How-to-draw guide (hub-t27j.12): faint lines to trace, a screen overlay that is never ink.
+	let guidePicking = $state(false);
+	let guide = $state<{ id: GuideId; step: number; steps: PathCmd[][][] } | null>(null);
+	async function pickGuide(id: GuideId) {
+		guidePicking = false;
+		const art = await import('#lib/domain/drawing-guide-art.js');
+		guide = { id, step: 0, steps: art.GUIDES[id] };
+	}
 	function pickPage(id: PageId | null) {
 		pagePicking = false;
 		if (id === page) return;
@@ -804,7 +853,7 @@
 	function lassoCopy() {
 		if (!lasso) return;
 		const size = { w: canvas.width / dpr, h: canvas.height / dpr };
-		const copies = copyStrokes(lassoStrokes(), copyOffset(lasso.frame, size));
+		const copies = copyStrokes(lassoStrokes(), copyOffset(lasso.frame, size)).map(stripMotion);
 		strokes.push(...copies);
 		history = recordAdd(history, ...copies);
 		lassoIdx = copies.map((_, k) => strokes.length - copies.length + k);
@@ -1072,11 +1121,69 @@
 		else for (let i = 0; i < s.points.length; i++) segment(s, i);
 	}
 
+	// Tap to animate (hub-t27j.5): seconds into the loop (null = still) and the loop's frame request.
+	let animT: number | null = null;
+	let animRaf = 0;
+	let animCentres = new Map<number, Pt>();
+	let animated = $state(0);
+
+	/** Paint a stroke, carried along its motion when it has one: only the paint moves, never the points. */
+	function paintMoving(s: DrawItem) {
+		const m = animT !== null && isAnimated(s) ? s.motion : null;
+		const c = m && animCentres.get(m.group);
+		if (!m || !c || animT === null) return paint(s);
+		const o = motionAt(
+			m.kind,
+			animT,
+			{ w: canvas.width / dpr, h: canvas.height / dpr },
+			m.group * PHASE_STEP
+		);
+		ctx.save();
+		ctx.translate(c.x + o.dx, c.y + o.dy);
+		ctx.rotate(o.rot);
+		ctx.translate(-c.x, -c.y);
+		paint(s);
+		ctx.restore();
+	}
+
+	/** Start the loop if anything is animated (idempotent). It stops itself when nothing is, or for reduced motion. */
+	function animKick() {
+		animated = strokes.filter(isAnimated).length;
+		if (animRaf || !animated || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		const t0 = performance.now();
+		const tick = (now: number) => {
+			if (!hasMotion(strokes)) {
+				animRaf = 0;
+				animT = null;
+				return redraw();
+			}
+			animT = (now - t0) / 1000;
+			animCentres = groupCentres(strokes);
+			if (!playing) redraw();
+			animRaf = requestAnimationFrame(tick);
+		};
+		animRaf = requestAnimationFrame(tick);
+	}
+
+	/** Give the lasso's ink a motion (or Stop it): one Undo step. */
+	function lassoMotion(kind: MotionKind | null) {
+		if (!lasso) return;
+		const before = boardNow();
+		strokes = kind ? setMotion(strokes, lassoIdx, kind) : stopMotion(strokes, lassoIdx);
+		if (strokes.every((it, i) => it === before.items[i])) return;
+		history = record(history, { type: 'replace', before, after: boardNow() });
+		animKick();
+		redraw();
+	}
+
+	$effect(() => () => cancelAnimationFrame(animRaf));
+
 	function redraw(list: DrawItem[] = strokes) {
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		if (list === strokes) for (const s of live?.items() ?? []) paint(s);
-		for (const s of wiggleVariant === null ? list : wiggleItems(list, wiggleVariant)) paint(s);
+		for (const s of wiggleVariant === null ? list : wiggleItems(list, wiggleVariant))
+			paintMoving(s);
 		if (current) paint(current);
 		if (draft) paintShape(draft);
 	}
@@ -1088,6 +1195,7 @@
 		if (canvas.width === w && canvas.height === h) return;
 		boardSize = { w: w / dpr, h: h / dpr };
 		view = clampView(view, boardSize);
+		if (ruler) ruler = clampRuler(ruler, boardSize);
 		canvas.width = linesCanvas.width = photoCanvas.width = onionCanvas.width = w;
 		canvas.height = linesCanvas.height = photoCanvas.height = onionCanvas.height = h;
 		drawLines();
@@ -1385,6 +1493,9 @@
 			...(isAlphaTool(tool) && isTranslucent(alpha) ? { alpha } : {}),
 			...(isBrushTool(tool) ? { seed: newSeed() } : {})
 		};
+		rulerEdge = ruler ? nearEdge(ruler, current.points[0], SNAP_DISTANCE / view.scale) : null;
+		if (rulerEdge)
+			current.points[0] = { ...current.points[0], ...projectOnEdge(rulerEdge, current.points[0]) };
 		if (mirrorN || kaleidoN) {
 			const size = { w: canvas.width / dpr, h: canvas.height / dpr };
 			current.mirror = kaleidoN
@@ -1438,7 +1549,7 @@
 			const next = sample(c, last.w);
 			const pt = smoother ? smoother.push(next) : next;
 			if (!pt) continue;
-			current.points.push(pt);
+			current.points.push(rulerEdge ? { ...pt, ...projectOnEdge(rulerEdge, pt) } : pt);
 			if (!translucent(current) && !whole(current.tool))
 				segment(current, current.points.length - 1);
 		}
@@ -1596,6 +1707,7 @@
 		}
 		drawLines();
 		redraw();
+		animKick();
 	}
 
 	function undo() {
@@ -1655,6 +1767,7 @@
 
 	function postAs(p: Member) {
 		if (chooseFor === 'save') return saveAs(p.id);
+		if (challenges.some((c) => c.memberId === p.id)) finishChallenge({ memberId: p.id });
 		// A drawing made while the daily prompt is showing earns its star; the server decides.
 		if (promptDate && prompt && !promptHidden)
 			void fetch('/api/drawing-stars', {
@@ -1791,6 +1904,7 @@
 			browsing = false;
 			note = '';
 			redraw();
+			animKick();
 			replaying = replay && items.length ? items : null;
 			if (flip) refreshThumbs();
 		} catch {
@@ -1884,6 +1998,32 @@
 		blank = isBlank(strokes);
 		redraw();
 	}
+	// Grown-up challenges (hub-t27j.11): a kid's own prompt replaces the daily one until done or posted.
+	let challenges = $state<Challenge[]>([]);
+	let laterIds = $state<string[]>([]);
+	const shownChallenges = $derived(
+		visibleChallenges(challenges, people).filter((c) => !laterIds.includes(c.id))
+	);
+	function loadChallenges() {
+		void fetch('/api/settings/drawing-challenges')
+			.then(async (res) => {
+				const body: unknown = res.ok ? await res.json() : null;
+				if (Array.isArray(body)) challenges = body as Challenge[];
+			})
+			.catch(() => {});
+	}
+	/** Clears at once, then tells the server (a failure only means it shows again next time). */
+	function finishChallenge(payload: { id: string } | { memberId: string }) {
+		challenges =
+			'id' in payload
+				? challenges.filter((c) => c.id !== payload.id)
+				: challenges.filter((c) => c.memberId !== payload.memberId);
+		void fetch('/api/settings/drawing-challenges/done', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(payload)
+		}).catch(() => {});
+	}
 	function hidePrompt() {
 		promptHidden = true;
 		try {
@@ -1895,6 +2035,7 @@
 
 	onMount(() => {
 		loadPrompt();
+		loadChallenges();
 		snapOn = loadSnapPref();
 		smoothOn = loadSmoothPref();
 		ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
@@ -1924,6 +2065,7 @@
 	const mainTools = $derived(
 		!choosing &&
 			!pagePicking &&
+			!guidePicking &&
 			!layersPicking &&
 			!photoPicking &&
 			!bgPicking &&
@@ -1976,7 +2118,15 @@
 			return;
 		}
 		commit();
-		pagePicking = layersPicking = photoPicking = bgPicking = browsing = artBook = picking = false;
+		pagePicking =
+			layersPicking =
+			photoPicking =
+			bgPicking =
+			browsing =
+			artBook =
+			picking =
+			guidePicking =
+				false;
 		shapePicking = t === 'shapes';
 		if (t !== 'shapes') shapeKind = null;
 		textMode = t === 'text';
@@ -1994,6 +2144,7 @@
 		if (selected) commit();
 		else if (choosing) choosing = false;
 		else if (pagePicking) pagePicking = false;
+		else if (guidePicking) guidePicking = false;
 		else if (layersPicking) layersPicking = false;
 		else if (photoPicking) photoPicking = false;
 		else if (bgPicking) bgPicking = false;
@@ -2096,6 +2247,7 @@
 				data-last={lastKind}
 				data-selected={sel !== null}
 				data-lasso={lasso?.count ?? 0}
+				data-animated={animated}
 				data-lasso-frame={lasso
 					? [lasso.frame.x, lasso.frame.y, lasso.frame.w, lasso.frame.h].map(Math.round).join(',')
 					: ''}
@@ -2114,6 +2266,16 @@
 				aria-hidden="true"
 				data-testid="draw-lines"
 			></canvas>
+			{#if ruler}
+				<RulerOverlay
+					{ruler}
+					toBoard={(x, y) => {
+						const r = canvas.getBoundingClientRect();
+						return { x: (x - r.left) / view.scale, y: (y - r.top) / view.scale };
+					}}
+					onchange={(r) => (ruler = clampRuler(r, boardSize))}
+				/>
+			{/if}
 			{#if mirrorN || kaleidoN}
 				<svg
 					class="pointer-events-none absolute inset-0 size-full text-ink-muted opacity-50"
@@ -2129,6 +2291,27 @@
 							stroke="currentColor"
 							stroke-width="2"
 							stroke-dasharray="8 8"
+						/>
+					{/each}
+				</svg>
+			{/if}
+			{#if guide}
+				<svg
+					viewBox="0 0 1000 700"
+					class="pointer-events-none absolute inset-0 size-full text-ink-muted"
+					aria-hidden="true"
+					data-testid="draw-guide-layer"
+					data-step={guide.step}
+				>
+					{#each guideLayers(guide.steps, guide.step) as l, li (li)}
+						<path
+							d={l.d}
+							fill="none"
+							stroke="currentColor"
+							stroke-width="8"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							opacity={l.current ? 0.6 : 0.25}
 						/>
 					{/each}
 				</svg>
@@ -2302,13 +2485,32 @@
 			showStart={section === 'together'}
 			onnote={(m) => (note = m)}
 		/>
-		{#if promptDate && prompt && !promptHidden}
+		{#each shownChallenges as c (c.id)}
+			<ChallengeBanner
+				name={people.find((p) => p.id === c.memberId)?.name ?? ''}
+				text={c.text}
+				ondone={() => finishChallenge({ id: c.id })}
+				onlater={() => (laterIds = [...laterIds, c.id])}
+			/>
+		{/each}
+		{#if promptDate && prompt && !promptHidden && !shownChallenges.length}
 			{@const shown = prompt}
 			<PromptBanner
 				prompt={shown}
 				onstart={hasStarter(shown) ? () => void startPrompt(shown) : null}
 				onshuffle={() => promptDate && choosePrompt(promptDate, true)}
 				ondismiss={hidePrompt}
+			/>
+		{/if}
+		{#if guide}
+			<GuideBar
+				title={GUIDE_LABELS[guide.id]}
+				label={stepLabel(guide.step, guide.steps.length)}
+				first={guide.step === 0}
+				last={isLastStep(guide.step, guide.steps.length)}
+				onback={() => guide && (guide.step = prevStep(guide.step, guide.steps.length))}
+				onnext={() => guide && (guide.step = nextStep(guide.step, guide.steps.length))}
+				ondone={() => (guide = null)}
 			/>
 		{/if}
 		{#if choosing}
@@ -2337,6 +2539,8 @@
 			<Button variant="ghost" onclick={() => (choosing = false)} data-testid="draw-back"
 				>Back</Button
 			>
+		{:else if guidePicking}
+			<GuidePicker onpick={(id) => void pickGuide(id)} onback={() => (guidePicking = false)} />
 		{:else if pagePicking}
 			<PagePicker {page} onpick={pickPage} onback={() => (pagePicking = false)} />
 		{:else if layersPicking}
@@ -2511,6 +2715,16 @@
 					>
 					<button
 						type="button"
+						class="{btn} {ruler ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={ruler !== null}
+						data-testid="draw-ruler-toggle"
+						onclick={() => {
+							commit();
+							ruler = ruler ? null : defaultRuler(boardSize);
+						}}>Ruler: {ruler ? 'On' : 'Off'}</button
+					>
+					<button
+						type="button"
 						class="{btn} {kaleidoN ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
 						aria-pressed={kaleidoN !== null}
 						data-testid="draw-kaleido"
@@ -2535,6 +2749,13 @@
 						disabled={monster !== null || liveStatus.active || !blank}
 						data-testid="draw-monster-feet"
 						onclick={() => startGame(4)}>Monster with feet</button
+					>
+					<button
+						type="button"
+						class="{btn} {guide ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={guide !== null}
+						data-testid="draw-guide-open"
+						onclick={() => (guidePicking = true)}>How to draw</button
 					>
 					<button
 						type="button"
@@ -2630,7 +2851,8 @@
 					<p class="w-full text-body text-ink-muted">Tap the drawing to pick a color.</p>
 				{:else if rail === 'lasso'}
 					<p class="w-full text-body text-ink-muted">
-						Draw a loop around your lines, then drag them, or pull the corner to resize.
+						Draw a loop around your lines, then drag them, pull the corner to resize, or make them
+						move.
 					</p>
 					<button
 						type="button"
@@ -2639,6 +2861,22 @@
 						data-testid="draw-lasso-copy"
 						onclick={lassoCopy}>Copy</button
 					>
+					{#if lasso}
+						{#each MOTIONS as m (m)}
+							<button
+								type="button"
+								class="{btn} border-line bg-surface capitalize"
+								data-testid="draw-motion-{m}"
+								onclick={() => lassoMotion(m)}>{m}</button
+							>
+						{/each}
+						<button
+							type="button"
+							class="{btn} border-line bg-surface"
+							data-testid="draw-motion-stop"
+							onclick={() => lassoMotion(null)}>Stop</button
+						>
+					{/if}
 				{/if}
 				{#if rail !== 'pick' && rail !== 'lasso'}
 					<ColorSizePanel

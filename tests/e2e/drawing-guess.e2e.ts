@@ -49,7 +49,7 @@ async function device(browser: import('@playwright/test').Browser, like: Page) {
 	return { context, page };
 }
 
-test('draw and guess: secret word, four choices, right and wrong, new round, drop @J18.21', async ({
+test('draw and guess: secret word, four choices, right and wrong, new round, drop @J18.35', async ({
 	page,
 	browser
 }) => {
