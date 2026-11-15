@@ -1004,6 +1004,12 @@
 					"text": "While sharing, tap Guess game under Together: one board gets a secret word to draw, the other sees the strokes live and four big answers. A right pick celebrates on both boards, a wrong one says try again, New round swaps who draws, and if a board drops the round ends cleanly.",
 					"status": "built",
 					"beads": ["hub-t27j.10"]
+				},
+				{
+					"id": "J18.36",
+					"text": "Turn on Protractor in Magic (it swaps with Ruler) and a see-through half-circle with degree marks appears: drag its grip to move it, drag the turn handle to rotate it. Start a stroke at its center and pull away: the line comes out dead straight at the nearest 15 degrees. The protractor is never ink and is not saved or posted.",
+					"status": "built",
+					"beads": ["hub-t27j.24"]
 				}
 			]
 		},
