@@ -197,14 +197,41 @@
 	import PagePicker from './drawing/PagePicker.svelte';
 	import PhotoPicker from './drawing/PhotoPicker.svelte';
 	import DrawingBrowser from './drawing/DrawingBrowser.svelte';
+	import ArtBook from './drawing/ArtBook.svelte';
 	import ShapePicker from './drawing/ShapePicker.svelte';
 	import ColorSizePanel from './drawing/ColorSizePanel.svelte';
 	import ToolRail from './drawing/ToolRail.svelte';
+	import {
+		copyOffset,
+		copyStrokes,
+		frameOf,
+		inBox,
+		inkBounds,
+		isLoop,
+		moveBy,
+		resizeHandle,
+		resizeTo,
+		selectInside,
+		transformStrokes,
+		type Box
+	} from '#lib/domain/drawing-lasso.js';
 	import { RAIL_TOOLS, type RailSection, type RailTool } from './drawing/rail-tools.js';
 	import { toolBtn as btn } from './drawing/tool-btn.js';
 	import type { PhotoRow, SavedRow } from './drawing/rows.js';
 	import LiveShare from './drawing/LiveShare.svelte';
 	import LiveChips from './drawing/LiveChips.svelte';
+	import MonsterBar from './drawing/MonsterBar.svelte';
+	import MonsterOverlay from './drawing/MonsterOverlay.svelte';
+	import {
+		clampToBand,
+		inBand,
+		isDrawing,
+		nextPlayer,
+		reveal as revealMonster,
+		startMonster,
+		type MonsterGame,
+		type MonsterTurns
+	} from '#lib/domain/drawing-monster.js';
 	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
 	import { parseStarInfo, starHint, type StarInfo } from '#lib/domain/drawing-stars.js';
 
@@ -285,6 +312,9 @@
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
 	let kaleidoN = $state<KaleidoscopeCount | null>(null); // kaleidoscope: slices per stroke (hub-t27j.1)
 	let boardSize = $state({ w: 0, h: 0 }); // CSS px, for the mirror guides
+	/** Fold-the-paper monster game in play (hub-t27j.9); null when not playing. */
+	let monster = $state<MonsterGame | null>(null);
+	let monsterFloor = 0; // history depth when this turn began: Undo never reaches into an earlier player's ink
 	/** Text mode: a tap on the board types words; a tap on placed text selects it. */
 	let textMode = $state(false);
 	let textSize = $state<TextSize>('large');
@@ -309,6 +339,7 @@
 	let note = $state('');
 	let mine = $state<SavedRow[] | null>(null);
 	let browsing = $state(false);
+	let artBook = $state(false);
 	/** The coloring page under the ink, or null for a blank board. */
 	let page = $state<PageId | null>(null);
 	let pagePicking = $state(false);
@@ -444,6 +475,20 @@
 		travel: number;
 	} | null = null;
 	let armed = false;
+	// Lasso (hub-t27j.6): the loop being drawn, the selected strokes (indices into `strokes`) and their frame.
+	let lassoMode = $state(false);
+	let lassoLoop = $state<Pt[] | null>(null);
+	let lassoIdx: number[] = [];
+	let lasso = $state<{ frame: Box; handle: Pt; count: number } | null>(null);
+	let lassoDrag: {
+		kind: 'move' | 'resize';
+		id: number;
+		from: Pt;
+		frame: Box;
+		origs: Stroke[];
+		before: Board<DrawItem>;
+		moved: boolean;
+	} | null = null;
 	let dragged = 0;
 	let anchor = { x: 0, y: 0 };
 	let activeId = -1;
@@ -639,7 +684,98 @@
 	function commit() {
 		selected = null;
 		gesture = null;
+		lassoClear();
 		syncSel();
+	}
+
+	/** The strokes the lasso holds right now, in board order: what later features (animate) build on. */
+	const lassoStrokes = (): Stroke[] => lassoIdx.map((i) => strokes[i] as Stroke);
+	function lassoShow() {
+		const ink = inkBounds(lassoStrokes());
+		if (!ink) return lassoClear();
+		const frame = frameOf(ink);
+		lasso = {
+			frame,
+			handle: clampPoint(resizeHandle(frame), canvas.width / dpr, canvas.height / dpr),
+			count: lassoIdx.length
+		};
+	}
+	function lassoClear() {
+		lassoIdx = [];
+		lassoLoop = null;
+		lassoDrag = null;
+		lasso = null;
+	}
+	function lassoStart(kind: 'move' | 'resize', e: PointerEvent, host: Element) {
+		if (!lasso) return;
+		e.preventDefault();
+		e.stopPropagation();
+		try {
+			host.setPointerCapture(e.pointerId);
+		} catch {
+			// Synthetic pointers (tests) are not active pointers.
+		}
+		activeId = e.pointerId;
+		lassoDrag = {
+			kind,
+			id: e.pointerId,
+			from: canvasPt(e),
+			frame: lasso.frame,
+			origs: lassoStrokes(),
+			before: boardNow(),
+			moved: false
+		};
+	}
+	function lassoDown(e: PointerEvent) {
+		const p = canvasPt(e);
+		if (lasso && inBox(p, lasso.frame, 24)) return lassoStart('move', e, canvas);
+		lassoClear();
+		lassoLoop = [p];
+	}
+	function lassoMove(e: PointerEvent) {
+		if (e.pointerId !== activeId) return;
+		const p = canvasPt(e);
+		if (lassoLoop) {
+			const last = lassoLoop[lassoLoop.length - 1];
+			if (Math.hypot(p.x - last.x, p.y - last.y) >= 3) lassoLoop = [...lassoLoop, p];
+			return;
+		}
+		const d = lassoDrag;
+		if (!d || e.pointerId !== d.id) return;
+		const t = d.kind === 'move' ? moveBy(p.x - d.from.x, p.y - d.from.y) : resizeTo(d.frame, p);
+		transformStrokes(d.origs, t).forEach((s, k) => (strokes[lassoIdx[k]] = s));
+		d.moved = true;
+		lassoShow();
+		redraw();
+	}
+	function lassoEnd(e: PointerEvent) {
+		if (e.pointerId !== activeId) return;
+		activeId = -1;
+		const loop = lassoLoop;
+		lassoLoop = null;
+		if (loop) {
+			lassoIdx = e.type === 'pointerup' && isLoop(loop) ? selectInside(strokes, loop) : [];
+			lassoShow();
+			return;
+		}
+		const d = lassoDrag;
+		lassoDrag = null;
+		// One move, resize or copy is one Undo step.
+		if (d?.moved)
+			history = record(history, { type: 'replace', before: d.before, after: boardNow() });
+	}
+	function lassoCopy() {
+		if (!lasso) return;
+		const size = { w: canvas.width / dpr, h: canvas.height / dpr };
+		const copies = copyStrokes(lassoStrokes(), copyOffset(lasso.frame, size));
+		strokes.push(...copies);
+		history = recordAdd(history, ...copies);
+		lassoIdx = copies.map((_, k) => strokes.length - copies.length + k);
+		count = strokes.length;
+		blank = isBlank(strokes);
+		syncLast();
+		lassoShow();
+		redraw();
 	}
 
 	const canvasPt = (e: PointerEvent): Pt => {
@@ -935,6 +1071,25 @@
 		}
 	}
 
+	/** One frame of a time-lapse video (hub-t27j.17): paper, picture, the ink so far, coloring lines. */
+	let videoFull: HTMLCanvasElement | null = null;
+	function composeVideoFrame(
+		items: DrawItem[],
+		out: CanvasRenderingContext2D,
+		w: number,
+		h: number
+	) {
+		videoFull ??= document.createElement('canvas');
+		videoFull.width = canvas.width;
+		videoFull.height = canvas.height;
+		paintOn(videoFull.getContext('2d') as CanvasRenderingContext2D, items);
+		out.fillStyle = token(bg ?? PAPER);
+		out.fillRect(0, 0, w, h);
+		if (photoId && layers.picture) out.drawImage(photoCanvas, 0, 0, w, h);
+		out.drawImage(videoFull, 0, 0, w, h);
+		if (layers.picture) out.drawImage(linesCanvas, 0, 0, w, h);
+	}
+
 	/** Flipbook (hub-cn7.25): frames and their thumbnails; the live strokes/history are the current frame. */
 	let flip = $state.raw<Flipbook<DrawItem> | null>(null);
 	let flipOn = $state(false);
@@ -1050,9 +1205,10 @@
 
 	function sample(e: PointerEvent, previous?: number) {
 		const raw = strokeWidth(tool, e.pointerType, e.pressure, size);
+		const y = (e.clientY - rect.top) / view.scale;
 		return {
 			x: (e.clientX - rect.left) / view.scale,
-			y: (e.clientY - rect.top) / view.scale,
+			y: monster ? clampToBand(monster, y, boardSize.h) : y,
 			w: previous === undefined ? raw : smoothWidth(previous, raw)
 		};
 	}
@@ -1102,6 +1258,11 @@
 		if (!guard.accepts(e.pointerType) || activeId !== -1 || (e.pointerType === 'mouse' && e.button))
 			return;
 		e.preventDefault();
+		if (isDrawing(monster)) {
+			// Only the current band takes ink: taps elsewhere, fills and text are ignored.
+			const y = (e.clientY - canvas.getBoundingClientRect().top) / view.scale;
+			if (bucket || textMode || !inBand(monster, y, boardSize.h)) return;
+		}
 		if (dropper) {
 			// Sample before the drawing layer is revealed, so hidden layers are left out of the pick.
 			try {
@@ -1123,6 +1284,7 @@
 		}
 		activeId = e.pointerId;
 		rect = canvas.getBoundingClientRect();
+		if (lassoMode) return lassoDown(e);
 		if (
 			selected &&
 			(isText(selected) ? hitText(selected, canvasPt(e)) : hitBody(selected, canvasPt(e)))
@@ -1223,6 +1385,7 @@
 			drop = colorUnder(e);
 			return;
 		}
+		if (lassoMode && (lassoLoop || lassoDrag)) return lassoMove(e);
 		if (gesture) return moveGesture(e);
 		if (e.pointerId === activeId && draft && shapeKind) {
 			const p = sample(e);
@@ -1259,6 +1422,7 @@
 	function up(e: PointerEvent) {
 		touches.delete(e.pointerId);
 		if (drop && e.pointerId === activeId) return dropEnd(e);
+		if (lassoLoop || lassoDrag) return lassoEnd(e);
 		if (gesture) return endGesture(e);
 		if (textTap && e.pointerId === activeId) {
 			const at = textTap;
@@ -1314,8 +1478,27 @@
 
 	/** Undo/redo stack for the whole board (see drawing-history.ts). */
 	let history = $state.raw<History<DrawItem>>(emptyHistory());
-	const undoable = $derived(canUndo(history));
+	const undoable = $derived(canUndo(history) && (!monster || history.undo.length > monsterFloor));
 	const redoable = $derived(canRedo(history));
+
+	function startGame(turns: MonsterTurns) {
+		commit();
+		monster = startMonster(turns);
+		monsterFloor = history.undo.length;
+		bucket = textMode = false;
+	}
+	function nextMonsterTurn() {
+		if (!monster) return;
+		commit();
+		monster = nextPlayer(monster);
+		monsterFloor = history.undo.length;
+		history = { ...history, redo: [] };
+	}
+	function revealMonsterGame() {
+		if (!monster) return;
+		commit();
+		monster = revealMonster(monster);
+	}
 	/** True when anything differs from a fresh board, so Clear all is not greyed out for a page alone. */
 	const dirty = $derived(count > 0 || page !== null || photoId !== null || bg !== null);
 	let clearToast = $state(false);
@@ -1359,6 +1542,7 @@
 
 	/** Put a board on the canvases: ink, coloring page, photo, background and layers. */
 	function showBoard(b: Board<DrawItem>) {
+		lassoClear();
 		strokes = [...b.items];
 		count = strokes.length;
 		syncLast();
@@ -1692,24 +1876,32 @@
 
 	/** True while the tools column shows the main tools (not a full sub-panel), so the pinned bars apply. */
 	const mainTools = $derived(
-		!choosing && !pagePicking && !layersPicking && !photoPicking && !bgPicking && !browsing
+		!choosing &&
+			!pagePicking &&
+			!layersPicking &&
+			!photoPicking &&
+			!bgPicking &&
+			!browsing &&
+			!artBook
 	);
 
 	/** The rail tool the current flags add up to; the options panel shows only its options. */
 	const rail = $derived<RailTool>(
 		dropper
 			? 'pick'
-			: bucket
-				? 'fill'
-				: textMode
-					? 'text'
-					: shapeKind || shapePicking
-						? 'shapes'
-						: tool === 'eraser'
-							? 'eraser'
-							: tool === 'highlighter'
-								? 'marker'
-								: 'pen'
+			: lassoMode
+				? 'lasso'
+				: bucket
+					? 'fill'
+					: textMode
+						? 'text'
+						: shapeKind || shapePicking
+							? 'shapes'
+							: tool === 'eraser'
+								? 'eraser'
+								: tool === 'highlighter'
+									? 'marker'
+									: 'pen'
 	);
 	/** The open rail section (Paper, Magic, Together), or null for the tool's own options. Never changes the tool. */
 	let section = $state<RailSection | null>(null);
@@ -1738,12 +1930,13 @@
 			return;
 		}
 		commit();
-		pagePicking = layersPicking = photoPicking = bgPicking = browsing = picking = false;
+		pagePicking = layersPicking = photoPicking = bgPicking = browsing = artBook = picking = false;
 		shapePicking = t === 'shapes';
 		if (t !== 'shapes') shapeKind = null;
 		textMode = t === 'text';
 		bucket = t === 'fill';
 		dropper = t === 'pick';
+		lassoMode = t === 'lasso';
 		tool = t === 'eraser' ? 'eraser' : t === 'marker' ? 'highlighter' : 'pen';
 	}
 	/** Esc steps back one level: the open picker or panel first, then the board. */
@@ -1758,6 +1951,7 @@
 		else if (layersPicking) layersPicking = false;
 		else if (photoPicking) photoPicking = false;
 		else if (bgPicking) bgPicking = false;
+		else if (artBook) artBook = false;
 		else if (browsing) browsing = false;
 		else if (shapePicking) pickShape(null);
 		else if (picking) picking = false;
@@ -1817,6 +2011,8 @@
 				<ReplayPlayer
 					items={replaying}
 					render={(list) => redraw(list)}
+					compose={composeVideoFrame}
+					boardSize={{ w: boardSize.w, h: boardSize.h }}
 					ondone={() => {
 						replaying = null;
 						redraw();
@@ -1851,6 +2047,10 @@
 				data-strokes={count}
 				data-last={lastKind}
 				data-selected={sel !== null}
+				data-lasso={lasso?.count ?? 0}
+				data-lasso-frame={lasso
+					? [lasso.frame.x, lasso.frame.y, lasso.frame.w, lasso.frame.h].map(Math.round).join(',')
+					: ''}
 				data-sel-rot={sel ? sel.rot.toFixed(3) : ''}
 				onpointerdown={down}
 				onpointermove={move}
@@ -1885,6 +2085,9 @@
 					{/each}
 				</svg>
 			{/if}
+			{#if monster}
+				<MonsterOverlay game={monster} height={boardSize.h} />
+			{/if}
 			{#if sel}
 				<svg class="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
 					<polygon
@@ -1893,6 +2096,30 @@
 						stroke-width="3"
 						stroke-dasharray="10 8"
 					/>
+				</svg>
+			{/if}
+			{#if lasso || lassoLoop}
+				<svg class="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
+					{#if lasso}
+						<rect
+							x={lasso.frame.x}
+							y={lasso.frame.y}
+							width={lasso.frame.w}
+							height={lasso.frame.h}
+							class="fill-none stroke-accent"
+							stroke-width="3"
+							stroke-dasharray="10 8"
+							data-testid="draw-lasso-box"
+						/>
+					{/if}
+					{#if lassoLoop}
+						<polyline
+							points={lassoLoop.map((p) => `${p.x},${p.y}`).join(' ')}
+							class="fill-none stroke-accent"
+							stroke-width="3"
+							stroke-dasharray="6 8"
+						/>
+					{/if}
 				</svg>
 			{/if}
 			{#if editing}
@@ -1943,6 +2170,25 @@
 				</button>
 			{/each}
 		{/if}
+		{#if lasso && !lassoLoop}
+			<button
+				type="button"
+				class="absolute flex size-tap-kid -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center"
+				style:left="{toScreen(view, lasso.handle).x}px"
+				style:top="{toScreen(view, lasso.handle).y}px"
+				aria-label="Resize"
+				data-testid="draw-lasso-resize"
+				onpointerdown={(e) => lassoStart('resize', e, e.currentTarget)}
+				onpointermove={lassoMove}
+				onpointerup={lassoEnd}
+				onpointercancel={lassoEnd}
+			>
+				<span
+					class="flex size-12 items-center justify-center rounded-full border-2 border-accent bg-surface text-body font-extrabold"
+					aria-hidden="true">⤡</span
+				>
+			</button>
+		{/if}
 		{#if keepChip}
 			<button
 				type="button"
@@ -1991,6 +2237,14 @@
 					data-testid="draw-fit"
 					onclick={() => (view = FIT)}>Fit</button
 				>
+				{#if monster}
+					<MonsterBar
+						game={monster}
+						onnext={nextMonsterTurn}
+						onreveal={revealMonsterGame}
+						onend={() => (monster = null)}
+					/>
+				{/if}
 			</div>
 		{/if}
 		{#if promptDate && prompt && !promptHidden}
@@ -2090,8 +2344,16 @@
 			<Button variant="ghost" onclick={() => (bgPicking = false)} data-testid="draw-bg-close"
 				>Back</Button
 			>
+		{:else if artBook}
+			<ArtBook {people} onback={() => (artBook = false)} />
 		{:else if browsing}
-			<DrawingBrowser {mine} onopen={reopen} ondelete={remove} onback={() => (browsing = false)} />
+			<DrawingBrowser
+				{mine}
+				onopen={reopen}
+				ondelete={remove}
+				onback={() => (browsing = false)}
+				onartbook={() => (artBook = true)}
+			/>
 		{:else}
 			{#if flipOn && flip}
 				<FlipbookStrip
@@ -2174,7 +2436,7 @@
 					<button
 						type="button"
 						class="{btn} border-line bg-surface"
-						disabled={!dirty || liveStatus.active}
+						disabled={!dirty || liveStatus.active || isDrawing(monster)}
 						data-testid="draw-clear"
 						onclick={clear}>Clear all</button
 					>
@@ -2203,6 +2465,21 @@
 							kaleidoN = nextKaleidoscope(kaleidoN);
 							mirrorN = null;
 						}}>Kaleidoscope: {kaleidoscopeLabel(kaleidoN)}</button
+					>
+					<button
+						type="button"
+						class="{btn} {monster ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={monster !== null}
+						disabled={monster !== null || liveStatus.active || !blank}
+						data-testid="draw-monster"
+						onclick={() => startGame(3)}>Monster game</button
+					>
+					<button
+						type="button"
+						class="{btn} border-line bg-surface"
+						disabled={monster !== null || liveStatus.active || !blank}
+						data-testid="draw-monster-feet"
+						onclick={() => startGame(4)}>Monster with feet</button
 					>
 					<button
 						type="button"
@@ -2289,8 +2566,19 @@
 					/>
 				{:else if rail === 'pick'}
 					<p class="w-full text-body text-ink-muted">Tap the drawing to pick a color.</p>
+				{:else if rail === 'lasso'}
+					<p class="w-full text-body text-ink-muted">
+						Draw a loop around your lines, then drag them, or pull the corner to resize.
+					</p>
+					<button
+						type="button"
+						class="{btn} border-line bg-surface"
+						disabled={!lasso}
+						data-testid="draw-lasso-copy"
+						onclick={lassoCopy}>Copy</button
+					>
 				{/if}
-				{#if rail !== 'pick'}
+				{#if rail !== 'pick' && rail !== 'lasso'}
 					<ColorSizePanel
 						{color}
 						eraser={rail === 'eraser'}
@@ -2352,7 +2640,7 @@
 				<button
 					type="button"
 					class="{btn} border-line bg-surface"
-					disabled={blank}
+					disabled={blank || isDrawing(monster)}
 					data-testid="draw-save"
 					onclick={save}>Save</button
 				>
@@ -2363,7 +2651,7 @@
 				{/if}
 				<Button
 					size="kid"
-					disabled={blank}
+					disabled={blank || isDrawing(monster)}
 					onclick={() => {
 						chooseFor = 'post';
 						choosing = true;

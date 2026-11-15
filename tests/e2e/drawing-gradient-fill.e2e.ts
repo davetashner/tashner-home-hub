@@ -97,7 +97,7 @@ const greenAt = (page: Page, fx: number, fy: number) =>
 		[fx, fy]
 	);
 
-test('bucket fills a closed shape with a two-color gradient, undo, save and reopen, post @J18.25', async ({
+test('bucket fills a closed shape with a two-color gradient, undo, save and reopen, post @J18.29', async ({
 	page
 }, info) => {
 	const kidId = `e2e-gradient-kid-${info.workerIndex}${info.repeatEachIndex}`;

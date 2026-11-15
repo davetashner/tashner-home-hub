@@ -8,7 +8,7 @@ import { ensureHousehold } from './adult';
 // The home page only shows notes (and the draw button) once a household exists.
 test.beforeAll(() => ensureHousehold());
 
-const TOOLS = ['pen', 'marker', 'eraser', 'fill', 'shapes', 'text', 'pick'] as const;
+const TOOLS = ['pen', 'marker', 'eraser', 'fill', 'shapes', 'text', 'pick', 'lasso'] as const;
 
 async function openBoard(page: import('@playwright/test').Page) {
 	await gotoHydrated(page, '/');
@@ -16,7 +16,7 @@ async function openBoard(page: import('@playwright/test').Page) {
 	await expect(page.getByTestId('draw-sheet')).toBeVisible();
 }
 
-test('the rail has seven big labeled tools and Pen starts chosen', async ({ page }) => {
+test('the rail has eight big labeled tools and Pen starts chosen', async ({ page }) => {
 	await openBoard(page);
 	for (const t of TOOLS) {
 		const wrap = page.getByTestId(`draw-rail-${t}`);
