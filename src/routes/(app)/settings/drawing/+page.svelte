@@ -2,12 +2,63 @@
 	import { onMount } from 'svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
+	import { CHALLENGE_MAX_LENGTH, type Challenge } from '#lib/domain/drawing-challenges.js';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
 
 	let enabled = $state(true);
 	let message = $state('');
 	let edits = 0;
 
+	// Grown-up challenges (hub-t27j.11): one prompt per kid, replacing the daily one on their board.
+	let challenges = $state<Challenge[]>([]);
+	let kidId = $state('');
+	let text = $state('');
+	const field =
+		'min-h-tap w-full rounded-control border-2 border-line bg-surface px-6 text-body text-ink';
+	const post = (method: string, body: unknown) =>
+		fetch('/api/settings/drawing-challenges', {
+			method,
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+	async function addChallenge(e: SubmitEvent) {
+		e.preventDefault();
+		const memberId = kidId || data.kids[0]?.id;
+		if (!memberId || !text.trim()) return;
+		message = '';
+		try {
+			const res = await post('POST', { memberId, text });
+			if (!res.ok) throw new Error();
+			const made = (await res.json()) as Challenge;
+			challenges = [...challenges.filter((c) => c.memberId !== memberId), made];
+			text = '';
+		} catch {
+			message = 'Could not save the challenge. Try again.';
+		}
+	}
+	async function removeChallenge(c: Challenge) {
+		message = '';
+		const before = challenges;
+		challenges = challenges.filter((x) => x.id !== c.id);
+		try {
+			const res = await post('DELETE', { id: c.id });
+			if (!res.ok) throw new Error();
+		} catch {
+			challenges = before;
+			message = 'Could not remove the challenge. Try again.';
+		}
+	}
+	const kidName = (id: string) => data.kids.find((k) => k.id === id)?.name ?? 'A kid';
+
 	onMount(() => {
+		void fetch('/api/settings/drawing-challenges')
+			.then(async (res) => {
+				const body: unknown = res.ok ? await res.json() : null;
+				if (Array.isArray(body)) challenges = body as Challenge[];
+			})
+			.catch(() => {});
 		const at = edits;
 		void fetch('/api/settings/drawing-prompts')
 			.then(async (res) => {
@@ -66,6 +117,67 @@
 					>
 				{/each}
 			</div>
+		</div>
+	</Card>
+	<Card>
+		<div class="flex flex-col gap-6">
+			<div class="flex flex-col gap-1">
+				<h2 class="text-title font-bold">Challenge a kid</h2>
+				<p class="text-body text-ink-muted">
+					A drawing idea just for one kid. It shows on the drawing board instead of the daily prompt
+					until they post a drawing or tap Done.
+				</p>
+			</div>
+			{#if data.kids.length}
+				<form
+					class="flex flex-wrap items-end gap-4"
+					onsubmit={addChallenge}
+					data-testid="challenge-form"
+				>
+					<label class="flex flex-col gap-2">
+						<span class="text-caption text-ink-muted">Kid</span>
+						<select class={field} bind:value={kidId} data-testid="challenge-kid">
+							{#each data.kids as k (k.id)}
+								<option value={k.id}>{k.name}</option>
+							{/each}
+						</select>
+					</label>
+					<label class="flex min-w-64 flex-1 flex-col gap-2 max-sm:min-w-0 max-sm:basis-full">
+						<span class="text-caption text-ink-muted">Challenge</span>
+						<input
+							class={field}
+							bind:value={text}
+							maxlength={CHALLENGE_MAX_LENGTH}
+							placeholder="Draw what you want for dinner Friday"
+							required
+							data-testid="challenge-text"
+						/>
+					</label>
+					<Button type="submit" data-testid="challenge-add">Set challenge</Button>
+				</form>
+			{:else}
+				<p class="text-body text-ink-muted">Add a kid in Family settings first.</p>
+			{/if}
+			{#if challenges.length}
+				<ul class="flex flex-col gap-3" data-testid="challenge-list">
+					{#each challenges as c (c.id)}
+						<li
+							class="flex flex-wrap items-center justify-between gap-4"
+							data-testid="challenge-row"
+						>
+							<p class="min-w-0 flex-1 text-body">
+								<span class="font-bold">{kidName(c.memberId)}:</span>
+								{c.text}
+							</p>
+							<Button
+								variant="secondary"
+								onclick={() => removeChallenge(c)}
+								data-testid="challenge-remove">Remove</Button
+							>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</div>
 	</Card>
 	{#if message}<p role="alert" class="text-body text-danger">{message}</p>{/if}
