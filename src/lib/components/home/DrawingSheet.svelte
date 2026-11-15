@@ -212,6 +212,18 @@
 		transformStrokes,
 		type Box
 	} from '#lib/domain/drawing-lasso.js';
+	import {
+		MOTIONS,
+		PHASE_STEP,
+		groupCentres,
+		hasMotion,
+		isAnimated,
+		motionAt,
+		setMotion,
+		stopMotion,
+		stripMotion,
+		type MotionKind
+	} from '#lib/domain/drawing-animate.js';
 	import { RAIL_TOOLS, type RailSection, type RailTool } from './drawing/rail-tools.js';
 	import { toolBtn as btn } from './drawing/tool-btn.js';
 	import type { PhotoRow, SavedRow } from './drawing/rows.js';
@@ -747,7 +759,7 @@
 	function lassoCopy() {
 		if (!lasso) return;
 		const size = { w: canvas.width / dpr, h: canvas.height / dpr };
-		const copies = copyStrokes(lassoStrokes(), copyOffset(lasso.frame, size));
+		const copies = copyStrokes(lassoStrokes(), copyOffset(lasso.frame, size)).map(stripMotion);
 		strokes.push(...copies);
 		history = recordAdd(history, ...copies);
 		lassoIdx = copies.map((_, k) => strokes.length - copies.length + k);
@@ -1009,11 +1021,77 @@
 		else for (let i = 0; i < s.points.length; i++) segment(s, i);
 	}
 
+	// Tap to animate (hub-t27j.5): seconds into the loop (null = still) and the loop's frame request.
+	let animT: number | null = null;
+	let animRaf = 0;
+	let animCentres = new Map<number, Pt>();
+	let animated = $state(0);
+
+	/** Paint a stroke, carried along its motion when it has one: only the paint moves, never the points. */
+	function paintMoving(s: DrawItem) {
+		const m = animT !== null && isAnimated(s) ? s.motion : null;
+		const c = m && animCentres.get(m.group);
+		if (!m || !c || animT === null) return paint(s);
+		const o = motionAt(
+			m.kind,
+			animT,
+			{ w: canvas.width / dpr, h: canvas.height / dpr },
+			m.group * PHASE_STEP
+		);
+		ctx.save();
+		ctx.translate(c.x + o.dx, c.y + o.dy);
+		ctx.rotate(o.rot);
+		ctx.translate(-c.x, -c.y);
+		paint(s);
+		ctx.restore();
+	}
+
+	/** Start the loop if anything is animated (idempotent). It stops itself when nothing is, or for reduced motion. */
+	function animKick() {
+		animated = strokes.filter(isAnimated).length;
+		if (animRaf || !animated || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		const t0 = performance.now();
+		const tick = (now: number) => {
+			if (!hasMotion(strokes)) {
+				animRaf = 0;
+				animT = null;
+				return redraw();
+			}
+			animT = (now - t0) / 1000;
+			animCentres = groupCentres(strokes);
+			if (!playing) redraw();
+			animRaf = requestAnimationFrame(tick);
+		};
+		animRaf = requestAnimationFrame(tick);
+	}
+
+	/** Paint the still frame (what posts and thumbnails show); the loop moves on at its next tick. */
+	function stillFrame() {
+		const t = animT;
+		if (t === null) return;
+		animT = null;
+		redraw();
+		animT = t;
+	}
+
+	/** Give the lasso's ink a motion (or Stop it): one Undo step. */
+	function lassoMotion(kind: MotionKind | null) {
+		if (!lasso) return;
+		const before = boardNow();
+		strokes = kind ? setMotion(strokes, lassoIdx, kind) : stopMotion(strokes, lassoIdx);
+		if (strokes.every((it, i) => it === before.items[i])) return;
+		history = record(history, { type: 'replace', before, after: boardNow() });
+		animKick();
+		redraw();
+	}
+
+	$effect(() => () => cancelAnimationFrame(animRaf));
+
 	function redraw(list: DrawItem[] = strokes) {
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		if (list === strokes) for (const s of live?.items() ?? []) paint(s);
-		for (const s of list) paint(s);
+		for (const s of list) paintMoving(s);
 		if (current) paint(current);
 		if (draft) paintShape(draft);
 	}
@@ -1488,6 +1566,7 @@
 		}
 		drawLines();
 		redraw();
+		animKick();
 	}
 
 	function undo() {
@@ -1523,6 +1602,7 @@
 
 	/** A PNG data URL no larger than the note limit: scaled to 1024px, shrunk further if it still is not small. */
 	function exportPng(): string {
+		stillFrame();
 		let { width, height } = fitWithin(canvas.width, canvas.height);
 		const out = document.createElement('canvas');
 		let url = '';
@@ -1570,6 +1650,7 @@
 
 	/** A small PNG for the My drawings list. */
 	function thumbnail(): string {
+		stillFrame();
 		const { width, height } = fitWithin(canvas.width, canvas.height, 240);
 		const out = document.createElement('canvas');
 		out.width = width;
@@ -1674,6 +1755,7 @@
 			browsing = false;
 			note = '';
 			redraw();
+			animKick();
 			replaying = replay && items.length ? items : null;
 			if (flip) refreshThumbs();
 		} catch {
@@ -1968,6 +2050,7 @@
 				data-last={lastKind}
 				data-selected={sel !== null}
 				data-lasso={lasso?.count ?? 0}
+				data-animated={animated}
 				data-lasso-frame={lasso
 					? [lasso.frame.x, lasso.frame.y, lasso.frame.w, lasso.frame.h].map(Math.round).join(',')
 					: ''}
@@ -2449,7 +2532,8 @@
 					<p class="w-full text-body text-ink-muted">Tap the drawing to pick a color.</p>
 				{:else if rail === 'lasso'}
 					<p class="w-full text-body text-ink-muted">
-						Draw a loop around your lines, then drag them, or pull the corner to resize.
+						Draw a loop around your lines, then drag them, pull the corner to resize, or make them
+						move.
 					</p>
 					<button
 						type="button"
@@ -2458,6 +2542,22 @@
 						data-testid="draw-lasso-copy"
 						onclick={lassoCopy}>Copy</button
 					>
+					{#if lasso}
+						{#each MOTIONS as m (m)}
+							<button
+								type="button"
+								class="{btn} border-line bg-surface capitalize"
+								data-testid="draw-motion-{m}"
+								onclick={() => lassoMotion(m)}>{m}</button
+							>
+						{/each}
+						<button
+							type="button"
+							class="{btn} border-line bg-surface"
+							data-testid="draw-motion-stop"
+							onclick={() => lassoMotion(null)}>Stop</button
+						>
+					{/if}
 				{/if}
 				{#if rail !== 'pick' && rail !== 'lasso'}
 					<ColorSizePanel

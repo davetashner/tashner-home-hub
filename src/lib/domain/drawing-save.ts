@@ -22,6 +22,7 @@ import {
 	type Stroke
 } from './drawing.js';
 import { MAX_FRAMES } from './drawing-flipbook.js';
+import { motionWire, parseMotionWire, type MotionWire } from './drawing-animate.js';
 import { BRUSH_TOOLS, isAlphaTool, isSeed } from './drawing-brushes.js';
 
 export const SAVED_MAX_CHARS = 400_000;
@@ -38,7 +39,16 @@ export interface Size {
 }
 
 /** `a` (hub-cn7.13) is the opacity, `z` (hub-cn7.19) seeds a textured brush; saves made before either have none. */
-type WireStroke = { t: DrawTool; c: string; p: number[]; m?: number[]; a?: number; z?: number };
+type WireStroke = {
+	t: DrawTool;
+	c: string;
+	p: number[];
+	m?: number[];
+	a?: number;
+	z?: number;
+	/** Tap to animate (hub-t27j.5): [kind, group]; a malformed one loads as still ink. */
+	n?: MotionWire;
+};
 /** `r` (hub-cn7.5) is the turn in radians; saves made before it have none and open upright. */
 type WireShape = {
 	s: ShapeKind;
@@ -137,7 +147,8 @@ export function serializeDrawing(
 			p: it.points.flatMap((p) => [X(p.x), Y(p.y), K(p.w)]),
 			...(it.mirror ? { m: mirrorWire(it.mirror, X, Y) } : {}),
 			...(isAlphaTool(it.tool) && isTranslucent(it.alpha) ? { a: r2(clampAlpha(it.alpha)) } : {}),
-			...(it.seed ? { z: it.seed } : {})
+			...(it.seed ? { z: it.seed } : {}),
+			...(it.motion ? { n: motionWire(it.motion) } : {})
 		};
 	}
 }
@@ -330,6 +341,8 @@ export function loadFrames(json: unknown, to: Size): DrawItem[][] | null {
 			st.points.push({ x: X(it.p[i]), y: Y(it.p[i + 1]), w: it.p[i + 2] * s });
 		const m = it.m && parseMirrorWire(it.m, X, Y);
 		if (m) st.mirror = m;
+		const mo = parseMotionWire(it.n);
+		if (mo) st.motion = mo;
 		return st;
 	}
 }
