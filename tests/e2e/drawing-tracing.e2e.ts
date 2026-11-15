@@ -85,7 +85,7 @@ async function stroke(page: Page, from: [number, number], to: [number, number], 
 	);
 }
 
-test('tracing page: dotted guide stays, trace over it, undo, save and reopen @J18.19', async ({
+test('tracing page: dotted guide stays, trace over it, undo, save and reopen @J18.23', async ({
 	page
 }, info) => {
 	const kidId = `e2e-trace-kid-${info.workerIndex}${info.repeatEachIndex}`;

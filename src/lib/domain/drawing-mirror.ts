@@ -8,14 +8,19 @@
  * moves with the drawing when it is refitted to another board size, so a reopened drawing is
  * identical. Pure: no canvas.
  */
+import { isKaleidoscopeCount, kaleidoscopeOffset } from './drawing-kaleidoscope.js';
+
 export const MIRROR_MODES = [2, 4, 8] as const;
 export type MirrorCount = (typeof MIRROR_MODES)[number];
 
 /** n copies reflected about (cx, cy), in CSS px of the board the stroke was drawn on. */
 export interface Mirror {
-	n: MirrorCount;
+	/** Mirror copies (2, 4, 8), or kaleidoscope slices (6, 8) when `rot` is set. */
+	n: number;
 	cx: number;
 	cy: number;
+	/** Kaleidoscope (hub-t27j.1): radial turns plus reflections instead of flips. */
+	rot?: true;
 }
 
 export const isMirrorCount = (v: unknown): v is MirrorCount =>
@@ -38,6 +43,10 @@ export const mirrorLabel = (n: MirrorCount | null): string =>
 export function mirrorPoint(x: number, y: number, m: Mirror, k: number): { x: number; y: number } {
 	const dx = x - m.cx;
 	const dy = y - m.cy;
+	if (m.rot) {
+		const o = kaleidoscopeOffset(dx, dy, m.n, k);
+		return { x: m.cx + o.x, y: m.cy + o.y };
+	}
 	const [a, b] = [
 		[dx, dy],
 		[-dx, dy],
@@ -81,21 +90,34 @@ export function mirrorGuides(
 	return lines;
 }
 
-/** Wire form `[n, cx, cy]` for a stroke's mirror, or undefined. */
+/** A kaleidoscope as a stroke's mirror: n slices around the middle of a board of `size`. */
+export const centeredKaleidoscope = (n: number, size: { w: number; h: number }): Mirror => ({
+	n,
+	cx: size.w / 2,
+	cy: size.h / 2,
+	rot: true
+});
+
+/** Wire form `[n, cx, cy]` (kaleidoscope: `[n, cx, cy, 1]`) for a stroke's mirror, or undefined. */
 export const mirrorWire = (
 	m: Mirror | undefined,
 	X: (x: number) => number,
 	Y: (y: number) => number
-) => (m ? [m.n, X(m.cx), Y(m.cy)] : undefined);
+) => (m ? (m.rot ? [m.n, X(m.cx), Y(m.cy), 1] : [m.n, X(m.cx), Y(m.cy)]) : undefined);
 
-/** A mirror from its wire form, or null when malformed. */
+/** A mirror (or kaleidoscope) from its wire form, or null when malformed. */
 export function parseMirrorWire(
 	v: unknown,
 	X: (x: number) => number = (x) => x,
 	Y: (y: number) => number = (y) => y
 ): Mirror | null {
-	if (!Array.isArray(v) || v.length !== 3) return null;
-	const [n, cx, cy] = v;
-	if (!isMirrorCount(n) || !Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+	if (!Array.isArray(v) || (v.length !== 3 && v.length !== 4)) return null;
+	const [n, cx, cy, rot] = v;
+	if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+	if (v.length === 4) {
+		if (rot !== 1 || !isKaleidoscopeCount(n)) return null;
+		return { n, cx: X(cx), cy: Y(cy), rot: true };
+	}
+	if (!isMirrorCount(n)) return null;
 	return { n, cx: X(cx), cy: Y(cy) };
 }
