@@ -100,7 +100,7 @@ const lassoOn = (page: Page) => page.getByTestId('draw-lasso').click();
 const differs = (a: { x0: number; y0: number }, b: { x0: number; y0: number }, min: number) =>
 	Math.abs(a.x0 - b.x0) + Math.abs(a.y0 - b.y0) >= min;
 
-test('animate: lasso ink and make it swim, bounce, stop, undo, save, reopen and post it still @J18.26', async ({
+test('animate: lasso ink and make it swim, bounce, stop, undo, save, reopen and post it still @J18.31', async ({
 	page
 }, info) => {
 	const name = await seedAndOpen(page, info);
@@ -202,7 +202,7 @@ test('animate: lasso ink and make it swim, bounce, stop, undo, save, reopen and 
 	await expect(page.getByRole('button', { name: `Open drawing by ${name}` })).toHaveCount(0);
 });
 
-test('animate: Stop takes the motion off and the ink is back where it was drawn @J18.26', async ({
+test('animate: Stop takes the motion off and the ink is back where it was drawn @J18.31', async ({
 	page
 }, info) => {
 	await seedAndOpen(page, info);
@@ -223,7 +223,7 @@ test('animate: Stop takes the motion off and the ink is back where it was drawn 
 	expect(await inkBox(page)).toEqual(still); // no loop is running any more
 });
 
-test('animate: reduced motion keeps the ink still @J18.26', async ({ page }, info) => {
+test('animate: reduced motion keeps the ink still @J18.31', async ({ page }, info) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await seedAndOpen(page, info);
 	const canvas = page.getByTestId('draw-canvas');
@@ -237,7 +237,7 @@ test('animate: reduced motion keeps the ink still @J18.26', async ({ page }, inf
 	expect(await inkBox(page)).toEqual(still);
 });
 
-test('animate: the motion buttons fit the 4K wall screen @J18.26', async ({ page }, info) => {
+test('animate: the motion buttons fit the 4K wall screen @J18.31', async ({ page }, info) => {
 	await seedAndOpen(page, info);
 	await ink(page, along([0.1, 0.5], [0.4, 0.5]));
 	await lassoOn(page);

@@ -968,6 +968,18 @@
 					"text": "With the paint bucket, pick Gradient, choose a second color, and tap a closed area: it fills from your current color at the top to the second color (white at first) at the bottom, only inside the area. Undo removes it, and it stays when the drawing is saved, reopened or posted.",
 					"status": "built",
 					"beads": ["hub-t27j.3"]
+				},
+				{
+					"id": "J18.30",
+					"text": "Tap Wiggle and the lines boil like a hand-drawn cartoon (still if reduced motion is on); the strokes underneath never change, Undo works, it is still when off, and a drawing saved with Wiggle wiggles again when reopened.",
+					"status": "built",
+					"beads": ["hub-t27j.4"]
+				},
+				{
+					"id": "J18.31",
+					"text": "After circling some ink with the Lasso, tap Swim, Fly, Bounce or Launch and it loops across the board while the rest stays still; circle other ink for a second motion. Stop or Undo takes it off. The motion is saved with the drawing and plays again when it is reopened; posting shares the still picture, and reduced-motion settings keep it still.",
+					"status": "built",
+					"beads": ["hub-t27j.5"]
 				}
 			]
 		},
