@@ -5,14 +5,17 @@
  * Pure: path maths only.
  */
 import type { PathCmd } from './drawing.js';
+import { isTraceId, traceChar, tracingPaths, type TraceId } from './drawing-tracing.js';
 
 export const PAGE_SIZE = { w: 1000, h: 700 } as const;
 export const PAGE_IDS = ['house', 'rocket', 'fish', 'garden'] as const;
-export type PageId = (typeof PAGE_IDS)[number];
+export type ColoringId = (typeof PAGE_IDS)[number];
+/** A coloring page or a letter / number tracing page (hub-t27j.13). */
+export type PageId = ColoringId | TraceId;
 export const isPageId = (v: unknown): v is PageId =>
-	typeof v === 'string' && (PAGE_IDS as readonly string[]).includes(v);
+	(typeof v === 'string' && (PAGE_IDS as readonly string[]).includes(v)) || isTraceId(v);
 
-export const PAGE_LABELS: Record<PageId, string> = {
+export const PAGE_LABELS: Record<ColoringId, string> = {
 	house: 'House',
 	rocket: 'Rocket',
 	fish: 'Fish',
@@ -52,7 +55,7 @@ function flower(cx: number, cy: number, k: number, stemTo: number): Path[] {
 	];
 }
 
-const PAGES: Record<PageId, Path[]> = {
+const PAGES: Record<ColoringId, Path[]> = {
 	house: [
 		rect(300, 300, 400, 300),
 		poly([260, 300], [500, 120], [740, 300]),
@@ -148,7 +151,11 @@ const PAGES: Record<PageId, Path[]> = {
 	]
 };
 
-export const pageDrawing = (id: PageId): Path[] => PAGES[id];
+export const pageLabel = (id: PageId): string =>
+	isTraceId(id) ? `Trace ${traceChar(id)}` : PAGE_LABELS[id as ColoringId];
+
+export const pageDrawing = (id: PageId): Path[] =>
+	isTraceId(id) ? tracingPaths(traceChar(id)!) : PAGES[id as ColoringId];
 
 export interface Fit {
 	/** Scale from page space to canvas CSS pixels. */
@@ -168,7 +175,7 @@ export function pagePaths(id: PageId, canvas: { w: number; h: number }): Path[] 
 	const { s, ox, oy } = pageFit(canvas);
 	const X = (x: number) => x * s + ox;
 	const Y = (y: number) => y * s + oy;
-	return PAGES[id].map((p) =>
+	return pageDrawing(id).map((p) =>
 		p.map((c): PathCmd => {
 			switch (c[0]) {
 				case 'M':

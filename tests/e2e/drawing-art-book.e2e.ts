@@ -56,7 +56,7 @@ async function openArtBook(page: Page, kid: string) {
 	await page.getByTestId('art-person').filter({ hasText: NAMES[kid] }).click();
 }
 
-test('the art book shows one kid’s drawings by month and compares then and now @J18.20', async ({
+test('the art book shows one kid’s drawings by month and compares then and now @J18.26', async ({
 	page
 }) => {
 	await openArtBook(page, KID);

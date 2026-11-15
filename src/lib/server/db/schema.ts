@@ -32,7 +32,8 @@ export const STAR_REASONS = [
 	'adjustment',
 	'habits_day',
 	'cashout',
-	'practice'
+	'practice',
+	'drawing'
 ] as const;
 /** Allowance ledger entry kinds (REW-7): stars cashed in, money handed over, manual fixes. */
 export const ALLOWANCE_KINDS = ['cashout', 'payout', 'adjustment'] as const;
