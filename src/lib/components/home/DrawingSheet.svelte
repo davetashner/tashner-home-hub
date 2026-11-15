@@ -35,8 +35,10 @@
 		savedBackground,
 		savedPage,
 		savedPhoto,
+		savedWiggle,
 		serializeDrawing
 	} from '#lib/domain/drawing-save.js';
+	import { WIGGLE_FPS, WIGGLE_VARIANTS, wiggleItems } from '#lib/domain/drawing-wiggle.js';
 	import {
 		ALL_VISIBLE,
 		LAYER_LABELS,
@@ -197,6 +199,17 @@
 	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import { PALETTE, isTranslucent } from '#lib/domain/drawing-colors.js';
 	import PagePicker from './drawing/PagePicker.svelte';
+	import GuidePicker from './drawing/GuidePicker.svelte';
+	import GuideBar from './drawing/GuideBar.svelte';
+	import {
+		GUIDE_LABELS,
+		guideLayers,
+		isLastStep,
+		nextStep,
+		prevStep,
+		stepLabel,
+		type GuideId
+	} from '#lib/domain/drawing-guide.js';
 	import PhotoPicker from './drawing/PhotoPicker.svelte';
 	import DrawingBrowser from './drawing/DrawingBrowser.svelte';
 	import ArtBook from './drawing/ArtBook.svelte';
@@ -217,6 +230,18 @@
 		transformStrokes,
 		type Box
 	} from '#lib/domain/drawing-lasso.js';
+	import {
+		MOTIONS,
+		PHASE_STEP,
+		groupCentres,
+		hasMotion,
+		isAnimated,
+		motionAt,
+		setMotion,
+		stopMotion,
+		stripMotion,
+		type MotionKind
+	} from '#lib/domain/drawing-animate.js';
 	import { RAIL_TOOLS, type RailSection, type RailTool } from './drawing/rail-tools.js';
 	import { toolBtn as btn } from './drawing/tool-btn.js';
 	import type { PhotoRow, SavedRow } from './drawing/rows.js';
@@ -314,6 +339,42 @@
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
 	let kaleidoN = $state<KaleidoscopeCount | null>(null); // kaleidoscope: slices per stroke (hub-t27j.1)
 	let boardSize = $state({ w: 0, h: 0 }); // CSS px, for the mirror guides
+	/** Wiggle (hub-t27j.4): lines boil. The variant is painted only; stored strokes never change. */
+	let wiggleOn = $state(false);
+	let wiggleVariant: number | null = null; // null = paint the strokes as drawn
+	let wiggleMoving = $state(false);
+	$effect(() => {
+		wiggleMoving = false;
+		if (!wiggleOn || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		wiggleMoving = true;
+		let v = 0;
+		const timer = setInterval(() => {
+			v = (v + 1) % WIGGLE_VARIANTS;
+			wiggleVariant = v;
+			redraw();
+		}, 1000 / WIGGLE_FPS);
+		return () => {
+			clearInterval(timer);
+			wiggleVariant = null;
+			redraw();
+		};
+	});
+	/** Run `fn` with the strokes painted as drawn (exports and thumbnails never carry a wiggle frame). */
+	function stillFrame<T>(fn: () => T): T {
+		const v = wiggleVariant;
+		const t = animT; // tap to animate (hub-t27j.5): the motion loop pauses for the export too
+		if (v === null && t === null) return fn();
+		wiggleVariant = null;
+		animT = null;
+		redraw();
+		try {
+			return fn();
+		} finally {
+			wiggleVariant = v;
+			animT = t;
+			redraw();
+		}
+	}
 	/** Fold-the-paper monster game in play (hub-t27j.9); null when not playing. */
 	let monster = $state<MonsterGame | null>(null);
 	let monsterFloor = 0; // history depth when this turn began: Undo never reaches into an earlier player's ink
@@ -345,6 +406,14 @@
 	/** The coloring page under the ink, or null for a blank board. */
 	let page = $state<PageId | null>(null);
 	let pagePicking = $state(false);
+	// How-to-draw guide (hub-t27j.12): faint lines to trace, a screen overlay that is never ink.
+	let guidePicking = $state(false);
+	let guide = $state<{ id: GuideId; step: number; steps: PathCmd[][][] } | null>(null);
+	async function pickGuide(id: GuideId) {
+		guidePicking = false;
+		const art = await import('#lib/domain/drawing-guide-art.js');
+		guide = { id, step: 0, steps: art.GUIDES[id] };
+	}
 	function pickPage(id: PageId | null) {
 		pagePicking = false;
 		if (id === page) return;
@@ -769,7 +838,7 @@
 	function lassoCopy() {
 		if (!lasso) return;
 		const size = { w: canvas.width / dpr, h: canvas.height / dpr };
-		const copies = copyStrokes(lassoStrokes(), copyOffset(lasso.frame, size));
+		const copies = copyStrokes(lassoStrokes(), copyOffset(lasso.frame, size)).map(stripMotion);
 		strokes.push(...copies);
 		history = recordAdd(history, ...copies);
 		lassoIdx = copies.map((_, k) => strokes.length - copies.length + k);
@@ -1037,11 +1106,69 @@
 		else for (let i = 0; i < s.points.length; i++) segment(s, i);
 	}
 
+	// Tap to animate (hub-t27j.5): seconds into the loop (null = still) and the loop's frame request.
+	let animT: number | null = null;
+	let animRaf = 0;
+	let animCentres = new Map<number, Pt>();
+	let animated = $state(0);
+
+	/** Paint a stroke, carried along its motion when it has one: only the paint moves, never the points. */
+	function paintMoving(s: DrawItem) {
+		const m = animT !== null && isAnimated(s) ? s.motion : null;
+		const c = m && animCentres.get(m.group);
+		if (!m || !c || animT === null) return paint(s);
+		const o = motionAt(
+			m.kind,
+			animT,
+			{ w: canvas.width / dpr, h: canvas.height / dpr },
+			m.group * PHASE_STEP
+		);
+		ctx.save();
+		ctx.translate(c.x + o.dx, c.y + o.dy);
+		ctx.rotate(o.rot);
+		ctx.translate(-c.x, -c.y);
+		paint(s);
+		ctx.restore();
+	}
+
+	/** Start the loop if anything is animated (idempotent). It stops itself when nothing is, or for reduced motion. */
+	function animKick() {
+		animated = strokes.filter(isAnimated).length;
+		if (animRaf || !animated || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		const t0 = performance.now();
+		const tick = (now: number) => {
+			if (!hasMotion(strokes)) {
+				animRaf = 0;
+				animT = null;
+				return redraw();
+			}
+			animT = (now - t0) / 1000;
+			animCentres = groupCentres(strokes);
+			if (!playing) redraw();
+			animRaf = requestAnimationFrame(tick);
+		};
+		animRaf = requestAnimationFrame(tick);
+	}
+
+	/** Give the lasso's ink a motion (or Stop it): one Undo step. */
+	function lassoMotion(kind: MotionKind | null) {
+		if (!lasso) return;
+		const before = boardNow();
+		strokes = kind ? setMotion(strokes, lassoIdx, kind) : stopMotion(strokes, lassoIdx);
+		if (strokes.every((it, i) => it === before.items[i])) return;
+		history = record(history, { type: 'replace', before, after: boardNow() });
+		animKick();
+		redraw();
+	}
+
+	$effect(() => () => cancelAnimationFrame(animRaf));
+
 	function redraw(list: DrawItem[] = strokes) {
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		if (list === strokes) for (const s of live?.items() ?? []) paint(s);
-		for (const s of list) paint(s);
+		for (const s of wiggleVariant === null ? list : wiggleItems(list, wiggleVariant))
+			paintMoving(s);
 		if (current) paint(current);
 		if (draft) paintShape(draft);
 	}
@@ -1561,6 +1688,7 @@
 		}
 		drawLines();
 		redraw();
+		animKick();
 	}
 
 	function undo() {
@@ -1596,6 +1724,9 @@
 
 	/** A PNG data URL no larger than the note limit: scaled to 1024px, shrunk further if it still is not small. */
 	function exportPng(): string {
+		return stillFrame(exportPngNow);
+	}
+	function exportPngNow(): string {
 		let { width, height } = fitWithin(canvas.width, canvas.height);
 		const out = document.createElement('canvas');
 		let url = '';
@@ -1644,6 +1775,9 @@
 
 	/** A small PNG for the My drawings list. */
 	function thumbnail(): string {
+		return stillFrame(thumbnailNow);
+	}
+	function thumbnailNow(): string {
 		const { width, height } = fitWithin(canvas.width, canvas.height, 240);
 		const out = document.createElement('canvas');
 		out.width = width;
@@ -1672,7 +1806,8 @@
 			page,
 			bg,
 			photoId,
-			rest
+			rest,
+			wiggleOn
 		);
 		if (!isSavedDrawing(data)) {
 			note = 'Too many frames or too much drawing to keep. Take out a frame or some lines.';
@@ -1735,6 +1870,7 @@
 			drawOnion();
 			page = savedPage(data);
 			bg = savedBackground(data);
+			wiggleOn = savedWiggle(data);
 			layers = ALL_VISIBLE;
 			photoId = savedPhoto(data);
 			photoImg = null;
@@ -1748,6 +1884,7 @@
 			browsing = false;
 			note = '';
 			redraw();
+			animKick();
 			replaying = replay && items.length ? items : null;
 			if (flip) refreshThumbs();
 		} catch {
@@ -1908,6 +2045,7 @@
 	const mainTools = $derived(
 		!choosing &&
 			!pagePicking &&
+			!guidePicking &&
 			!layersPicking &&
 			!photoPicking &&
 			!bgPicking &&
@@ -1960,7 +2098,15 @@
 			return;
 		}
 		commit();
-		pagePicking = layersPicking = photoPicking = bgPicking = browsing = artBook = picking = false;
+		pagePicking =
+			layersPicking =
+			photoPicking =
+			bgPicking =
+			browsing =
+			artBook =
+			picking =
+			guidePicking =
+				false;
 		shapePicking = t === 'shapes';
 		if (t !== 'shapes') shapeKind = null;
 		textMode = t === 'text';
@@ -1978,6 +2124,7 @@
 		if (selected) commit();
 		else if (choosing) choosing = false;
 		else if (pagePicking) pagePicking = false;
+		else if (guidePicking) guidePicking = false;
 		else if (layersPicking) layersPicking = false;
 		else if (photoPicking) photoPicking = false;
 		else if (bgPicking) bgPicking = false;
@@ -2075,9 +2222,11 @@
 				data-layer-picture={layers.picture}
 				style:opacity={layers.drawing ? undefined : 0}
 				data-strokes={count}
+				data-wiggle={wiggleOn ? (wiggleMoving ? 'live' : 'still') : 'off'}
 				data-last={lastKind}
 				data-selected={sel !== null}
 				data-lasso={lasso?.count ?? 0}
+				data-animated={animated}
 				data-lasso-frame={lasso
 					? [lasso.frame.x, lasso.frame.y, lasso.frame.w, lasso.frame.h].map(Math.round).join(',')
 					: ''}
@@ -2111,6 +2260,27 @@
 							stroke="currentColor"
 							stroke-width="2"
 							stroke-dasharray="8 8"
+						/>
+					{/each}
+				</svg>
+			{/if}
+			{#if guide}
+				<svg
+					viewBox="0 0 1000 700"
+					class="pointer-events-none absolute inset-0 size-full text-ink-muted"
+					aria-hidden="true"
+					data-testid="draw-guide-layer"
+					data-step={guide.step}
+				>
+					{#each guideLayers(guide.steps, guide.step) as l, li (li)}
+						<path
+							d={l.d}
+							fill="none"
+							stroke="currentColor"
+							stroke-width="8"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							opacity={l.current ? 0.6 : 0.25}
 						/>
 					{/each}
 				</svg>
@@ -2294,6 +2464,17 @@
 				ondismiss={hidePrompt}
 			/>
 		{/if}
+		{#if guide}
+			<GuideBar
+				title={GUIDE_LABELS[guide.id]}
+				label={stepLabel(guide.step, guide.steps.length)}
+				first={guide.step === 0}
+				last={isLastStep(guide.step, guide.steps.length)}
+				onback={() => guide && (guide.step = prevStep(guide.step, guide.steps.length))}
+				onnext={() => guide && (guide.step = nextStep(guide.step, guide.steps.length))}
+				ondone={() => (guide = null)}
+			/>
+		{/if}
 		{#if choosing}
 			<p class="w-full text-body font-extrabold">Who drew it?</p>
 			<div class="flex flex-wrap gap-3" data-testid="draw-authors">
@@ -2320,6 +2501,8 @@
 			<Button variant="ghost" onclick={() => (choosing = false)} data-testid="draw-back"
 				>Back</Button
 			>
+		{:else if guidePicking}
+			<GuidePicker onpick={(id) => void pickGuide(id)} onback={() => (guidePicking = false)} />
 		{:else if pagePicking}
 			<PagePicker {page} onpick={pickPage} onback={() => (pagePicking = false)} />
 		{:else if layersPicking}
@@ -2521,6 +2704,20 @@
 					>
 					<button
 						type="button"
+						class="{btn} {guide ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={guide !== null}
+						data-testid="draw-guide-open"
+						onclick={() => (guidePicking = true)}>How to draw</button
+					>
+					<button
+						type="button"
+						class="{btn} {wiggleOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={wiggleOn}
+						data-testid="draw-wiggle"
+						onclick={() => (wiggleOn = !wiggleOn)}>Wiggle</button
+					>
+					<button
+						type="button"
 						class="{btn} {flipOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
 						aria-pressed={flipOn}
 						data-testid="draw-flipbook"
@@ -2606,7 +2803,8 @@
 					<p class="w-full text-body text-ink-muted">Tap the drawing to pick a color.</p>
 				{:else if rail === 'lasso'}
 					<p class="w-full text-body text-ink-muted">
-						Draw a loop around your lines, then drag them, or pull the corner to resize.
+						Draw a loop around your lines, then drag them, pull the corner to resize, or make them
+						move.
 					</p>
 					<button
 						type="button"
@@ -2615,6 +2813,22 @@
 						data-testid="draw-lasso-copy"
 						onclick={lassoCopy}>Copy</button
 					>
+					{#if lasso}
+						{#each MOTIONS as m (m)}
+							<button
+								type="button"
+								class="{btn} border-line bg-surface capitalize"
+								data-testid="draw-motion-{m}"
+								onclick={() => lassoMotion(m)}>{m}</button
+							>
+						{/each}
+						<button
+							type="button"
+							class="{btn} border-line bg-surface"
+							data-testid="draw-motion-stop"
+							onclick={() => lassoMotion(null)}>Stop</button
+						>
+					{/if}
 				{/if}
 				{#if rail !== 'pick' && rail !== 'lasso'}
 					<ColorSizePanel
