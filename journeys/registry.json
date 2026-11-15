@@ -911,9 +911,63 @@
 				},
 				{
 					"id": "J18.20",
-					"text": "Turn on Ruler in Magic and a see-through ruler appears: drag its grip to move it, drag the turn handle or twist two fingers to rotate it. A stroke that starts by its edge comes out dead straight; strokes elsewhere are normal. The ruler is never ink and is not saved or posted.",
+					"text": "Turn on Kaleidoscope (6 or 8 slices) under Magic and every stroke repeats around the middle of the board, turned and reflected like a snowflake. One Undo removes all the copies, it works with every brush, and turning it off draws plain ink again.",
 					"status": "built",
-					"beads": ["hub-t27j.16"]
+					"beads": ["hub-t27j.1"]
+				},
+				{
+					"id": "J18.21",
+					"text": "Posting a drawing made while the daily prompt shows earns the artist one star, once a day; Who drew it? shows the star on offer and the day streak, and a grown-up can turn prompt stars off in Settings > Drawing.",
+					"status": "built",
+					"beads": ["hub-t27j.8"]
+				},
+				{
+					"id": "J18.22",
+					"text": "With the paint bucket, pick Stripes, Dots, Stars, Scales or Bricks (or Solid) and tap a closed area: it fills with that pattern in the chosen color, only inside the area. Undo removes it, and it stays when the drawing is saved, reopened or posted.",
+					"status": "built",
+					"beads": ["hub-t27j.2"]
+				},
+				{
+					"id": "J18.23",
+					"text": "Pick a letter (A to Z) or number (0 to 9) tracing page from the page picker: a dotted guide with a start circle and arrow for each stroke appears under your pen, the eraser cannot rub it out, and it saves and reopens with the drawing like a coloring page.",
+					"status": "built",
+					"beads": ["hub-t27j.13"]
+				},
+				{
+					"id": "J18.24",
+					"text": "Turn on Smooth lines and a wobbly freehand line comes out steadier, ending right where you lift your finger; it is off until you turn it on and is remembered on this device.",
+					"status": "built",
+					"beads": ["hub-t27j.7"]
+				},
+				{
+					"id": "J18.25",
+					"text": "Pick Lasso and circle some of the ink: the lines inside get a dashed box. Drag to move them, pull the corner to resize, or tap Copy for a duplicate; each is one Undo step.",
+					"status": "built",
+					"beads": ["hub-t27j.6"]
+				},
+				{
+					"id": "J18.26",
+					"text": "In My drawings, open Art book and pick a kid: their posted drawings sit by month, newest first, and Then and now shows their earliest drawing beside their latest, or any two months side by side; a kid with no drawings gets a friendly empty book.",
+					"status": "built",
+					"beads": ["hub-t27j.15"]
+				},
+				{
+					"id": "J18.27",
+					"text": "Replay a saved drawing and tap Make a video: the replay is recorded as a short WebM clip (at most 15 seconds, small file) and a Save video button downloads it. Nothing is uploaded.",
+					"status": "built",
+					"beads": ["hub-t27j.17"]
+				},
+				{
+					"id": "J18.28",
+					"text": "Play the Monster game on one screen: each player draws only their band (head, body, legs, or feet), the earlier parts are folded away except a thin strip to line up the neck, and Reveal! shows the whole monster to post like any drawing.",
+					"status": "built",
+					"beads": ["hub-t27j.9"]
+				},
+				{
+					"id": "J18.29",
+					"text": "With the paint bucket, pick Gradient, choose a second color, and tap a closed area: it fills from your current color at the top to the second color (white at first) at the bottom, only inside the area. Undo removes it, and it stays when the drawing is saved, reopened or posted.",
+					"status": "built",
+					"beads": ["hub-t27j.3"]
 				}
 			]
 		},

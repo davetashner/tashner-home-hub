@@ -4,8 +4,10 @@
 	import Card from '#lib/components/ui/Card.svelte';
 
 	let enabled = $state(true);
+	let starsOn = $state(true);
 	let message = $state('');
 	let edits = 0;
+	let starEdits = 0;
 
 	onMount(() => {
 		const at = edits;
@@ -15,7 +17,34 @@
 				if (body && at === edits) enabled = body.enabled !== false;
 			})
 			.catch(() => {});
+		const starAt = starEdits;
+		void fetch('/api/settings/drawing-stars')
+			.then(async (res) => {
+				const body = res.ok ? await res.json() : null;
+				if (body && starAt === starEdits) starsOn = body.enabled !== false;
+			})
+			.catch(() => {});
 	});
+
+	function changeStars(next: boolean) {
+		const before = starsOn;
+		const at = ++starEdits;
+		starsOn = next;
+		message = '';
+		const fail = () => {
+			message = 'Could not save. Try again.';
+			if (at === starEdits) starsOn = before;
+		};
+		void fetch('/api/settings/drawing-stars', {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ enabled: next })
+		})
+			.then((res) => {
+				if (!res.ok) fail();
+			})
+			.catch(fail);
+	}
 
 	function change(next: boolean) {
 		const before = enabled;
@@ -37,6 +66,10 @@
 			.catch(fail);
 	}
 
+	const starChoices = [
+		{ on: true, label: 'Earn stars' },
+		{ on: false, label: 'No stars' }
+	];
 	const choices = [
 		{ on: true, label: 'On' },
 		{ on: false, label: 'Off' }
@@ -63,6 +96,26 @@
 						variant={enabled === c.on ? 'primary' : 'secondary'}
 						aria-pressed={enabled === c.on}
 						onclick={() => enabled !== c.on && change(c.on)}>{c.label}</Button
+					>
+				{/each}
+			</div>
+		</div>
+	</Card>
+	<Card>
+		<div class="flex flex-wrap items-center justify-between gap-6">
+			<div class="flex flex-col gap-1">
+				<h2 class="text-title font-bold">Stars for drawing the prompt</h2>
+				<p class="text-body text-ink-muted">
+					Posting a drawing made from the daily prompt earns a star, once a day.
+				</p>
+			</div>
+			<div class="flex flex-wrap gap-4" role="group" aria-label="Stars for drawing the prompt">
+				{#each starChoices as c (c.label)}
+					<Button
+						variant={starsOn === c.on ? 'primary' : 'secondary'}
+						aria-pressed={starsOn === c.on}
+						data-testid="drawing-stars-{c.on ? 'on' : 'off'}"
+						onclick={() => starsOn !== c.on && changeStars(c.on)}>{c.label}</Button
 					>
 				{/each}
 			</div>
