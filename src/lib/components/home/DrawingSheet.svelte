@@ -33,8 +33,10 @@
 		savedBackground,
 		savedPage,
 		savedPhoto,
+		savedWiggle,
 		serializeDrawing
 	} from '#lib/domain/drawing-save.js';
+	import { WIGGLE_FPS, WIGGLE_VARIANTS, wiggleItems } from '#lib/domain/drawing-wiggle.js';
 	import {
 		ALL_VISIBLE,
 		LAYER_LABELS,
@@ -259,6 +261,39 @@
 	let bucket = $state(false);
 	let mirrorN = $state<MirrorCount | null>(null); // mirror mode: copies per stroke (hub-cn7.18)
 	let boardSize = $state({ w: 0, h: 0 }); // CSS px, for the mirror guides
+	/** Wiggle (hub-t27j.4): lines boil. The variant is painted only; stored strokes never change. */
+	let wiggleOn = $state(false);
+	let wiggleVariant: number | null = null; // null = paint the strokes as drawn
+	let wiggleMoving = $state(false);
+	$effect(() => {
+		wiggleMoving = false;
+		if (!wiggleOn || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		wiggleMoving = true;
+		let v = 0;
+		const timer = setInterval(() => {
+			v = (v + 1) % WIGGLE_VARIANTS;
+			wiggleVariant = v;
+			redraw();
+		}, 1000 / WIGGLE_FPS);
+		return () => {
+			clearInterval(timer);
+			wiggleVariant = null;
+			redraw();
+		};
+	});
+	/** Run `fn` with the strokes painted as drawn (exports and thumbnails never carry a wiggle frame). */
+	function stillFrame<T>(fn: () => T): T {
+		const v = wiggleVariant;
+		if (v === null) return fn();
+		wiggleVariant = null;
+		redraw();
+		try {
+			return fn();
+		} finally {
+			wiggleVariant = v;
+			redraw();
+		}
+	}
 	/** Text mode: a tap on the board types words; a tap on placed text selects it. */
 	let textMode = $state(false);
 	let textSize = $state<TextSize>('large');
@@ -856,7 +891,7 @@
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		if (list === strokes) for (const s of live?.items() ?? []) paint(s);
-		for (const s of list) paint(s);
+		for (const s of wiggleVariant === null ? list : wiggleItems(list, wiggleVariant)) paint(s);
 		if (current) paint(current);
 		if (draft) paintShape(draft);
 	}
@@ -1340,6 +1375,9 @@
 
 	/** A PNG data URL no larger than the note limit: scaled to 1024px, shrunk further if it still is not small. */
 	function exportPng(): string {
+		return stillFrame(exportPngNow);
+	}
+	function exportPngNow(): string {
 		let { width, height } = fitWithin(canvas.width, canvas.height);
 		const out = document.createElement('canvas');
 		let url = '';
@@ -1366,6 +1404,9 @@
 
 	/** A small PNG for the My drawings list. */
 	function thumbnail(): string {
+		return stillFrame(thumbnailNow);
+	}
+	function thumbnailNow(): string {
 		const { width, height } = fitWithin(canvas.width, canvas.height, 240);
 		const out = document.createElement('canvas');
 		out.width = width;
@@ -1394,7 +1435,8 @@
 			page,
 			bg,
 			photoId,
-			rest
+			rest,
+			wiggleOn
 		);
 		if (!isSavedDrawing(data)) {
 			note = 'Too many frames or too much drawing to keep. Take out a frame or some lines.';
@@ -1457,6 +1499,7 @@
 			drawOnion();
 			page = savedPage(data);
 			bg = savedBackground(data);
+			wiggleOn = savedWiggle(data);
 			layers = ALL_VISIBLE;
 			photoId = savedPhoto(data);
 			photoImg = null;
@@ -1757,6 +1800,7 @@
 				data-layer-picture={layers.picture}
 				style:opacity={layers.drawing ? undefined : 0}
 				data-strokes={count}
+				data-wiggle={wiggleOn ? (wiggleMoving ? 'live' : 'still') : 'off'}
 				data-last={lastKind}
 				data-selected={sel !== null}
 				data-sel-rot={sel ? sel.rot.toFixed(3) : ''}
@@ -2091,6 +2135,13 @@
 							commit();
 							mirrorN = nextMirror(mirrorN);
 						}}>Mirror: {mirrorLabel(mirrorN)}</button
+					>
+					<button
+						type="button"
+						class="{btn} {wiggleOn ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={wiggleOn}
+						data-testid="draw-wiggle"
+						onclick={() => (wiggleOn = !wiggleOn)}>Wiggle</button
 					>
 					<button
 						type="button"
