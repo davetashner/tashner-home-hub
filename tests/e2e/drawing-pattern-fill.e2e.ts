@@ -103,7 +103,7 @@ test('bucket fills a closed shape with a pattern, undo, save and reopen, post @J
 		const outline = await ink(page);
 		await page.getByTestId('draw-bucket').click();
 		await expect(page.getByTestId('draw-fill-styles')).toBeVisible();
-		await expect(page.getByTestId('draw-fill-style')).toHaveCount(6);
+		await expect(page.getByTestId('draw-fill-style')).toHaveCount(7);
 		await expectTappable(page.getByTestId('draw-fill-style').first(), 96);
 		await expect(style(page, 'solid')).toHaveAttribute('aria-pressed', 'true');
 		await page.getByTestId('draw-color').and(page.locator('[data-color="draw-red"]')).click();

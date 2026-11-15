@@ -85,10 +85,12 @@
 	import { FILL_GAP_CSS, isFill, makeFill, type FillItem } from '#lib/domain/drawing-fill.js';
 	import {
 		PATTERN_CELL_CSS,
+		isPatternId,
 		patternTile,
 		type FillStyle,
 		type PatternId
 	} from '#lib/domain/drawing-pattern.js';
+	import { DEFAULT_GRADIENT_END, gradientStops } from '#lib/domain/drawing-gradient.js';
 	import FillStylePicker from './drawing/FillStylePicker.svelte';
 	import TextEditor from '#lib/components/home/drawing/TextEditor.svelte';
 	import TextPanel from '#lib/components/home/drawing/TextPanel.svelte';
@@ -197,6 +199,7 @@
 	import PagePicker from './drawing/PagePicker.svelte';
 	import PhotoPicker from './drawing/PhotoPicker.svelte';
 	import DrawingBrowser from './drawing/DrawingBrowser.svelte';
+	import ArtBook from './drawing/ArtBook.svelte';
 	import ShapePicker from './drawing/ShapePicker.svelte';
 	import ColorSizePanel from './drawing/ColorSizePanel.svelte';
 	import ToolRail from './drawing/ToolRail.svelte';
@@ -219,6 +222,18 @@
 	import type { PhotoRow, SavedRow } from './drawing/rows.js';
 	import LiveShare from './drawing/LiveShare.svelte';
 	import LiveChips from './drawing/LiveChips.svelte';
+	import MonsterBar from './drawing/MonsterBar.svelte';
+	import MonsterOverlay from './drawing/MonsterOverlay.svelte';
+	import {
+		clampToBand,
+		inBand,
+		isDrawing,
+		nextPlayer,
+		reveal as revealMonster,
+		startMonster,
+		type MonsterGame,
+		type MonsterTurns
+	} from '#lib/domain/drawing-monster.js';
 	import { NOTE_IMAGE_MAX_BYTES } from '#lib/domain/notes.js';
 	import { parseStarInfo, starHint, type StarInfo } from '#lib/domain/drawing-stars.js';
 
@@ -289,6 +304,7 @@
 	let shapeKind = $state<ShapeKind | null>(null);
 	let filled = $state(false);
 	let fillStyle = $state<FillStyle>('solid'); // what the bucket paints (hub-t27j.2)
+	let gradEnd = $state(DEFAULT_GRADIENT_END); // bottom color of a gradient fill (hub-t27j.3)
 	let lineStyle = $state<LineStyle>('solid'); // outline style of the next shape (hub-cn7.17)
 	/** Eyedropper mode (hub-cn7.14): a tap or drag picks the color under the finger, then it switches off. */
 	let dropper = $state(false);
@@ -331,6 +347,9 @@
 			redraw();
 		}
 	}
+	/** Fold-the-paper monster game in play (hub-t27j.9); null when not playing. */
+	let monster = $state<MonsterGame | null>(null);
+	let monsterFloor = 0; // history depth when this turn began: Undo never reaches into an earlier player's ink
 	/** Text mode: a tap on the board types words; a tap on placed text selects it. */
 	let textMode = $state(false);
 	let textSize = $state<TextSize>('large');
@@ -355,6 +374,7 @@
 	let note = $state('');
 	let mine = $state<SavedRow[] | null>(null);
 	let browsing = $state(false);
+	let artBook = $state(false);
 	/** The coloring page under the ink, or null for a blank board. */
 	let page = $state<PageId | null>(null);
 	let pagePicking = $state(false);
@@ -1019,7 +1039,8 @@
 				f.color,
 				f.tolerance,
 				((f.gap ?? 0) * canvas.width) / f.w,
-				f.pattern
+				f.pattern,
+				f.grad
 			);
 			if (!again) return;
 			Object.assign(f, again);
@@ -1029,7 +1050,12 @@
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.globalCompositeOperation = 'source-over';
 		ctx.globalAlpha = 1;
-		ctx.fillStyle = f.pattern ? patternPaint(f.pattern, f.color) : token(f.color);
+		const g = f.grad && gradientStops(spans, token(f.color), token(f.grad));
+		if (g) {
+			const lg = ctx.createLinearGradient(0, g.y0, 0, g.y1);
+			for (const [at, c] of g.stops) lg.addColorStop(at, c);
+			ctx.fillStyle = lg;
+		} else ctx.fillStyle = f.pattern ? patternPaint(f.pattern, f.color) : token(f.color);
 		for (let i = 0; i < spans.length; i += 3)
 			ctx.fillRect(spans[i + 1], spans[i], spans[i + 2] - spans[i + 1] + 1, 1);
 		ctx.restore();
@@ -1078,6 +1104,25 @@
 		} finally {
 			ctx = real;
 		}
+	}
+
+	/** One frame of a time-lapse video (hub-t27j.17): paper, picture, the ink so far, coloring lines. */
+	let videoFull: HTMLCanvasElement | null = null;
+	function composeVideoFrame(
+		items: DrawItem[],
+		out: CanvasRenderingContext2D,
+		w: number,
+		h: number
+	) {
+		videoFull ??= document.createElement('canvas');
+		videoFull.width = canvas.width;
+		videoFull.height = canvas.height;
+		paintOn(videoFull.getContext('2d') as CanvasRenderingContext2D, items);
+		out.fillStyle = token(bg ?? PAPER);
+		out.fillRect(0, 0, w, h);
+		if (photoId && layers.picture) out.drawImage(photoCanvas, 0, 0, w, h);
+		out.drawImage(videoFull, 0, 0, w, h);
+		if (layers.picture) out.drawImage(linesCanvas, 0, 0, w, h);
 	}
 
 	/** Flipbook (hub-cn7.25): frames and their thumbnails; the live strokes/history are the current frame. */
@@ -1195,9 +1240,10 @@
 
 	function sample(e: PointerEvent, previous?: number) {
 		const raw = strokeWidth(tool, e.pointerType, e.pressure, size);
+		const y = (e.clientY - rect.top) / view.scale;
 		return {
 			x: (e.clientX - rect.left) / view.scale,
-			y: (e.clientY - rect.top) / view.scale,
+			y: monster ? clampToBand(monster, y, boardSize.h) : y,
 			w: previous === undefined ? raw : smoothWidth(previous, raw)
 		};
 	}
@@ -1247,6 +1293,11 @@
 		if (!guard.accepts(e.pointerType) || activeId !== -1 || (e.pointerType === 'mouse' && e.button))
 			return;
 		e.preventDefault();
+		if (isDrawing(monster)) {
+			// Only the current band takes ink: taps elsewhere, fills and text are ignored.
+			const y = (e.clientY - canvas.getBoundingClientRect().top) / view.scale;
+			if (bucket || textMode || !inBand(monster, y, boardSize.h)) return;
+		}
 		if (dropper) {
 			// Sample before the drawing layer is revealed, so hidden layers are left out of the pick.
 			try {
@@ -1302,7 +1353,8 @@
 				color,
 				undefined,
 				FILL_GAP_CSS * dpr,
-				fillStyle === 'solid' ? undefined : fillStyle
+				isPatternId(fillStyle) ? fillStyle : undefined,
+				fillStyle === 'gradient' ? gradEnd : undefined
 			);
 			if (item) {
 				strokes.push(item);
@@ -1461,8 +1513,27 @@
 
 	/** Undo/redo stack for the whole board (see drawing-history.ts). */
 	let history = $state.raw<History<DrawItem>>(emptyHistory());
-	const undoable = $derived(canUndo(history));
+	const undoable = $derived(canUndo(history) && (!monster || history.undo.length > monsterFloor));
 	const redoable = $derived(canRedo(history));
+
+	function startGame(turns: MonsterTurns) {
+		commit();
+		monster = startMonster(turns);
+		monsterFloor = history.undo.length;
+		bucket = textMode = false;
+	}
+	function nextMonsterTurn() {
+		if (!monster) return;
+		commit();
+		monster = nextPlayer(monster);
+		monsterFloor = history.undo.length;
+		history = { ...history, redo: [] };
+	}
+	function revealMonsterGame() {
+		if (!monster) return;
+		commit();
+		monster = revealMonster(monster);
+	}
 	/** True when anything differs from a fresh board, so Clear all is not greyed out for a page alone. */
 	const dirty = $derived(count > 0 || page !== null || photoId !== null || bg !== null);
 	let clearToast = $state(false);
@@ -1848,7 +1919,13 @@
 
 	/** True while the tools column shows the main tools (not a full sub-panel), so the pinned bars apply. */
 	const mainTools = $derived(
-		!choosing && !pagePicking && !layersPicking && !photoPicking && !bgPicking && !browsing
+		!choosing &&
+			!pagePicking &&
+			!layersPicking &&
+			!photoPicking &&
+			!bgPicking &&
+			!browsing &&
+			!artBook
 	);
 
 	/** The rail tool the current flags add up to; the options panel shows only its options. */
@@ -1896,7 +1973,7 @@
 			return;
 		}
 		commit();
-		pagePicking = layersPicking = photoPicking = bgPicking = browsing = picking = false;
+		pagePicking = layersPicking = photoPicking = bgPicking = browsing = artBook = picking = false;
 		shapePicking = t === 'shapes';
 		if (t !== 'shapes') shapeKind = null;
 		textMode = t === 'text';
@@ -1917,6 +1994,7 @@
 		else if (layersPicking) layersPicking = false;
 		else if (photoPicking) photoPicking = false;
 		else if (bgPicking) bgPicking = false;
+		else if (artBook) artBook = false;
 		else if (browsing) browsing = false;
 		else if (shapePicking) pickShape(null);
 		else if (picking) picking = false;
@@ -1976,6 +2054,8 @@
 				<ReplayPlayer
 					items={replaying}
 					render={(list) => redraw(list)}
+					compose={composeVideoFrame}
+					boardSize={{ w: boardSize.w, h: boardSize.h }}
 					ondone={() => {
 						replaying = null;
 						redraw();
@@ -2048,6 +2128,9 @@
 						/>
 					{/each}
 				</svg>
+			{/if}
+			{#if monster}
+				<MonsterOverlay game={monster} height={boardSize.h} />
 			{/if}
 			{#if sel}
 				<svg class="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
@@ -2198,6 +2281,14 @@
 					data-testid="draw-fit"
 					onclick={() => (view = FIT)}>Fit</button
 				>
+				{#if monster}
+					<MonsterBar
+						game={monster}
+						onnext={nextMonsterTurn}
+						onreveal={revealMonsterGame}
+						onend={() => (monster = null)}
+					/>
+				{/if}
 			</div>
 		{/if}
 		{#if promptDate && prompt && !promptHidden}
@@ -2297,8 +2388,16 @@
 			<Button variant="ghost" onclick={() => (bgPicking = false)} data-testid="draw-bg-close"
 				>Back</Button
 			>
+		{:else if artBook}
+			<ArtBook {people} onback={() => (artBook = false)} />
 		{:else if browsing}
-			<DrawingBrowser {mine} onopen={reopen} ondelete={remove} onback={() => (browsing = false)} />
+			<DrawingBrowser
+				{mine}
+				onopen={reopen}
+				ondelete={remove}
+				onback={() => (browsing = false)}
+				onartbook={() => (artBook = true)}
+			/>
 		{:else}
 			{#if flipOn && flip}
 				<FlipbookStrip
@@ -2381,7 +2480,7 @@
 					<button
 						type="button"
 						class="{btn} border-line bg-surface"
-						disabled={!dirty || liveStatus.active}
+						disabled={!dirty || liveStatus.active || isDrawing(monster)}
 						data-testid="draw-clear"
 						onclick={clear}>Clear all</button
 					>
@@ -2410,6 +2509,21 @@
 							kaleidoN = nextKaleidoscope(kaleidoN);
 							mirrorN = null;
 						}}>Kaleidoscope: {kaleidoscopeLabel(kaleidoN)}</button
+					>
+					<button
+						type="button"
+						class="{btn} {monster ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}"
+						aria-pressed={monster !== null}
+						disabled={monster !== null || liveStatus.active || !blank}
+						data-testid="draw-monster"
+						onclick={() => startGame(3)}>Monster game</button
+					>
+					<button
+						type="button"
+						class="{btn} border-line bg-surface"
+						disabled={monster !== null || liveStatus.active || !blank}
+						data-testid="draw-monster-feet"
+						onclick={() => startGame(4)}>Monster with feet</button
 					>
 					<button
 						type="button"
@@ -2495,7 +2609,12 @@
 						ondone={() => finishText(editing?.value ?? '')}
 					/>
 				{:else if rail === 'fill'}
-					<FillStylePicker value={fillStyle} onpick={(v) => (fillStyle = v)} />
+					<FillStylePicker
+						value={fillStyle}
+						onpick={(v) => (fillStyle = v)}
+						{gradEnd}
+						onend={(c) => (gradEnd = c)}
+					/>
 				{:else if rail === 'pick'}
 					<p class="w-full text-body text-ink-muted">Tap the drawing to pick a color.</p>
 				{:else if rail === 'lasso'}
@@ -2572,7 +2691,7 @@
 				<button
 					type="button"
 					class="{btn} border-line bg-surface"
-					disabled={blank}
+					disabled={blank || isDrawing(monster)}
 					data-testid="draw-save"
 					onclick={save}>Save</button
 				>
@@ -2583,7 +2702,7 @@
 				{/if}
 				<Button
 					size="kid"
-					disabled={blank}
+					disabled={blank || isDrawing(monster)}
 					onclick={() => {
 						chooseFor = 'post';
 						choosing = true;

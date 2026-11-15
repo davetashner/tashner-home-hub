@@ -9,7 +9,7 @@ export const PATTERN_IDS = ['stripes', 'dots', 'stars', 'scales', 'bricks'] as c
 export type PatternId = (typeof PATTERN_IDS)[number];
 
 /** What the bucket paints: plain color, or a pattern. The picker lists these in order. */
-export const FILL_STYLES = ['solid', ...PATTERN_IDS] as const;
+export const FILL_STYLES = ['solid', ...PATTERN_IDS, 'gradient'] as const;
 export type FillStyle = (typeof FILL_STYLES)[number];
 
 export const FILL_STYLE_LABELS: Record<FillStyle, string> = {
@@ -18,7 +18,8 @@ export const FILL_STYLE_LABELS: Record<FillStyle, string> = {
 	dots: 'Dots',
 	stars: 'Stars',
 	scales: 'Scales',
-	bricks: 'Bricks'
+	bricks: 'Bricks',
+	gradient: 'Gradient'
 };
 
 export const isPatternId = (v: unknown): v is PatternId =>

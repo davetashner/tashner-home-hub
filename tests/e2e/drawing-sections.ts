@@ -11,6 +11,8 @@ const SECTION_OF: Record<string, 'paper' | 'magic' | 'together'> = {
 	'draw-wiggle': 'magic',
 	'draw-kaleido': 'magic',
 	'draw-flipbook': 'magic',
+	'draw-monster': 'magic',
+	'draw-monster-feet': 'magic',
 	'draw-share': 'together',
 	'draw-live-status': 'together',
 	'draw-live-leave': 'together'

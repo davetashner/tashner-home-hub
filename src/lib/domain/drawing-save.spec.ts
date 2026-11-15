@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PALETTE } from './drawing-colors.js';
 import { makeFill } from './drawing-fill.js';
 import {
 	FILL_REF,
@@ -87,6 +88,18 @@ describe('saved drawing round trip', () => {
 		wire.items[0].p = 'plaid';
 		expect(loadDrawing(wire, size)).toBeNull();
 		wire.items[0].p = 7;
+		expect(loadDrawing(wire, size)).toBeNull();
+	});
+	it('keeps the gradient end of a fill, and rejects a bad one (hub-t27j.3)', () => {
+		const end = PALETTE[2];
+		const [c] = loadDrawing(serializeDrawing([{ ...fill, grad: end }], size), size)!;
+		expect(isFill(c) && c.grad).toBe(end);
+		const [plain] = loadDrawing(serializeDrawing([fill], size), size)!;
+		expect(plain).not.toHaveProperty('grad');
+		const wire = JSON.parse(serializeDrawing([{ ...fill, grad: end }], size));
+		wire.items[0].e = 'javascript:1';
+		expect(loadDrawing(wire, size)).toBeNull();
+		wire.items[0].e = 7;
 		expect(loadDrawing(wire, size)).toBeNull();
 	});
 	it('loads an empty drawing', () => {

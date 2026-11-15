@@ -947,6 +947,30 @@
 				},
 				{
 					"id": "J18.26",
+					"text": "In My drawings, open Art book and pick a kid: their posted drawings sit by month, newest first, and Then and now shows their earliest drawing beside their latest, or any two months side by side; a kid with no drawings gets a friendly empty book.",
+					"status": "built",
+					"beads": ["hub-t27j.15"]
+				},
+				{
+					"id": "J18.27",
+					"text": "Replay a saved drawing and tap Make a video: the replay is recorded as a short WebM clip (at most 15 seconds, small file) and a Save video button downloads it. Nothing is uploaded.",
+					"status": "built",
+					"beads": ["hub-t27j.17"]
+				},
+				{
+					"id": "J18.28",
+					"text": "Play the Monster game on one screen: each player draws only their band (head, body, legs, or feet), the earlier parts are folded away except a thin strip to line up the neck, and Reveal! shows the whole monster to post like any drawing.",
+					"status": "built",
+					"beads": ["hub-t27j.9"]
+				},
+				{
+					"id": "J18.29",
+					"text": "With the paint bucket, pick Gradient, choose a second color, and tap a closed area: it fills from your current color at the top to the second color (white at first) at the bottom, only inside the area. Undo removes it, and it stays when the drawing is saved, reopened or posted.",
+					"status": "built",
+					"beads": ["hub-t27j.3"]
+				},
+				{
+					"id": "J18.30",
 					"text": "Tap Wiggle and the lines boil like a hand-drawn cartoon (still if reduced motion is on); the strokes underneath never change, Undo works, it is still when off, and a drawing saved with Wiggle wiggles again when reopened.",
 					"status": "built",
 					"beads": ["hub-t27j.4"]
