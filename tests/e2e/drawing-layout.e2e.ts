@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ensureHousehold } from './adult';
 import { gotoHydrated } from './hydrated';
+import { DRAWING_PROMPTS } from '../../src/lib/domain/drawing-prompts';
 
 // hub-cn7.37.5: the rail layout. Portrait gives the canvas most of the height; landscape keeps the
 // prompt banner clear of the Pen options.
@@ -8,8 +9,18 @@ import { gotoHydrated } from './hydrated';
 test.beforeAll(() => ensureHousehold());
 
 const DATE = '2026-10-31';
+// Prompts are a random pick per device (hub-2jx): pin the longest one, the hardest to fit.
+const LONGEST = DRAWING_PROMPTS.reduce((a, b) => (b.length > a.length ? b : a));
 
 async function openBoard(page: import('@playwright/test').Page) {
+	await page.addInitScript(
+		([d, t]) =>
+			localStorage.setItem(
+				'drawing-prompt-memory',
+				JSON.stringify({ date: d, prompt: t, recent: [t] })
+			),
+		[DATE, LONGEST]
+	);
 	await page.route('**/api/settings/drawing-prompts', (route) =>
 		route.fulfill({ json: { enabled: true, date: DATE } })
 	);

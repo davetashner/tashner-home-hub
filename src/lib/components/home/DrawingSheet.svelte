@@ -4,7 +4,11 @@
 	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
 	import ReplayPlayer from './drawing/ReplayPlayer.svelte';
 	import PromptBanner from './drawing/PromptBanner.svelte';
-	import { promptForDate } from '#lib/domain/drawing-prompts.js';
+	import {
+		nextPromptMemory,
+		parsePromptMemory,
+		type PromptMemory
+	} from '#lib/domain/drawing-prompts.js';
 	import { hasStarter } from '#lib/domain/drawing-starter-names.js';
 	import Button from '#lib/components/ui/Button.svelte';
 	import {
@@ -1487,11 +1491,30 @@
 		}
 	}
 
-	// Daily prompt (hub-cn7.27): the household's local day picks it; Hide lasts until tomorrow.
+	// Daily prompt (hub-cn7.27): a random pick per device and household day that skips recent ones
+	// (hub-2jx); Hide lasts until tomorrow.
 	let promptDate = $state<string | null>(null);
-	let promptShuffles = $state(0);
+	let prompt = $state<string | null>(null);
 	let promptHidden = $state(false);
 	const hideKey = (date: string) => `drawing-prompt-hidden:${date}`;
+	const MEMORY_KEY = 'drawing-prompt-memory';
+	let promptMemory: PromptMemory | null = null;
+	function choosePrompt(date: string, shuffle: boolean) {
+		if (!promptMemory) {
+			try {
+				promptMemory = parsePromptMemory(JSON.parse(localStorage.getItem(MEMORY_KEY) ?? 'null'));
+			} catch {
+				// no storage or junk: start fresh
+			}
+		}
+		promptMemory = nextPromptMemory(promptMemory, date, shuffle);
+		prompt = promptMemory.prompt;
+		try {
+			localStorage.setItem(MEMORY_KEY, JSON.stringify(promptMemory));
+		} catch {
+			// remembered for this visit only
+		}
+	}
 	function loadPrompt() {
 		void fetch('/api/settings/drawing-prompts')
 			.then(async (res) => {
@@ -1502,6 +1525,7 @@
 				} catch {
 					// no storage: the prompt just shows
 				}
+				choosePrompt(body.date, false);
 				promptDate = body.date;
 			})
 			.catch(() => {});
@@ -1520,8 +1544,7 @@
 		return startersLoad;
 	}
 	$effect(() => {
-		if (promptDate && !promptHidden && hasStarter(promptForDate(promptDate, promptShuffles)))
-			void loadStarters();
+		if (prompt && !promptHidden && hasStarter(prompt)) void loadStarters();
 	});
 	async function startPrompt(prompt: string) {
 		if (!starters) await loadStarters();
@@ -1878,12 +1901,12 @@
 				>
 			</div>
 		{/if}
-		{#if promptDate && !promptHidden}
-			{@const prompt = promptForDate(promptDate, promptShuffles)}
+		{#if promptDate && prompt && !promptHidden}
+			{@const shown = prompt}
 			<PromptBanner
-				{prompt}
-				onstart={hasStarter(prompt) ? () => void startPrompt(prompt) : null}
-				onshuffle={() => promptShuffles++}
+				prompt={shown}
+				onstart={hasStarter(shown) ? () => void startPrompt(shown) : null}
+				onshuffle={() => promptDate && choosePrompt(promptDate, true)}
 				ondismiss={hidePrompt}
 			/>
 		{/if}

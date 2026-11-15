@@ -1,10 +1,10 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { ensureHousehold, signInAsAdult } from './adult';
 import { gotoHydrated } from './hydrated';
 import { expectTappable } from './tap';
 import { DB_PATH } from './data-dir';
-import { promptForDate } from '../../src/lib/domain/drawing-prompts';
+import { DRAWING_PROMPTS } from '../../src/lib/domain/drawing-prompts';
 import { hasStarter } from '../../src/lib/domain/drawing-starter-names';
 import { starterStrokes } from '../../src/lib/domain/drawing-starters';
 
@@ -33,9 +33,22 @@ test('the prompt shows, shuffles and hides for the day @J18.16', async ({ page }
 	await expectTappable(page.getByTestId('draw-prompt-shuffle'), 96);
 	await expectTappable(page.getByTestId('draw-prompt-hide'), 96);
 
+	// The device remembers the day's random pick: reopening shows the same prompt.
 	const first = await prompt.innerText();
-	await page.getByTestId('draw-prompt-shuffle').click();
-	await expect(prompt).not.toHaveText(first);
+	expect(DRAWING_PROMPTS).toContain(first);
+	await page.getByTestId('draw-close').click();
+	await page.getByTestId('note-draw').click();
+	await expect(prompt).toHaveText(first);
+
+	// Shuffle picks another, never one shown recently.
+	const shown = [first];
+	for (let i = 0; i < 3; i++) {
+		await page.getByTestId('draw-prompt-shuffle').click();
+		await expect(prompt).not.toHaveText(shown.at(-1)!);
+		const next = await prompt.innerText();
+		expect(shown).not.toContain(next);
+		shown.push(next);
+	}
 
 	await page.getByTestId('draw-prompt-hide').click();
 	await expect(page.getByTestId('draw-prompt-banner')).toHaveCount(0);
@@ -47,32 +60,43 @@ test('the prompt shows, shuffles and hides for the day @J18.16', async ({ page }
 	await expect(page.getByTestId('draw-prompt-banner')).toHaveCount(0);
 });
 
-/** The first day from 2026-11-01 whose prompt does (or does not) have a starter sketch. */
-function dayWhere(starter: boolean): string {
-	for (let d = 1; d < 400; d++) {
-		const date = new Date(Date.UTC(2026, 10, d)).toISOString().slice(0, 10);
-		if (hasStarter(promptForDate(date)) === starter) return date;
-	}
-	throw new Error('no such day');
+/** The first prompt that does (or does not) have a starter sketch. */
+function promptWhere(starter: boolean): string {
+	const found = DRAWING_PROMPTS.find((p) => hasStarter(p) === starter);
+	if (!found) throw new Error('no such prompt');
+	return found;
+}
+
+/** Makes `text` this device's remembered prompt for `date`. */
+async function rememberPrompt(page: Page, date: string, text: string) {
+	await page.addInitScript(
+		([d, t]) =>
+			localStorage.setItem(
+				'drawing-prompt-memory',
+				JSON.stringify({ date: d, prompt: t, recent: [t] })
+			),
+		[date, text]
+	);
 }
 
 test('Start it puts a half-done sketch on the board as ink; Undo takes it back @J18.16', async ({
 	page
 }) => {
 	ensureHousehold();
-	const date = dayWhere(true);
+	const text = promptWhere(true);
+	await rememberPrompt(page, DATE, text);
 	await page.route('**/api/settings/drawing-prompts', (route) =>
-		route.fulfill({ json: { enabled: true, date } })
+		route.fulfill({ json: { enabled: true, date: DATE } })
 	);
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
 	const canvas = page.getByTestId('draw-canvas');
-	await expect(page.getByTestId('draw-prompt')).toHaveText(promptForDate(date));
+	await expect(page.getByTestId('draw-prompt')).toHaveText(text);
 	await expectTappable(page.getByTestId('draw-prompt-start'), 96);
 	await expect(canvas).toHaveAttribute('data-strokes', '0');
 
 	await page.getByTestId('draw-prompt-start').click();
-	const n = starterStrokes(promptForDate(date), { w: 100, h: 100 }).length;
+	const n = starterStrokes(text, { w: 100, h: 100 }).length;
 	await expect(canvas).toHaveAttribute('data-strokes', String(n));
 	const ink = await canvas.evaluate((c: HTMLCanvasElement) => {
 		const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
@@ -92,13 +116,14 @@ test('Start it puts a half-done sketch on the board as ink; Undo takes it back @
 
 test('no Start it for a prompt without a starter @J18.16', async ({ page }) => {
 	ensureHousehold();
-	const date = dayWhere(false);
+	const text = promptWhere(false);
+	await rememberPrompt(page, DATE, text);
 	await page.route('**/api/settings/drawing-prompts', (route) =>
-		route.fulfill({ json: { enabled: true, date } })
+		route.fulfill({ json: { enabled: true, date: DATE } })
 	);
 	await gotoHydrated(page, '/');
 	await page.getByTestId('note-draw').click();
-	await expect(page.getByTestId('draw-prompt')).toHaveText(promptForDate(date));
+	await expect(page.getByTestId('draw-prompt')).toHaveText(text);
 	await expect(page.getByTestId('draw-prompt-start')).toHaveCount(0);
 });
 

@@ -1,6 +1,6 @@
 /**
- * Daily drawing prompts (hub-cn7.27). The prompt for a day is chosen from the date alone, so every
- * device agrees; Shuffle steps to a different one. All prompts are friendly and calm.
+ * Daily drawing prompts (hub-cn7.27). Each device picks the day's prompt at random and skips ones it
+ * showed recently (hub-2jx); Shuffle picks another. All prompts are friendly and calm.
  */
 export const DRAWING_PROMPTS: readonly string[] = [
 	'Draw a dragon having breakfast',
@@ -69,33 +69,127 @@ export const DRAWING_PROMPTS: readonly string[] = [
 	'Draw a cozy cabin in a snowy forest',
 	'Draw a jellyfish wearing party lights',
 	'Draw a bridge made of rainbows',
-	'Draw a robot gardener growing silly vegetables'
+	'Draw a robot gardener growing silly vegetables',
+	'Draw a turtle carrying a tiny house',
+	'Draw a cow jumping over a crescent moon',
+	'Draw a snail with a sparkly shell',
+	'Draw a fish wearing a tiny crown',
+	'Draw an owl reading by lantern light',
+	'Draw a caterpillar eating a giant leaf',
+	'Draw a butterfly with patterned wings',
+	'Draw a whale spouting a fountain of bubbles',
+	'Draw a crab building a sandcastle',
+	'Draw a pig splashing in a puddle',
+	'Draw a horse with a flowing mane',
+	'Draw a dog chasing a ball in the park',
+	'Draw a cat napping in a sunbeam',
+	'Draw a bunny hiding in a garden of carrots',
+	'Draw a mouse living inside a cheese house',
+	'Draw a bat hanging upside down at sunset',
+	'Draw a polar bear on an iceberg',
+	'Draw a panda eating bamboo',
+	'Draw a monkey swinging through the jungle',
+	'Draw a flamingo standing on one leg',
+	'Draw a peacock showing off its feathers',
+	'Draw a dolphin leaping over a wave',
+	'Draw a star-shaped house in the night sky',
+	'Draw a castle with tall towers and flags',
+	'Draw a race car with flames on the side',
+	'Draw a fire truck on its way to help',
+	'Draw a tractor on a busy farm',
+	'Draw an airplane flying over the city',
+	'Draw a helicopter rescuing a kitten',
+	'Draw a sailboat on a calm lake',
+	'Draw a rocket blasting off into space',
+	'Draw an astronaut floating among the stars',
+	'Draw an alien saying hello',
+	'Draw a planet with rings and moons',
+	'Draw a volcano on a tropical island',
+	'Draw a waterfall in a hidden valley',
+	'Draw a garden with a winding path',
+	'Draw a tree with a swing',
+	'Draw a big bowl of noodles',
+	'Draw a birthday cake with lots of candles',
+	'Draw an ice cream cone with your favorite scoops',
+	'Draw a pizza with silly toppings',
+	'Draw a fruit basket full of colors',
+	'Draw a cupcake wearing sprinkles',
+	'Draw a teddy bear picnic',
+	'Draw a toy box spilling over with toys',
+	'Draw a robot dog playing fetch',
+	'Draw a giant sunflower taller than you',
+	'Draw a mushroom house in the woods',
+	'Draw a fairy riding a dragonfly',
+	'Draw a knight befriending a dragon',
+	'Draw a princess who fixes robots',
+	'Draw a treasure chest on the ocean floor',
+	'Draw a map to a secret island',
+	'Draw a carousel at the fair',
+	'Draw a Ferris wheel at night',
+	'Draw a circus tent with a striped top',
+	'Draw a musician playing the drums',
+	'Draw a guitar made of flowers',
+	'Draw a soccer game in the rain',
+	'Draw a basketball hoop on a sunny day',
+	'Draw a snowy hill with sleds',
+	'Draw an umbrella on a rainy day',
+	'Draw a hat with a whole garden on top',
+	'Draw a fishbowl with a happy goldfish',
+	'Draw a pumpkin patch in the fall',
+	'Draw a cozy fireplace with stockings'
 ];
 
-/** A non-negative integer from a string (FNV-1a), stable across devices. */
-function hash(text: string): number {
-	let h = 0x811c9dc5;
-	for (let i = 0; i < text.length; i++) {
-		h ^= text.charCodeAt(i);
-		h = Math.imul(h, 0x01000193) >>> 0;
-	}
-	return h;
+/** How much of the list must be seen before a prompt can come back. */
+const REPEAT_AFTER = 0.75;
+
+/** What a device remembers: the day's prompt and the ones shown recently (oldest first). */
+export interface PromptMemory {
+	date: string;
+	prompt: string;
+	recent: string[];
 }
 
-/** Index of the prompt for a local calendar day (YYYY-MM-DD) after `shuffles` presses of Shuffle. */
-export function promptIndex(date: string, shuffles = 0): number {
-	const n = DRAWING_PROMPTS.length;
-	const base = hash(date) % n;
-	// Each shuffle moves by a step that is never 0 mod n, so the prompt always changes.
-	const step = 1 + (hash(`${date}:step`) % (n - 1));
-	return (
-		(base + (Number.isFinite(shuffles) ? Math.max(0, Math.trunc(shuffles)) % n : 0) * step) % n
-	);
+const known = new Set(DRAWING_PROMPTS);
+
+/** Reads stored memory, dropping anything malformed or prompts no longer in the list. */
+export function parsePromptMemory(raw: unknown): PromptMemory | null {
+	const m = raw as Partial<PromptMemory> | null;
+	if (!m || typeof m.date !== 'string' || typeof m.prompt !== 'string' || !known.has(m.prompt))
+		return null;
+	const recent = Array.isArray(m.recent)
+		? m.recent.filter((p): p is string => typeof p === 'string' && known.has(p))
+		: [];
+	return { date: m.date, prompt: m.prompt, recent };
 }
 
-/** The prompt text for a local calendar day and shuffle count. */
-export function promptForDate(date: string, shuffles = 0): string {
-	return DRAWING_PROMPTS[promptIndex(date, shuffles)];
+/**
+ * A random prompt that was not shown recently: one comes back only after three quarters of the
+ * list has been seen since.
+ */
+export function pickPrompt(recent: readonly string[], rand: () => number = Math.random): string {
+	const keep = Math.floor(DRAWING_PROMPTS.length * REPEAT_AFTER);
+	const avoid = new Set(recent.slice(-keep));
+	// keep < length, so at least a quarter of the list is always eligible.
+	const pool = DRAWING_PROMPTS.filter((p) => !avoid.has(p));
+	const i = Math.min(pool.length - 1, Math.floor(Math.max(0, rand()) * pool.length));
+	return pool[i];
+}
+
+/**
+ * The prompt for `date` (hub-2jx): the remembered one for the same day, else a fresh random pick.
+ * `shuffle` always picks a new one. The recent list is capped to what `pickPrompt` looks at.
+ */
+export function nextPromptMemory(
+	memory: PromptMemory | null,
+	date: string,
+	shuffle = false,
+	rand: () => number = Math.random
+): PromptMemory {
+	if (memory && memory.date === date && !shuffle) return memory;
+	const recent = memory?.recent ?? [];
+	const prompt = pickPrompt(recent, rand);
+	const keep = Math.floor(DRAWING_PROMPTS.length * REPEAT_AFTER);
+	return { date, prompt, recent: [...recent, prompt].slice(-keep) };
 }
 
 /** Parses the stored on/off setting. Missing or malformed means on. */
