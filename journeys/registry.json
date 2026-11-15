@@ -914,6 +914,12 @@
 					"text": "Turn on Kaleidoscope (6 or 8 slices) under Magic and every stroke repeats around the middle of the board, turned and reflected like a snowflake. One Undo removes all the copies, it works with every brush, and turning it off draws plain ink again.",
 					"status": "built",
 					"beads": ["hub-t27j.1"]
+				},
+				{
+					"id": "J18.21",
+					"text": "While sharing, tap Guess game under Together: one board gets a secret word to draw, the other sees the strokes live and four big answers. A right pick celebrates on both boards, a wrong one says try again, New round swaps who draws, and if a board drops the round ends cleanly.",
+					"status": "built",
+					"beads": ["hub-t27j.10"]
 				}
 			]
 		},

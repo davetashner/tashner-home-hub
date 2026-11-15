@@ -8,6 +8,7 @@ process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'hub-drawing-live-api-'));
 const open = await import('./drawing-live/+server.js');
 const snap = await import('./drawing-live/[id]/+server.js');
 const evs = await import('./drawing-live/[id]/events/+server.js');
+const game = await import('./drawing-live/[id]/game/+server.js');
 const dom = await import('#lib/server/domain/drawing-live.js');
 const hub = await import('#lib/server/domain/events.js');
 const { encodeLiveItem } = await import('#lib/domain/drawing-live.js');
@@ -122,5 +123,75 @@ describe('live drawing API', () => {
 		await expect(post(id, { author: 'a', event: JSON.parse(one) })).rejects.toMatchObject({
 			status: 409
 		});
+	});
+});
+
+describe('draw and guess (hub-t27j.10)', () => {
+	const act = (id: string, body: unknown) =>
+		call(game.POST, {
+			params: { id },
+			request: new Request('http://example.com/x', { method: 'POST', body: JSON.stringify(body) })
+		});
+	const statusOf = (id: string, body: unknown) =>
+		act(id, body).then(
+			(r) => r.status,
+			(e: { status: number }) => e.status
+		);
+	const send = async (id: string, author: string, rest: Record<string, unknown>) =>
+		(await act(id, { author, ...rest })).json();
+
+	it('only the drawer is told the word, and guesses are checked on the server', async () => {
+		const id = await newId();
+		const started = await send(id, 'drawerA', { action: 'start' });
+		expect(typeof started.word).toBe('string');
+		const seen = await send(id, 'guesserB', { action: 'ping' });
+		expect(seen.word).toBeUndefined();
+		expect(JSON.stringify(seen.game)).not.toContain(`"word"`);
+		expect(seen.game.guesser).toBe('guesserB');
+		const wrong = seen.game.choices.findIndex((c: string) => c !== started.word);
+		expect((await send(id, 'guesserB', { action: 'guess', index: wrong })).result).toBe('wrong');
+		const right = await send(id, 'guesserB', {
+			action: 'guess',
+			index: seen.game.choices.indexOf(started.word)
+		});
+		expect(right.result).toBe('right');
+		expect(right.game.word).toBe(started.word);
+		const next = await send(id, 'guesserB', { action: 'start' });
+		expect(next.game.drawer).toBe('guesserB');
+		expect(typeof next.word).toBe('string');
+	});
+
+	it('relays public state on the drawing topic and ends on leave', async () => {
+		const id = await newId();
+		const got: Record<string, string>[] = [];
+		const off = hub.subscribe(['drawing'], (e: { data: Record<string, string> }) =>
+			got.push(e.data)
+		);
+		await send(id, 'a', { action: 'start' });
+		await send(id, 'a', { action: 'leave' });
+		off?.();
+		const games = got.filter((d) => d.session === id && 'game' in d).map((d) => JSON.parse(d.game));
+		expect(games[0].status).toBe('drawing');
+		expect(games[0].word).toBeUndefined();
+		expect(games[1]).toBeNull();
+		expect((await send(id, 'b', { action: 'ping' })).game).toBeNull();
+	});
+
+	it('drops the round when a player goes quiet', () => {
+		const id = dom.openSession(0).id;
+		dom.gameAction(id, 'a', { action: 'start' }, 0);
+		dom.gameAction(id, 'b', { action: 'ping' }, 1000);
+		expect(dom.gameAction(id, 'a', { action: 'ping' }, 5000).game).not.toBeNull();
+		expect(dom.gameAction(id, 'a', { action: 'ping' }, 12_000).game).toBeNull();
+	});
+
+	it('validates input', async () => {
+		const id = await newId();
+		expect(await statusOf(id, { author: 'a', action: 'nope' })).toBe(400);
+		expect(await statusOf(id, { action: 'start' })).toBe(400);
+		expect(await statusOf('deadbeef', { author: 'a', action: 'start' })).toBe(404);
+		expect(await statusOf(id, [1])).toBe(400);
+		expect(await statusOf(id, 'nope')).toBe(400);
+		expect((await send(id, 'a', { action: 'guess', index: 0 })).game).toBeNull();
 	});
 });
