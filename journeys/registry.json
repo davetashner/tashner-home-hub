@@ -914,6 +914,12 @@
 					"text": "Turn on Kaleidoscope (6 or 8 slices) under Magic and every stroke repeats around the middle of the board, turned and reflected like a snowflake. One Undo removes all the copies, it works with every brush, and turning it off draws plain ink again.",
 					"status": "built",
 					"beads": ["hub-t27j.1"]
+				},
+				{
+					"id": "J18.21",
+					"text": "Play the Monster game on one screen: each player draws only their band (head, body, legs, or feet), the earlier parts are folded away except a thin strip to line up the neck, and Reveal! shows the whole monster to post like any drawing.",
+					"status": "built",
+					"beads": ["hub-t27j.9"]
 				}
 			]
 		},
