@@ -75,7 +75,7 @@ const inkBox = (page: Page) =>
 
 const proto = (page: Page) => page.getByTestId('draw-protractor');
 
-test('a protractor snaps strokes from its center to 15 degrees, moves, turns, and is never ink @J18.36', async ({
+test('a protractor snaps strokes from its center to 15 degrees, moves, turns, and is never ink @J18.37', async ({
 	page
 }, info) => {
 	const kidId = `e2e-protractor-kid-${info.workerIndex}${info.repeatEachIndex}`;

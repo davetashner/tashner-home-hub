@@ -67,7 +67,7 @@ async function device(browser: Browser, like: Page) {
 	return { context, page };
 }
 
-test('lasso: move and copy reach the other board; erased gaps move with the ink @J18.37', async ({
+test('lasso: move and copy reach the other board; erased gaps move with the ink @J18.38', async ({
 	page,
 	browser
 }) => {

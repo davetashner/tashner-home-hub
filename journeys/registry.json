@@ -1007,18 +1007,24 @@
 				},
 				{
 					"id": "J18.36",
+					"text": "Post a drawing, then dismiss its note (or let it expire): the drawing stays in that kid's art book. A parent can tap Remove under a drawing to take it out of the book for good.",
+					"status": "built",
+					"beads": ["hub-t27j.23"]
+				},
+				{
+					"id": "J18.37",
 					"text": "Turn on Protractor in Magic (it swaps with Ruler) and a see-through half-circle with degree marks appears: drag its grip to move it, drag the turn handle to rotate it. Start a stroke at its center and pull away: the line comes out dead straight at the nearest 15 degrees. The protractor is never ink and is not saved or posted.",
 					"status": "built",
 					"beads": ["hub-t27j.24"]
 				},
 				{
-					"id": "J18.37",
+					"id": "J18.38",
 					"text": "Circle ink with the Lasso and move, resize or copy it while drawing together: the other board sees the ink move too. Eraser scribbles over that ink come along, so the erased gaps stay in the right place.",
 					"status": "built",
 					"beads": ["hub-t27j.22"]
 				},
 				{
-					"id": "J18.38",
+					"id": "J18.39",
 					"text": "Post a drawing made with Wiggle on and its note on the board boils like the drawing did, and it boils again when enlarged (still if reduced motion is on). A drawing posted without Wiggle stays a still picture.",
 					"status": "built",
 					"beads": ["hub-t27j.21"]

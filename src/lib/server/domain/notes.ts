@@ -13,7 +13,7 @@ import {
 	NOTE_MAX
 } from '#lib/domain/notes.js';
 import type { Db } from '../db/index.js';
-import { members, notes } from '../db/schema.js';
+import { artArchive, members, notes } from '../db/schema.js';
 import { householdTimeZone } from '../household.js';
 import { publish } from './events.js';
 import { LedgerError } from './ledger.js';
@@ -94,6 +94,14 @@ export function noteFrame(db: Db, id: string, f: number): Buffer | null {
 	return url ? Buffer.from(url.slice(url.indexOf(',') + 1), 'base64') : null;
 }
 
+/** A posted drawing's PNG from the art book archive, which outlives its note. */
+export function archivedImage(db: Db, id: string): Buffer | null {
+	return (
+		db.select({ image: artArchive.image }).from(artArchive).where(eq(artArchive.id, id)).get()
+			?.image ?? null
+	);
+}
+
 /** Posts a note. Open to every member, children included: no PIN. */
 export function createNote(db: Db, input: NoteInput, now = Date.now()): NoteView {
 	const hasImage = input.image !== undefined && input.image !== null;
@@ -130,6 +138,10 @@ export function createNote(db: Db, input: NoteInput, now = Date.now()): NoteView
 			imageFrames: hasFrames ? JSON.stringify(input.frames) : null
 		})
 		.run();
+	if (image !== null)
+		db.insert(artArchive)
+			.values({ id, memberId: input.authorId, createdAt: now, image: Buffer.from(image) })
+			.run();
 	publish('notes', { kind: 'note', noteId: id });
 	return view(db, id) as NoteView;
 }
