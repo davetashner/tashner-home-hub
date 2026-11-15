@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
+	import MemberAvatar from '#lib/components/MemberAvatar.svelte';
+	import { isMemberColor, type MemberColor } from '#lib/domain/member-colors.js';
 	import {
 		GUESS_PING_MS,
 		newer,
@@ -16,12 +18,14 @@
 	interface Props {
 		/** The live session and this device's author id, null when not sharing. */
 		ids: () => { session: string; me: string } | null;
+		/** The household, for the "Who's playing?" pick. */
+		people: { id: string; name: string; color: string; avatar: string | null }[];
 		active: boolean;
 		/** Show the Guess game button (the Together panel). */
 		showStart: boolean;
 		onnote: (message: string) => void;
 	}
-	let { ids, active, showStart, onnote }: Props = $props();
+	let { ids, people, active, showStart, onnote }: Props = $props();
 
 	const JSON_HEADERS = { 'content-type': 'application/json' };
 	let game = $state<PublicRound | null>(null);
@@ -29,6 +33,9 @@
 	let tryAgain = $state(false);
 	let timer: ReturnType<typeof setInterval> | undefined;
 	let last = $state<{ session: string; me: string } | null>(null);
+	/** The household member on this board (kept across rounds), sent so a right guess pays them. */
+	let who = $state<string | null>(null);
+	const memberColor = (c: string): MemberColor => (isMemberColor(c) ? c : 'member-1');
 	let tryAgainTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const me = $derived(last?.me ?? '');
@@ -41,7 +48,7 @@
 			const res = await fetch(`/api/drawing-live/${id.session}/game`, {
 				method: 'POST',
 				headers: JSON_HEADERS,
-				body: JSON.stringify({ author: id.me, ...body })
+				body: JSON.stringify({ author: id.me, ...(who ? { member: who } : {}), ...body })
 			});
 			if (!res.ok) return null;
 			return (await res.json()) as { game: unknown; word?: string; result?: string };
@@ -88,6 +95,12 @@
 		if (r) take(r.game === null ? null : parsePublicRound(r.game), r.word);
 	}
 
+	async function pickWho(id: string) {
+		who = id;
+		const r = await call({ action: 'who' });
+		if (r) take(r.game === null ? null : parsePublicRound(r.game), r.word);
+	}
+
 	async function start() {
 		const r = await call({ action: 'start' });
 		const g = r ? parsePublicRound(r.game) : null;
@@ -109,7 +122,8 @@
 	$effect(() => {
 		if (active) {
 			last = ids();
-			void ping();
+			// Picking who is playing must not restart this effect (cleanup would end the round).
+			untrack(() => void ping());
 			timer = setInterval(() => void ping(), GUESS_PING_MS);
 			return () => {
 				clearInterval(timer);
@@ -118,6 +132,7 @@
 				game = null;
 				word = '';
 				tryAgain = false;
+				who = null;
 			};
 		}
 	});
@@ -137,13 +152,33 @@
 		data-role={drawing ? 'drawer' : 'guesser'}
 		data-status={game.status}
 	>
-		{#if game.status === 'solved'}
+		{#if !who && game.status !== 'solved'}
+			<p class="text-body font-extrabold">Who's playing?</p>
+			<div class="flex flex-wrap gap-3" data-testid="draw-guess-who">
+				{#each people as p (p.id)}
+					<button
+						type="button"
+						class="{chip} min-h-tap-kid gap-3"
+						onclick={() => void pickWho(p.id)}
+						data-testid="draw-guess-who-pick"
+					>
+						<MemberAvatar name={p.name} color={memberColor(p.color)} avatar={p.avatar} size="kid" />
+						<span>{p.name}</span>
+					</button>
+				{/each}
+			</div>
+		{:else if game.status === 'solved'}
 			<p
 				class="rounded-card bg-success-soft px-4 py-3 text-title font-extrabold text-success"
 				role="status"
 				data-testid="draw-guess-win"
 			>
 				Yes! It was {game.word}!
+				{#if game.stars}
+					<span data-testid="draw-guess-stars">
+						{game.stars > 1 ? ' A star each!' : ' A star!'}
+					</span>
+				{/if}
 			</p>
 			<button type="button" class={chip} onclick={start} data-testid="draw-guess-next">
 				New round

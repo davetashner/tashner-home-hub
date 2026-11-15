@@ -2563,6 +2563,7 @@
 		<GuessGame
 			bind:this={guessGame}
 			ids={() => live?.ids() ?? null}
+			{people}
 			active={liveStatus.active}
 			showStart={section === 'together'}
 			onnote={(m) => (note = m)}

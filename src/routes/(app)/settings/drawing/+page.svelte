@@ -9,6 +9,8 @@
 
 	let enabled = $state(true);
 	let starsOn = $state(true);
+	let gameOn = $state(true);
+	let gameEdits = 0;
 	let message = $state('');
 	let edits = 0;
 	let starEdits = 0;
@@ -75,7 +77,34 @@
 				if (body && starAt === starEdits) starsOn = body.enabled !== false;
 			})
 			.catch(() => {});
+		const gameAt = gameEdits;
+		void fetch('/api/settings/drawing-game-stars')
+			.then(async (res) => {
+				const body = res.ok ? await res.json() : null;
+				if (body && gameAt === gameEdits) gameOn = body.enabled !== false;
+			})
+			.catch(() => {});
 	});
+
+	function changeGame(next: boolean) {
+		const before = gameOn;
+		const at = ++gameEdits;
+		gameOn = next;
+		message = '';
+		const fail = () => {
+			message = 'Could not save. Try again.';
+			if (at === gameEdits) gameOn = before;
+		};
+		void fetch('/api/settings/drawing-game-stars', {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ enabled: next })
+		})
+			.then((res) => {
+				if (!res.ok) fail();
+			})
+			.catch(fail);
+	}
 
 	function changeStars(next: boolean) {
 		const before = starsOn;
@@ -167,6 +196,26 @@
 						aria-pressed={starsOn === c.on}
 						data-testid="drawing-stars-{c.on ? 'on' : 'off'}"
 						onclick={() => starsOn !== c.on && changeStars(c.on)}>{c.label}</Button
+					>
+				{/each}
+			</div>
+		</div>
+	</Card>
+	<Card>
+		<div class="flex flex-wrap items-center justify-between gap-6">
+			<div class="flex flex-col gap-1">
+				<h2 class="text-title font-bold">Stars for the guess game</h2>
+				<p class="text-body text-ink-muted">
+					When a guess is right in Draw and guess, both kids playing earn a star, once per round.
+				</p>
+			</div>
+			<div class="flex flex-wrap gap-4" role="group" aria-label="Stars for the guess game">
+				{#each starChoices as c (c.label)}
+					<Button
+						variant={gameOn === c.on ? 'primary' : 'secondary'}
+						aria-pressed={gameOn === c.on}
+						data-testid="game-stars-{c.on ? 'on' : 'off'}"
+						onclick={() => gameOn !== c.on && changeGame(c.on)}>{c.label}</Button
 					>
 				{/each}
 			</div>

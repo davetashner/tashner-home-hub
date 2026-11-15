@@ -11,7 +11,11 @@ import {
 	publicRound,
 	shuffle,
 	startRound,
-	touch
+	touch,
+	isPlayerId,
+	markRewarded,
+	rewardMembers,
+	setPlayer
 } from './drawing-guess.js';
 
 const seq = (...n: number[]) => {
@@ -167,5 +171,52 @@ describe('wire form', () => {
 		const nextRound = { ...a, round: 2, v: 1 };
 		expect(newer(a, nextRound)).toBe(nextRound);
 		expect(newer(nextRound, a)).toBe(nextRound);
+	});
+});
+
+describe('players and rewards (hub-t27j.25)', () => {
+	const solved = () => {
+		let r = startRound(null, 'a', 0, seq(0.1));
+		r = touch(r, 'b', 1);
+		r = setPlayer(setPlayer(r, 'a', 'kidA'), 'b', 'kidB');
+		return { ...r, status: 'solved' as const };
+	};
+	it('isPlayerId accepts short strings only', () => {
+		expect(isPlayerId('kid')).toBe(true);
+		for (const bad of ['', 'x'.repeat(65), 4, null, undefined]) expect(isPlayerId(bad)).toBe(false);
+	});
+	it('setPlayer remembers a pick and ignores junk or repeats', () => {
+		const r = startRound(null, 'a', 0, seq(0.1));
+		const s = setPlayer(r, 'a', 'kidA');
+		expect(s.players).toEqual({ a: 'kidA' });
+		expect(setPlayer(s, 'a', 'kidA')).toBe(s);
+		expect(setPlayer(s, 'a', 7)).toBe(s);
+		expect(setPlayer(s, 'a', '')).toBe(s);
+	});
+	it('rewards both players once solved, and only once', () => {
+		const r = solved();
+		expect(rewardMembers(r)).toEqual(['kidA', 'kidB']);
+		const paid = markRewarded(r, 2);
+		expect(rewardMembers(paid)).toEqual([]);
+		expect(publicRound(paid).stars).toBe(2);
+	});
+	it('rewards nothing before solved, and a kid on both boards once', () => {
+		const r = solved();
+		expect(rewardMembers({ ...r, status: 'drawing' })).toEqual([]);
+		expect(rewardMembers({ ...r, players: { a: 'kidA', b: 'kidA' } })).toEqual(['kidA']);
+		expect(rewardMembers({ ...r, players: { a: 'kidA' } })).toEqual(['kidA']);
+		expect(rewardMembers({ ...r, players: {} })).toEqual([]);
+	});
+	it('a new round keeps who is playing but not the reward', () => {
+		const next = startRound(markRewarded(solved(), 2), 'a', 5, seq(0.5));
+		expect(next.players).toEqual({ a: 'kidA', b: 'kidB' });
+		expect(next.rewarded).toBe(false);
+		expect(publicRound(next).stars).toBeUndefined();
+	});
+	it('parses the optional stars field', () => {
+		const pub = publicRound({ ...solved(), stars: 2 });
+		expect(parsePublicRound(pub)?.stars).toBe(2);
+		expect(parsePublicRound({ ...pub, stars: -1 })).toBeNull();
+		expect(parsePublicRound({ ...pub, stars: 'x' })).toBeNull();
 	});
 });

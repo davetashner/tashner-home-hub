@@ -10,6 +10,8 @@ const snap = await import('./drawing-live/[id]/+server.js');
 const evs = await import('./drawing-live/[id]/events/+server.js');
 const game = await import('./drawing-live/[id]/game/+server.js');
 const dom = await import('#lib/server/domain/drawing-live.js');
+const dbm = await import('#lib/server/db/index.js');
+const starsDom = await import('#lib/server/domain/drawing-stars.js');
 const hub = await import('#lib/server/domain/events.js');
 const { encodeLiveItem } = await import('#lib/domain/drawing-live.js');
 
@@ -183,6 +185,64 @@ describe('draw and guess (hub-t27j.10)', () => {
 		dom.gameAction(id, 'b', { action: 'ping' }, 1000);
 		expect(dom.gameAction(id, 'a', { action: 'ping' }, 5000).game).not.toBeNull();
 		expect(dom.gameAction(id, 'a', { action: 'ping' }, 12_000).game).toBeNull();
+	});
+
+	describe('stars (hub-t27j.25)', () => {
+		const getDb = () => dbm.getDb();
+		const stars = (memberId: string) =>
+			getDb()
+				.select()
+				.from(dbm.schema.starTransactions)
+				.all()
+				.filter((r) => r.memberId === memberId && r.reason === 'drawing');
+		const play = async (id: string, pickA: string | undefined, pickB: string | undefined) => {
+			const started = await send(id, 'drawerA', { action: 'start', member: pickA });
+			const seen = await send(id, 'guesserB', { action: 'who', member: pickB });
+			return send(id, 'guesserB', {
+				action: 'guess',
+				index: seen.game.choices.indexOf(started.word)
+			});
+		};
+		beforeEach(() => {
+			getDb()
+				.insert(dbm.schema.members)
+				.values([
+					{ id: 'gk1', name: 'Test One', role: 'child', color: 'member-1' },
+					{ id: 'gk2', name: 'Test Two', role: 'child', color: 'member-2' },
+					{ id: 'ga1', name: 'Test Grown', role: 'adult', color: 'member-3' }
+				])
+				.onConflictDoNothing()
+				.run();
+			getDb().delete(dbm.schema.starTransactions).run();
+			getDb().delete(dbm.schema.settings).run();
+		});
+
+		it('pays both kids one star on a right guess, once per round', async () => {
+			const id = await newId();
+			const right = await play(id, 'gk1', 'gk2');
+			expect(right.result).toBe('right');
+			expect(right.game.stars).toBe(2);
+			expect(stars('gk1')).toHaveLength(1);
+			expect(stars('gk2')).toHaveLength(1);
+			// A repeat guess on the solved round is ignored and pays nothing more.
+			expect((await send(id, 'guesserB', { action: 'guess', index: 0 })).result).toBe('ignored');
+			expect(stars('gk1')).toHaveLength(1);
+			// Next round (roles swap) pays again.
+			await send(id, 'guesserB', { action: 'start' });
+			expect(stars('gk1')).toHaveLength(1);
+		});
+
+		it('pays kids only, nothing for an unpicked board, nothing when off', async () => {
+			expect((await play(await newId(), 'ga1', 'gk2')).game.stars).toBe(1);
+			expect(stars('ga1')).toHaveLength(0);
+			expect(stars('gk2')).toHaveLength(1);
+			getDb().delete(dbm.schema.starTransactions).run();
+			expect((await play(await newId(), undefined, undefined)).game.stars).toBeUndefined();
+			expect(getDb().select().from(dbm.schema.starTransactions).all()).toHaveLength(0);
+			starsDom.setGameStarsEnabled(getDb(), false);
+			expect((await play(await newId(), 'gk1', 'gk2')).game.stars).toBeUndefined();
+			expect(getDb().select().from(dbm.schema.starTransactions).all()).toHaveLength(0);
+		});
 	});
 
 	it('validates input', async () => {
