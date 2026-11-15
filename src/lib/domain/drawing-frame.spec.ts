@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	DRAWING_ID_PREFIX,
 	drawingEntry,
+	drawingPan,
 	firstName,
 	interleaveDrawings,
 	isDrawingId,
@@ -71,5 +72,20 @@ describe('helpers', () => {
 	it('validates the mode', () => {
 		expect(isDrawingMode('on')).toBe(true);
 		expect(isDrawingMode('yes')).toBe(false);
+	});
+});
+
+describe('drawingPan', () => {
+	it('drifts gently, in on even steps and back out on odd ones', () => {
+		const a = drawingPan(0);
+		expect(a.from).toBe('scale(1) translate(0, 0)');
+		expect(a.to).toBe('scale(1.04) translate(-1%, -0.5%)');
+		expect(drawingPan(1)).toEqual({ from: 'scale(1.04) translate(1%, 0.5%)', to: a.from });
+	});
+	it('varies direction and wraps; odd inputs never throw', () => {
+		expect(drawingPan(4)).toEqual(drawingPan(0));
+		expect(drawingPan(-1).to).toBeTypeOf('string');
+		expect(drawingPan(2.5).to).toContain('translate');
+		expect(drawingPan(Number.NaN).from).toContain('scale(1.04)');
 	});
 });

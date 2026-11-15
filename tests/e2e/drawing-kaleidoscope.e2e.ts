@@ -95,7 +95,7 @@ const inkCount = (page: Page) =>
 		return n;
 	});
 
-test('kaleidoscope repeats strokes around the center as one undo step @J18.19', async ({
+test('kaleidoscope repeats strokes around the center as one undo step @J18.20', async ({
 	page
 }, info) => {
 	const kidId = `e2e-kaleido-kid-${info.workerIndex}${info.repeatEachIndex}`;
