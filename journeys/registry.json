@@ -902,6 +902,12 @@
 					"text": "Tap Share on the board; another device is invited and joins with one tap. Strokes show on every board as they are drawn, each person undoes only their own, and drawing carries on offline and syncs on reconnect.",
 					"status": "built",
 					"beads": ["hub-cn7.30"]
+				},
+				{
+					"id": "J18.19",
+					"text": "Turn on Smooth lines and a wobbly freehand line comes out steadier, ending right where you lift your finger; it is off until you turn it on and is remembered on this device.",
+					"status": "built",
+					"beads": ["hub-t27j.7"]
 				}
 			]
 		},
