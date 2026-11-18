@@ -296,6 +296,20 @@ export const listItems = sqliteTable('list_items', {
 	position: integer('position').notNull().default(0)
 });
 
+/** House maintenance (hub-nit): recurring jobs with a next due day and the day last done. */
+export const maintenanceTasks = sqliteTable('maintenance_tasks', {
+	id: id(),
+	title: text('title').notNull(),
+	/** Months between services; null is "as needed". */
+	intervalMonths: integer('interval_months'),
+	/** Household-local days, YYYY-MM-DD. */
+	nextDue: text('next_due'),
+	lastDone: text('last_done'),
+	estTime: text('est_time'),
+	notes: text('notes'),
+	createdAt: createdAt()
+});
+
 export const mealPlanEntries = sqliteTable(
 	'meal_plan_entries',
 	{
