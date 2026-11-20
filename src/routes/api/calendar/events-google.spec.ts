@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HOUSEHOLD_TZ_KEY } from '#lib/domain/time-zone.js';
 import { openDb, type Db } from '#lib/server/db/index.js';
 import { calendarSources, events, settings } from '#lib/server/db/schema.js';
@@ -335,4 +335,13 @@ describe('Google write-back', () => {
 		expect((await outcome(() => del('ev-1')))?.status).toBe(403);
 		expect(writes).toHaveLength(0);
 	});
+});
+
+// The fixtures are dated October 2026 and a refresh keeps only events near today, so pin the
+// clock (Date only; real timers keep running) or these fail once the fixtures fall out of range.
+beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-15T12:00:00Z') });
+});
+afterEach(() => {
+	vi.useRealTimers();
 });

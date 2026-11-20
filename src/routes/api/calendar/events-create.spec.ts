@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDb, type Db } from '#lib/server/db/index.js';
 import { calendarSources, events } from '#lib/server/db/schema.js';
 
@@ -154,4 +154,13 @@ describe('POST /api/calendar/events', () => {
 		expect(JSON.stringify(err?.body)).not.toContain('jane@');
 		expect(JSON.stringify(err?.body)).not.toContain('abcd');
 	});
+});
+
+// The fixtures are dated October 2026 and a refresh keeps only events near today, so pin the
+// clock (Date only; real timers keep running) or these fail once the fixtures fall out of range.
+beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-15T12:00:00Z') });
+});
+afterEach(() => {
+	vi.useRealTimers();
 });
