@@ -171,6 +171,9 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J6.4 | A check made before its add returns still lands once the network is back. | built | wall, iphone | `lists-temp-tap` |
 | J6.5 | Long-press an item to delete it; create and delete a list. | built | wall, iphone | `lists` |
 | J6.6 | Assign a list to a grown-up or the House; group and filter lists by owner. | built | wall, iphone | `lists` |
+| J6.7 | Open Home upkeep under Lists, add a house job with the wall keyboard, tap Done (the next due day moves on by its frequency), and Undo a mistaken Done. | built | wall | `maintenance` |
+| J6.8 | An overdue house job sorts first and badges the Lists menu item and the Home upkeep tab until it is done. | built | wall | `maintenance` |
+| J6.9 | A grown-up edits a house job's frequency, time and notes, or deletes it. | built | wall, iphone | `maintenance` |
 | **J7** | **Meals plan and saved meals to grocery** (Parent at the wall) | | | |
 | J7.1 | Plan a dinner; it shows in Meals and on the calendar week. | built | wall, iphone | `meals` |
 | J7.2 | Edit or delete a planned meal. | built | wall, iphone | `meals` |

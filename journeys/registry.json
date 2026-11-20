@@ -352,6 +352,26 @@
 					"id": "J6.6",
 					"text": "Assign a list to a grown-up or the House; group and filter lists by owner.",
 					"status": "built"
+				},
+				{
+					"id": "J6.7",
+					"text": "Open Home upkeep under Lists, add a house job with the wall keyboard, tap Done (the next due day moves on by its frequency), and Undo a mistaken Done.",
+					"status": "built",
+					"devices": ["wall"],
+					"beads": ["hub-6zbd.2"]
+				},
+				{
+					"id": "J6.8",
+					"text": "An overdue house job sorts first and badges the Lists menu item and the Home upkeep tab until it is done.",
+					"status": "built",
+					"devices": ["wall"],
+					"beads": ["hub-6zbd.2"]
+				},
+				{
+					"id": "J6.9",
+					"text": "A grown-up edits a house job's frequency, time and notes, or deletes it.",
+					"status": "built",
+					"beads": ["hub-6zbd.2"]
 				}
 			]
 		},

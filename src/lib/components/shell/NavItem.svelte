@@ -10,7 +10,11 @@
 		watchNavigation
 	} from './nav-pending.svelte.js';
 
-	let { destination, active }: { destination: NavDestination; active: boolean } = $props();
+	let {
+		destination,
+		active,
+		badge = 0
+	}: { destination: NavDestination; active: boolean; badge?: number } = $props();
 
 	// Between pointerdown and the route landing (tap or swipe) the target looks active and the old
 	// item does not. If the navigation fails or is cancelled this falls back to the real route.
@@ -37,7 +41,7 @@
 <!-- eslint-disable svelte/no-navigation-without-resolve -->
 <a
 	href={DESTINATION_URLS[destination.href]}
-	aria-label={destination.label}
+	aria-label={badge > 0 ? `${destination.label}, ${badge} due` : destination.label}
 	aria-current={active ? 'page' : undefined}
 	{onpointerdown}
 	onpointercancel={clear}
@@ -51,8 +55,13 @@
 		? 'portrait:tablet:w-tap portrait:tablet:flex-none portrait:tablet:px-0'
 		: ''}"
 >
-	<span class="text-title tablet:text-lead tablet:leading-none"
-		><Icon name={destination.icon} /></span
+	<span class="relative text-title tablet:text-lead tablet:leading-none"
+		><Icon name={destination.icon} />{#if badge > 0}<span
+				aria-hidden="true"
+				data-testid="nav-badge"
+				class="absolute -top-2 -right-4 rounded-chip bg-star px-2 py-1 text-caption leading-none font-extrabold text-on-star"
+				>{badge > 99 ? '99+' : badge}</span
+			>{/if}</span
 	>
 	<!-- Portrait bars and tablet rails share the width among seven tabs, so a member's name
 	     ("Maximilian's To-Dos") would run into its neighbours: they show the short label. The

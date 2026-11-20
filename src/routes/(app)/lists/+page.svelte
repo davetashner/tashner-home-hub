@@ -5,6 +5,11 @@
 	import { page } from '$app/state';
 	import { longpress } from '#lib/actions/longpress.js';
 	import OnScreenKeyboard from '#lib/components/lists/OnScreenKeyboard.svelte';
+	import MaintenancePanel from '#lib/components/lists/MaintenancePanel.svelte';
+	import {
+		maintenanceDue,
+		refreshMaintenanceDue
+	} from '#lib/components/lists/maintenance-due.svelte.js';
 	import Button from '#lib/components/ui/Button.svelte';
 	import {
 		filterByOwner,
@@ -67,7 +72,14 @@
 
 	const visible = $derived(filterByOwner(lists, filter, adults));
 	const groups = $derived(adultsLoaded ? groupByOwner(visible, adults) : []);
-	const current = $derived(visible.find((l) => l.id === selected) ?? visible[0]);
+	/** The Home upkeep tab (hub-6zbd.2) sits beside the lists, under ?list=maintenance. */
+	const MAINTENANCE = 'maintenance';
+	const upkeep = $derived(
+		selected === MAINTENANCE && !naming && (filter === 'all' || filter === 'house')
+	);
+	const current = $derived(
+		upkeep ? undefined : (visible.find((l) => l.id === selected) ?? visible[0])
+	);
 	const currentOwner = $derived(current ? effectiveOwner(current, adults) : null);
 	const items = $derived(current ? sortItems(current.items) : []);
 	const checked = $derived(items.filter((i) => i.done).length);
@@ -133,6 +145,7 @@
 	onMount(() => {
 		void loadAdults();
 		void refresh();
+		void refreshMaintenanceDue();
 		const channel = createLiveChannel({
 			url: '/api/events',
 			topics: ['lists'],
@@ -510,6 +523,27 @@
 					</div>
 				{/each}
 			</div>
+			{#if filter === 'all' || filter === 'house'}
+				<button
+					type="button"
+					aria-pressed={upkeep}
+					data-testid="maint-tab"
+					class="flex items-center justify-between gap-3 rounded-card px-6 text-left {wall
+						? 'min-h-tap-kid text-lead'
+						: 'min-h-tap text-body'} {upkeep
+						? 'bg-accent text-on-accent'
+						: 'border-2 border-control-line bg-control text-ink'}"
+					onclick={() => select(MAINTENANCE)}
+				>
+					<span class="min-w-0 break-words">Home upkeep</span>
+					{#if maintenanceDue.count > 0}
+						<span
+							class="shrink-0 rounded-chip bg-star px-3 text-caption font-extrabold text-on-star"
+							data-testid="maint-tab-due">{maintenanceDue.count} due</span
+						>
+					{/if}
+				</button>
+			{/if}
 			<div class="flex flex-wrap gap-3">
 				<button
 					type="button"
@@ -537,8 +571,20 @@
 			</div>
 		</nav>
 
+		{#if upkeep}
+			<div
+				class="flex min-w-0 flex-1 flex-col gap-4 rounded-card border-2 border-line bg-surface-raised p-6 shadow-raised short:p-3 {wall
+					? 'min-h-0 overflow-y-auto'
+					: ''}"
+			>
+				<MaintenancePanel {wall} {adult} />
+			</div>
+		{/if}
+		<!-- Hidden, not unmounted, behind Home upkeep: the list keeps its state for the way back. -->
 		<div
-			class="flex min-w-0 flex-1 flex-col gap-4 rounded-card border-2 border-line bg-surface-raised p-6 shadow-raised short:p-3 {wall
+			class="{upkeep
+				? 'hidden'
+				: 'flex'} min-w-0 flex-1 flex-col gap-4 rounded-card border-2 border-line bg-surface-raised p-6 shadow-raised short:p-3 {wall
 				? 'min-h-0 overflow-y-auto'
 				: ''}"
 			data-testid="list-panel"
@@ -674,7 +720,7 @@
 						? 'landscape:w-3/5 landscape:shrink-0'
 						: ''}"
 				>
-					{#if wall}
+					{#if wall && !upkeep}
 						{#key naming}
 							{#if naming}
 								<OnScreenKeyboard
