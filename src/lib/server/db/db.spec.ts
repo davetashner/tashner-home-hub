@@ -67,6 +67,7 @@ describe('migrations', () => {
 			'list_items',
 			'meal_plan_entries',
 			'countdowns',
+			'maintenance_tasks',
 			'settings'
 		]) {
 			expect(names).toContain(t);
@@ -169,7 +170,7 @@ describe('schema definition', () => {
 		const tables = (Object.values(schema) as unknown[]).filter((v) =>
 			is(v, SQLiteTable)
 		) as SQLiteTable[];
-		expect(tables).toHaveLength(32);
+		expect(tables).toHaveLength(33);
 		const fks = tables.flatMap((t) => getTableConfig(t).foreignKeys);
 		expect(fks.length).toBeGreaterThan(10);
 		for (const fk of fks) {

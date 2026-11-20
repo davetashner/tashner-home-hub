@@ -37,6 +37,7 @@ export const EXPORT_TABLES = [
 	'meal_plan_entries',
 	'saved_meals',
 	'countdowns',
+	'maintenance_tasks',
 	'practice_activities',
 	'practice_logs',
 	'routines',
