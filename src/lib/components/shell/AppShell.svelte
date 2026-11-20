@@ -15,6 +15,10 @@
 	import { DESTINATION_URLS } from './urls.js';
 	import OfflineBadge from './OfflineBadge.svelte';
 	import ApprovalsBadge from './ApprovalsBadge.svelte';
+	import {
+		maintenanceDue,
+		refreshMaintenanceDue
+	} from '#lib/components/lists/maintenance-due.svelte.js';
 	import Clock from './Clock.svelte';
 	import Icon from './Icon.svelte';
 	import { frameOverlay } from './frame-overlay-state.svelte.js';
@@ -50,6 +54,13 @@
 
 	// Sitter mode (hub-7pj.2): only the wall display follows a sitter session.
 	onMount(() => (page.data.displayRole === 'wall' ? watchSitter() : undefined));
+
+	// House jobs due today or overdue (hub-6zbd.2) badge the Lists item; a minute is fresh enough.
+	onMount(() => {
+		void refreshMaintenanceDue();
+		const timer = setInterval(() => void refreshMaintenanceDue(), 60_000);
+		return () => clearInterval(timer);
+	});
 
 	onMount(() => {
 		const media = matchMedia('(orientation: landscape) and (min-height: 32.01rem)');
@@ -284,7 +295,11 @@
 		class="shell-nav flex gap-2 border-line bg-surface-sunken p-4 max-sm:gap-0 max-sm:p-1 portrait:row-start-3 portrait:border-t-2 portrait:pt-4 portrait:pr-safe-4 portrait:pb-safe-4 portrait:pl-safe-4 portrait:max-sm:pt-2 portrait:max-sm:pr-safe-2 portrait:max-sm:pb-safe-2 portrait:max-sm:pl-safe-2 landscape:col-start-1 landscape:row-span-2 landscape:row-start-1 landscape:w-rail landscape:flex-col landscape:gap-3 landscape:border-r-2 landscape:pt-safe-8 landscape:pr-5 landscape:pb-safe-8 landscape:pl-safe-5 short:col-start-1 short:row-span-1 short:w-auto short:min-w-0 short:scrollbar-none short:flex-row short:gap-0 short:overflow-x-auto short:border-r-0 short:bg-surface short:pt-safe-2 short:pr-2 short:pb-2 short:pl-safe-2 portrait:tablet:gap-0 portrait:tablet:pt-1 portrait:tablet:pr-safe-4 portrait:tablet:pb-safe-1 portrait:tablet:pl-safe-4 landscape:tablet:w-rail-tablet landscape:tablet:gap-2 landscape:tablet:overflow-y-auto landscape:tablet:pt-safe-4 landscape:tablet:pr-2 landscape:tablet:pb-safe-4 landscape:tablet:pl-safe-2"
 	>
 		{#each destinations as destination (destination.id)}
-			<NavItem {destination} active={isActive(destination.href, pathname)} />
+			<NavItem
+				{destination}
+				active={isActive(destination.href, pathname)}
+				badge={destination.id === 'lists' ? maintenanceDue.count : 0}
+			/>
 		{/each}
 		{#if locks.adultLocked}
 			<p
