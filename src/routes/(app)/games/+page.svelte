@@ -16,7 +16,7 @@
 	const CACHE_KEY = 'hub.games.cache';
 	/** A frame that has not finished loading by now is treated as unreachable. */
 	const LOAD_TIMEOUT_MS = 15_000;
-	/** Token-coloured placeholders for tiles without a preview image. */
+	/** Token-colored placeholders for tiles without a preview image. */
 	const TINTS = [
 		'bg-member-1',
 		'bg-member-2',

@@ -215,7 +215,7 @@
 	}
 	/*
 	 * Seven columns in a narrow pane (phone, iPad landscape beside the rail) cannot hold event
-	 * text: cells show a coloured dot per event, and tapping a day opens its agenda.
+	 * text: cells show a colored dot per event, and tapping a day opens its agenda.
 	 */
 	@container (max-width: 700px) {
 		.dow span {

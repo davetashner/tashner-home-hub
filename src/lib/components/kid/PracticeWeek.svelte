@@ -25,7 +25,7 @@
 	let anchor = $state<string | null>(null);
 
 	const scale = $derived(Math.max(MIN_SCALE, ...(week?.days ?? []).map((d) => d.minutes)));
-	const colourOf = (id: string) =>
+	const colorOf = (id: string) =>
 		COLOURS[(week?.activityInfo ?? []).findIndex((a) => a.activityId === id) % COLOURS.length];
 	const isCurrent = $derived(week?.days.some((d) => d.isToday) ?? true);
 
@@ -102,7 +102,7 @@
 							style:transform="scaleY({d.minutes / scale})"
 						>
 							{#each Object.entries(d.byActivity) as [id, m] (id)}
-								<div class={colourOf(id)} style:flex-grow={m} style:flex-basis="0"></div>
+								<div class={colorOf(id)} style:flex-grow={m} style:flex-basis="0"></div>
 							{/each}
 						</div>
 					</div>
@@ -119,7 +119,7 @@
 		<ul class="flex flex-wrap justify-center gap-x-6 gap-y-1" data-testid="practice-week-legend">
 			{#each week.activityInfo as a (a.activityId)}
 				<li class="flex items-center gap-2 text-body font-extrabold">
-					<span class="size-4 rounded-card {colourOf(a.activityId)}" aria-hidden="true"></span>
+					<span class="size-4 rounded-card {colorOf(a.activityId)}" aria-hidden="true"></span>
 					<span aria-hidden="true">{a.emoji ?? '📚'}</span>
 					{a.name}
 					{week.activities.find((x) => x.activityId === a.activityId)?.minutes}

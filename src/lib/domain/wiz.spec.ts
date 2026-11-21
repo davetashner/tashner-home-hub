@@ -74,7 +74,7 @@ describe('replies', () => {
 		});
 	});
 
-	it('names the offered colour a bulb is showing', () => {
+	it('names the offered color a bulb is showing', () => {
 		const color = (result: object) =>
 			parsePilot(pilot({ mac: MAC, state: true, ...result }))?.color;
 		expect(color({ temp: 2700, sceneId: 0 })).toBe('warm');

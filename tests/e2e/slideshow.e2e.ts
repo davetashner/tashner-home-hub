@@ -365,7 +365,7 @@ test('grown-ups choose the on this day mode @J8.4', async ({ page }) => {
 	await expect.poll(() => saved).toEqual([{ onThisDay: 'favor' }, { onThisDay: 'only' }]);
 });
 
-// A 1 s, 64x36 solid-colour WebM (under 1 KB): the tiniest clip Chromium plays without H.264.
+// A 1 s, 64x36 solid-color WebM (under 1 KB): the tiniest clip Chromium plays without H.264.
 const clip = readFileSync(new URL('./fixtures/clip.webm', import.meta.url));
 
 /** Stubs the Live Photo clip route; returns the requests made. */
