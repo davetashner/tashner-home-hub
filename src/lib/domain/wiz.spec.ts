@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	bulbViews,
 	cleanName,
+	isColorId,
 	isDimming,
 	isIpv4,
 	isSuccess,
@@ -68,8 +69,18 @@ describe('replies', () => {
 		expect(parsePilot(pilot({ mac: MAC, state: true, dimming: 52, sceneId: 6 }))).toEqual({
 			mac: MAC,
 			on: true,
-			dimming: 52
+			dimming: 52,
+			color: null
 		});
+	});
+
+	it('names the offered colour a bulb is showing', () => {
+		const color = (result: object) =>
+			parsePilot(pilot({ mac: MAC, state: true, ...result }))?.color;
+		expect(color({ temp: 2700, sceneId: 0 })).toBe('warm');
+		expect(color({ r: 0, g: 0, b: 255 })).toBe('blue');
+		expect(color({ r: 1, g: 2, b: 3 })).toBeNull();
+		expect(color({ sceneId: 6 })).toBeNull();
 	});
 
 	it('defaults a missing brightness to full', () => {
@@ -98,6 +109,14 @@ describe('setPilotMessage', () => {
 			dimming: 40
 		});
 		expect(JSON.parse(setPilotMessage({ dimming: 70 })).params).toEqual({ dimming: 70 });
+		expect(JSON.parse(setPilotMessage({ on: true, color: 'red' })).params).toEqual({
+			state: true,
+			r: 255,
+			g: 0,
+			b: 0
+		});
+		expect(JSON.parse(setPilotMessage({ color: 'cool' })).params).toEqual({ temp: 6500 });
+		expect([isColorId('green'), isColorId('plaid')]).toEqual([true, false]);
 	});
 });
 
@@ -128,9 +147,11 @@ describe('bulbViews', () => {
 			{ mac: '000000000001', ip: '192.0.2.1', name: 'A' },
 			{ mac: '000000000002', ip: '192.0.2.2', name: 'B' }
 		];
-		expect(bulbViews(bulbs, [{ mac: '000000000002', on: true, dimming: 30 }])).toEqual([
-			{ ...bulbs[0], reachable: false, on: false, dimming: 100 },
-			{ ...bulbs[1], reachable: true, on: true, dimming: 30 }
+		expect(
+			bulbViews(bulbs, [{ mac: '000000000002', on: true, dimming: 30, color: 'blue' }])
+		).toEqual([
+			{ ...bulbs[0], reachable: false, on: false, dimming: 100, color: null },
+			{ ...bulbs[1], reachable: true, on: true, dimming: 30, color: 'blue' }
 		]);
 	});
 });

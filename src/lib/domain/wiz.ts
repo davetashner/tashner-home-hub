@@ -8,6 +8,31 @@ export const NAME_MAX = 40;
 export const DIM_MIN = 10;
 export const DIM_MAX = 100;
 
+/** The colours offered on the Lights page: whites by colour temperature, the rest by RGB. */
+export const COLORS = [
+	{ id: 'warm', label: 'Warm white', emoji: '🕯️', params: { temp: 2700 } },
+	{ id: 'daylight', label: 'Daylight', emoji: '☀️', params: { temp: 4200 } },
+	{ id: 'cool', label: 'Cool white', emoji: '❄️', params: { temp: 6500 } },
+	{ id: 'red', label: 'Red', emoji: '🔴', params: { r: 255, g: 0, b: 0 } },
+	{ id: 'orange', label: 'Orange', emoji: '🟠', params: { r: 255, g: 110, b: 0 } },
+	{ id: 'yellow', label: 'Yellow', emoji: '🟡', params: { r: 255, g: 200, b: 0 } },
+	{ id: 'green', label: 'Green', emoji: '🟢', params: { r: 0, g: 255, b: 0 } },
+	{ id: 'blue', label: 'Blue', emoji: '🔵', params: { r: 0, g: 0, b: 255 } },
+	{ id: 'purple', label: 'Purple', emoji: '🟣', params: { r: 140, g: 0, b: 255 } }
+] as const;
+export type ColorId = (typeof COLORS)[number]['id'];
+
+export function isColorId(v: unknown): v is ColorId {
+	return COLORS.some((c) => c.id === v);
+}
+
+/** Which offered colour a bulb is showing, if any (a scene or a custom colour is null). */
+function colorOf(r: Record<string, unknown>): ColorId | null {
+	if (r.sceneId !== undefined && r.sceneId !== 0) return null;
+	const hit = COLORS.find((c) => Object.entries(c.params).every(([k, v]) => r[k] === v));
+	return hit?.id ?? null;
+}
+
 export const GET_PILOT = JSON.stringify({ method: 'getPilot', params: {} });
 
 export interface WizBulb {
@@ -21,6 +46,7 @@ export interface Pilot {
 	mac: string;
 	on: boolean;
 	dimming: number;
+	color: ColorId | null;
 }
 
 /** A remembered bulb plus its live state; `reachable` is false when it did not answer. */
@@ -28,11 +54,13 @@ export interface BulbView extends WizBulb {
 	reachable: boolean;
 	on: boolean;
 	dimming: number;
+	color: ColorId | null;
 }
 
 export interface BulbChange {
 	on?: boolean;
 	dimming?: number;
+	color?: ColorId;
 }
 
 const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
@@ -90,7 +118,7 @@ export function parsePilot(text: string): Pilot | null {
 	const mac = normMac(r?.mac);
 	if (!r || !mac || typeof r.state !== 'boolean') return null;
 	const dimming = isDimming(r.dimming) ? r.dimming : DIM_MAX;
-	return { mac, on: r.state, dimming };
+	return { mac, on: r.state, dimming, color: colorOf(r) };
 }
 
 /** True when a setPilot reply says the bulb took the change. */
@@ -102,6 +130,8 @@ export function setPilotMessage(change: BulbChange): string {
 	const params: Record<string, unknown> = {};
 	if (change.on !== undefined) params.state = change.on;
 	if (change.dimming !== undefined) params.dimming = change.dimming;
+	const color = COLORS.find((c) => c.id === change.color);
+	if (color) Object.assign(params, color.params);
 	return JSON.stringify({ method: 'setPilot', params });
 }
 
@@ -129,7 +159,7 @@ export function bulbViews(bulbs: WizBulb[], pilots: Pilot[]): BulbView[] {
 	return bulbs.map((b) => {
 		const p = pilots.find((x) => x.mac === b.mac);
 		return p
-			? { ...b, reachable: true, on: p.on, dimming: p.dimming }
-			: { ...b, reachable: false, on: false, dimming: DIM_MAX };
+			? { ...b, reachable: true, on: p.on, dimming: p.dimming, color: p.color }
+			: { ...b, reachable: false, on: false, dimming: DIM_MAX, color: null };
 	});
 }
