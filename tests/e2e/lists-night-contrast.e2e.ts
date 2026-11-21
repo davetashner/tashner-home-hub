@@ -8,7 +8,7 @@ import { gotoHydrated } from './hydrated';
 
 type Rgb = [number, number, number];
 
-/** Resolves any CSS color (oklch included) to sRGB through a canvas, in the page. */
+/** Resolves any CSS colour (oklch included) to sRGB through a canvas, in the page. */
 async function rgbOf(
 	el: Locator,
 	prop: 'color' | 'backgroundColor' | 'borderTopColor'
@@ -73,7 +73,7 @@ test('night theme: Lists chips, tabs and the new-list button are readable @J6.1'
 	const panelBg = await rgbOf(panel, 'backgroundColor');
 	const plainOwner = page.locator('[data-testid="owner-option"][aria-pressed="false"]').first();
 	expect(contrast(await rgbOf(plainOwner, 'borderTopColor'), panelBg)).toBeGreaterThanOrEqual(3);
-	// The dashed + button is outlined in a readable color, too.
+	// The dashed + button is outlined in a readable colour, too.
 	expect(
 		contrast(await rgbOf(page.getByTestId('list-new'), 'borderTopColor'), panelBg)
 	).toBeGreaterThanOrEqual(3);

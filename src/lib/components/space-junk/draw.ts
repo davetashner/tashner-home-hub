@@ -1,6 +1,6 @@
 /**
- * Space Junk (hub-26w.2): canvas drawing. All art is code, colored from the `--color-*` tokens
- * in layout.css (read once with `readPalette`), so there are no image files and no raw colors.
+ * Space Junk (hub-26w.2): canvas drawing. All art is code, coloured from the `--color-*` tokens
+ * in layout.css (read once with `readPalette`), so there are no image files and no raw colours.
  */
 import type { MaterialId } from '#lib/domain/space-junk/materials.js';
 import type { Point } from '#lib/domain/space-junk/level.js';
@@ -27,7 +27,7 @@ const KEYS = [
 ] as const;
 export type Palette = Record<(typeof KEYS)[number], string>;
 
-/** Reads the Space Junk color tokens as computed on `el`. */
+/** Reads the Space Junk colour tokens as computed on `el`. */
 export function readPalette(el: Element): Palette {
 	const style = getComputedStyle(el);
 	const out = {} as Palette;
