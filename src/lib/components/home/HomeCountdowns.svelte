@@ -28,7 +28,11 @@
 </script>
 
 {#if upcoming.length > 0}
-	<section aria-label="Countdowns" data-testid="home-countdowns" class="max-sm:basis-full">
+	<section
+		aria-label="Countdowns"
+		data-testid="home-countdowns"
+		class="min-w-0 flex-1 basis-rail max-sm:basis-full"
+	>
 		<ul class="flex flex-col gap-4 short:flex-row short:gap-2">
 			{#each upcoming as c, i (c.id)}
 				<li
