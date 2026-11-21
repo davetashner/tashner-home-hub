@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Card from '#lib/components/ui/Card.svelte';
-	import { DIM_MAX, DIM_MIN, NAME_MAX, type BulbView } from '#lib/domain/wiz.js';
+	import { COLORS, DIM_MAX, DIM_MIN, NAME_MAX, type BulbView } from '#lib/domain/wiz.js';
 
 	let lights = $state<BulbView[]>([]);
 	let loaded = $state(false);
@@ -131,6 +131,16 @@
 							onchange={(e) => patch(light.mac, { dimming: e.currentTarget.valueAsNumber })}
 						/>
 						<output class="min-w-tap text-center text-title font-bold">{light.dimming}%</output>
+					</div>
+					<div class="flex flex-wrap gap-4" role="group" aria-label="{light.name} color">
+						{#each COLORS as c (c.id)}
+							<Button
+								variant={light.color === c.id ? 'primary' : 'secondary'}
+								aria-pressed={light.color === c.id}
+								onclick={() => patch(light.mac, { on: true, color: c.id })}
+								><span aria-hidden="true">{c.emoji}</span>{c.label}</Button
+							>
+						{/each}
 					</div>
 				{:else}
 					<p class="text-body text-ink-muted" data-testid="light-offline">
