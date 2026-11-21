@@ -121,6 +121,8 @@
 	--spacing-tap: 60px;
 	--spacing-tap-kid: 96px;
 	--spacing-tap-kid-lg: 128px;
+	/* Home countdown day circle: grows with the type tokens so Today and 14 DAYS fit on the 4K wall. */
+	--spacing-countdown-badge: clamp(var(--spacing-tap-kid-lg), 2rem + 6vmin, 10rem);
 	/* Lists: the owner chip rows wrap to two rows of wall chips, then scroll. */
 	--spacing-chips-max: 7rem;
 	/* Lists on the wall: the on-screen keyboard (input + five key rows) must never be squeezed. */
