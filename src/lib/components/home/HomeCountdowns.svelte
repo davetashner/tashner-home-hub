@@ -36,11 +36,12 @@
 					data-testid="home-countdown"
 				>
 					<span
-						class="flex size-tap-kid-lg shrink-0 flex-col items-center justify-center rounded-chip short:size-tap {i ===
+						class="flex size-countdown-badge shrink-0 flex-col items-center justify-center rounded-chip short:size-tap {i ===
 						0
 							? 'bg-accent text-on-accent'
 							: 'bg-accent-soft text-accent-press'}"
 						aria-hidden="true"
+						data-testid="countdown-badge"
 					>
 						{#if c.days === 0}
 							<span class="text-body font-extrabold short:text-caption">Today</span>
