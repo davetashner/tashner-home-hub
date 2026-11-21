@@ -119,8 +119,8 @@
 		};
 	});
 
-	// The palette's colours, read from the tokens whenever the palette changes. A change crossfades
-	// the colour uniforms (a minute for the sun, a moment for a pick) and never cuts hard.
+	// The palette's colors, read from the tokens whenever the palette changes. A change crossfades
+	// the color uniforms (a minute for the sun, a moment for a pick) and never cuts hard.
 	let current: PaletteValues | null = null;
 	let target: PaletteValues | null = null;
 	let fadeFrom: PaletteValues | null = null;

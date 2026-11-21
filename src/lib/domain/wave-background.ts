@@ -1,6 +1,6 @@
 /**
  * Live wave background (hub-gj6.17): which palette to draw, the shader's numbers, the frame gate and
- * the colour parse. Pure: the component and the WebGL renderer only wire these to the screen.
+ * the color parse. Pure: the component and the WebGL renderer only wire these to the screen.
  */
 export const WAVE_SETTING_KEY = 'wave.background';
 export const WAVE_CHOICES = ['auto', 'dusk', 'seafoam', 'sorbet', 'night', 'off'] as const;
@@ -118,7 +118,7 @@ function zonedDate(ms: number, timeZone: string | undefined): [number, number, n
 }
 
 /**
- * What Auto draws (hub-gj6.19). Text colours follow the app theme, so the palette must match the
+ * What Auto draws (hub-gj6.19). Text colors follow the app theme, so the palette must match the
  * theme's lightness: a dark palette under the day theme puts dark text on dark waves, a light one
  * under the night theme puts light text on light waves. So:
  * - Night theme: always Night.
@@ -181,7 +181,7 @@ export const PALETTE_SLOTS = [
 ] as const;
 export type PaletteSlot = (typeof PALETTE_SLOTS)[number];
 
-/** The layout.css custom property holding one colour of a palette. */
+/** The layout.css custom property holding one color of a palette. */
 export const tokenName = (palette: WavePalette, slot: PaletteSlot) =>
 	`--color-wave-${palette}-${slot}`;
 
@@ -197,7 +197,7 @@ export const PALETTE_LOOK: Record<WavePalette, PaletteLook> = {
 	seafoam: { sheetAlpha: 0.32, lineAlpha: 0.55, dotAlpha: 0.9, vignette: 0.16 },
 	sorbet: { sheetAlpha: 0.32, lineAlpha: 0.5, dotAlpha: 0.9, vignette: 0.16 },
 	night: { sheetAlpha: 0.16, lineAlpha: 0.35, dotAlpha: 0.75, vignette: 0.35 },
-	// Holidays (hub-6pv.6): day looks tint their sheets (white ones wash the colour out).
+	// Holidays (hub-6pv.6): day looks tint their sheets (white ones wash the color out).
 	halloween: { sheetAlpha: 0.32, lineAlpha: 0.55, dotAlpha: 0.7, vignette: 0.2 },
 	'halloween-night': { sheetAlpha: 0.2, lineAlpha: 0.42, dotAlpha: 0.85, vignette: 0.4 },
 	autumn: { sheetAlpha: 0.3, lineAlpha: 0.5, dotAlpha: 0.9, vignette: 0.18 },
@@ -332,7 +332,7 @@ function oklchToRgb(l: number, c: number, hDeg: number): Rgb {
 	];
 }
 
-/** Parses hex or oklch colour text into 0..1 sRGB; null if unreadable. */
+/** Parses hex or oklch color text into 0..1 sRGB; null if unreadable. */
 export function parseColor(input: string): Rgb | null {
 	const s = input.trim().toLowerCase();
 	const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(s);

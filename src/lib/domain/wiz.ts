@@ -8,7 +8,7 @@ export const NAME_MAX = 40;
 export const DIM_MIN = 10;
 export const DIM_MAX = 100;
 
-/** The colours offered on the Lights page: whites by colour temperature, the rest by RGB. */
+/** The colors offered on the Lights page: whites by color temperature, the rest by RGB. */
 export const COLORS = [
 	{ id: 'warm', label: 'Warm white', emoji: '🕯️', params: { temp: 2700 } },
 	{ id: 'daylight', label: 'Daylight', emoji: '☀️', params: { temp: 4200 } },
@@ -26,7 +26,7 @@ export function isColorId(v: unknown): v is ColorId {
 	return COLORS.some((c) => c.id === v);
 }
 
-/** Which offered colour a bulb is showing, if any (a scene or a custom colour is null). */
+/** Which offered color a bulb is showing, if any (a scene or a custom color is null). */
 function colorOf(r: Record<string, unknown>): ColorId | null {
 	if (r.sceneId !== undefined && r.sceneId !== 0) return null;
 	const hit = COLORS.find((c) => Object.entries(c.params).every(([k, v]) => r[k] === v));

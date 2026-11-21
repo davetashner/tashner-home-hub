@@ -179,7 +179,7 @@ const meanWidth = (pts: readonly DrawPoint[]) => pts.reduce((n, p) => n + p.w, 0
 
 /**
  * The clean shape this stroke was meant to be, or null. `points` are CSS px; the result shape has
- * the stroke's colour and average width and sits where the stroke was drawn.
+ * the stroke's color and average width and sits where the stroke was drawn.
  */
 export function recognizeShape(
 	points: readonly DrawPoint[],
