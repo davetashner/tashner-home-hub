@@ -246,6 +246,7 @@ The full journey run on every device, with videos, happens only on release PRs (
 | J17.5 | Home sensors show temperature, humidity and door or window state, read-only, with Not updating and Unavailable states. | built | wall | `home-assistant`. Simulated: Home Assistant is a fake server in the tests |
 | J17.6 | A grown-up makes a screen token for Home Assistant (shown once, with a ready-to-paste snippet) so automations can wake or sleep the wall, and can revoke it. | built | wall | `home-assistant`. Simulated: Home Assistant is a fake server in the tests |
 | J17.7 | A grown-up picks a Home Assistant motion sensor (or None) and the wall wakes when it turns on, but not just because it was already on. | built | wall | `home-assistant`. Simulated: Home Assistant is a fake server in the tests |
+| J17.8 | A grown-up finds the WiZ bulbs, names them, and switches and dims each one; a bulb that does not answer says so. | built | wall | `lights-settings`. Simulated: The bulbs are mocked API responses in the tests |
 | **J18** | **Drawing board** (Kid at the wall) | | | |
 | J18.1 | Draw with a pen or finger on the Home notes card and post it to the board. | built | wall | `drawing` |
 | J18.2 | Tap a drawing to enlarge it; anyone dismisses it. | built | wall | `drawing` |

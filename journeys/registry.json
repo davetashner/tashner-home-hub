@@ -805,6 +805,13 @@
 					"status": "built",
 					"beads": ["hub-bue"],
 					"simulated": "Home Assistant is a fake server in the tests"
+				},
+				{
+					"id": "J17.8",
+					"text": "A grown-up finds the WiZ bulbs, names them, and switches and dims each one; a bulb that does not answer says so.",
+					"status": "built",
+					"beads": ["hub-lndq"],
+					"simulated": "The bulbs are mocked API responses in the tests"
 				}
 			]
 		},
