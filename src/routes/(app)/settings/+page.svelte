@@ -120,6 +120,12 @@
 			line: 'Lights, switches and scenes on the Home screen.'
 		},
 		{
+			href: resolve('/(app)/settings/lights'),
+			emoji: '🔆',
+			title: 'Lights',
+			line: 'Find the WiZ bulbs, name them, switch and dim them.'
+		},
+		{
 			href: resolve('/(app)/settings/siri'),
 			emoji: '🎙️',
 			title: 'Siri and Shortcuts',
