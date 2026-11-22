@@ -43,7 +43,9 @@
 		<div
 			class="flex flex-wrap items-center gap-x-12 gap-y-6 short:flex-nowrap short:gap-3 tablet:gap-6"
 		>
-			<div class="min-w-0 flex-1 short:flex-none"><Clock testidPrefix="clock" size="hero" /></div>
+			<div class="min-w-0 flex-1 sm:flex-none short:flex-none">
+				<Clock testidPrefix="clock" size="hero" />
+			</div>
 			<div
 				class="order-last basis-full empty:hidden short:order-none short:min-w-0 short:flex-1 short:basis-0"
 			>
