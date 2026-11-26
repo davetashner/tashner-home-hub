@@ -44,6 +44,7 @@ const routes = [
 	'/settings/screen',
 	'/settings/sleep-schedule',
 	'/settings/sound',
+	'/settings/lights',
 	'/settings/time-zone',
 	'/settings/orientation',
 	'/settings/photo-library'
