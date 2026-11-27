@@ -189,7 +189,7 @@
 			{#each guide as sc (sc.id)}
 				<Card class="flex flex-col gap-4" data-testid="guide-{sc.id}">
 					<p class="text-lead font-bold">{sc.name}</p>
-					<p class="text-caption text-ink-muted">Say: "Hey Siri, {sc.phrase}"</p>
+					<p class="text-caption text-ink-muted">{sc.hint}</p>
 					<ol class="flex list-decimal flex-col gap-4 ps-8 text-body">
 						{#each sc.steps as step, i (i)}
 							<li>

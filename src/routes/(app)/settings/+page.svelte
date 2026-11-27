@@ -129,7 +129,7 @@
 			href: resolve('/(app)/settings/siri'),
 			emoji: '🎙️',
 			title: 'Siri and Shortcuts',
-			line: 'Add list items and Star Jobs by voice from a phone.'
+			line: 'Add list items and Star Jobs by voice, and share photos, from a phone.'
 		},
 		{
 			href: resolve('/(app)/settings/photo-library'),
