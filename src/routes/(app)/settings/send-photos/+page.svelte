@@ -78,15 +78,12 @@
 <section class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8 max-sm:p-3 short:gap-4 short:p-3">
 	<h1 class="text-headline font-extrabold">Send photos</h1>
 	<p class="text-body text-ink-muted">
-		Pick photos on this phone and they join the photo frame in the
-		<a class="font-bold text-accent underline" href={resolve('/(app)/settings/photo-library')}
-			>From phones</a
-		>
-		album. Location and other hidden details are removed. Works on the home Wi-Fi.
+		Pick photos on this phone and they join the photo frame in the From phones album. Location and
+		other hidden details are removed. Works on the home Wi-Fi.
 	</p>
 	<div class="flex flex-wrap items-center gap-4">
 		<label
-			class="press inline-flex min-h-tap min-w-tap cursor-pointer items-center justify-center gap-3 rounded-control bg-accent px-8 text-body font-extrabold text-on-accent shadow-raised focus-within:outline-4 focus-within:outline-accent-soft"
+			class="press relative inline-flex min-h-tap min-w-tap cursor-pointer items-center justify-center gap-3 rounded-control bg-accent px-8 text-body font-extrabold text-on-accent shadow-raised focus-within:outline-4 focus-within:outline-accent-soft"
 		>
 			<span aria-hidden="true">📷</span>Choose photos
 			<input
@@ -94,7 +91,7 @@
 				type="file"
 				accept="image/*"
 				multiple
-				class="sr-only"
+				class="absolute inset-0 cursor-pointer opacity-0"
 				data-testid="send-photos-input"
 				onchange={(e) => picked(e.currentTarget.files)}
 			/>
@@ -102,6 +99,10 @@
 		{#if failed && !busy}
 			<Button variant="secondary" onclick={retry}>Try again</Button>
 		{/if}
+		<a
+			class="inline-flex min-h-tap items-center px-4 text-body font-bold text-accent underline"
+			href={resolve('/(app)/settings/photo-library')}>Open Photo library</a
+		>
 	</div>
 	{#if items.length}
 		<p class="text-body" role="status" data-testid="send-photos-summary">
