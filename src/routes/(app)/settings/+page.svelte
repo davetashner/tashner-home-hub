@@ -138,6 +138,12 @@
 			line: 'Folders and albums for the photo frame.'
 		},
 		{
+			href: resolve('/(app)/settings/send-photos'),
+			emoji: '📲',
+			title: 'Send photos',
+			line: 'Add photos from this phone to the photo frame.'
+		},
+		{
 			href: resolve('/(app)/settings/screen'),
 			emoji: '⏱️',
 			title: 'Screen',
