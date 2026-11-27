@@ -19,7 +19,7 @@ export const POST: RequestHandler = async (event) => {
 	const bytes = new Uint8Array(await event.request.arrayBuffer());
 	try {
 		const saved = await saveUpload(getDb(), bytes);
-		return json({ sourceId: saved.sourceId }, { status: 201 });
+		return json({ sourceId: saved.sourceId, photoId: saved.photoId }, { status: 201 });
 	} catch (e) {
 		if (e instanceof UploadError) error(400, e.message);
 		throw e;

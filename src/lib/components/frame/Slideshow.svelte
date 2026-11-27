@@ -16,6 +16,7 @@
 		parseSlideshowSettings,
 		photoSrc,
 		pickTarget,
+		queueNext,
 		shuffle,
 		type Motion,
 		type Playlist,
@@ -195,6 +196,32 @@
 		window.location.assign(`/unlock?next=${next}`);
 	}
 
+	/** The "Show now" photo already acted on, so a re-render does not jump again. */
+	let shown: string | undefined;
+
+	$effect(() => {
+		const id = page.state.first;
+		if (id && id !== shown && status === 'playing') {
+			shown = id;
+			void showNow(id);
+		}
+	});
+
+	/** Plays `id` next, fetching the list again if it was added after this pass started. */
+	async function showNow(id: string) {
+		let queued = queueNext(playlist, id);
+		if (!queued) {
+			const list = await fetchList();
+			if (!list || !alive) return;
+			queued = queueNext({ photos: arrange(list), index: -1 }, id);
+			if (!queued) return;
+		}
+		playlist = queued;
+		preloaded = null;
+		window.clearTimeout(timer);
+		void next();
+	}
+
 	/** Drops the photo from rotation right away, then saves it; a failed save puts the list right. */
 	async function hide() {
 		const id = hiding;
@@ -245,6 +272,8 @@
 					return;
 				}
 				playlist = { photos: list, index: -1 };
+				shown = page.state.first;
+				if (shown) playlist = queueNext(playlist, shown) ?? playlist;
 				status = 'playing';
 				void next();
 			});

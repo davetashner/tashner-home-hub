@@ -73,6 +73,7 @@ describe('saveUpload', () => {
 			saveUpload(db, jpg, { env, now: () => 2000 })
 		]);
 		expect(a.sourceId).toBe(b.sourceId);
+		expect([a.photoId, b.photoId].every((id) => typeof id === 'string')).toBe(true);
 		const sources = db.select().from(schema.photoSources).all();
 		expect(sources.map((s) => [s.kind, s.label])).toEqual([['folder', 'From phones']]);
 		expect(readdirSync(album).sort()).toEqual([a.file, b.file].sort());

@@ -48,6 +48,8 @@ export interface IdleTimer {
 	readonly phase: IdlePhase;
 	/** A touch, tap or key press. */
 	activity: () => void;
+	/** Open the photo frame now ("Show now"), whatever the phase; a touch closes it as usual. */
+	show: () => void;
 	stop: () => void;
 }
 
@@ -118,6 +120,13 @@ export function createIdleTimer(settings: IdleSettings, deps: IdleDeps): IdleTim
 			phase = 'active';
 			if (wasFrame) deps.endFrame();
 			restart();
+		},
+		show() {
+			if (handle !== null) deps.clearTimeout(handle);
+			handle = null;
+			deferred = false;
+			phase = 'frame';
+			deps.startFrame();
 		},
 		stop() {
 			if (handle !== null) deps.clearTimeout(handle);

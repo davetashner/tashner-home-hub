@@ -166,6 +166,19 @@ export function advance(p: Playlist, fresh: SlidePhoto[] | null = null): Step {
 }
 
 /**
+ * Moves the photo `id` to play right after the one on screen (or first, before anything has
+ * played), for "Show now". Null when the playlist does not have it yet.
+ */
+export function queueNext(p: Playlist, id: string): Playlist | null {
+	const at = p.photos.findIndex((photo) => photo.id === id);
+	if (at < 0) return null;
+	const photos = p.photos.filter((_, i) => i !== at);
+	const index = at <= p.index ? p.index - 1 : p.index;
+	photos.splice(index + 1, 0, p.photos[at]);
+	return { photos, index };
+}
+
+/**
  * Same seed all day, so the list request (and the worker's saved copy of it) keeps one URL per
  * day. Play order does not depend on it: the frame reshuffles every list it receives.
  */

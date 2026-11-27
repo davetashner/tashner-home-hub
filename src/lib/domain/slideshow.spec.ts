@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseTarget } from '#lib/server/domain/photo-fit.js';
 import {
 	advance,
+	queueNext,
 	daySeed,
 	DEFAULT_SLIDESHOW,
 	DISPLAY_SIZES,
@@ -180,4 +181,36 @@ it('varies the Ken Burns move and only uses transforms', () => {
 	expect(moves[4]).toEqual(moves[0]);
 	expect(moves[5].from).toContain('scale(1.08)');
 	for (const m of moves) expect(`${m.from} ${m.to}`).toMatch(/^[a-z0-9().%,\s-]+$/);
+});
+
+describe('queueNext', () => {
+	const list = (...ids: string[]): SlidePhoto[] => ids.map((id) => ({ id, w: 1, h: 1 }));
+	const ids = (p: { photos: SlidePhoto[]; index: number } | null) =>
+		p && { ids: p.photos.map((x) => x.id).join(''), index: p.index };
+
+	it('plays the photo first before anything has played', () => {
+		expect(ids(queueNext({ photos: list('a', 'b', 'c'), index: -1 }, 'c'))).toEqual({
+			ids: 'cab',
+			index: -1
+		});
+	});
+
+	it('plays it right after the photo on screen, from either side', () => {
+		expect(ids(queueNext({ photos: list('a', 'b', 'c', 'd'), index: 1 }, 'd'))).toEqual({
+			ids: 'abdc',
+			index: 1
+		});
+		expect(ids(queueNext({ photos: list('a', 'b', 'c', 'd'), index: 2 }, 'a'))).toEqual({
+			ids: 'bcad',
+			index: 1
+		});
+		expect(ids(queueNext({ photos: list('a', 'b'), index: 1 }, 'b'))).toEqual({
+			ids: 'ab',
+			index: 0
+		});
+	});
+
+	it('is null for a photo the playlist does not have', () => {
+		expect(queueNext({ photos: list('a'), index: 0 }, 'z')).toBeNull();
+	});
 });

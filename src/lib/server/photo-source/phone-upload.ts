@@ -2,8 +2,9 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp from 'sharp';
+import { and, eq } from 'drizzle-orm';
 import type { Db } from '../db/index.js';
-import { photoSources } from '../db/schema.js';
+import { photoSources, photos } from '../db/schema.js';
 import { parseExifTakenAt } from '../domain/photo-fit.js';
 import { parseConfig } from '../domain/photo-folder.js';
 import {
@@ -85,7 +86,7 @@ export async function saveUpload(
 	db: Db,
 	bytes: Uint8Array,
 	deps: UploadDeps = {}
-): Promise<{ sourceId: string; file: string }> {
+): Promise<{ sourceId: string; file: string; photoId: string | null }> {
 	const check = checkUpload(bytes);
 	if (!check.ok) throw new UploadError(check.message);
 	const jpeg = await normalizePhoto(bytes);
@@ -99,6 +100,19 @@ export async function saveUpload(
 		await rm(part, { force: true });
 		throw e;
 	});
+	const find = () =>
+		db
+			.select({ id: photos.id })
+			.from(photos)
+			.where(and(eq(photos.sourceId, sourceId), eq(photos.filePath, join(UPLOAD_ALBUM, file))))
+			.get();
 	await scanAndPrerender(db, sourceId);
-	return { sourceId, file };
+	// Concurrent scans of a source share one run, which may have listed the folder before this file
+	// was written. Once it has finished, a fresh scan is sure to see it.
+	let row = find();
+	if (!row) {
+		await scanAndPrerender(db, sourceId);
+		row = find();
+	}
+	return { sourceId, file, photoId: row?.id ?? null };
 }
