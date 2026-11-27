@@ -17,8 +17,13 @@ vi.mock('#lib/server/photo-source/prerender.js', async (orig) => ({
 	enqueuePrerender: vi.fn()
 }));
 const { POST } = await import('./+server.js');
+const show = await import('../photo/[id]/show/+server.js');
+const events = await import('#lib/server/domain/events.js');
 
-type Reply = { status: number; body: { sourceId?: string; message?: string } };
+type Reply = {
+	status: number;
+	body: { sourceId?: string; photoId?: string; message?: string };
+};
 const post = async (
 	body: Uint8Array | string,
 	opts: { adult?: boolean; type?: string; length?: string } = {}
@@ -62,6 +67,32 @@ describe('POST /api/photo-upload', () => {
 		expect(res.status).toBe(201);
 		const rows = db.select().from(schema.photos).all();
 		expect(rows).toHaveLength(1);
-		expect(rows[0]).toMatchObject({ sourceId: res.body.sourceId, album: 'From phones' });
+		expect(rows[0]).toMatchObject({
+			id: res.body.photoId,
+			sourceId: res.body.sourceId,
+			album: 'From phones'
+		});
+	});
+
+	it('Show now tells wall displays which photo to open', async () => {
+		const id = db.select().from(schema.photos).get()!.id;
+		const call = async (params: { id: string }, adult = true) => {
+			const event = { params, locals: { adult: adult ? { id: 'a', name: 'A' } : null } };
+			try {
+				return ((await show.POST(event as never)) as Response).status;
+			} catch (e) {
+				return (e as { status: number }).status;
+			}
+		};
+		const seen: Record<string, string>[] = [];
+		const off = events.subscribe(['frame'], (e) => seen.push(e.data))!;
+		expect(await call({ id }, false)).toBe(401);
+		expect(await call({ id: 'nope' })).toBe(404);
+		expect(await call({ id })).toBe(200);
+		expect(seen).toEqual([{ photo: id }]);
+		db.update(schema.photos).set({ hidden: true }).run();
+		expect(await call({ id })).toBe(409);
+		expect(seen).toHaveLength(1);
+		off();
 	});
 });

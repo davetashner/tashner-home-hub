@@ -78,6 +78,22 @@ describe('createIdleTimer', () => {
 		expect(calls).toEqual(['home', 'home']);
 	});
 
+	it('show opens the frame at once and a touch closes it (hub-5yt.2)', () => {
+		const { timer, calls } = setup();
+		timer.show();
+		expect(timer.phase).toBe('frame');
+		expect(calls).toEqual(['frame']);
+		vi.advanceTimersByTime(10 * MIN);
+		expect(calls).toEqual(['frame']);
+		timer.show();
+		expect(calls).toEqual(['frame', 'frame']);
+		timer.activity();
+		expect(timer.phase).toBe('active');
+		expect(calls).toEqual(['frame', 'frame', 'end']);
+		vi.advanceTimersByTime(2 * MIN);
+		expect(calls.at(-1)).toBe('home');
+	});
+
 	it('a touch on the frame leaves it and starts over', () => {
 		const { timer, calls } = setup();
 		vi.advanceTimersByTime(5 * MIN);

@@ -12,6 +12,7 @@
 		type IdleTimer
 	} from '#lib/domain/idle.js';
 	import { GAME_ACTIVE_EVENT } from '#lib/domain/games.js';
+	import { createLiveChannel } from '#lib/domain/live-events.js';
 	import { DESTINATION_URLS } from './urls.js';
 
 	/** Ignore the click that follows the touch waking the photo frame, so it doesn't press anything. */
@@ -20,6 +21,8 @@
 	let timer: IdleTimer | null = null;
 	let previous = '';
 	let wokeAt = -Infinity;
+	/** The photo a grown-up asked to "Show now", for the next frame start. */
+	let first: string | undefined;
 
 	const isBusy = () => {
 		const el = document.activeElement;
@@ -40,10 +43,13 @@
 				if (page.url.pathname !== '/') void goto(resolve('/(app)'));
 			},
 			startFrame: () => {
-				previous = page.url.pathname + page.url.search;
+				// "Show now" on a frame that is already up keeps the screen to return to.
+				if (page.state.frame !== true) previous = page.url.pathname + page.url.search;
+				const state = first ? { frame: true, first } : { frame: true };
+				first = undefined;
 				// URL already built with resolve() in urls.ts.
 				// eslint-disable-next-line svelte/no-navigation-without-resolve
-				void goto(DESTINATION_URLS['/photos'], { state: { frame: true } });
+				void goto(DESTINATION_URLS['/photos'], { state });
 			},
 			endFrame: () => {
 				// `previous` is a same-origin app path captured from page.url.
@@ -84,7 +90,19 @@
 			.catch(() => {});
 		window.addEventListener(IDLE_SETTINGS_EVENT, onsettings);
 		window.addEventListener(GAME_ACTIVE_EVENT, ongame);
+		const channel = createLiveChannel({
+			url: '/api/events',
+			topics: ['frame'],
+			create: (url) => new EventSource(url),
+			onEvent: (_topic, data) => {
+				if (!data.photo || !timer) return;
+				first = data.photo;
+				timer.show();
+			}
+		});
+		channel.start();
 		return () => {
+			channel.stop();
 			window.removeEventListener(IDLE_SETTINGS_EVENT, onsettings);
 			window.removeEventListener(GAME_ACTIVE_EVENT, ongame);
 			timer?.stop();

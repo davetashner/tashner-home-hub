@@ -22,6 +22,8 @@ declare global {
 		interface PageState {
 			/** Set when the idle timer opened the photo frame: show it fullscreen. */
 			frame?: boolean;
+			/** "Show now": the photo the frame starts on (hub-5yt.2). */
+			first?: string;
 		}
 		// interface Platform {}
 	}

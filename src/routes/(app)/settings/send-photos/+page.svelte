@@ -11,6 +11,10 @@
 		url: string;
 		status: Status;
 		message?: string;
+		/** Library id once stored, for "Show now". */
+		photoId?: string;
+		/** Set when "Show now" was tapped; false again if the hub said no. */
+		shown?: boolean;
 	}
 
 	let items = $state<Item[]>([]);
@@ -38,6 +42,8 @@
 			body: item.file
 		}).catch(() => null);
 		if (res?.ok) {
+			const body = (await res.json().catch(() => null)) as { photoId?: string | null } | null;
+			item.photoId = body?.photoId ?? undefined;
 			item.status = 'sent';
 			return;
 		}
@@ -63,6 +69,25 @@
 	function retry() {
 		for (const i of items) if (i.status === 'failed') i.status = 'waiting';
 		void pump();
+	}
+
+	function showNow(item: Item) {
+		// Optimistic: the button confirms at once; the wall follows over the live channel.
+		item.shown = true;
+		item.message = undefined;
+		const fail = async (res: Response | null) => {
+			const body = res ? await res.json().catch(() => null) : null;
+			item.shown = false;
+			item.message =
+				(body as { message?: string } | null)?.message ?? 'Could not reach the hub. Try again.';
+		};
+		void fetch(`/api/photo/${encodeURIComponent(item.photoId!)}/show`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: '{}'
+		})
+			.then((res) => (res.ok ? undefined : fail(res)))
+			.catch(() => fail(null));
 	}
 
 	onDestroy(() => items.forEach((i) => URL.revokeObjectURL(i.url)));
@@ -127,6 +152,13 @@
 									? 'text-success'
 									: 'text-ink-muted'}">{label(item.status)}</span
 						>
+						{#if item.status === 'sent' && item.photoId}
+							<Button
+								variant={item.shown ? 'secondary' : 'primary'}
+								onclick={() => showNow(item)}
+								data-testid="show-now">{item.shown ? 'On the wall' : 'Show now'}</Button
+							>
+						{/if}
 						{#if item.message}<span class="text-caption text-danger">{item.message}</span>{/if}
 					</li>
 				{/each}
