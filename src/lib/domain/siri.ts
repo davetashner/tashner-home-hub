@@ -1,6 +1,6 @@
 /** Siri / Shortcuts helpers (hub-6tr): scopes, loose name matching, spoken replies. Pure, no I/O. */
 
-export const SIRI_SCOPES = ['lists:add', 'chores:create'] as const;
+export const SIRI_SCOPES = ['lists:add', 'chores:create', 'photos:add'] as const;
 /** Granted to Home Assistant tokens only (hub-068); not offered on the Siri page. */
 export const DISPLAY_SCOPE = 'display:power' as const;
 export const TOKEN_SCOPES = [...SIRI_SCOPES, DISPLAY_SCOPE] as const;
@@ -9,6 +9,7 @@ export type SiriScope = (typeof TOKEN_SCOPES)[number];
 export const SCOPE_LABELS: Record<SiriScope, string> = {
 	'lists:add': 'Add list items',
 	'chores:create': 'Create Star Jobs',
+	'photos:add': 'Send photos',
 	'display:power': 'Wake or sleep the screen'
 };
 
