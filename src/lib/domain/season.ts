@@ -49,19 +49,20 @@ export function thanksgivingDay(year: number): number {
 }
 
 /**
- * Thanksgiving week (hub-6pv.6.9): the Sunday before Thanksgiving through the Sunday after,
- * eleven days in all. Always inside November, so it only ever overrides autumn.
+ * Thanksgiving (hub-6pv.6.9): the Sunday before Thanksgiving through Thanksgiving day itself
+ * (hub-bq6). Always inside November, so it only ever overrides autumn.
  */
 export function isThanksgivingWeek(year: number, month: number, day: number): boolean {
 	if (month !== 11) return false;
 	const tg = thanksgivingDay(year);
-	return day >= tg - 4 && day <= tg + 3;
+	return day >= tg - 4 && day <= tg;
 }
 
 /**
- * The season for a calendar date (month 1-12). Thanksgiving week needs the year (the date moves);
- * without one, November is plain autumn. A household birthday (hub-6pv.6.10) beats every
- * calendar season, Christmas and Thanksgiving week included.
+ * The season for a calendar date (month 1-12). Thanksgiving needs the year (the date moves);
+ * without one, November is plain autumn. Christmas starts the day after Thanksgiving (hub-bq6),
+ * a week or so ahead of December. A household birthday (hub-6pv.6.10) beats every
+ * calendar season, Christmas and Thanksgiving included.
  */
 export function seasonForDate(
 	month: number,
@@ -70,6 +71,14 @@ export function seasonForDate(
 	birthdays: readonly BirthdayDate[] = []
 ): SeasonState {
 	if (isBirthday(birthdays, month, day, year)) return { ...NO_SEASON, season: 'birthday' };
+	if (month === 12 && day === 25) return { ...NO_SEASON, season: 'christmasday' };
+	if (month === 12 && day < 25) {
+		const reindeer = day < COUNTDOWN_START ? 0 : day - COUNTDOWN_START + 1;
+		return { season: 'christmas', reindeer, christmasEve: day === 24 };
+	}
+	if (year !== undefined && month === 11 && day > thanksgivingDay(year)) {
+		return { season: 'christmas', reindeer: 0, christmasEve: false };
+	}
 	if (year !== undefined && isThanksgivingWeek(year, month, day)) {
 		return { ...NO_SEASON, season: 'thanksgiving' };
 	}
