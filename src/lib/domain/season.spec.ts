@@ -31,21 +31,28 @@ describe('seasonForDate', () => {
 		expect(thanksgivingDay(2019)).toBe(28);
 	});
 	it.each([
-		[2026, 22, 29],
-		[2027, 21, 28],
-		[2028, 19, 26]
-	])('Thanksgiving week %i runs Nov %i to Nov %i, Sunday to Sunday', (year, first, last) => {
-		expect(new Date(Date.UTC(year, 10, first)).getUTCDay()).toBe(0);
-		expect(new Date(Date.UTC(year, 10, last)).getUTCDay()).toBe(0);
-		expect(seasonForDate(11, first - 1, year).season).toBe('autumn');
-		for (let day = first; day <= last; day++) {
-			expect(seasonForDate(11, day, year)).toEqual({ ...NO_SEASON, season: 'thanksgiving' });
+		[2026, 22, 26],
+		[2027, 21, 25],
+		[2028, 19, 23]
+	])(
+		'Thanksgiving %i runs Sun Nov %i to Thu Nov %i, then Christmas takes over',
+		(year, first, tg) => {
+			expect(new Date(Date.UTC(year, 10, first)).getUTCDay()).toBe(0);
+			expect(new Date(Date.UTC(year, 10, tg)).getUTCDay()).toBe(4);
+			expect(seasonForDate(11, first - 1, year).season).toBe('autumn');
+			for (let day = first; day <= tg; day++) {
+				expect(seasonForDate(11, day, year)).toEqual({ ...NO_SEASON, season: 'thanksgiving' });
+			}
+			// hub-bq6: from the Friday after Thanksgiving on, it is Christmas — including the
+			// Sunday after that used to close out the week.
+			expect(seasonForDate(11, tg + 1, year).season).toBe('christmas');
+			expect(seasonForDate(11, tg + 4, year).season).toBe('christmas');
+			expect(seasonForDate(11, 30, year).season).toBe('christmas');
 		}
-		expect(seasonForDate(11, last + 1, year).season).toBe('autumn');
-	});
-	it('keeps the rest of November autumn, and needs a year for the week', () => {
+	);
+	it('keeps the rest of November autumn, and needs a year for Thanksgiving and early Christmas', () => {
 		expect(seasonForDate(11, 1, 2026).season).toBe('autumn');
-		expect(seasonForDate(11, 30, 2026).season).toBe('autumn');
+		expect(seasonForDate(11, 30).season).toBe('autumn');
 		expect(seasonForDate(11, 26).season).toBe('autumn');
 		expect(seasonForDate(10, 26, 2026).season).toBe('halloween');
 		expect(seasonForDate(12, 1, 2026).season).toBe('christmas');
@@ -98,10 +105,15 @@ describe('seasonFor', () => {
 		const sunMorningUtc = Date.UTC(2026, 10, 22, 3);
 		expect(seasonFor(sunMorningUtc, 'America/New_York').season).toBe('autumn');
 		expect(seasonFor(sunMorningUtc, 'UTC').season).toBe('thanksgiving');
-		// 2026-11-30 03:00 UTC is Sun Nov 29 evening in New York: the last day of the week.
-		const monUtc = Date.UTC(2026, 10, 30, 3);
-		expect(seasonFor(monUtc, 'America/New_York').season).toBe('thanksgiving');
-		expect(seasonFor(monUtc, 'UTC').season).toBe('autumn');
+		// 2026-11-27 03:00 UTC is Fri Nov 27 in UTC (Christmas since hub-bq6) but still
+		// Thanksgiving evening in New York.
+		const friEarlyUtc = Date.UTC(2026, 10, 27, 3);
+		expect(seasonFor(friEarlyUtc, 'America/New_York').season).toBe('thanksgiving');
+		expect(seasonFor(friEarlyUtc, 'UTC').season).toBe('christmas');
+		// 2026-11-28 04:00 UTC is Fri Nov 27 late evening in New York: Christmas on both clocks.
+		const friNightUtc = Date.UTC(2026, 10, 28, 4);
+		expect(seasonFor(friNightUtc, 'America/New_York').season).toBe('christmas');
+		expect(seasonFor(friNightUtc, 'UTC').season).toBe('christmas');
 		expect(seasonFor(Date.UTC(2026, 10, 26, 17), 'America/New_York').season).toBe('thanksgiving');
 	});
 	it('falls back to UTC for an unknown zone', () => {
@@ -174,7 +186,7 @@ describe('birthday season (synthetic dates)', () => {
 		expect(at(2030, 12, 25, [{ month: 12, day: 25 }])).toBe('birthday');
 	});
 	it('overrides Thanksgiving week and leaves its edges alone', () => {
-		// Thanksgiving 2030 is Nov 28; its week runs Nov 24 to Dec 1.
+		// Thanksgiving 2030 is Nov 28; its week runs Sun Nov 24 to Thu Nov 28 (hub-bq6).
 		const list = [{ month: 11, day: 26 }];
 		expect(at(2030, 11, 26, list)).toBe('birthday');
 		expect(at(2030, 11, 25, list)).toBe('thanksgiving');
